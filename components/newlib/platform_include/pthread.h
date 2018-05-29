@@ -11,21 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef __ESP_PLATFORM_PTHREAD_H__
+#define __ESP_PLATFORM_PTHREAD_H__
 
-
-#ifndef _ESP_SYS_UNISTD_H
-#define _ESP_SYS_UNISTD_H
+#include <sys/types.h>
+#include <sys/time.h>
+#include_next <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include_next <sys/unistd.h>
+int pthread_condattr_getclock(const pthread_condattr_t * attr, clockid_t * clock_id);
 
-int     _EXFUN(truncate, (const char *, off_t __length));
-int     _EXFUN(gethostname, (char *__name, size_t __len));
+int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id);
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* _SYS_UNISTD_H */
+
+#endif // __ESP_PLATFORM_PTHREAD_H__

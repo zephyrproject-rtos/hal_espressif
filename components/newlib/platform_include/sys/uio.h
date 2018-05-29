@@ -11,21 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef _ESP_PLATFORM_SYS_UIO_H_
+#define _ESP_PLATFORM_SYS_UIO_H_
 
+int writev(int s, const struct iovec *iov, int iovcnt);
 
-#ifndef _ESP_SYS_UNISTD_H
-#define _ESP_SYS_UNISTD_H
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include_next <sys/unistd.h>
-
-int     _EXFUN(truncate, (const char *, off_t __length));
-int     _EXFUN(gethostname, (char *__name, size_t __len));
-
-#ifdef __cplusplus
-}
-#endif
-#endif /* _SYS_UNISTD_H */
+#endif // _ESP_PLATFORM_SYS_UIO_H_
