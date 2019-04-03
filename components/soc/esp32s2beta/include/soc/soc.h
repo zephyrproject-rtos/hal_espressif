@@ -1,4 +1,4 @@
-// Copyright 2010-2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2010-2018 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,76 +20,116 @@
 #include "esp_assert.h"
 #endif
 
-#include <esp_bit_defs.h>
+//Register Bits{{
+#define BIT31   0x80000000
+#define BIT30   0x40000000
+#define BIT29   0x20000000
+#define BIT28   0x10000000
+#define BIT27   0x08000000
+#define BIT26   0x04000000
+#define BIT25   0x02000000
+#define BIT24   0x01000000
+#define BIT23   0x00800000
+#define BIT22   0x00400000
+#define BIT21   0x00200000
+#define BIT20   0x00100000
+#define BIT19   0x00080000
+#define BIT18   0x00040000
+#define BIT17   0x00020000
+#define BIT16   0x00010000
+#define BIT15   0x00008000
+#define BIT14   0x00004000
+#define BIT13   0x00002000
+#define BIT12   0x00001000
+#define BIT11   0x00000800
+#define BIT10   0x00000400
+#define BIT9     0x00000200
+#define BIT8     0x00000100
+#define BIT7     0x00000080
+#define BIT6     0x00000040
+#define BIT5     0x00000020
+#define BIT4     0x00000010
+#define BIT3     0x00000008
+#define BIT2     0x00000004
+#define BIT1     0x00000002
+#define BIT0     0x00000001
+//}}
 
 #define PRO_CPU_NUM (0)
-#define APP_CPU_NUM (1)
 
+#define DR_REG_SYSTEM_BASE                      0x3f4c0000
+#define DR_REG_SENSITIVE_BASE                   0x3f4c1000
+#define DR_REG_INTERRUPT_BASE                   0x3f4c2000
+#define DR_REG_DMA_COPY_BASE                    0x3f4c3000
+#define DR_REG_EXTMEM_BASE                      0x3f4c4000
+#define DR_REG_MMU_TABLE                        0x3f4c5000
+#define DR_REG_ITAG_TABLE                       0x3f4c6000
+#define DR_REG_DTAG_TABLE                       0x3f4c7000
+#define DR_REG_AES_BASE                         0x3f4c8000
+#define DR_REG_SHA_BASE                         0x3f4c9000
+#define DR_REG_RSA_BASE                         0x3f4ca000
+#define DR_REG_SECURE_BOOT_BASE                 0x3f4cb000
+#define DR_REG_HMAC_BASE                        0x3f4cc000
+#define DR_REG_DIGITAL_SINGNATURE_BASE          0x3f4cd000
+#define DR_REG_ASSIST_DEBUG_BASE                0x3f4ce000
+#define DR_REG_DEDICATED_GPIO_BASE              0x3f4cf000
+#define DR_REG_INTRUSION_BASE                   0x3f4d0000
+#define DR_REG_DPORT_END                        0x3f4d3FFC
+#define DR_REG_UART_BASE                        0x3f400000
+#define DR_REG_SPI1_BASE                        0x3f402000
+#define DR_REG_SPI0_BASE                        0x3f403000
+#define DR_REG_GPIO_BASE                        0x3f404000
+#define DR_REG_GPIO_SD_BASE                     0x3f404f00
+#define DR_REG_FE2_BASE                         0x3f405000
+#define DR_REG_FE_BASE                          0x3f406000
+#define DR_REG_FRC_TIMER_BASE                   0x3f407000
+#define DR_REG_RTCCNTL_BASE                     0x3f408000
+#define DR_REG_RTCIO_BASE                       0x3f408400
+#define DR_REG_SENS_BASE                        0x3f408800
+#define DR_REG_RTC_I2C_BASE                     0x3f408C00
+#define DR_REG_IO_MUX_BASE                      0x3f409000
+#define DR_REG_HINF_BASE                        0x3f40B000
+#define DR_REG_I2S_BASE                         0x3f40F000
+#define DR_REG_UART1_BASE                       0x3f410000
+#define DR_REG_I2C_EXT_BASE                     0x3f413000
+#define DR_REG_UHCI0_BASE                       0x3f414000
+#define DR_REG_SLCHOST_BASE                     0x3f415000
+#define DR_REG_RMT_BASE                         0x3f416000
+#define DR_REG_PCNT_BASE                        0x3f417000
+#define DR_REG_SLC_BASE                         0x3f418000
+#define DR_REG_LEDC_BASE                        0x3f419000
+#define DR_REG_EFUSE_BASE                       0x3f41A000
+#define DR_REG_NRX_BASE                         0x3f41CC00
+#define DR_REG_BB_BASE                          0x3f41D000
+#define DR_REG_TIMERGROUP0_BASE                 0x3f41F000
+#define DR_REG_TIMERGROUP1_BASE                 0x3f420000
+#define DR_REG_RTC_SLOWMEM_BASE                 0x3f421000
+#define DR_REG_SPI2_BASE                        0x3f424000
+#define DR_REG_SPI3_BASE                        0x3f425000
+#define DR_REG_SYSCON_BASE                      0x3f426000
+#define DR_REG_APB_CTRL_BASE                    0x3f426000    /* Old name for SYSCON, to be removed */
+#define DR_REG_I2C1_EXT_BASE                    0x3f427000
+#define DR_REG_SPI4_BASE                        0x3f437000
+#define DR_REG_USB_WRAP_BASE                    0x3f439000
 
-#define SOC_MAX_CONTIGUOUS_RAM_SIZE 0x400000 ///< Largest span of contiguous memory (DRAM or IRAM) in the address space
-
-
-#define DR_REG_DPORT_BASE                       0x3ff00000
-#define DR_REG_AES_BASE                         0x3ff01000
-#define DR_REG_RSA_BASE                         0x3ff02000
-#define DR_REG_SHA_BASE                         0x3ff03000
-#define DR_REG_FLASH_MMU_TABLE_PRO              0x3ff10000
-#define DR_REG_FLASH_MMU_TABLE_APP              0x3ff12000
-#define DR_REG_DPORT_END                        0x3ff13FFC
-#define DR_REG_UART_BASE                        0x3ff40000
-#define DR_REG_SPI1_BASE                        0x3ff42000
-#define DR_REG_SPI0_BASE                        0x3ff43000
-#define DR_REG_GPIO_BASE                        0x3ff44000
-#define DR_REG_GPIO_SD_BASE                     0x3ff44f00
-#define DR_REG_FE2_BASE                         0x3ff45000
-#define DR_REG_FE_BASE                          0x3ff46000
-#define DR_REG_FRC_TIMER_BASE                   0x3ff47000
-#define DR_REG_RTCCNTL_BASE                     0x3ff48000
-#define DR_REG_RTCIO_BASE                       0x3ff48400
-#define DR_REG_SENS_BASE                        0x3ff48800
-#define DR_REG_RTC_I2C_BASE                     0x3ff48C00
-#define DR_REG_IO_MUX_BASE                      0x3ff49000
-#define DR_REG_HINF_BASE                        0x3ff4B000
-#define DR_REG_UHCI1_BASE                       0x3ff4C000
-#define DR_REG_I2S_BASE                         0x3ff4F000
-#define DR_REG_UART1_BASE                       0x3ff50000
-#define DR_REG_BT_BASE                          0x3ff51000
-#define DR_REG_I2C_EXT_BASE                     0x3ff53000
-#define DR_REG_UHCI0_BASE                       0x3ff54000
-#define DR_REG_SLCHOST_BASE                     0x3ff55000
-#define DR_REG_RMT_BASE                         0x3ff56000
-#define DR_REG_PCNT_BASE                        0x3ff57000
-#define DR_REG_SLC_BASE                         0x3ff58000
-#define DR_REG_LEDC_BASE                        0x3ff59000
-#define DR_REG_EFUSE_BASE                       0x3ff5A000
-#define DR_REG_SPI_ENCRYPT_BASE                 0x3ff5B000
-#define DR_REG_NRX_BASE                         0x3ff5CC00
-#define DR_REG_BB_BASE                          0x3ff5D000
-#define DR_REG_PWM_BASE                         0x3ff5E000
-#define DR_REG_TIMERGROUP0_BASE                 0x3ff5F000
-#define DR_REG_TIMERGROUP1_BASE                 0x3ff60000
-#define DR_REG_RTCMEM0_BASE                     0x3ff61000
-#define DR_REG_RTCMEM1_BASE                     0x3ff62000
-#define DR_REG_RTCMEM2_BASE                     0x3ff63000
-#define DR_REG_SPI2_BASE                        0x3ff64000
-#define DR_REG_SPI3_BASE                        0x3ff65000
-#define DR_REG_SYSCON_BASE                      0x3ff66000
-#define DR_REG_APB_CTRL_BASE                    0x3ff66000    /* Old name for SYSCON, to be removed */
-#define DR_REG_I2C1_EXT_BASE                    0x3ff67000
-#define DR_REG_SDMMC_BASE                       0x3ff68000
-#define DR_REG_EMAC_BASE                        0x3ff69000
-#define DR_REG_CAN_BASE                         0x3ff6B000
-#define DR_REG_PWM1_BASE                        0x3ff6C000
-#define DR_REG_I2S1_BASE                        0x3ff6D000
-#define DR_REG_UART2_BASE                       0x3ff6E000
-#define DR_REG_PWM2_BASE                        0x3ff6F000
-#define DR_REG_PWM3_BASE                        0x3ff70000
-#define PERIPHS_SPI_ENCRYPT_BASEADDR            DR_REG_SPI_ENCRYPT_BASE
+#define REG_UHCI_BASE(i)         (DR_REG_UHCI0_BASE)
+#define REG_UART_BASE( i )  (DR_REG_UART_BASE + (i) * 0x10000 )
+#define REG_UART_AHB_BASE(i)  (0x60000000 + (i) * 0x10000 )
+#define UART_FIFO_AHB_REG(i)  (REG_UART_AHB_BASE(i) + 0x0)
+#define REG_I2S_BASE( i ) (DR_REG_I2S_BASE)
+#define REG_TIMG_BASE(i)              (DR_REG_TIMERGROUP0_BASE + (i)*0x1000)
+#define REG_SPI_MEM_BASE(i)     (DR_REG_SPI0_BASE - (i) * 0x1000)
+#define REG_I2C_BASE(i)    (DR_REG_I2C_EXT_BASE + (i) * 0x14000 )
 
 //Registers Operation {{
 #define ETS_UNCACHED_ADDR(addr) (addr)
-#define ETS_CACHED_ADDR(addr) (addr)
+#define ETS_CACHED_ADDR(addr) (addr) 
 
+#ifndef __ASSEMBLER__
+#define BIT(nr)                 (1UL << (nr))
+#else
+#define BIT(nr)                 (1 << (nr))
+#endif
 
 #ifndef __ASSEMBLER__
 
@@ -219,8 +259,9 @@
 //}}
 
 //Periheral Clock {{
-#define  APB_CLK_FREQ_ROM                            ( 26*1000000 )
+#define  APB_CLK_FREQ_ROM                            ( 40*1000000 )
 #define  CPU_CLK_FREQ_ROM                            APB_CLK_FREQ_ROM
+#define  UART_CLK_FREQ_ROM                           APB_CLK_FREQ_ROM
 #define  CPU_CLK_FREQ                                APB_CLK_FREQ
 #define  APB_CLK_FREQ                                ( 80*1000000 )       //unit: Hz
 #define  REF_CLK_FREQ                                ( 1000000 )
@@ -228,125 +269,45 @@
 #define  WDT_CLK_FREQ                                APB_CLK_FREQ
 #define  TIMER_CLK_FREQ                              (80000000>>4) //80MHz divided by 16
 #define  SPI_CLK_DIV                                 4
-#define  TICKS_PER_US_ROM                            26              // CPU is 80MHz
-#define  GPIO_MATRIX_DELAY_NS                        25
+#define  TICKS_PER_US_ROM                            40              // CPU is 80MHz
 //}}
 
 /* Overall memory map */
-#define SOC_DROM_LOW            0x3F400000
-#define SOC_DROM_HIGH           0x3F800000
-#define SOC_DRAM_LOW            0x3FFAE000
-#define SOC_DRAM_HIGH           0x40000000
-#define SOC_IROM_LOW            0x400D0000
-#define SOC_IROM_HIGH           0x40400000
-#define SOC_IROM_MASK_LOW       0x40000000
-#define SOC_IROM_MASK_HIGH      0x40070000
-#define SOC_CACHE_PRO_LOW       0x40070000
-#define SOC_CACHE_PRO_HIGH      0x40078000
-#define SOC_CACHE_APP_LOW       0x40078000
-#define SOC_CACHE_APP_HIGH      0x40080000
-#define SOC_IRAM_LOW            0x40080000
-#define SOC_IRAM_HIGH           0x400A0000
-#define SOC_RTC_IRAM_LOW        0x400C0000
-#define SOC_RTC_IRAM_HIGH       0x400C2000
-#define SOC_RTC_DRAM_LOW        0x3FF80000
-#define SOC_RTC_DRAM_HIGH       0x3FF82000
-#define SOC_RTC_DATA_LOW        0x50000000
-#define SOC_RTC_DATA_HIGH       0x50002000
-#define SOC_EXTRAM_DATA_LOW     0x3F800000
-#define SOC_EXTRAM_DATA_HIGH    0x3FC00000
+#define SOC_DROM_LOW    0x3F000000
+#define SOC_DROM_HIGH   0x3F400000
+#define SOC_IROM_LOW    0x40080000
+#define SOC_IROM_HIGH   0x40c00000
+#define SOC_IRAM_LOW    0x40020000
+#define SOC_IRAM_HIGH   0x40070000
+#define SOC_RTC_IRAM_LOW  0x40070000
+#define SOC_RTC_IRAM_HIGH 0x40072000
+#define SOC_RTC_DRAM_LOW  0x3ff9e000
+#define SOC_RTC_DRAM_HIGH 0x3ffa0000
+#define SOC_RTC_DATA_LOW  0x50000000
+#define SOC_RTC_DATA_HIGH 0x50002000
+#define SOC_EXTRAM_DATA_LOW 0x3F500000
+#define SOC_EXTRAM_DATA_HIGH 0x3FF90000
+#define SOC_SLOW_EXTRAM_DATA_LOW 0x61800000
+#define SOC_SLOW_EXTRAM_DATA_HIGH 0x61c00000
 
 //First and last words of the D/IRAM region, for both the DRAM address as well as the IRAM alias.
-#define SOC_DIRAM_IRAM_LOW    0x400A0000
-#define SOC_DIRAM_IRAM_HIGH   0x400BFFFC
-#define SOC_DIRAM_DRAM_LOW    0x3FFE0000
+#define SOC_DIRAM_IRAM_LOW    0x40020000
+#define SOC_DIRAM_IRAM_HIGH   0x4006FFFC
+#define SOC_DIRAM_DRAM_LOW    0x3FFB0000
 #define SOC_DIRAM_DRAM_HIGH   0x3FFFFFFC
 
 // Region of memory accessible via DMA. See esp_ptr_dma_capable().
-#define SOC_DMA_LOW  0x3FFAE000
+#define SOC_DMA_LOW  0x3FFB0000
 #define SOC_DMA_HIGH 0x40000000
 
 // Region of memory that is byte-accessible. See esp_ptr_byte_accessible().
-#define SOC_BYTE_ACCESSIBLE_LOW     0x3FF90000
+#define SOC_BYTE_ACCESSIBLE_LOW     0x3FF9E000
 #define SOC_BYTE_ACCESSIBLE_HIGH    0x40000000
 
 //Region of memory that is internal, as in on the same silicon die as the ESP32 CPUs
 //(excluding RTC data region, that's checked separately.) See esp_ptr_internal().
-#define SOC_MEM_INTERNAL_LOW        0x3FF90000
-#define SOC_MEM_INTERNAL_HIGH       0x400C2000
-
-//Interrupt hardware source table
-//This table is decided by hardware, don't touch this.
-#define ETS_WIFI_MAC_INTR_SOURCE                0/**< interrupt of WiFi MAC, level*/
-#define ETS_WIFI_MAC_NMI_SOURCE                 1/**< interrupt of WiFi MAC, NMI, use if MAC have bug to fix in NMI*/
-#define ETS_WIFI_BB_INTR_SOURCE                 2/**< interrupt of WiFi BB, level, we can do some calibartion*/
-#define ETS_BT_MAC_INTR_SOURCE                  3/**< will be cancelled*/
-#define ETS_BT_BB_INTR_SOURCE                   4/**< interrupt of BT BB, level*/
-#define ETS_BT_BB_NMI_SOURCE                    5/**< interrupt of BT BB, NMI, use if BB have bug to fix in NMI*/
-#define ETS_RWBT_INTR_SOURCE                    6/**< interrupt of RWBT, level*/
-#define ETS_RWBLE_INTR_SOURCE                   7/**< interrupt of RWBLE, level*/
-#define ETS_RWBT_NMI_SOURCE                     8/**< interrupt of RWBT, NMI, use if RWBT have bug to fix in NMI*/
-#define ETS_RWBLE_NMI_SOURCE                    9/**< interrupt of RWBLE, NMI, use if RWBT have bug to fix in NMI*/
-#define ETS_SLC0_INTR_SOURCE                    10/**< interrupt of SLC0, level*/
-#define ETS_SLC1_INTR_SOURCE                    11/**< interrupt of SLC1, level*/
-#define ETS_UHCI0_INTR_SOURCE                   12/**< interrupt of UHCI0, level*/
-#define ETS_UHCI1_INTR_SOURCE                   13/**< interrupt of UHCI1, level*/
-#define ETS_TG0_T0_LEVEL_INTR_SOURCE            14/**< interrupt of TIMER_GROUP0, TIMER0, level, we would like use EDGE for timer if permission*/
-#define ETS_TG0_T1_LEVEL_INTR_SOURCE            15/**< interrupt of TIMER_GROUP0, TIMER1, level, we would like use EDGE for timer if permission*/
-#define ETS_TG0_WDT_LEVEL_INTR_SOURCE           16/**< interrupt of TIMER_GROUP0, WATCHDOG, level*/
-#define ETS_TG0_LACT_LEVEL_INTR_SOURCE          17/**< interrupt of TIMER_GROUP0, LACT, level*/
-#define ETS_TG1_T0_LEVEL_INTR_SOURCE            18/**< interrupt of TIMER_GROUP1, TIMER0, level, we would like use EDGE for timer if permission*/
-#define ETS_TG1_T1_LEVEL_INTR_SOURCE            19/**< interrupt of TIMER_GROUP1, TIMER1, level, we would like use EDGE for timer if permission*/
-#define ETS_TG1_WDT_LEVEL_INTR_SOURCE           20/**< interrupt of TIMER_GROUP1, WATCHDOG, level*/
-#define ETS_TG1_LACT_LEVEL_INTR_SOURCE          21/**< interrupt of TIMER_GROUP1, LACT, level*/
-#define ETS_GPIO_INTR_SOURCE                    22/**< interrupt of GPIO, level*/
-#define ETS_GPIO_NMI_SOURCE                     23/**< interrupt of GPIO, NMI*/
-#define ETS_FROM_CPU_INTR0_SOURCE               24/**< interrupt0 generated from a CPU, level*/ /* Used for FreeRTOS */
-#define ETS_FROM_CPU_INTR1_SOURCE               25/**< interrupt1 generated from a CPU, level*/ /* Used for FreeRTOS */
-#define ETS_FROM_CPU_INTR2_SOURCE               26/**< interrupt2 generated from a CPU, level*/ /* Used for DPORT Access */
-#define ETS_FROM_CPU_INTR3_SOURCE               27/**< interrupt3 generated from a CPU, level*/ /* Used for DPORT Access */
-#define ETS_SPI0_INTR_SOURCE                    28/**< interrupt of SPI0, level, SPI0 is for Cache Access, do not use this*/
-#define ETS_SPI1_INTR_SOURCE                    29/**< interrupt of SPI1, level, SPI1 is for flash read/write, do not use this*/
-#define ETS_SPI2_INTR_SOURCE                    30/**< interrupt of SPI2, level*/
-#define ETS_SPI3_INTR_SOURCE                    31/**< interrupt of SPI3, level*/
-#define ETS_I2S0_INTR_SOURCE                    32/**< interrupt of I2S0, level*/
-#define ETS_I2S1_INTR_SOURCE                    33/**< interrupt of I2S1, level*/
-#define ETS_UART0_INTR_SOURCE                   34/**< interrupt of UART0, level*/
-#define ETS_UART1_INTR_SOURCE                   35/**< interrupt of UART1, level*/
-#define ETS_UART2_INTR_SOURCE                   36/**< interrupt of UART2, level*/
-#define ETS_SDIO_HOST_INTR_SOURCE               37/**< interrupt of SD/SDIO/MMC HOST, level*/
-#define ETS_ETH_MAC_INTR_SOURCE                 38/**< interrupt of ethernet mac, level*/
-#define ETS_PWM0_INTR_SOURCE                    39/**< interrupt of PWM0, level, Reserved*/
-#define ETS_PWM1_INTR_SOURCE                    40/**< interrupt of PWM1, level, Reserved*/
-#define ETS_PWM2_INTR_SOURCE                    41/**< interrupt of PWM2, level*/
-#define ETS_PWM3_INTR_SOURCE                    42/**< interruot of PWM3, level*/
-#define ETS_LEDC_INTR_SOURCE                    43/**< interrupt of LED PWM, level*/
-#define ETS_EFUSE_INTR_SOURCE                   44/**< interrupt of efuse, level, not likely to use*/
-#define ETS_CAN_INTR_SOURCE                     45/**< interrupt of can, level*/
-#define ETS_RTC_CORE_INTR_SOURCE                46/**< interrupt of rtc core, level, include rtc watchdog*/
-#define ETS_RMT_INTR_SOURCE                     47/**< interrupt of remote controller, level*/
-#define ETS_PCNT_INTR_SOURCE                    48/**< interrupt of pluse count, level*/
-#define ETS_I2C_EXT0_INTR_SOURCE                49/**< interrupt of I2C controller1, level*/
-#define ETS_I2C_EXT1_INTR_SOURCE                50/**< interrupt of I2C controller0, level*/
-#define ETS_RSA_INTR_SOURCE                     51/**< interrupt of RSA accelerator, level*/
-#define ETS_SPI1_DMA_INTR_SOURCE                52/**< interrupt of SPI1 DMA, SPI1 is for flash read/write, do not use this*/
-#define ETS_SPI2_DMA_INTR_SOURCE                53/**< interrupt of SPI2 DMA, level*/
-#define ETS_SPI3_DMA_INTR_SOURCE                54/**< interrupt of SPI3 DMA, level*/
-#define ETS_WDT_INTR_SOURCE                     55/**< will be cancelled*/
-#define ETS_TIMER1_INTR_SOURCE                  56/**< will be cancelled*/
-#define ETS_TIMER2_INTR_SOURCE                  57/**< will be cancelled*/
-#define ETS_TG0_T0_EDGE_INTR_SOURCE             58/**< interrupt of TIMER_GROUP0, TIMER0, EDGE*/
-#define ETS_TG0_T1_EDGE_INTR_SOURCE             59/**< interrupt of TIMER_GROUP0, TIMER1, EDGE*/
-#define ETS_TG0_WDT_EDGE_INTR_SOURCE            60/**< interrupt of TIMER_GROUP0, WATCH DOG, EDGE*/
-#define ETS_TG0_LACT_EDGE_INTR_SOURCE           61/**< interrupt of TIMER_GROUP0, LACT, EDGE*/
-#define ETS_TG1_T0_EDGE_INTR_SOURCE             62/**< interrupt of TIMER_GROUP1, TIMER0, EDGE*/
-#define ETS_TG1_T1_EDGE_INTR_SOURCE             63/**< interrupt of TIMER_GROUP1, TIMER1, EDGE*/
-#define ETS_TG1_WDT_EDGE_INTR_SOURCE            64/**< interrupt of TIMER_GROUP1, WATCHDOG, EDGE*/
-#define ETS_TG1_LACT_EDGE_INTR_SOURCE           65/**< interrupt of TIMER_GROUP0, LACT, EDGE*/
-#define ETS_MMU_IA_INTR_SOURCE                  66/**< interrupt of MMU Invalid Access, LEVEL*/
-#define ETS_MPU_IA_INTR_SOURCE                  67/**< interrupt of MPU Invalid Access, LEVEL*/
-#define ETS_CACHE_IA_INTR_SOURCE                68/**< interrupt of Cache Invalied Access, LEVEL*/
-#define ETS_MAX_INTR_SOURCE                     69/**< total number of interrupt sources*/
+#define SOC_MEM_INTERNAL_LOW        0x3FF9E000
+#define SOC_MEM_INTERNAL_HIGH       0x40072000
 
 //interrupt cpu using table, Please see the core-isa.h
 /*************************************************************************************************************
@@ -400,6 +361,10 @@
 #define ETS_SLC_INUM                            1
 #define ETS_UART0_INUM                          5
 #define ETS_UART1_INUM                          5
+//CPU0 Interrupt number used in ROM code only when module init function called, should pay attention here.
+#define ETS_FRC_TIMER2_INUM 10 /* use edge*/
+#define ETS_GPIO_INUM       4
+
 //Other interrupt number should be managed by the user
 
 //Invalid interrupt for number interrupt matrix
