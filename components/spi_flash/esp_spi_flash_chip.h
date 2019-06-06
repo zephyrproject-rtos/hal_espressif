@@ -1,4 +1,4 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/* Private header with chip-specific routines for SPI flash interaction */
 #pragma once
-<<<<<<< a7ae5416fbc96f364c1047b2de9ba426677e258b
-#include "soc/can_struct.h"
-=======
+
+#include <stdlib.h>
+#include <stdint.h>
 #if CONFIG_IDF_TARGET_ESP32
-#include "soc/can_struct.h"
+#include "esp32/rom/spi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32S2BETA
+#include "esp32s2beta/rom/spi_flash.h"
 #endif
->>>>>>> build and link hello-world for esp32s2beta
+
+esp_rom_spiflash_result_t spi_flash_write_encrypted_chip(size_t dest_addr, const void *src, size_t size);
+
+esp_rom_spiflash_result_t IRAM_ATTR spi_flash_unlock();
+

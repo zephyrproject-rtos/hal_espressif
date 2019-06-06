@@ -1,4 +1,4 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-<<<<<<< a7ae5416fbc96f364c1047b2de9ba426677e258b
-#include "soc/can_struct.h"
-=======
-#if CONFIG_IDF_TARGET_ESP32
-#include "soc/can_struct.h"
-#endif
->>>>>>> build and link hello-world for esp32s2beta
+#include "soc/rtc_periph.h"
+
+//Reg,Mux,Fun,IE,Up,Down,Rtc_number
+const rtc_gpio_desc_t rtc_gpio_desc[GPIO_PIN_COUNT] = {
+    0
+};
