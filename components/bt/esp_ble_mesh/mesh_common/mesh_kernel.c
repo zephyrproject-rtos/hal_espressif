@@ -39,25 +39,16 @@ typedef struct alarm_t {
 
 unsigned int bt_mesh_irq_lock(void)
 {
-#if defined(CONFIG_BLE_MESH_IRQ_LOCK) && CONFIG_BLE_MESH_IRQ_LOCK
-    unsigned int key = XTOS_SET_INTLEVEL(XCHAL_EXCM_LEVEL);
-    return key;
-#else
-    /* Change by Espressif. In BLE Mesh, in order to improve the real-time
-     * requirements of bt controller, we use task lock to replace IRQ lock.
+    /* Changed by Espressif. In BLE Mesh, in order to improve the real-time
+     * requirements of bt controller, we use task lock instead of IRQ lock.
      */
     osi_mutex_lock(&bm_irq_lock, OSI_MUTEX_MAX_TIMEOUT);
     return 0;
-#endif
 }
 
 void bt_mesh_irq_unlock(unsigned int key)
 {
-#if defined(CONFIG_BLE_MESH_IRQ_LOCK) && CONFIG_BLE_MESH_IRQ_LOCK
-    XTOS_RESTORE_INTLEVEL(key);
-#else
     osi_mutex_unlock(&bm_irq_lock);
-#endif
 }
 
 s64_t k_uptime_get(void)
@@ -124,8 +115,7 @@ void k_delayed_work_init(struct k_delayed_work *work, k_work_handler_t handler)
     return;
 }
 
-int k_delayed_work_submit(struct k_delayed_work *work,
-                          s32_t delay)
+int k_delayed_work_submit(struct k_delayed_work *work, s32_t delay)
 {
     assert(work != NULL && bm_alarm_hash_map != NULL);
 
@@ -138,6 +128,23 @@ int k_delayed_work_submit(struct k_delayed_work *work,
     // Cancel the alarm first, before start the alarm.
     osi_alarm_cancel(alarm);
     osi_alarm_set(alarm, delay);
+    return 0;
+}
+
+int k_delayed_work_submit_periodic(struct k_delayed_work *work, s32_t period)
+{
+    assert(work != NULL && bm_alarm_hash_map != NULL);
+
+    osi_alarm_t *alarm = hash_map_get(bm_alarm_hash_map, (void *)work);
+    if (alarm == NULL) {
+        BT_WARN("%s, Unable to find expected alarm in hash map", __func__);
+        return -EINVAL;
+    }
+
+    /* Cancel the alarm first before starting it. */
+    osi_alarm_cancel(alarm);
+    osi_alarm_set_periodic(alarm, period);
+
     return 0;
 }
 
