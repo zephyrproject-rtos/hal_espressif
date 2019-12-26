@@ -1,9 +1,9 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2015-2018 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
+
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#ifndef _SOC_SPI_PINS_H_
+#define _SOC_SPI_PINS_H_
 
-#define SOC_SPI_PERIPH_NUM      4
-#define SOC_SPI_DMA_CHAN_NUM    3
+#define SPI_PERIPH_NUM          3
 
-#define SPI_FUNC_NUM            0
+#define SPI_FUNC_NUM            2
 #define SPI_IOMUX_PIN_NUM_HD    27
 #define SPI_IOMUX_PIN_NUM_CS    29
 #define SPI_IOMUX_PIN_NUM_MOSI  32
@@ -26,7 +26,7 @@
 #define SPI_IOMUX_PIN_NUM_WP    28
 //TODO: add the next slot
 
-#define FSPI_FUNC_NUM           2
+#define FSPI_FUNC_NUM           0
 #define FSPI_IOMUX_PIN_NUM_HD   9
 #define FSPI_IOMUX_PIN_NUM_CS   10
 #define FSPI_IOMUX_PIN_NUM_MOSI 11
@@ -37,12 +37,4 @@
 
 //HSPI and VSPI have no iomux pins
 
-#define SOC_SPI_MAXIMUM_BUFFER_SIZE     72
-
-//#define SOC_SPI_SUPPORT_AS_CS         //don't support to toggle the CS while the clock toggles
-#define SOC_SPI_SUPPORT_DDRCLK              1
-#define SOC_SPI_SLAVE_SUPPORT_SEG_TRANS     1
-#define SOC_SPI_SUPPORT_CD_SIG              1
-
-// Peripheral supports DIO, DOUT, QIO, or QOUT
-#define SOC_SPI_PERIPH_SUPPORT_MULTILINE_MODE(spi_dev)  (!((void*)spi_dev == (void*)&GPSPI3))
+#endif
