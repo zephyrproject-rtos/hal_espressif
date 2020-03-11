@@ -26,54 +26,54 @@ extern "C" {
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "hal/can_types.h"
-#include "hal/can_ll.h"
+#include "hal/twai_types.h"
+#include "hal/twai_ll.h"
 
 /* ------------------------- Defines and Typedefs --------------------------- */
 
 //Error active interrupt related
-#define CAN_HAL_EVENT_BUS_OFF               (1 << 0)
-#define CAN_HAL_EVENT_BUS_RECOV_CPLT        (1 << 1)
-#define CAN_HAL_EVENT_BUS_RECOV_PROGRESS    (1 << 2)
-#define CAN_HAL_EVENT_ABOVE_EWL             (1 << 3)
-#define CAN_HAL_EVENT_BELOW_EWL             (1 << 4)
-#define CAN_HAL_EVENT_ERROR_PASSIVE         (1 << 5)
-#define CAN_HAL_EVENT_ERROR_ACTIVE          (1 << 6)
-#define CAN_HAL_EVENT_BUS_ERR               (1 << 7)
-#define CAN_HAL_EVENT_ARB_LOST              (1 << 8)
-#define CAN_HAL_EVENT_RX_BUFF_FRAME         (1 << 9)
-#define CAN_HAL_EVENT_TX_BUFF_FREE          (1 << 10)
+#define TWAI_HAL_EVENT_BUS_OFF               (1 << 0)
+#define TWAI_HAL_EVENT_BUS_RECOV_CPLT        (1 << 1)
+#define TWAI_HAL_EVENT_BUS_RECOV_PROGRESS    (1 << 2)
+#define TWAI_HAL_EVENT_ABOVE_EWL             (1 << 3)
+#define TWAI_HAL_EVENT_BELOW_EWL             (1 << 4)
+#define TWAI_HAL_EVENT_ERROR_PASSIVE         (1 << 5)
+#define TWAI_HAL_EVENT_ERROR_ACTIVE          (1 << 6)
+#define TWAI_HAL_EVENT_BUS_ERR               (1 << 7)
+#define TWAI_HAL_EVENT_ARB_LOST              (1 << 8)
+#define TWAI_HAL_EVENT_RX_BUFF_FRAME         (1 << 9)
+#define TWAI_HAL_EVENT_TX_BUFF_FREE          (1 << 10)
 
 typedef struct {
-    can_dev_t *dev;
-} can_hal_context_t;
+    twai_dev_t *dev;
+} twai_hal_context_t;
 
-typedef can_ll_frame_buffer_t can_hal_frame_t;
+typedef twai_ll_frame_buffer_t twai_hal_frame_t;
 
 /* ---------------------------- Init and Config ----------------------------- */
 
 /**
- * @brief Initialize CAN peripheral and HAL context
+ * @brief Initialize TWAI peripheral and HAL context
  *
- * Sets HAL context, puts CAN peripheral into reset mode, then sets some
+ * Sets HAL context, puts TWAI peripheral into reset mode, then sets some
  * registers with default values.
  *
  * @param hal_ctx Context of the HAL layer
  * @return True if successfully initialized, false otherwise.
  */
-bool can_hal_init(can_hal_context_t *hal_ctx);
+bool twai_hal_init(twai_hal_context_t *hal_ctx);
 
 /**
- * @brief Deinitialize the CAN peripheral and HAL context
+ * @brief Deinitialize the TWAI peripheral and HAL context
  *
  * Clears any unhandled interrupts and unsets HAL context
  *
  * @param hal_ctx Context of the HAL layer
  */
-void can_hal_deinit(can_hal_context_t *hal_ctx);
+void twai_hal_deinit(twai_hal_context_t *hal_ctx);
 
 /**
- * @brief Configure the CAN peripheral
+ * @brief Configure the TWAI peripheral
  *
  * @param hal_ctx Context of the HAL layer
  * @param t_config Pointer to timing configuration structure
@@ -81,32 +81,32 @@ void can_hal_deinit(can_hal_context_t *hal_ctx);
  * @param intr_mask Mask of interrupts to enable
  * @param clkout_divider Clock divider value for CLKOUT. Set to -1 to disable CLKOUT
  */
-void can_hal_configure(can_hal_context_t *hal_ctx, const can_timing_config_t *t_config, const can_filter_config_t *f_config, uint32_t intr_mask, uint32_t clkout_divider);
+void twai_hal_configure(twai_hal_context_t *hal_ctx, const twai_timing_config_t *t_config, const twai_filter_config_t *f_config, uint32_t intr_mask, uint32_t clkout_divider);
 
 /* -------------------------------- Actions --------------------------------- */
 
 /**
- * @brief Start the CAN peripheral
+ * @brief Start the TWAI peripheral
  *
- * Start the CAN peripheral by configuring its operating mode, then exiting
- * reset mode so that the CAN peripheral can participate in bus activities.
+ * Start the TWAI peripheral by configuring its operating mode, then exiting
+ * reset mode so that the TWAI peripheral can participate in bus activities.
  *
  * @param hal_ctx Context of the HAL layer
  * @param mode Operating mode
  * @return True if successfully started, false otherwise.
  */
-bool can_hal_start(can_hal_context_t *hal_ctx, can_mode_t mode);
+bool twai_hal_start(twai_hal_context_t *hal_ctx, twai_mode_t mode);
 
 /**
- * @brief Stop the CAN peripheral
+ * @brief Stop the TWAI peripheral
  *
- * Stop the CAN peripheral by entering reset mode to stop any bus activity, then
+ * Stop the TWAI peripheral by entering reset mode to stop any bus activity, then
  * setting the operating mode to Listen Only so that REC is frozen.
  *
  * @param hal_ctx Context of the HAL layer
  * @return True if successfully stopped, false otherwise.
  */
-bool can_hal_stop(can_hal_context_t *hal_ctx);
+bool twai_hal_stop(twai_hal_context_t *hal_ctx);
 
 /**
  * @brief Start bus recovery
@@ -114,9 +114,9 @@ bool can_hal_stop(can_hal_context_t *hal_ctx);
  * @param hal_ctx Context of the HAL layer
  * @return True if successfully started bus recovery, false otherwise.
  */
-static inline bool can_hal_start_bus_recovery(can_hal_context_t *hal_ctx)
+static inline bool twai_hal_start_bus_recovery(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_exit_reset_mode(hal_ctx->dev);
+    return twai_ll_exit_reset_mode(hal_ctx->dev);
 }
 
 /**
@@ -125,9 +125,9 @@ static inline bool can_hal_start_bus_recovery(can_hal_context_t *hal_ctx)
  * @param hal_ctx Context of the HAL layer
  * @return TX Error Counter Value
  */
-static inline uint32_t can_hal_get_tec(can_hal_context_t *hal_ctx)
+static inline uint32_t twai_hal_get_tec(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_get_tec((hal_ctx)->dev);
+    return twai_ll_get_tec((hal_ctx)->dev);
 }
 
 /**
@@ -136,9 +136,9 @@ static inline uint32_t can_hal_get_tec(can_hal_context_t *hal_ctx)
  * @param hal_ctx Context of the HAL layer
  * @return RX Error Counter Value
  */
-static inline uint32_t can_hal_get_rec(can_hal_context_t *hal_ctx)
+static inline uint32_t twai_hal_get_rec(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_get_rec((hal_ctx)->dev);
+    return twai_ll_get_rec((hal_ctx)->dev);
 }
 
 /**
@@ -147,9 +147,9 @@ static inline uint32_t can_hal_get_rec(can_hal_context_t *hal_ctx)
  * @param hal_ctx Context of the HAL layer
  * @return RX message count
  */
-static inline uint32_t can_hal_get_rx_msg_count(can_hal_context_t *hal_ctx)
+static inline uint32_t twai_hal_get_rx_msg_count(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_get_rx_msg_count((hal_ctx)->dev);
+    return twai_ll_get_rx_msg_count((hal_ctx)->dev);
 }
 
 /**
@@ -158,9 +158,9 @@ static inline uint32_t can_hal_get_rx_msg_count(can_hal_context_t *hal_ctx)
  * @param hal_ctx Context of the HAL layer
  * @return True if successful
  */
-static inline bool can_hal_check_last_tx_successful(can_hal_context_t *hal_ctx)
+static inline bool twai_hal_check_last_tx_successful(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_is_last_tx_successful((hal_ctx)->dev);
+    return twai_ll_is_last_tx_successful((hal_ctx)->dev);
 }
 
 /* ----------------------------- Event Handling ----------------------------- */
@@ -168,15 +168,15 @@ static inline bool can_hal_check_last_tx_successful(can_hal_context_t *hal_ctx)
 /**
  * @brief Decode current events that triggered an interrupt
  *
- * This function should be called on every CAN interrupt. It will read (and
+ * This function should be called on every TWAI interrupt. It will read (and
  * thereby clear) the interrupt register, then determine what events have
  * occurred to trigger the interrupt.
  *
  * @param hal_ctx Context of the HAL layer
- * @param bus_recovering Whether the CAN peripheral was previous undergoing bus recovery
+ * @param bus_recovering Whether the TWAI peripheral was previous undergoing bus recovery
  * @return Bit mask of events that have occurred
  */
-uint32_t can_hal_decode_interrupt_events(can_hal_context_t *hal_ctx, bool bus_recovering);
+uint32_t twai_hal_decode_interrupt_events(twai_hal_context_t *hal_ctx, bool bus_recovering);
 
 /**
  * @brief Handle bus recovery complete
@@ -187,9 +187,9 @@ uint32_t can_hal_decode_interrupt_events(can_hal_context_t *hal_ctx, bool bus_re
  * @param hal_ctx Context of the HAL layer
  * @return True if successfully handled bus recovery completion, false otherwise.
  */
-static inline bool can_hal_handle_bus_recov_cplt(can_hal_context_t *hal_ctx)
+static inline bool twai_hal_handle_bus_recov_cplt(twai_hal_context_t *hal_ctx)
 {
-    return can_ll_enter_reset_mode((hal_ctx)->dev);
+    return twai_ll_enter_reset_mode((hal_ctx)->dev);
 }
 
 /**
@@ -200,9 +200,9 @@ static inline bool can_hal_handle_bus_recov_cplt(can_hal_context_t *hal_ctx)
  *
  * @param hal_ctx Context of the HAL layer
  */
-static inline void can_hal_handle_arb_lost(can_hal_context_t *hal_ctx)
+static inline void twai_hal_handle_arb_lost(twai_hal_context_t *hal_ctx)
 {
-    can_ll_clear_arb_lost_cap((hal_ctx)->dev);
+    twai_ll_clear_arb_lost_cap((hal_ctx)->dev);
 }
 
 /**
@@ -213,9 +213,9 @@ static inline void can_hal_handle_arb_lost(can_hal_context_t *hal_ctx)
  *
  * @param hal_ctx Context of the HAL layer
  */
-static inline void can_hal_handle_bus_error(can_hal_context_t *hal_ctx)
+static inline void twai_hal_handle_bus_error(twai_hal_context_t *hal_ctx)
 {
-    can_ll_clear_err_code_cap((hal_ctx)->dev);
+    twai_ll_clear_err_code_cap((hal_ctx)->dev);
 }
 
 /**
@@ -226,42 +226,42 @@ static inline void can_hal_handle_bus_error(can_hal_context_t *hal_ctx)
  *
  * @param hal_ctx Context of the HAL layer
  */
-static inline void can_hal_handle_bus_off(can_hal_context_t *hal_ctx)
+static inline void twai_hal_handle_bus_off(twai_hal_context_t *hal_ctx)
 {
-    can_ll_set_mode((hal_ctx)->dev, CAN_MODE_LISTEN_ONLY);
+    twai_ll_set_mode((hal_ctx)->dev, TWAI_MODE_LISTEN_ONLY);
 }
 
 /* ------------------------------- TX and RX -------------------------------- */
 
 /**
- * @brief Format a CAN Frame
+ * @brief Format a TWAI Frame
  *
- * This function takes a CAN message structure (containing ID, DLC, data, and
+ * This function takes a TWAI message structure (containing ID, DLC, data, and
  * flags) and formats it to match the layout of the TX frame buffer.
  *
- * @param message Pointer to CAN message
+ * @param message Pointer to TWAI message
  * @param frame Pointer to empty frame structure
  */
-static inline void can_hal_format_frame(const can_message_t *message, can_hal_frame_t *frame)
+static inline void twai_hal_format_frame(const twai_message_t *message, twai_hal_frame_t *frame)
 {
     //Direct call to ll function
-    can_ll_format_frame_buffer(message->identifier, message->data_length_code, message->data,
+    twai_ll_format_frame_buffer(message->identifier, message->data_length_code, message->data,
                                message->flags, frame);
 }
 
 /**
- * @brief Parse a CAN Frame
+ * @brief Parse a TWAI Frame
  *
- * This function takes a CAN frame (in the format of the RX frame buffer) and
- * parses it to a CAN message (containing ID, DLC, data and flags).
+ * This function takes a TWAI frame (in the format of the RX frame buffer) and
+ * parses it to a TWAI message (containing ID, DLC, data and flags).
  *
  * @param frame Pointer to frame structure
  * @param message Pointer to empty message structure
  */
-static inline void can_hal_parse_frame(can_hal_frame_t *frame, can_message_t *message)
+static inline void twai_hal_parse_frame(twai_hal_frame_t *frame, twai_message_t *message)
 {
     //Direct call to ll function
-    can_ll_prase_frame_buffer(frame, &message->identifier, &message->data_length_code,
+    twai_ll_prase_frame_buffer(frame, &message->identifier, &message->data_length_code,
                               message->data, &message->flags);
 }
 
@@ -275,7 +275,7 @@ static inline void can_hal_parse_frame(can_hal_frame_t *frame, can_message_t *me
  * @param hal_ctx Context of the HAL layer
  * @param tx_frame Pointer to structure containing formatted TX frame
  */
-void can_hal_set_tx_buffer_and_transmit(can_hal_context_t *hal_ctx, can_hal_frame_t *tx_frame);
+void twai_hal_set_tx_buffer_and_transmit(twai_hal_context_t *hal_ctx, twai_hal_frame_t *tx_frame);
 
 /**
  * @brief Copy a frame from the RX buffer and release
@@ -286,10 +286,10 @@ void can_hal_set_tx_buffer_and_transmit(can_hal_context_t *hal_ctx, can_hal_fram
  * @param hal_ctx Context of the HAL layer
  * @param rx_frame Pointer to structure to store RX frame
  */
-static inline void can_hal_read_rx_buffer_and_clear(can_hal_context_t *hal_ctx, can_hal_frame_t *rx_frame)
+static inline void twai_hal_read_rx_buffer_and_clear(twai_hal_context_t *hal_ctx, twai_hal_frame_t *rx_frame)
 {
-    can_ll_get_rx_buffer(hal_ctx->dev, rx_frame);
-    can_ll_set_cmd_release_rx_buffer(hal_ctx->dev);
+    twai_ll_get_rx_buffer(hal_ctx->dev, rx_frame);
+    twai_ll_set_cmd_release_rx_buffer(hal_ctx->dev);
     /*
      * Todo: Support overrun handling by:
      * - Check overrun status bit. Return false if overrun

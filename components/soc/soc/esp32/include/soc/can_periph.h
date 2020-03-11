@@ -1,9 +1,9 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -14,16 +14,18 @@
 
 #pragma once
 
+#include "sdkconfig.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#warning soc/can_struct.h is deprecated, please use soc/twai_struct.h instead
+#warning soc/can_periph.h is deprecated, please use soc/twai_periph.h instead
 
-#include "soc/twai_struct.h"
-
-typedef twai_dev_t can_dev_t;
-extern can_dev_t CAN;
+#if CONFIG_IDF_TARGET_ESP32
+#include "soc/can_struct.h"
+#include "soc/can_caps.h"
+#endif
 
 #ifdef __cplusplus
 }
