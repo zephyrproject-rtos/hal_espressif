@@ -1,4 +1,4 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2015-2017 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <unistd.h>
-#include "esp_vfs.h"
+#pragma once
 
-ssize_t pwrite(int fd, const void *src, size_t size, off_t offset)
-{
-    return esp_vfs_pwrite(fd, src, size, offset);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int ioctl(int fd, int request, ...);
+
+#ifdef __cplusplus
 }
+#endif
