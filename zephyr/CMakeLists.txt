@@ -7,12 +7,38 @@
 # to allow users to disable the HAL
 if(CONFIG_SOC_ESP32)
   zephyr_include_directories(
+    ../components/esp_common/include
+    ../components/esp_rom/include
     ../components/esp32/include
     ../components/soc/esp32/include
+    ../components/xtensa/include
+    ../components/xtensa/esp32/include
+    ../components/soc/soc/include
+    ../components/soc/soc/esp32/include
+    ../components/soc/include
+    ../components/soc/src/esp32/include
+    ../components/driver/include
+    ../components/soc/soc/esp32
+    ../components/esp_wifi/include
+    ../components/efuse/esp32/include
+    ../components/efuse/include
+    ../components/esp_system/include
+    ../components/esp_wifi/esp32/include
+    ../components/esp_timer/include
+    ../components/esp_timer/private_include
+    ../components/esp_netif/include
+    ../components/esp_event/include
+    ../components/log/include
+    ../components/wpa_supplicant/include
+    ../components/wpa_supplicant/port/include
+    ../components/wpa_supplicant/src
+    ../components/wpa_supplicant/include/esp_supplicant
+    ../components/wpa_supplicant/src/crypto
+    ../components/wpa_supplicant/src
     )
 
   zephyr_link_libraries(
     hal
-    -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32
+    -L${CMAKE_CURRENT_SOURCE_DIR}/../components/xtensa/esp32
     )
 endif()

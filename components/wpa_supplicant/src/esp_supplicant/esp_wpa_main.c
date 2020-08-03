@@ -149,7 +149,8 @@ bool  wpa_ap_rx_eapol(void *hapd_data, void *sm_data, u8 *data, size_t data_len)
 
 bool  wpa_deattach(void)
 {
-    esp_wifi_sta_wpa2_ent_disable();
+    /* TODO: handle WPA2 */
+    // esp_wifi_sta_wpa2_ent_disable();
     wpa_sm_deinit();
     return true;
 }

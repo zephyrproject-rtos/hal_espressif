@@ -56,6 +56,8 @@ typedef enum {
     SYSTEM_EVENT_MAX                       /*!< Number of members in this enum */
 } system_event_id_t;
 
+typedef uint32_t TickType_t;
+
 /* add this macro define for compatible with old IDF version */
 #ifndef SYSTEM_EVENT_AP_STA_GOT_IP6
 #define SYSTEM_EVENT_AP_STA_GOT_IP6 SYSTEM_EVENT_GOT_IP6

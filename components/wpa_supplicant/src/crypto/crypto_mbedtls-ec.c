@@ -509,7 +509,7 @@ struct crypto_key * crypto_ec_set_pubkey_point(const struct crypto_ec_group *gro
 		wpa_printf(MSG_ERROR, "Invalid key");
 		goto fail;
 	}
-	mbedtls_ecp_keypair *ecp_key = malloc(sizeof (*ecp_key));
+	mbedtls_ecp_keypair *ecp_key = k_malloc(sizeof (*ecp_key));
 	if (!ecp_key) {
 		wpa_printf(MSG_ERROR, "key allocation failed");
 		goto fail;

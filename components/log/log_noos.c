@@ -1,4 +1,4 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifdef __ZEPHYR__
+#include <zephyr.h>
+#endif
 #include <assert.h>
 #include "esp_log_private.h"
 #include "soc/cpu.h"  // for esp_cpu_get_ccount()
@@ -24,7 +27,7 @@ void esp_log_impl_lock(void)
     s_lock = 1;
 }
 
-bool esp_log_lock_impl_timeout(void)
+bool esp_log_impl_lock_timeout(void)
 {
     esp_log_impl_lock();
     return true;
@@ -39,6 +42,10 @@ void esp_log_impl_unlock(void)
 /* FIXME: define an API for getting the timestamp in soc/hal */
 uint32_t esp_log_early_timestamp(void)
 {
+#ifdef __ZEPHYR__
+        return k_uptime_get_32();
+#endif
+
     extern uint32_t g_ticks_per_us_pro;
     return esp_cpu_get_ccount() / (g_ticks_per_us_pro * 1000);
 }

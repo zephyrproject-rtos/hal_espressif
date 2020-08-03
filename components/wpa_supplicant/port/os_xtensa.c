@@ -28,24 +28,21 @@
 #include <sys/time.h>
 #include "esp_system.h"
 #include "utils/common.h"
+#include <random/rand32.h>
 
 int os_get_time(struct os_time *t)
 {
-    struct timeval tv;
-    int ret = gettimeofday(&tv, NULL);
-    t->sec = (os_time_t) tv.tv_sec;
-    t->usec = tv.tv_usec;
-    return ret;
+    return gettimeofday((struct timeval*) t, NULL);
 }
 
 unsigned long os_random(void)
 {
-    return esp_random();
+    return sys_rand32_get();
 }
 
 int os_get_random(unsigned char *buf, size_t len)
 {
-    esp_fill_random(buf, len);
+    sys_rand_get((void *)buf, len);
     return 0;
 }
 

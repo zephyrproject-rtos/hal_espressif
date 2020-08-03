@@ -32,7 +32,7 @@ extern "C" {
 static inline int IRAM_ATTR cpu_ll_get_core_id(void)
 {
     uint32_t id;
-    asm volatile (
+    __asm__ __volatile__ (
         "rsr.prid %0\n"
         "extui %0,%0,13,1"
         :"=r"(id));
@@ -49,7 +49,7 @@ static inline uint32_t cpu_ll_get_cycle_count(void)
 static inline void* cpu_ll_get_sp(void)
 {
     void *sp;
-    asm volatile ("mov %0, sp;" : "=r" (sp));
+    __asm__ __volatile__ ("mov %0, sp;" : "=r" (sp));
     return sp;
 }
 
@@ -170,7 +170,7 @@ static inline void cpu_ll_break(void)
 
 static inline void cpu_ll_set_vecbase(const void* vecbase)
 {
-    asm volatile ("wsr %0, vecbase" :: "r" (vecbase));
+    __asm__ __volatile__ ("wsr %0, vecbase" :: "r" (vecbase));
 }
 
 #ifdef __cplusplus
