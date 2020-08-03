@@ -12,24 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <zephyr.h>
 #include <sys/param.h>
 #include <string.h>
 #include "soc/soc.h"
 #include "esp_types.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+#include "esp32/rom/ets_sys.h"
 #include "esp_task.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "soc/spinlock.h"
+// #include "soc/spinlock.h"
 #include "esp_timer.h"
 #include "esp_timer_impl.h"
 
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
+
 
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rtc.h"
@@ -40,8 +43,6 @@
 #elif CONFIG_IDF_TARGET_ESP32C3
 #include "esp32c3/rtc.h"
 #endif
-
-#include "sdkconfig.h"
 
 #ifdef CONFIG_ESP_TIMER_PROFILING
 #define WITH_PROFILING 1
@@ -79,7 +80,10 @@ struct esp_timer {
     LIST_ENTRY(esp_timer) list_entry;
 };
 
-static inline bool is_initialized(void);
+K_THREAD_STACK_DEFINE(timer_task_stack, 4096);
+static bool init_status = false;
+
+static bool is_initialized(void);
 static esp_err_t timer_insert(esp_timer_handle_t timer);
 static esp_err_t timer_remove(esp_timer_handle_t timer);
 static bool timer_armed(esp_timer_handle_t timer);
@@ -91,8 +95,6 @@ static void timer_insert_inactive(esp_timer_handle_t timer);
 static void timer_remove_inactive(esp_timer_handle_t timer);
 #endif // WITH_PROFILING
 
-__attribute__((unused)) static const char* TAG = "esp_timer";
-
 // list of currently armed timers
 static LIST_HEAD(esp_timer_list, esp_timer) s_timers =
         LIST_HEAD_INITIALIZER(s_timers);
@@ -103,10 +105,17 @@ static LIST_HEAD(esp_inactive_timer_list, esp_timer) s_inactive_timers =
         LIST_HEAD_INITIALIZER(s_timers);
 #endif
 // task used to dispatch timer callbacks
-static TaskHandle_t s_timer_task;
+static struct k_thread s_timer_task;
+// counting semaphore used to notify the timer task from ISR
+static struct k_sem s_timer_semaphore;
+
+#if CONFIG_SPIRAM_USE_MALLOC
+// memory for s_timer_semaphore
+static StaticQueue_t s_timer_semaphore_memory;
+#endif
 
 // lock protecting s_timers, s_inactive_timers
-static portMUX_TYPE s_timer_lock = portMUX_INITIALIZER_UNLOCKED;
+static unsigned int s_timer_lock;
 
 
 esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
@@ -118,7 +127,7 @@ esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
     if (args == NULL || args->callback == NULL || out_handle == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_timer_handle_t result = (esp_timer_handle_t) calloc(1, sizeof(*result));
+    esp_timer_handle_t result = (esp_timer_handle_t) k_calloc(1, sizeof(*result));
     if (result == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -278,12 +287,12 @@ static IRAM_ATTR bool timer_armed(esp_timer_handle_t timer)
 
 static IRAM_ATTR void timer_list_lock(void)
 {
-    portENTER_CRITICAL_SAFE(&s_timer_lock);
+    s_timer_lock = irq_lock();
 }
 
 static IRAM_ATTR void timer_list_unlock(void)
 {
-    portEXIT_CRITICAL_SAFE(&s_timer_lock);
+    irq_unlock(s_timer_lock);
 }
 
 static void timer_process_alarm(esp_timer_dispatch_t dispatch_method)
@@ -301,7 +310,7 @@ static void timer_process_alarm(esp_timer_dispatch_t dispatch_method)
         }
         LIST_REMOVE(it, list_entry);
         if (it->event_id == EVENT_ID_DELETE_TIMER) {
-            free(it);
+            k_free(it);
             it = NULL;
         } else {
             if (it->period > 0) {
@@ -344,7 +353,7 @@ static void timer_process_alarm(esp_timer_dispatch_t dispatch_method)
 static void timer_task(void* arg)
 {
     while (true){
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        k_sem_take(&s_timer_semaphore, K_FOREVER);
         // all deferred events are processed at a time
         timer_process_alarm(ESP_TIMER_TASK);
     }
@@ -352,16 +361,12 @@ static void timer_task(void* arg)
 
 static void IRAM_ATTR timer_alarm_handler(void* arg)
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    vTaskNotifyGiveFromISR(s_timer_task, &xHigherPriorityTaskWoken);
-    if (xHigherPriorityTaskWoken == pdTRUE) {
-        portYIELD_FROM_ISR();
-    }
+    k_sem_give(&s_timer_semaphore);
 }
 
 static IRAM_ATTR inline bool is_initialized(void)
 {
-    return s_timer_task != NULL;
+    return init_status;
 }
 
 esp_err_t esp_timer_init(void)
@@ -371,12 +376,16 @@ esp_err_t esp_timer_init(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    int ret = xTaskCreatePinnedToCore(&timer_task, "esp_timer",
-            ESP_TASK_TIMER_STACK, NULL, ESP_TASK_TIMER_PRIO, &s_timer_task, PRO_CPU_NUM);
-    if (ret != pdPASS) {
-        err = ESP_ERR_NO_MEM;
-        goto out;
-    }
+    // int ret = xTaskCreatePinnedToCore(&timer_task, "esp_timer",
+    //         ESP_TASK_TIMER_STACK, NULL, ESP_TASK_TIMER_PRIO, &s_timer_task, PRO_CPU_NUM);
+
+    k_thread_create(&s_timer_task, timer_task_stack, 4096,
+		(k_thread_entry_t)timer_task, NULL, NULL, NULL,
+		3, K_INHERIT_PERMS, K_NO_WAIT);
+    // if (ret != pdPASS) {
+    //     err = ESP_ERR_NO_MEM;
+    //     goto out;
+    // }
 
     err = esp_timer_impl_init(&timer_alarm_handler);
     if (err != ESP_OK) {
@@ -389,13 +398,14 @@ esp_err_t esp_timer_init(void)
     esp_timer_private_advance(esp_rtc_get_time_us() - g_startup_time);
 #endif
 
-    return ESP_OK;
+	init_status = true;
+
+	return ESP_OK;
 
 out:
-    if (s_timer_task) {
-        vTaskDelete(s_timer_task);
-        s_timer_task = NULL;
-    }
+	LOG_ERR("could not start esp timer");
+	k_free(&s_timer_task);
+	init_status = false;;
 
     return ESP_ERR_NO_MEM;
 }
@@ -422,8 +432,8 @@ esp_err_t esp_timer_deinit(void)
 
     esp_timer_impl_deinit();
 
-    vTaskDelete(s_timer_task);
-    s_timer_task = NULL;
+    k_free(&s_timer_task);
+    init_status = false;
     return ESP_OK;
 }
 
@@ -480,7 +490,7 @@ esp_err_t esp_timer_dump(FILE* stream)
      * slightly more and the output will be truncated if that is not enough.
      */
     size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
-    char* print_buf = calloc(1, buf_size + 1);
+    char* print_buf = k_calloc(1, buf_size + 1);
     if (print_buf == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -501,7 +511,7 @@ esp_err_t esp_timer_dump(FILE* stream)
     /* Print the buffer */
     fputs(print_buf, stream);
 
-    free(print_buf);
+    k_free(print_buf);
     return ESP_OK;
 }
 

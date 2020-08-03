@@ -14,13 +14,14 @@
 
 #ifndef OS_H
 #define OS_H
+#include <zephyr.h>
 #include "esp_types.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_err.h"
 
-typedef time_t os_time_t;
+typedef long os_time_t;
 
 /**
  * os_sleep - Sleep (sec, usec)
@@ -31,7 +32,7 @@ void os_sleep(os_time_t sec, os_time_t usec);
 
 struct os_time {
 	os_time_t sec;
-	suseconds_t usec;
+	os_time_t usec;
 };
 
 #define os_reltime os_time
@@ -203,24 +204,24 @@ char * os_readfile(const char *name, size_t *len);
  */
 
 #ifndef os_malloc
-#define os_malloc(s) malloc((s))
+#define os_malloc(s) k_malloc((s))
 #endif
 #ifndef os_realloc
 #define os_realloc(p, s) realloc((p), (s))
 #endif
 #ifndef os_zalloc
-#define os_zalloc(s) calloc(1, (s))
+#define os_zalloc(s) k_calloc(1, (s))
 #endif
 #ifndef os_calloc
 #define os_calloc(p, s) calloc((p), (s))
 #endif
 
 #ifndef os_free
-#define os_free(p) free((p))
+#define os_free(p) k_free((p))
 #endif
 
 #ifndef os_bzero
-#define os_bzero(s, n) bzero(s, n)
+#define os_bzero(s, n) memset(s, 0, n)
 #endif
 
 

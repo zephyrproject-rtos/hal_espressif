@@ -14,14 +14,14 @@
 
 #pragma once
 
-#define RSR(reg, at)         asm volatile ("rsr %0, %1" : "=r" (at) : "i" (reg))
-#define WSR(reg, at)         asm volatile ("wsr %0, %1" : : "r" (at), "i" (reg))
-#define XSR(reg, at)         asm volatile ("xsr %0, %1" : "+r" (at) : "i" (reg))
+#define RSR(reg, at)         __asm__ __volatile__ ("rsr %0, %1" : "=r" (at) : "i" (reg))
+#define WSR(reg, at)         __asm__ __volatile__ ("wsr %0, %1" : : "r" (at), "i" (reg))
+#define XSR(reg, at)         __asm__ __volatile__ ("xsr %0, %1" : "+r" (at) : "i" (reg))
 
-#define RER(reg, at)         asm volatile ("rer %0, %1" : "=r" (at) : "r" (reg))
+#define RER(reg, at)         __asm__ __volatile__ ("rer %0, %1" : "=r" (at) : "r" (reg))
 
-#define WITLB(at, as)        asm volatile ("witlb  %0, %1; \n isync \n " : : "r" (at), "r" (as))
-#define WDTLB(at, as)        asm volatile ("wdtlb  %0, %1; \n dsync \n " : : "r" (at), "r" (as))
+#define WITLB(at, as)        __asm__ __volatile__ ("witlb  %0, %1; \n isync \n " : : "r" (at), "r" (as))
+#define WDTLB(at, as)        __asm__ __volatile__ ("wdtlb  %0, %1; \n dsync \n " : : "r" (at), "r" (as))
 
 /* The SET_STACK implements a setting a new stack pointer (sp or a1).
  * to do this the need reset PS_WOE, reset WINDOWSTART, update SP, and return PS_WOE.

@@ -66,7 +66,7 @@ void ets_timer_setfn(ETSTimer *ptimer, ETSTimerFunc *pfunction, void *parg)
                 .dispatch_method = ESP_TIMER_TASK
         };
 
-        ESP_ERROR_CHECK( esp_timer_create(&create_args, (esp_timer_handle_t*)&(ptimer->timer_arg)) );
+        esp_timer_create(&create_args, (esp_timer_handle_t*)&(ptimer->timer_arg));
     }
 }
 
@@ -76,9 +76,9 @@ void IRAM_ATTR ets_timer_arm_us(ETSTimer *ptimer, uint32_t time_us, bool repeat_
     assert(timer_initialized(ptimer));
     esp_timer_stop(ESP_TIMER(ptimer));  // no error check
     if (!repeat_flag) {
-        ESP_ERROR_CHECK( esp_timer_start_once(ESP_TIMER(ptimer), time_us) );
+        esp_timer_start_once(ESP_TIMER(ptimer), time_us);
     } else {
-        ESP_ERROR_CHECK( esp_timer_start_periodic(ESP_TIMER(ptimer), time_us) );
+        esp_timer_start_periodic(ESP_TIMER(ptimer), time_us);
     }
 }
 
@@ -88,9 +88,9 @@ void IRAM_ATTR ets_timer_arm(ETSTimer *ptimer, uint32_t time_ms, bool repeat_fla
     assert(timer_initialized(ptimer));
     esp_timer_stop(ESP_TIMER(ptimer));  // no error check
     if (!repeat_flag) {
-        ESP_ERROR_CHECK( esp_timer_start_once(ESP_TIMER(ptimer), time_us) );
+        esp_timer_start_once(ESP_TIMER(ptimer), time_us);
     } else {
-        ESP_ERROR_CHECK( esp_timer_start_periodic(ESP_TIMER(ptimer), time_us) );
+        esp_timer_start_periodic(ESP_TIMER(ptimer), time_us);
     }
 }
 
