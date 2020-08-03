@@ -15,7 +15,7 @@
 #define PHY_INIT_MAGIC "PHYINIT"
 
 // define the lowest tx power as LOWEST_PHY_TX_POWER
-#define PHY_TX_POWER_LOWEST LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 0, 52)
+#define PHY_TX_POWER_LOWEST LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 0, 52)
 #define PHY_TX_POWER_OFFSET 44
 #define PHY_TX_POWER_NUM    5
 
@@ -75,12 +75,12 @@ static const esp_phy_init_data_t phy_init_data= { {
         0x18,
         0x18,
         0x18,
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 78),
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 72),
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 66),
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 60),
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 56),
-        LIMIT(CONFIG_ESP_PHY_MAX_TX_POWER * 4, 40, 52),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 78),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 72),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 66),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 60),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 56),
+        LIMIT(CONFIG_ESP32_PHY_MAX_TX_POWER * 4, 40, 52),
         0,
         1,
         1,

@@ -30,6 +30,7 @@
 #include "esp_system.h"
 #include "utils/common.h"
 #include "mbedtls/platform_util.h"
+#include <random/rand32.h>
 
 int os_get_time(struct os_time *t)
 {
@@ -42,12 +43,12 @@ int os_get_time(struct os_time *t)
 
 unsigned long os_random(void)
 {
-    return esp_random();
+    return sys_rand32_get();
 }
 
 int os_get_random(unsigned char *buf, size_t len)
 {
-    esp_fill_random(buf, len);
+    sys_rand_get((void *)buf, len);
     return 0;
 }
 

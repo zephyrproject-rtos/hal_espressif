@@ -35,11 +35,6 @@ extern uint8_t esp_wifi_get_user_init_flag_internal(void);
 static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32
-/* Callback function to update WiFi MAC time */
-wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
-#endif
-
 /* Set additional WiFi features and capabilities */
 uint64_t g_wifi_feature_caps =
 #if CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
