@@ -26,7 +26,7 @@
 #include "esp_flash_encrypt.h"
 #include "esp_log.h"
 #include "cache_utils.h"
-
+#include "esp_heap_caps_adapter.h"
 #if CONFIG_IDF_TARGET_ESP32
 #include "soc/dport_reg.h"
 #include "esp32/rom/cache.h"

@@ -5,6 +5,7 @@
 # In the future it might look like this:
 # if(CONFIG_ESP_DIF_LIBRARY)
 # to allow users to disable the HAL
+
 if(CONFIG_SOC_ESP32)
   zephyr_include_directories(
     adapter/include
@@ -43,10 +44,22 @@ if(CONFIG_SOC_ESP32)
     ../components/wpa_supplicant/include/esp_supplicant
     ../components/wpa_supplicant/src/crypto
     ../components/wpa_supplicant/src
+    ../components/spi_flash/include
+    ../components/spi_flash/private_include
+    ../components/bootloader_support/include
+    adapter/include
     )
 
   zephyr_link_libraries(
     xt_hal
     -L${CMAKE_CURRENT_SOURCE_DIR}/../components/xtensa/esp32
     )
+
+  zephyr_sources_ifdef(
+    CONFIG_SOC_FLASH_ESP32
+    ../components/spi_flash/flash_mmap.c
+    ../components/spi_flash/esp32/spi_flash_rom_patch.c
+    ../components/spi_flash/flash_ops.c
+    )
+
 endif()
