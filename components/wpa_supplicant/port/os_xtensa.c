@@ -24,13 +24,13 @@
 
 #include "os.h"
 #include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/time.h>
+#include <posix/time.h>
+#include <posix/sys/time.h>
 #include "esp_system.h"
 #include "utils/common.h"
 #include "mbedtls/platform_util.h"
 #include <random/rand32.h>
+
 
 int os_get_time(struct os_time *t)
 {

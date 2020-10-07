@@ -30,10 +30,10 @@
 #define unlikely(x)    __builtin_expect(!!(x), 0)
 #endif
 #else
-#ifndef likely
+#if !defined(likely)
 #define likely(x)      (x)
 #endif
-#ifndef unlikely
+#if !defined(unlikely)
 #define unlikely(x)    (x)
 #endif
 #endif

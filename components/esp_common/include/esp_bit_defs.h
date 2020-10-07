@@ -87,7 +87,7 @@
 #define BIT(nr)                 (1UL << (nr))
 #endif
 #ifndef BIT64
-#define BIT64(nr)               (1ULL << (nr))
+#define BIT64(_n)               (1ULL << (_n))
 #endif
 #else
 #ifndef BIT

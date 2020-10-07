@@ -73,6 +73,7 @@ static vprintf_like_t s_log_print_func = &vprintf;
 static uint32_t s_log_cache_misses = 0;
 #endif
 
+extern size_t strlcpy(char*, const char*, size_t);
 
 static inline bool get_cached_log_level(const char *tag, esp_log_level_t *level);
 static inline bool get_uncached_log_level(const char *tag, esp_log_level_t *level);

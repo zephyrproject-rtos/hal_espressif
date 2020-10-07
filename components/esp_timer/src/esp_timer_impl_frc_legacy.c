@@ -98,7 +98,9 @@ static uint32_t s_alarm_overflow_val = DEFAULT_ALARM_OVERFLOW_VAL;
 #define ALARM_OVERFLOW_VAL (s_alarm_overflow_val)
 #endif
 
-static const char* TAG = "esp_timer_impl";
+typedef void (*irq_conn_cast_t)(const void*);
+
+static const char* __attribute__((unused)) TAG = "esp_timer_impl";
 
 // Interrupt handle returned by the interrupt allocator
 static intr_handle_t s_timer_interrupt_handle;
@@ -380,7 +382,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     intr_matrix_set(0, ETS_TIMER2_INTR_SOURCE, ETS_TG0_T1_INUM);
     irq_disable(ETS_TG0_T1_INUM);
-    irq_connect_dynamic(ETS_TG0_T1_INUM, ETS_TIMER2_INTR_SOURCE, &timer_alarm_isr, NULL, 0);
+    irq_connect_dynamic(ETS_TG0_T1_INUM, ETS_TIMER2_INTR_SOURCE, (irq_conn_cast_t) timer_alarm_isr, NULL, 0);
 
     if (err != ESP_OK) {
         ets_printf("esp_intr_alloc failed (0x%0x)\n", err);

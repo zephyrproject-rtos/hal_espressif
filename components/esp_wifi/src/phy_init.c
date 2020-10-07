@@ -38,6 +38,10 @@
 #include "esp_rom_crc.h"
 #include "esp_timer.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/ets_sys.h"
 #include "esp32/rom/rtc.h"

@@ -440,7 +440,9 @@ struct wpa_freq_range_list {
 	unsigned int num;
 };
 
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
 #ifndef TEST_FAIL
 #define TEST_FAIL() 0
 #endif

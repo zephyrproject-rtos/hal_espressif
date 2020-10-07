@@ -51,6 +51,7 @@ if(CONFIG_SOC_ESP32)
     ../components/bootloader_support/include
     ../components/newlib/priv_include
     adapter/include
+    adapter/include/crypto
     )
 
   zephyr_link_libraries(

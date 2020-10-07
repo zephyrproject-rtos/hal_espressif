@@ -28,6 +28,10 @@ extern "C" {
 #include "soc/rtc_cntl_struct.h"
 #include "esp_attr.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 //Type check wdt_stage_action_t
 _Static_assert(WDT_STAGE_ACTION_OFF == RTC_WDT_STG_SEL_OFF, "Add mapping to LL watchdog timeout behavior, since it's no longer naturally compatible with wdt_stage_action_t");
 _Static_assert(WDT_STAGE_ACTION_INT == RTC_WDT_STG_SEL_INT, "Add mapping to LL watchdog timeout behavior, since it's no longer naturally compatible with wdt_stage_action_t");
