@@ -14,7 +14,9 @@
 
 #pragma once
 
+#undef RSR
 #define RSR(reg, at)         __asm__ __volatile__ ("rsr %0, %1" : "=r" (at) : "i" (reg))
+#undef WSR
 #define WSR(reg, at)         __asm__ __volatile__ ("wsr %0, %1" : : "r" (at), "i" (reg))
 #define XSR(reg, at)         __asm__ __volatile__ ("xsr %0, %1" : "+r" (at) : "i" (reg))
 
