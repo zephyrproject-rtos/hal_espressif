@@ -32,6 +32,10 @@
 #include "xtensa/core-macros.h"
 #include "rtc_clk_common.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 /* Frequency of the 8M oscillator is 8.5MHz +/- 5%, at the default DCAP setting */
 #define RTC_FAST_CLK_FREQ_8M        8500000
 #define RTC_SLOW_CLK_FREQ_150K      150000
@@ -511,10 +515,10 @@ void rtc_clk_cpu_freq_set_xtal(void)
 
 void rtc_clk_cpu_freq_to_config(rtc_cpu_freq_t cpu_freq, rtc_cpu_freq_config_t* out_config)
 {
-    uint32_t source_freq_mhz;
-    rtc_cpu_freq_src_t source;
-    uint32_t freq_mhz;
-    uint32_t divider;
+    uint32_t source_freq_mhz = 0;
+    rtc_cpu_freq_src_t source = 0;
+    uint32_t freq_mhz = 0;
+    uint32_t divider = 0;
 
     switch (cpu_freq) {
         case RTC_CPU_FREQ_XTAL:
@@ -562,10 +566,10 @@ void rtc_clk_cpu_freq_to_config(rtc_cpu_freq_t cpu_freq, rtc_cpu_freq_config_t* 
 
 bool rtc_clk_cpu_freq_mhz_to_config(uint32_t freq_mhz, rtc_cpu_freq_config_t* out_config)
 {
-    uint32_t source_freq_mhz;
-    rtc_cpu_freq_src_t source;
-    uint32_t divider;
-    uint32_t real_freq_mhz;
+    uint32_t source_freq_mhz = 0;
+    rtc_cpu_freq_src_t source = 0;
+    uint32_t divider = 0;
+    uint32_t real_freq_mhz = 0;
 
     uint32_t xtal_freq = (uint32_t) rtc_clk_xtal_freq_get();
     if (freq_mhz <= xtal_freq) {
@@ -633,10 +637,10 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t* config)
 
 void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t* out_config)
 {
-    rtc_cpu_freq_src_t source;
-    uint32_t source_freq_mhz;
-    uint32_t div;
-    uint32_t freq_mhz;
+    rtc_cpu_freq_src_t source = 0;
+    uint32_t source_freq_mhz = 0;
+    uint32_t div = 0;
+    uint32_t freq_mhz = 0;
     uint32_t soc_clk_sel = REG_GET_FIELD(RTC_CNTL_CLK_CONF_REG, RTC_CNTL_SOC_CLK_SEL);
     switch (soc_clk_sel) {
         case RTC_CNTL_SOC_CLK_SEL_XTL: {

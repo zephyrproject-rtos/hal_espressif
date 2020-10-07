@@ -30,6 +30,9 @@
 #include "esp_timer_impl.h"
 #include "sdkconfig.h"
 
+#define LOG_MODULE_NAME esp_timer
+#include <logging/log.h>
+LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #ifdef CONFIG_ESP_TIMER_PROFILING
 #define WITH_PROFILING 1
@@ -77,7 +80,7 @@ static void timer_insert_inactive(esp_timer_handle_t timer);
 static void timer_remove_inactive(esp_timer_handle_t timer);
 #endif // WITH_PROFILING
 
-static const char* TAG = "esp_timer";
+static const char* __attribute__((unused)) TAG = "esp_timer";
 
 // list of currently armed timers
 static LIST_HEAD(esp_timer_list, esp_timer) s_timers =
@@ -100,8 +103,6 @@ static StaticQueue_t s_timer_semaphore_memory;
 
 // lock protecting s_timers, s_inactive_timers
 static unsigned int s_timer_lock;
-
-
 
 esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
                            esp_timer_handle_t* out_handle)
@@ -331,7 +332,7 @@ static void timer_process_alarm(esp_timer_dispatch_t dispatch_method)
 static void timer_task(void* arg)
 {
     while (true){
-        int res = k_sem_take(&s_timer_semaphore, K_FOREVER);
+        int __attribute__((unused)) res = k_sem_take(&s_timer_semaphore, K_FOREVER);
         assert(res == pdTRUE);
         timer_process_alarm(ESP_TIMER_TASK);
     }
@@ -347,38 +348,32 @@ static IRAM_ATTR bool is_initialized(void)
     return init_status;
 }
 
-
 esp_err_t esp_timer_init(void)
 {
     esp_err_t err;
-    if (is_initialized()) {
+    if (is_initialized())
+    {
         return ESP_ERR_INVALID_STATE;
     }
 
-#if CONFIG_SPIRAM_USE_MALLOC
-    memset(&s_timer_semaphore_memory, 0, sizeof(StaticQueue_t));
-    s_timer_semaphore = xSemaphoreCreateCountingStatic(TIMER_EVENT_QUEUE_SIZE, 0, &s_timer_semaphore_memory);
-#else
-    k_sem_init(&s_timer_semaphore, 0, TIMER_EVENT_QUEUE_SIZE);
-#endif
-    if (!(&s_timer_semaphore)) {
-        err = ESP_ERR_NO_MEM;
+    int ret = k_sem_init(&s_timer_semaphore, 0, TIMER_EVENT_QUEUE_SIZE);
+    if (ret != 0)
+    {
         goto out;
     }
 
-    // int ret = xTaskCreatePinnedToCore(&timer_task, "esp_timer",
-    //         ESP_TASK_TIMER_STACK, NULL, ESP_TASK_TIMER_PRIO, &s_timer_task, PRO_CPU_NUM);
+    k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
+                4096, (k_thread_entry_t)timer_task, NULL, NULL, NULL,
+                3, K_INHERIT_PERMS, K_NO_WAIT);
 
-    k_thread_create(&s_timer_task, timer_task_stack, 4096,
-		(k_thread_entry_t)timer_task, NULL, NULL, NULL,
-		3, K_INHERIT_PERMS, K_NO_WAIT);
-    // if (ret != pdPASS) {
-    //     err = ESP_ERR_NO_MEM;
-    //     goto out;
-    // }
+    if (!tid)
+    {
+        goto out;
+    }
 
     err = esp_timer_impl_init(&timer_alarm_handler);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         goto out;
     }
     init_status = true;
@@ -386,6 +381,7 @@ esp_err_t esp_timer_init(void)
     return ESP_OK;
 
 out:
+    LOG_ERR("could not start esp timer");
     return ESP_ERR_NO_MEM;
 }
 

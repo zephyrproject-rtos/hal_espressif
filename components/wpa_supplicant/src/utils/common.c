@@ -11,6 +11,8 @@
 #include "utils/common.h"
 #include <time.h>
 
+extern time_t mktime(struct tm*);
+
 /**
  * inc_byte_array - Increment arbitrary length byte array by one
  * @counter: Pointer to byte array

@@ -15,6 +15,7 @@
 #ifdef ESP_PLATFORM
 #include "esp_system.h"
 #include "mbedtls/bignum.h"
+#include "esp_config.h"
 #endif
 
 #include "utils/includes.h"

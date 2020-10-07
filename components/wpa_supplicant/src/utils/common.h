@@ -431,7 +431,9 @@ struct wpa_freq_range_list {
 	unsigned int num;
 };
 
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
 
 void wpa_bin_clear_free(void *bin, size_t len);
 int int_array_len(const int *a);
