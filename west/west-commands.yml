@@ -1,0 +1,6 @@
+west-commands:
+  - file: west/update.py
+    commands:
+      - name: espressif
+        class: GetSubModules
+        help: download or update ESP-IDF submodules
