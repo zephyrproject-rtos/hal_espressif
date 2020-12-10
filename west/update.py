@@ -7,24 +7,23 @@
 Espressif west extension to retrieve esp-idf submodules.'''
 
 import os
-import stat
-import shutil
 import subprocess
-import re
 from pathlib import Path
 
 from textwrap import dedent
 from west.commands import WestCommand
 from west import log
 
-ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/esp-idf"
+ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/espressif"
 
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
     return subprocess.check_output(cmd, cwd=cwd, stderr=stderr)
 
+
 def cmd_exec(cmd, cwd=None, shell=False):
     return subprocess.check_call(cmd, cwd=cwd, shell=shell)
+
 
 class GetSubModules(WestCommand):
 
@@ -43,7 +42,7 @@ class GetSubModules(WestCommand):
                                          help=self.help,
                                          description=self.description)
 
-        parser.add_argument('command', choices=['update'], 
+        parser.add_argument('command', choices=['update'],
                             help='retrieve esp-idf submodules')
 
         return parser
@@ -51,29 +50,38 @@ class GetSubModules(WestCommand):
     def do_run(self, args, unknown_args):
         if args.command == "update":
             self.update()
-        
+
     def update(self):
         log.banner('updating ESP-IDF submodules..')
 
         module_path = (
-                Path(os.getenv("ZEPHYR_BASE")).absolute()
-                / r".."
-                / "modules"
-                / "hal"
-                / "esp-idf"
-            )
+            Path(os.getenv("ZEPHYR_BASE")).absolute()
+            / r".."
+            / "modules"
+            / "hal"
+            / "espressif"
+        )
 
         if not module_path.exists():
             log.die('cannot find esp-idf project in $ZEPHYR_BASE path')
 
-        remote_output = cmd_check(("git", "remote", "-v"), 
-                                    cwd=module_path).decode('utf-8')
+        # look for origin remote
+        remote_name = cmd_check(("git", "remote"),
+                                cwd=module_path).decode('utf-8')
 
-        if not ESP_IDF_REMOTE in remote_output:
-            cmd_exec(("git", "remote", "add", "origin", 
-                        ESP_IDF_REMOTE), cwd=module_path)
-        
-        cmd_exec(("git", "submodule", "update", "--init", "--recursive"), 
-                    cwd=module_path)
+        if "origin" not in remote_name:
+            # add origin url
+            cmd_exec(("git", "remote", "add", "origin",
+                     ESP_IDF_REMOTE), cwd=module_path)
+        else:
+            remote_url = cmd_check(("git", "remote", "get-url", "origin"),
+                                   cwd=module_path).decode('utf-8')
+            # update origin URL
+            if ESP_IDF_REMOTE not in remote_url:
+                cmd_exec(("git", "remote", "set-url", "origin",
+                         ESP_IDF_REMOTE), cwd=module_path)
+
+        cmd_exec(("git", "submodule", "update", "--init", "--recursive"),
+                 cwd=module_path)
 
         log.banner('updating ESP-IDF submodules completed')
