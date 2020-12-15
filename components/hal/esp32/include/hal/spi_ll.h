@@ -29,6 +29,10 @@
 #include <esp_types.h>
 #include <stdlib.h> //for abs()
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
