@@ -58,6 +58,14 @@ if(CONFIG_SOC_ESP32)
 
   zephyr_library_sources_ifdef(CONFIG_TIMER_ESP32   ../components/soc/src/hal/timer_hal.c) 
   
+  zephyr_sources_ifdef(
+    CONFIG_ESP32_SPIM   
+    ../components/soc/src/hal/spi_hal.c
+    ../components/soc/src/hal/spi_hal_iram.c
+    ../components/soc/src/lldesc.c
+    ../components/soc/soc/esp32/spi_periph.c
+    )
+
   zephyr_sources(
     ../components/soc/src/esp32/rtc_clk.c
     ../components/esp_timer/src/ets_timer_legacy.c

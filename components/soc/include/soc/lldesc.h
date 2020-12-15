@@ -14,6 +14,7 @@
 
 #pragma once
 #include <stdbool.h>
+#include <stddef.h>
 #include "sdkconfig.h"
 
 #if CONFIG_IDF_TARGET_ESP32
