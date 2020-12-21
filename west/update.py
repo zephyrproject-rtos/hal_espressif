@@ -7,6 +7,7 @@
 Espressif west extension to retrieve esp-idf submodules.'''
 
 import os
+import platform
 import subprocess
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from textwrap import dedent
 from west.commands import WestCommand
 from west import log
 
-ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/espressif"
+ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
 
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
@@ -85,3 +86,14 @@ class GetSubModules(WestCommand):
                  cwd=module_path)
 
         log.banner('updating ESP-IDF submodules completed')
+
+        log.banner('downloading ESP-IDF tools..')
+
+        if platform.system() == 'Windows':
+            cmd_exec(("python.exe", "tools/idf_tools.py", "install"),
+                     cwd=module_path)
+        else:
+            cmd_exec(("./tools/idf_tools.py", "install"),
+                     cwd=module_path)
+
+        log.banner('downloading ESP-IDF tools completed')
