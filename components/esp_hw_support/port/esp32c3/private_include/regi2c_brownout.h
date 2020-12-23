@@ -1,4 +1,3 @@
-
 // Copyright 2020 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,24 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hal/brownout_hal.h"
-#include "soc/rtc_cntl_struct.h"
-#include "soc/rtc_cntl_reg.h"
-#include "regi2c_ctrl.h"
-#include "regi2c_brownout.h"
+#pragma once
 
+/**
+ * @file regi2c_brownout.h
+ * @brief Register definitions for brownout detector
+ *
+ * This file lists register fields of the brownout detector, located on an internal configuration
+ * bus. These definitions are used via macros defined in regi2c_ctrl.h.
+ */
 
-void brownout_hal_config(const brownout_hal_config_t *cfg)
-{
-    // TODO ESP32-C3 IDF-2397
-}
+#define I2C_BOD            0x61
+#define I2C_BOD_HOSTID     1
 
-void brownout_hal_intr_enable(bool enable)
-{
-    // TODO ESP32-C3 IDF-2397
-}
-
-void brownout_hal_intr_clear(void)
-{
-    // TODO ESP32-C3 IDF-2397
-}
+#define I2C_BOD_THRESHOLD           0x5
+#define I2C_BOD_THRESHOLD_MSB       2
+#define I2C_BOD_THRESHOLD_LSB       0

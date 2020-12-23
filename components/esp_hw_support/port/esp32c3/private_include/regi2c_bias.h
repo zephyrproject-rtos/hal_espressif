@@ -1,5 +1,4 @@
-
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
+// Copyright 2015-2020 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,24 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hal/brownout_hal.h"
-#include "soc/rtc_cntl_struct.h"
-#include "soc/rtc_cntl_reg.h"
-#include "regi2c_ctrl.h"
-#include "regi2c_brownout.h"
+#pragma once
 
+/**
+ * @file regi2c_bias.h
+ * @brief Register definitions for bias
+ *
+ * This file lists register fields of BIAS. These definitions are used via macros defined in regi2c_ctrl.h, by
+ * bootloader_hardware_init function in bootloader_esp32c3.c.
+ */
 
-void brownout_hal_config(const brownout_hal_config_t *cfg)
-{
-    // TODO ESP32-C3 IDF-2397
-}
+#define I2C_BIAS            0X6A
+#define I2C_BIAS_HOSTID     0
 
-void brownout_hal_intr_enable(bool enable)
-{
-    // TODO ESP32-C3 IDF-2397
-}
-
-void brownout_hal_intr_clear(void)
-{
-    // TODO ESP32-C3 IDF-2397
-}
+#define I2C_BIAS_DREG_1P1_PVT 1
+#define I2C_BIAS_DREG_1P1_PVT_MSB 3
+#define I2C_BIAS_DREG_1P1_PVT_LSB 0
