@@ -26,16 +26,17 @@ def cmd_exec(cmd, cwd=None, shell=False):
     return subprocess.check_call(cmd, cwd=cwd, shell=shell)
 
 
-class GetSubModules(WestCommand):
+class UpdateTool(WestCommand):
 
     def __init__(self):
         super().__init__(
             'espressif',
             # Keep this in sync with the string in west-commands.yml.
-            'download or update ESP-IDF submodules',
+            'download toolchain or update ESP-IDF submodules',
             dedent('''
-            This command fetches all ESP-IDF submodules required
-            for Espressif SoC devices framework.'''),
+            This interface allows downloading Espressif toolchain
+            or fetch ESP-IDF submodules required for
+            Espressif SoC devices framework.'''),
             accepts_unknown_args=False)
 
     def do_add_parser(self, parser_adder):
@@ -43,17 +44,12 @@ class GetSubModules(WestCommand):
                                          help=self.help,
                                          description=self.description)
 
-        parser.add_argument('command', choices=['update'],
-                            help='retrieve esp-idf submodules')
+        parser.add_argument('command', choices=['install', 'update'],
+                            help='install espressif toolchain or fetch submodules')
 
         return parser
 
     def do_run(self, args, unknown_args):
-        if args.command == "update":
-            self.update()
-
-    def update(self):
-        log.banner('updating ESP-IDF submodules..')
 
         module_path = (
             Path(os.getenv("ZEPHYR_BASE")).absolute()
@@ -64,7 +60,15 @@ class GetSubModules(WestCommand):
         )
 
         if not module_path.exists():
-            log.die('cannot find esp-idf project in $ZEPHYR_BASE path')
+            log.die('cannot find espressif project in $ZEPHYR_BASE path')
+
+        if args.command == "update":
+            self.update(module_path)
+        elif args.command == "install":
+            self.install(module_path)
+
+    def update(self, module_path):
+        log.banner('updating ESP-IDF submodules..')
 
         # look for origin remote
         remote_name = cmd_check(("git", "remote"),
@@ -87,13 +91,15 @@ class GetSubModules(WestCommand):
 
         log.banner('updating ESP-IDF submodules completed')
 
+    def install(self, module_path):
+
         log.banner('downloading ESP-IDF tools..')
 
         if platform.system() == 'Windows':
-            cmd_exec(("python.exe", "tools/idf_tools.py", "install"),
+            cmd_exec(("python.exe", "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
         else:
-            cmd_exec(("./tools/idf_tools.py", "install"),
+            cmd_exec(("./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
 
         log.banner('downloading ESP-IDF tools completed')
