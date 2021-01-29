@@ -8,6 +8,9 @@
 
 if(CONFIG_SOC_ESP32)
   zephyr_include_directories(
+    adapter/include
+    adapter/include/crypto
+    adapter/include/wifi
     ../components/esp_common/include
     ../components/esp_rom/include
     ../components/esp32/include
@@ -40,8 +43,6 @@ if(CONFIG_SOC_ESP32)
     ../components/spi_flash/include
     ../components/spi_flash/private_include
     ../components/bootloader_support/include
-    adapter/include
-    adapter/include/crypto
     )
 
   zephyr_link_libraries(
@@ -141,6 +142,9 @@ if(CONFIG_SOC_ESP32)
 
     zephyr_sources(
       ../components/esp_wifi/src/phy_init.c
+      adapter/src/wifi/esp_event.c
+      adapter/src/wifi/esp_system_api.c
+      adapter/src/wifi/esp_wifi_adapter.c
       ${WPA_SUPPLICANT_SRCS}
       )
 
