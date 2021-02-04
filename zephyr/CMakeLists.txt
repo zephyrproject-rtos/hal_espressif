@@ -78,6 +78,7 @@ if(CONFIG_SOC_ESP32)
     ../components/soc/src/esp32/rtc_clk.c
     ../components/esp_timer/src/ets_timer_legacy.c
     ../components/esp_timer/src/esp_timer.c
+    ../components/esp_timer/src/esp_timer_impl_lac.c
     ../components/newlib/port/esp_time_impl.c
     ../components/driver/periph_ctrl.c
     ../components/log/log_noos.c
