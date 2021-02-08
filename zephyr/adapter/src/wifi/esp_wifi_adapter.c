@@ -595,7 +595,7 @@ int32_t nvs_open(const char *name, uint32_t open_mode, uint32_t *out_handle)
 
 void nvs_close(uint32_t handle)
 {
-	return 0;
+	return;
 }
 
 int32_t nvs_commit(uint32_t handle)
