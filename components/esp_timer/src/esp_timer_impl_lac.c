@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <zephyr.h>
+#include <logging/log.h>
 #include "sys/param.h"
 #include "esp_timer_impl.h"
 #include "esp_timer.h"
