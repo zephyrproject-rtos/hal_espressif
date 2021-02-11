@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr.h>
+#include <logging/log.h>
 #include "sys/param.h"
 #include "esp_timer_impl.h"
 #include "esp_timer.h"
@@ -11,14 +13,18 @@
 #include "esp_system.h"
 #include "esp_task.h"
 #include "esp_attr.h"
-#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp32/clk.h"
 #include "driver/periph_ctrl.h"
 #include "soc/soc.h"
 #include "soc/timer_group_reg.h"
 #include "soc/rtc.h"
-#include "freertos/FreeRTOS.h"
+
+#ifdef CONFIG_SOC_ESP32C3
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#else
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#endif
 
 /**
  * @file esp_timer_lac.c
@@ -70,6 +76,9 @@
 #define INT_ST_REG      (TIMG_INT_ST_TIMERS_REG(LACT_MODULE))
 #define INT_CLR_REG     (TIMG_INT_CLR_TIMERS_REG(LACT_MODULE))
 
+/* Function prototype for alarm interrupt handler function */
+typedef void (*alarm_intr_handler_t)(const void *arg);
+
 /* Helper type to convert between a 64-bit value and a pair of 32-bit values without shifts and masks */
 typedef struct {
     union {
@@ -83,26 +92,23 @@ typedef struct {
 
 static const char* TAG = "esp_timer_impl";
 
-/* Interrupt handle returned by the interrupt allocator */
-static intr_handle_t s_timer_interrupt_handle;
-
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
  */
-static intr_handler_t s_alarm_handler = NULL;
+static alarm_intr_handler_t s_alarm_handler;
 
 /* Spinlock used to protect access to the hardware registers. */
-portMUX_TYPE s_time_update_lock = portMUX_INITIALIZER_UNLOCKED;
+static unsigned int s_time_update_lock;
 
 
 void esp_timer_impl_lock(void)
 {
-    portENTER_CRITICAL(&s_time_update_lock);
+    s_time_update_lock = irq_lock();
 }
 
 void esp_timer_impl_unlock(void)
 {
-    portEXIT_CRITICAL(&s_time_update_lock);
+    irq_unlock(s_time_update_lock);
 }
 
 uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
@@ -138,6 +144,9 @@ uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
 
 int64_t IRAM_ATTR esp_timer_impl_get_time(void)
 {
+    if (s_alarm_handler == NULL) {
+        return 0;
+    }
     return esp_timer_impl_get_counter_reg() / TICKS_PER_US;
 }
 
@@ -146,7 +155,7 @@ int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")
 void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
     static uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    s_time_update_lock = irq_lock();
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
     if (timestamp != UINT64_MAX) {
@@ -170,7 +179,7 @@ void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id
             }
         } while(1);
     }
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    irq_unlock(s_time_update_lock);
 }
 
 void IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
@@ -188,22 +197,22 @@ static void IRAM_ATTR timer_alarm_isr(void *arg)
 
 void IRAM_ATTR esp_timer_impl_update_apb_freq(uint32_t apb_ticks_per_us)
 {
-    portENTER_CRITICAL(&s_time_update_lock);
+    s_time_update_lock = irq_lock();
     assert(apb_ticks_per_us >= 3 && "divider value too low");
     assert(apb_ticks_per_us % TICKS_PER_US == 0 && "APB frequency (in MHz) should be divisible by TICK_PER_US");
     REG_SET_FIELD(CONFIG_REG, TIMG_LACT_DIVIDER, apb_ticks_per_us / TICKS_PER_US);
-    portEXIT_CRITICAL(&s_time_update_lock);
+    irq_unlock(s_time_update_lock);
 }
 
 void esp_timer_impl_advance(int64_t time_diff_us)
 {
-    portENTER_CRITICAL(&s_time_update_lock);
+    s_time_update_lock = irq_lock();
     uint64_t now = esp_timer_impl_get_time();
     timer_64b_reg_t dst = { .val = (now + time_diff_us) * TICKS_PER_US };
     REG_WRITE(LOAD_LO_REG, dst.lo);
     REG_WRITE(LOAD_HI_REG, dst.hi);
     REG_WRITE(LOAD_REG, 1);
-    portEXIT_CRITICAL(&s_time_update_lock);
+    irq_unlock(s_time_update_lock);
 }
 
 esp_err_t esp_timer_impl_early_init(void)
@@ -225,17 +234,19 @@ esp_err_t esp_timer_impl_early_init(void)
     return ESP_OK;
 }
 
+#define ETS_TG0_T1_INUM                         10 /**< use edge interrupt*/
+
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    s_alarm_handler = alarm_handler;
+    s_alarm_handler = (alarm_intr_handler_t) alarm_handler;
+    esp_err_t err = ESP_OK;
 
-    const int interrupt_lvl = (1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK;
-    esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT,
-            ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | interrupt_lvl,
-            &timer_alarm_isr, NULL, &s_timer_interrupt_handle);
+    const int interrupt_lvl = (1 << 1) & ESP_INTR_FLAG_LEVELMASK;
+    err = esp_intr_alloc(INTR_SOURCE_LACT, ESP_INTR_FLAG_IRAM | interrupt_lvl,
+         (intr_handler_t)timer_alarm_isr, NULL, NULL);
 
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%0x)", err);
+        ESP_EARLY_LOGE(TAG, "irq_connect_dynamic failed (0x%0x)", err);
         return err;
     }
 
@@ -252,8 +263,6 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
     uint32_t slowclk_ticks_per_us = esp_clk_slowclk_cal_get() * TICKS_PER_US;
     REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
 
-    ESP_ERROR_CHECK( esp_intr_enable(s_timer_interrupt_handle) );
-
     return ESP_OK;
 }
 
@@ -262,10 +271,6 @@ void esp_timer_impl_deinit(void)
     REG_WRITE(CONFIG_REG, 0);
     REG_SET_BIT(INT_CLR_REG, TIMG_LACT_INT_CLR);
     /* TODO: also clear TIMG_LACT_INT_ENA; however see the note in esp_timer_impl_init. */
-
-    esp_intr_disable(s_timer_interrupt_handle);
-    esp_intr_free(s_timer_interrupt_handle);
-    s_timer_interrupt_handle = NULL;
 }
 
 /* FIXME: This value is safe for 80MHz APB frequency, should be modified to depend on clock frequency. */
@@ -276,12 +281,12 @@ uint64_t IRAM_ATTR esp_timer_impl_get_min_period_us(void)
 
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    s_time_update_lock = irq_lock();
     timer_64b_reg_t alarm = {
         .lo = REG_READ(ALARM_LO_REG),
         .hi = REG_READ(ALARM_HI_REG)
     };
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    irq_unlock(s_time_update_lock);
     return alarm.val;
 }
 
