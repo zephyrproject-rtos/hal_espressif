@@ -333,7 +333,7 @@ static void timer_task(void* arg)
 {
     while (true){
         int __attribute__((unused)) res = k_sem_take(&s_timer_semaphore, K_FOREVER);
-        assert(res == pdTRUE);
+        assert(res == 0);
         timer_process_alarm(ESP_TIMER_TASK);
     }
 }
