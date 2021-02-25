@@ -64,7 +64,7 @@ if(CONFIG_SOC_ESP32)
     ../components/spi_flash/flash_ops.c
     )
 
-  zephyr_library_sources_ifdef(CONFIG_TIMER_ESP32     ../components/hal/timer_hal.c)
+  zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../components/hal/timer_hal.c)
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM   
