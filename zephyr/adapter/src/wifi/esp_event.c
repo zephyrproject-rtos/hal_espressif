@@ -12,7 +12,7 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(esp_event, LOG_LEVEL_INF);
 
-K_THREAD_STACK_DEFINE(event_task_stack, CONFIG_EVENT_TASK_STACK_SIZE);
+K_THREAD_STACK_DEFINE(event_task_stack, CONFIG_ESP32_WIFI_EVENT_TASK_STACK_SIZE);
 static struct k_thread event_task_handle;
 static struct k_msgq event_queue;
 static void *event_msgq_buffer;
@@ -51,7 +51,7 @@ void event_task(void *arg)
 			}
 			connected_flag = false;
 
-			if (IS_ENABLED(CONFIG_WIFI_STA_RECONNECT)) {
+			if (IS_ENABLED(CONFIG_ESP32_WIFI_STA_RECONNECT)) {
 				esp_wifi_connect();
 			}
 			break;
@@ -71,9 +71,9 @@ esp_err_t esp_event_init(void)
 	}
 
 	k_msgq_init(&event_queue, event_msgq_buffer, sizeof(system_event_t), 10);
-	k_thread_create(&event_task_handle, event_task_stack, CONFIG_EVENT_TASK_STACK_SIZE,
+	k_thread_create(&event_task_handle, event_task_stack, CONFIG_ESP32_WIFI_EVENT_TASK_STACK_SIZE,
 			(k_thread_entry_t)event_task, NULL, NULL, NULL,
-			CONFIG_EVENT_TASK_PRIO, K_INHERIT_PERMS, K_NO_WAIT);
+			CONFIG_ESP32_WIFI_EVENT_TASK_PRIO, K_INHERIT_PERMS, K_NO_WAIT);
 
 	return ESP_OK;
 }
