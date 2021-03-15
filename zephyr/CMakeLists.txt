@@ -88,7 +88,7 @@ if(CONFIG_SOC_ESP32)
   if (CONFIG_WIFI_ESP32)
 
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
-    set(WPA_SUPPLICANT_SRCS "../components/wpa_supplicant/port/os_xtensa.c"
+    set(WPA_SUPPLICANT_SRCS "adapter/src/wpa_supplicant/port/os_xtensa.c"
                         "../components/wpa_supplicant/src/ap/ap_config.c"
                         "../components/wpa_supplicant/src/ap/ieee802_1x.c"
                         "../components/wpa_supplicant/src/ap/wpa_auth.c"
