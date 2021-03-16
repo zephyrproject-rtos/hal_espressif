@@ -24,13 +24,11 @@
 
 #include "os.h"
 #include <stdlib.h>
-#include <posix/time.h>
-#include <posix/sys/time.h>
+#include <time.h>
+#include <sys/time.h>
 #include "esp_system.h"
 #include "utils/common.h"
 #include "mbedtls/platform_util.h"
-#include <random/rand32.h>
-
 
 int os_get_time(struct os_time *t)
 {
@@ -43,12 +41,12 @@ int os_get_time(struct os_time *t)
 
 unsigned long os_random(void)
 {
-    return sys_rand32_get();
+    return esp_random();
 }
 
 int os_get_random(unsigned char *buf, size_t len)
 {
-    sys_rand_get((void *)buf, len);
+    esp_fill_random(buf, len);
     return 0;
 }
 
