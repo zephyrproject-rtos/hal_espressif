@@ -29,27 +29,25 @@ esp_err_t esp_event_send_internal(esp_event_base_t event_base,
 
 void event_task(void *arg)
 {
-	bool connected_flag = false;
 	int32_t event_id;
 
 	while (1) {
 		k_msgq_get(&event_queue, &event_id, K_FOREVER);
 
 		switch (event_id) {
-		case SYSTEM_EVENT_STA_START:
-			LOG_INF("SYSTEM_EVENT_STA_START");
-			break;
-		case SYSTEM_EVENT_STA_CONNECTED:
-			LOG_INF("SYSTEM_EVENT_STA_CONNECTED");
-			connected_flag = true;
+		case WIFI_EVENT_STA_START:
+			LOG_INF("WIFI_EVENT_STA_START");
 			esp_wifi_set_net_state(true);
 			break;
-		case SYSTEM_EVENT_STA_DISCONNECTED:
-			LOG_ERR("SYSTEM_EVENT_STA_DISCONNECTED");
-			if (connected_flag) {
-				esp_wifi_set_net_state(false);
-			}
-			connected_flag = false;
+		case WIFI_EVENT_STA_STOP:
+			LOG_INF("WIFI_EVENT_STA_STOP");
+			esp_wifi_set_net_state(false);
+			break;
+		case WIFI_EVENT_STA_CONNECTED:
+			LOG_INF("WIFI_EVENT_STA_CONNECTED");
+			break;
+		case WIFI_EVENT_STA_DISCONNECTED:
+			LOG_INF("WIFI_EVENT_STA_DISCONNECTED");
 
 			if (IS_ENABLED(CONFIG_ESP32_WIFI_STA_RECONNECT)) {
 				esp_wifi_connect();
