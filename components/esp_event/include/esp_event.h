@@ -23,7 +23,7 @@
 #include "freertos/semphr.h"
 
 #include "esp_event_base.h"
-#include "esp_event_legacy.h"
+#include "esp_wifi_types.h"
 
 #ifdef __cplusplus
 extern "C" {
