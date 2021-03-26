@@ -45,6 +45,7 @@ if(CONFIG_SOC_ESP32)
     ../components/spi_flash/include
     ../components/spi_flash/private_include
     ../components/bootloader_support/include
+    ../components/bootloader_support/include_bootloader
     )
 
     zephyr_link_libraries(
@@ -70,11 +71,22 @@ if(CONFIG_SOC_ESP32)
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32   ../components/soc/src/hal/timer_hal.c) 
 
   zephyr_sources_ifdef(
-    CONFIG_ESP32_SPIM   
+    CONFIG_ESP32_SPIM
     ../components/soc/src/hal/spi_hal.c
     ../components/soc/src/hal/spi_hal_iram.c
     ../components/soc/src/lldesc.c
     ../components/soc/soc/esp32/spi_periph.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_ESP_SPIRAM
+    ../components/spi_flash/flash_ops.c
+    ../components/esp32/spiram.c
+    ../components/esp32/spiram_psram.c
+    ../components/soc/src/esp32/rtc_init.c
+    ../components/soc/soc/esp32/gpio_periph.c
+    ../components/esp32/cache_sram_mmu.c
+    ../components/bootloader_support/src/bootloader_common.c
     )
 
   zephyr_sources(
