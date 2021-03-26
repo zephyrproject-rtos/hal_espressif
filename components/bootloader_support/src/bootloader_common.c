@@ -3,6 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+#if defined(__ZEPHYR__)
+#include <zephyr.h>
+#include <logging/log.h>
+#endif
 #include <stdbool.h>
 #include <assert.h>
 #include "string.h"
@@ -110,7 +115,7 @@ bool bootloader_common_erase_part_type_data(const char *list_erase, bool ota_dat
         ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", ESP_PARTITION_TABLE_OFFSET, ESP_PARTITION_TABLE_MAX_LEN);
         return false;
     }
-    ESP_LOGD(TAG, "mapped partition table 0x%x at 0x%x", ESP_PARTITION_TABLE_OFFSET, (intptr_t)partitions);
+    ESP_LOGD(TAG, "mapped partition table 0x%x at 0x%x", ESP_PARTITION_TABLE_OFFSET, (unsigned int)partitions);
 
     err = esp_partition_table_verify(partitions, true, &num_partitions);
     if (err != ESP_OK) {

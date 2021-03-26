@@ -101,7 +101,9 @@ static spi_flash_counters_t s_flash_stats;
 static esp_err_t spi_flash_translate_rc(esp_rom_spiflash_result_t rc);
 #endif //CONFIG_SPI_FLASH_USE_LEGACY_IMPL
 static bool is_safe_write_address(size_t addr, size_t size);
+#if !defined(__ZEPHYR__)
 static void spi_flash_os_yield(void);
+#endif
 
 const DRAM_ATTR spi_flash_guard_funcs_t g_flash_guard_default_ops = {
 #if defined(__ZEPHYR__)
@@ -266,6 +268,7 @@ static inline void IRAM_ATTR spi_flash_guard_op_unlock(void)
     }
 }
 
+#if !defined(__ZEPHYR__)
 static void IRAM_ATTR spi_flash_os_yield(void)
 {
 #ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
@@ -274,6 +277,7 @@ static void IRAM_ATTR spi_flash_os_yield(void)
     }
 #endif
 }
+#endif
 
 #ifdef CONFIG_SPI_FLASH_USE_LEGACY_IMPL
 static esp_rom_spiflash_result_t IRAM_ATTR spi_flash_unlock(void)
