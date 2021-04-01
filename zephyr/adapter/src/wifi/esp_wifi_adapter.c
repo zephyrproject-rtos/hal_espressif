@@ -31,8 +31,6 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define portTICK_PERIOD_MS (1000 / 100)
 
-#define CONFIG_ESP32_DPORT_DIS_INTERRUPT_LVL 5
-
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
@@ -51,25 +49,6 @@ struct wifi_spin_lock {
 };
 
 uint64_t g_wifi_feature_caps;
-
-uint32_t IRAM_ATTR esp_dport_access_reg_read(uint32_t reg)
-{
-	uint32_t apb;
-	unsigned int intLvl;
-
-	__asm__ __volatile__ (							\
-		"rsil %[LVL], "XTSTR (CONFIG_ESP32_DPORT_DIS_INTERRUPT_LVL)"\n"	\
-		"movi %[APB], "XTSTR (0x3ff40078) "\n"				\
-		"l32i %[APB], %[APB], 0\n"					\
-		"l32i %[REG], %[REG], 0\n"					\
-		"wsr  %[LVL], "XTSTR (PS)"\n"					\
-		"rsync\n"							\
-		: [APB] "=a" (apb), [REG] "+a" (reg), [LVL] "=a" (intLvl)	\
-		:								\
-		: "memory"							\
-		);
-	return reg;
-}
 
 static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_start(void)
 {
