@@ -9,6 +9,7 @@
 if(CONFIG_SOC_ESP32)
   zephyr_include_directories(
     adapter/include
+    adapter/include/bt
     adapter/include/crypto
     adapter/include/wifi
     ../components/esp_common/include
@@ -20,6 +21,7 @@ if(CONFIG_SOC_ESP32)
     ../components/soc/soc/include
     ../components/soc/soc/esp32/include
     ../components/soc/soc/esp32/private_include
+    ../components/soc/include/soc
     ../components/soc/include
     ../components/soc/src/esp32/include
     ../components/driver/include
@@ -66,7 +68,7 @@ if(CONFIG_SOC_ESP32)
     )
 
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32   ../components/soc/src/hal/timer_hal.c) 
-  
+
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM   
     ../components/soc/src/hal/spi_hal.c
@@ -87,6 +89,51 @@ if(CONFIG_SOC_ESP32)
     adapter/src/stubs.c
     )
 
+  ## shared WIFI/BT resources
+  if (CONFIG_BT OR CONFIG_WIFI_ESP32)
+    zephyr_sources(
+      ../components/esp_wifi/src/phy_init.c
+      adapter/src/common/esp_system_api.c
+      )
+
+    zephyr_link_libraries(
+      net80211
+      core
+      pp
+      coexist
+      phy
+      rtc
+      ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_wifi/lib/esp32
+        -Wl,--defsym,phy_printf=printf
+        -Wl,--defsym,net80211_printf=printf
+        -Wl,--defsym,coexist_printf=printf
+      )
+
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+    zephyr_sources(
+      ../components/esp_common/src/esp_err.c
+      adapter/src/bt/esp_bt_adapter.c
+      )
+
+    zephyr_compile_definitions(
+      CONFIG_BT_ENABLED
+      )
+
+    zephyr_link_libraries(
+      ## ble
+      btdm_app
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/bt/controller/lib
+      )
+
+  endif()
+
+  ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
 
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
@@ -150,10 +197,8 @@ if(CONFIG_SOC_ESP32)
                         )
 
     zephyr_sources(
-      ../components/esp_wifi/src/phy_init.c
       adapter/src/wifi/esp_event.c
       adapter/src/wifi/esp_wifi_adapter.c
-      adapter/src/common/esp_system_api.c
       ${WPA_SUPPLICANT_SRCS}
       )
 
@@ -177,24 +222,7 @@ if(CONFIG_SOC_ESP32)
 
     zephyr_link_libraries(
       ## wifi
-      net80211
-      core
-      net80211
-      pp
-      coexist
-      phy
-      rtc
-      mesh
       mbedTLS
-
-      ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
-      gcc
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_wifi/lib/esp32
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/wpa_supplicant
-        -Wl,--defsym,phy_printf=printf
-        -Wl,--defsym,net80211_printf=printf
-        -Wl,--defsym,coexist_printf=printf
       )
 
   endif()
