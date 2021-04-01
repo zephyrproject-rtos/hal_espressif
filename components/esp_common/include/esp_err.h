@@ -74,8 +74,13 @@ const char *esp_err_to_name(esp_err_t code);
   */
 const char *esp_err_to_name_r(esp_err_t code, char *buf, size_t buflen);
 
+#if __ZEPHYR__
+/** @cond */
+void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const char *function, const char *expression);
+#else
 /** @cond */
 void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const char *function, const char *expression) __attribute__((noreturn));
+#endif
 
 /** @cond */
 void _esp_error_check_failed_without_abort(esp_err_t rc, const char *file, int line, const char *function, const char *expression);
