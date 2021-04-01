@@ -5,6 +5,7 @@
  */
 
 #include <zephyr.h>
+#include <logging/log.h>
 #include "string.h"
 #include "esp_wifi_system.h"
 #include "soc/efuse_reg.h"
@@ -50,6 +51,12 @@ esp_err_t esp_read_mac(uint8_t *mac, esp_mac_type_t type)
 			memcpy(mac, efuse_mac, 6);
 			mac[5] += 1;
 		}
+		break;
+	case ESP_MAC_BT:
+#if CONFIG_ESP_MAC_ADDR_UNIVERSE_BT
+		memcpy(mac, efuse_mac, 6);
+		mac[5] += CONFIG_ESP_MAC_ADDR_UNIVERSE_BT_OFFSET;
+#endif
 		break;
 	default:
 		ESP_LOGW(TAG, "incorrect mac type");
