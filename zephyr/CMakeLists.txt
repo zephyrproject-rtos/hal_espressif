@@ -82,6 +82,7 @@ if(CONFIG_SOC_ESP32)
     ../components/driver/periph_ctrl.c
     ../components/log/log_noos.c
     ../components/log/log.c
+    adapter/src/common/dport_access.c
     adapter/src/stubs.c
     )
 
@@ -150,8 +151,8 @@ if(CONFIG_SOC_ESP32)
     zephyr_sources(
       ../components/esp_wifi/src/phy_init.c
       adapter/src/wifi/esp_event.c
-      adapter/src/wifi/esp_system_api.c
       adapter/src/wifi/esp_wifi_adapter.c
+      adapter/src/common/esp_system_api.c
       ${WPA_SUPPLICANT_SRCS}
       )
 
