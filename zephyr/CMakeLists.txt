@@ -45,10 +45,9 @@ if(CONFIG_SOC_ESP32)
     ../components/bootloader_support/include
     )
 
-  zephyr_link_libraries(
-    hal
-    -L${CMAKE_CURRENT_SOURCE_DIR}/../components/xtensa/esp32
-    )
+    zephyr_library_sources(
+      adapter/src/hal/windowspill_asm.S
+      )
 
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
