@@ -61,6 +61,13 @@ if(CONFIG_SOC_ESP32)
       adapter/src/hal/windowspill_asm.S
       )
 
+  zephyr_link_libraries_ifdef(
+    CONFIG_HEAP_MEM_POOL_SIZE
+    gcc
+    "-Wl,--wrap=k_calloc"
+    "-Wl,--wrap=k_aligned_alloc"
+    )
+
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
     ../components/spi_flash/flash_mmap.c
@@ -99,6 +106,7 @@ if(CONFIG_SOC_ESP32)
     ../components/log/log.c
     adapter/src/common/dport_access.c
     adapter/src/stubs.c
+    adapter/src/heap_caps.c
     )
 
   ## shared WIFI/BT resources
