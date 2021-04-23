@@ -52,6 +52,17 @@ if(CONFIG_SOC_ESP32)
     ../components/newlib/priv_include
     )
 
+    zephyr_link_libraries(
+      gcc
+        -T${CMAKE_CURRENT_SOURCE_DIR}/adapter/src/linker/esp32.rom.alias.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.api.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.newlib-funcs.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32/ld/esp32.peripherals.ld
+      )
+
     zephyr_library_sources(
       adapter/src/hal/windowspill_asm.S
       )
