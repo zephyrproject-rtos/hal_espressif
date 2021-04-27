@@ -146,7 +146,7 @@ bool xt_int_has_handler(int intr, int cpu);
 static inline uint32_t xt_int_disable_mask(uint32_t newmask)
 {
     uint32_t oldint;
-    asm volatile (
+    __asm__ volatile (
         "movi %0,0\n"
         "xsr %0,INTENABLE\n"    //disable all ints first
         "rsync\n"
@@ -167,7 +167,7 @@ static inline uint32_t xt_int_disable_mask(uint32_t newmask)
 */
 static inline void xt_int_enable_mask(uint32_t newmask)
 {
-    asm volatile (
+    __asm__ volatile (
         "movi a3,0\n"
         "xsr a3,INTENABLE\n"
         "rsync\n"
