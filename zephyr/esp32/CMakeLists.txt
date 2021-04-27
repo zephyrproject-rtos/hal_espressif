@@ -113,6 +113,8 @@ if(CONFIG_SOC_ESP32)
     ../../components/driver/periph_ctrl.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
+    ../../components/hal/interrupt_controller_hal.c
+    ../../components/hal/esp32/interrupt_descriptor_table.c
     src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
