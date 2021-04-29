@@ -46,8 +46,7 @@ def _update_environment(args):
         os.environ[name] = value
 
     if args.env_file is not None:
-        env = json.load(args.env_file)
-        os.environ.update(confgen.dict_enc_for_env(env))
+        os.environ.update(json.load(args.env_file))
 
 
 def main():

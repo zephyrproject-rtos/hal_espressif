@@ -68,8 +68,7 @@ def main():
         os.environ[name] = value
 
     if args.env_file is not None:
-        env = json.load(args.env_file)
-        os.environ.update(confgen.dict_enc_for_env(env))
+        os.environ.update(json.load(args.env_file))
 
     run_server(args.kconfig, args.config, args.sdkconfig_rename)
 
