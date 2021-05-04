@@ -2,7 +2,7 @@
 
 if(CONFIG_SOC_ESP32C3)
   zephyr_include_directories(
-    adapter/include
+    include
 
     ../../components/esp_common/include
     ../../components/esp_rom/include/esp32c3
