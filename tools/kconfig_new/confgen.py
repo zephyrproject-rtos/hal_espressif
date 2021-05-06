@@ -30,9 +30,14 @@ import re
 import sys
 import tempfile
 
+if 'ZEPHYR_BASE' not in os.environ:
+    raise RuntimeError('Could not find ZEPHYR_BASE environment path')
+
+# use zephyr kconfiglib
+sys.path.insert(0, os.path.join(os.environ['ZEPHYR_BASE'], "scripts", "kconfig"))
+
 import gen_kconfig_doc
 import kconfiglib
-from future.utils import iteritems
 
 __version__ = '0.1'
 
@@ -183,21 +188,6 @@ class DeprecatedOptions(object):
                         f_o.write('#define {}{} {}{}\n'.format(self.config_prefix, dep_opt, self.config_prefix, new_opt))
 
 
-def dict_enc_for_env(dic, encoding=sys.getfilesystemencoding() or 'utf-8'):
-    """
-    This function can be deleted after dropping support for Python 2.
-    There is no rule for it that environment variables cannot be Unicode but usually people try to avoid it.
-    The upstream kconfiglib cannot detect strings properly if the environment variables are "unicode". This is problem
-    only in Python 2.
-    """
-    if sys.version_info[0] >= 3:
-        return dic
-    ret = dict()
-    for (key, value) in iteritems(dic):
-        ret[key.encode(encoding)] = value.encode(encoding)
-    return ret
-
-
 def main():
     parser = argparse.ArgumentParser(description='confgen.py v%s - Config Generation Tool' % __version__, prog=os.path.basename(sys.argv[0]))
 
@@ -254,8 +244,7 @@ def main():
         os.environ[name] = value
 
     if args.env_file is not None:
-        env = json.load(args.env_file)
-        os.environ.update(dict_enc_for_env(env))
+        os.environ.update(json.load(args.env_file))
 
     config = kconfiglib.Kconfig(args.kconfig)
     config.warn_assign_redun = False
