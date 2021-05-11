@@ -53,7 +53,6 @@ if(CONFIG_SOC_ESP32)
         -T${CMAKE_CURRENT_SOURCE_DIR}/adapter/src/linker/esp32.rom.alias.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.newlib-funcs.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32/ld/esp32.peripherals.ld
       )
 
