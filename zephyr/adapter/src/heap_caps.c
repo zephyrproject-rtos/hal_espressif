@@ -12,7 +12,7 @@
 
 #if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-void *__real_k_aligned_alloc(size_t align, size_t size);
+void *__real_k_malloc(size_t size);
 void *__real_k_calloc(size_t nmemb, size_t size);
 #endif
 
@@ -91,7 +91,7 @@ static void *z_esp_alloc_internal(size_t align, size_t size)
 {
     void *ptr = NULL;
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-    ptr = __real_k_aligned_alloc(align, size);
+    ptr = __real_k_malloc(size);
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
     if (ptr == NULL) {
@@ -116,27 +116,27 @@ static void *z_esp_calloc_internal(size_t nmemb, size_t size)
 }
 
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-void *__wrap_k_aligned_alloc(size_t align, size_t size)
+void *__wrap_k_malloc(size_t size)
 #else
-void *k_aligned_alloc(size_t align, size_t size)
+void *k_malloc(size_t size)
 #endif
 {
     void *ptr = NULL;
 #if defined(CONFIG_ESP_SPIRAM)
     if (size < CONFIG_ESP_HEAP_MIN_EXTRAM_THRESHOLD) {
 #endif
-       ptr = z_esp_alloc_internal(align, size);
+       ptr = z_esp_alloc_internal(sizeof(void *), size);
 #if defined(CONFIG_ESP_HEAP_SEARCH_ALL_REGIONS)
         if (ptr == NULL) {
-            ptr = z_esp_aligned_alloc(&_spiram_heap, align, size);
+            ptr = z_esp_aligned_alloc(&_spiram_heap, sizeof(void *), size);
         }
 #endif
 #if defined(CONFIG_ESP_SPIRAM)
     } else {
-        ptr = z_esp_aligned_alloc(&_spiram_heap, align, size);
+        ptr = z_esp_aligned_alloc(&_spiram_heap, sizeof(void *), size);
 #if defined(CONFIG_ESP_HEAP_SEARCH_ALL_REGIONS)
         if (ptr == NULL) {
-            ptr = z_esp_alloc_internal(align, size);
+            ptr = z_esp_alloc_internal(sizeof(void *), size);
         }
 #endif
     }
