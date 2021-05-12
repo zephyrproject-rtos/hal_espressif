@@ -73,7 +73,7 @@ if(CONFIG_SOC_ESP32)
     CONFIG_HEAP_MEM_POOL_SIZE
     gcc
     "-Wl,--wrap=k_calloc"
-    "-Wl,--wrap=k_aligned_alloc"
+    "-Wl,--wrap=k_malloc"
     )
 
   zephyr_sources_ifdef(
