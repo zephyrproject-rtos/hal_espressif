@@ -69,6 +69,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
     }
 
 #ifndef CONFIG_IDF_ENV_FPGA
+#ifndef CONFIG_IDF_TARGET_ESP32C3
     uint8_t revision = bootloader_common_get_chip_revision();
     if (revision < img_hdr->min_chip_rev) {
         /* To fix this error, please update mininum supported chip revision from configuration,
@@ -80,6 +81,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
         ESP_LOGI(TAG, "chip revision: %d, min. %s chip revision: %d", revision, type == ESP_IMAGE_BOOTLOADER ? "bootloader" : "application", img_hdr->min_chip_rev);
 #endif
     }
+#endif
 #endif // CONFIG_IDF_ENV_FPGA
 
     return err;
