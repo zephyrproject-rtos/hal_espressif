@@ -76,6 +76,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
         err = ESP_FAIL;
     }
     uint8_t revision = bootloader_common_get_chip_revision();
+#ifndef CONFIG_IDF_TARGET_ESP32C3
     if (revision < img_hdr->min_chip_rev) {
         /* To fix this error, please update mininum supported chip revision from configuration,
          * located in TARGET (e.g. ESP32) specific options under "Component config" menu */
@@ -86,6 +87,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
         ESP_LOGI(TAG, "chip revision: %d, min. %s chip revision: %d", revision, type == ESP_IMAGE_BOOTLOADER ? "bootloader" : "application", img_hdr->min_chip_rev);
 #endif
     }
+#endif
     return err;
 }
 
