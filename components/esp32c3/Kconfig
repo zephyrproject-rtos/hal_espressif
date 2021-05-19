@@ -25,7 +25,7 @@ menu "ESP32C3-Specific"
 
     choice ESP32C3_REV_MIN
         prompt "Minimum Supported ESP32-C3 Revision"
-        default ESP32C3_REV_MIN_3
+        default ESP32C3_REV_MIN_2
         help
             Minimum revision that ESP-IDF would support.
 
