@@ -227,7 +227,6 @@ if(CONFIG_SOC_ESP32)
                         )
 
     zephyr_sources(
-      adapter/src/wifi/esp_event.c
       adapter/src/wifi/esp_wifi_adapter.c
       ${WPA_SUPPLICANT_SRCS}
       )
