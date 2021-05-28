@@ -27,6 +27,7 @@ if(CONFIG_SOC_ESP32)
     ../../components/soc/soc/include
     ../../components/soc/soc/esp32/include
     ../../components/soc/soc/esp32/private_include
+    ../../components/soc/include/soc
     ../../components/soc/include
     ../../components/soc/src/esp32/include
     ../../components/driver/include
@@ -51,16 +52,17 @@ if(CONFIG_SOC_ESP32)
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     ../../components/newlib/priv_include
+    ../../components/bootloader_support/include_bootloader
     )
 
     zephyr_link_libraries(
       gcc
         -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32.rom.alias.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.api.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32/ld/esp32.peripherals.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.api.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32/ld/esp32.peripherals.ld
       )
 
     zephyr_library_sources(
@@ -76,30 +78,30 @@ if(CONFIG_SOC_ESP32)
 
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
-    ../components/spi_flash/flash_mmap.c
-    ../components/spi_flash/esp32/spi_flash_rom_patch.c
-    ../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/flash_mmap.c
+    ../../components/spi_flash/esp32/spi_flash_rom_patch.c
+    ../../components/spi_flash/flash_ops.c
     )
 
-  zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../components/hal/timer_hal.c)
+  zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
-    ../components/hal/spi_hal.c
-    ../components/hal/spi_hal_iram.c
-    ../components/soc/lldesc.c
-    ../components/soc/esp32/spi_periph.c
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/soc/esp32/spi_periph.c
     )
 
   zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
-    ../components/spi_flash/flash_ops.c
-    ../components/esp32/spiram.c
-    ../components/esp32/spiram_psram.c
-    ../components/esp_hw_support/port/esp32/rtc_init.c
-    ../components/soc/esp32/gpio_periph.c
-    ../components/esp32/cache_sram_mmu.c
-    ../components/bootloader_support/src/bootloader_common.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/esp32/spiram.c
+    ../../components/esp32/spiram_psram.c
+    ../../components/esp_hw_support/port/esp32/rtc_init.c
+    ../../components/soc/esp32/gpio_periph.c
+    ../../components/esp32/cache_sram_mmu.c
+    ../../components/bootloader_support/src/bootloader_common.c
     )
 
   zephyr_sources(
@@ -115,12 +117,12 @@ if(CONFIG_SOC_ESP32)
     src/common/dport_access.c
     src/stubs.c
     src/heap_caps.c
-	)
+    )
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
-    zephyr_sources(
-      ../components/esp_wifi/src/phy_init.c
+    zephyr_sources( 
+      ../../components/esp_wifi/src/phy_init.c
       )
 
     zephyr_link_libraries(
@@ -132,8 +134,8 @@ if(CONFIG_SOC_ESP32)
       rtc
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp32
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_wifi/lib/esp32
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32
         -Wl,--defsym,phy_printf=printf
         -Wl,--defsym,net80211_printf=printf
         -Wl,--defsym,coexist_printf=printf
@@ -154,9 +156,9 @@ if(CONFIG_SOC_ESP32)
     zephyr_link_libraries(
       ## ble
       btdm_app
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/bt/controller/lib_esp32/esp32
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/bt/controller/lib_esp32/esp32
       coexist
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../components/esp_wifi/lib/esp32
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32
 
       )
 
@@ -226,9 +228,6 @@ if(CONFIG_SOC_ESP32)
                         )
 
     zephyr_sources(
-      ../../components/esp_wifi/src/phy_init.c
-      src/wifi/esp_event.c
-      src/wifi/esp_system_api.c
       src/wifi/esp_wifi_adapter.c
       ${WPA_SUPPLICANT_SRCS}
       )

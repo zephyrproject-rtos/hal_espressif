@@ -30,6 +30,15 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/bootloader_support/include
     )
 
+  zephyr_link_libraries(
+    gcc
+    -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32c3.rom.alias.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.api.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.libgcc.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32c3/ld/esp32c3.peripherals.ld
+    )
+
   zephyr_compile_definitions(
     __ets__
     ESP_PLATFORM
@@ -39,4 +48,5 @@ if(CONFIG_SOC_ESP32C3)
   zephyr_sources(
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     )
+
 endif()
