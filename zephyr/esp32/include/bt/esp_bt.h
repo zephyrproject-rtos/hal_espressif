@@ -16,6 +16,34 @@
 extern "C" {
 #endif
 
+#define SOC_MEM_BT_DATA_START               0x3ffae6e0
+#define SOC_MEM_BT_DATA_END                 0x3ffaff10
+#define SOC_MEM_BT_EM_START                 0x3ffb0000
+#define SOC_MEM_BT_EM_END                   0x3ffb7cd8
+#define SOC_MEM_BT_EM_BTDM0_START           0x3ffb0000
+#define SOC_MEM_BT_EM_BTDM0_END             0x3ffb09a8
+#define SOC_MEM_BT_EM_BLE_START             0x3ffb09a8
+#define SOC_MEM_BT_EM_BLE_END               0x3ffb1ddc
+#define SOC_MEM_BT_EM_BTDM1_START           0x3ffb1ddc
+#define SOC_MEM_BT_EM_BTDM1_END             0x3ffb2730
+#define SOC_MEM_BT_EM_BREDR_START           0x3ffb2730
+#define SOC_MEM_BT_EM_BREDR_NO_SYNC_END     0x3ffb6388  //Not calculate with synchronize connection support
+#define SOC_MEM_BT_EM_BREDR_END             0x3ffb7cd8  //Calculate with synchronize connection support
+#define SOC_MEM_BT_EM_SYNC0_START           0x3ffb6388
+#define SOC_MEM_BT_EM_SYNC0_END             0x3ffb6bf8
+#define SOC_MEM_BT_EM_SYNC1_START           0x3ffb6bf8
+#define SOC_MEM_BT_EM_SYNC1_END             0x3ffb7468
+#define SOC_MEM_BT_EM_SYNC2_START           0x3ffb7468
+#define SOC_MEM_BT_EM_SYNC2_END             0x3ffb7cd8
+#define SOC_MEM_BT_BSS_START                0x3ffb8000
+#define SOC_MEM_BT_BSS_END                  0x3ffb9a20
+#define SOC_MEM_BT_MISC_START               0x3ffbdb28
+#define SOC_MEM_BT_MISC_END                 0x3ffbdb5c
+
+#define SOC_MEM_BT_EM_PER_SYNC_SIZE         0x870
+
+#define SOC_MEM_BT_EM_BREDR_REAL_END        (SOC_MEM_BT_EM_BREDR_NO_SYNC_END + CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF * SOC_MEM_BT_EM_PER_SYNC_SIZE)
+
 #define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20200622
 
 /**
@@ -48,18 +76,6 @@ the adv packet will be discarded until the memory is restored. */
 #define SCAN_SEND_ADV_RESERVED_SIZE        1000
 /* enable controller log debug when adv lost */
 #define CONTROLLER_ADV_LOST_DEBUG_BIT      (0<<0)
-
-#ifdef CONFIG_BT_HCI_UART_NO
-#define BT_HCI_UART_NO_DEFAULT                      CONFIG_BT_HCI_UART_NO
-#else
-#define BT_HCI_UART_NO_DEFAULT                      1
-#endif /* BT_HCI_UART_NO_DEFAULT */
-
-#ifdef CONFIG_BT_HCI_UART_BAUDRATE
-#define BT_HCI_UART_BAUDRATE_DEFAULT                CONFIG_BT_HCI_UART_BAUDRATE
-#else
-#define BT_HCI_UART_BAUDRATE_DEFAULT                921600
-#endif /* BT_HCI_UART_BAUDRATE_DEFAULT */
 
 #ifdef CONFIG_BTDM_SCAN_DUPL_TYPE
 #define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BTDM_SCAN_DUPL_TYPE
@@ -131,7 +147,7 @@ the adv packet will be discarded until the memory is restored. */
 #define ESP_TASK_BT_CONTROLLER_PRIO 1
 
 /* BT library heap usage from BT memory map documentation */
-#define ESP_BT_HEAP_SIZE 16384
+#define ESP_BT_HEAP_SIZE 20*1024
 
 /* SMP is not supported yet */
 #define CONFIG_BTDM_CTRL_PINNED_TO_CORE 0
@@ -155,8 +171,8 @@ the adv packet will be discarded until the memory is restored. */
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                              \
     .controller_task_stack_size = ESP_TASK_BT_CONTROLLER_STACK,            \
     .controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                   \
-    .hci_uart_no = BT_HCI_UART_NO_DEFAULT,                                 \
-    .hci_uart_baudrate = BT_HCI_UART_BAUDRATE_DEFAULT,                     \
+    .hci_uart_no = 0,                                                      \
+    .hci_uart_baudrate = 0,                                                \
     .scan_duplicate_mode = SCAN_DUPLICATE_MODE,                            \
     .scan_duplicate_type = SCAN_DUPLICATE_TYPE_VALUE,                      \
     .normal_adv_size = NORMAL_SCAN_DUPLICATE_CACHE_SIZE,                   \
@@ -510,6 +526,17 @@ esp_err_t esp_bt_sleep_disable(void);
  *                  - other  : failed
  */
 esp_err_t esp_ble_scan_dupilcate_list_flush(void);
+
+/**
+ * @brief bt Wi-Fi power domain power on
+ */
+void esp_wifi_bt_power_domain_on(void);
+
+/**
+ * @brief bt Wi-Fi power domain power off
+ */
+void esp_wifi_bt_power_domain_off(void);
+
 
 #ifdef __cplusplus
 }

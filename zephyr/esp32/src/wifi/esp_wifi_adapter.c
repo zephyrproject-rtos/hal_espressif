@@ -888,6 +888,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 
 esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 {
+	esp_wifi_power_domain_on();
+
 #if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
 	coex_init();
 #endif

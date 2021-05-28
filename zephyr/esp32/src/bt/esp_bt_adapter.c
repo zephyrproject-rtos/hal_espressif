@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2021 Espressif Systems (Shanghai) Co., Ltd.
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr.h>
-#include <sys/printk.h>
-#include <random/rand32.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/random/rand32.h>
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_bt_adapter, LOG_LEVEL_DBG);
 
 #include "sdkconfig.h"
@@ -60,7 +60,7 @@ LOG_MODULE_REGISTER(esp32_bt_adapter, LOG_LEVEL_DBG);
 #define BTDM_MODEM_WAKE_UP_DELAY         (4)
 
 #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
-#define OSI_VERSION              0x00010002
+#define OSI_VERSION              0x00010003
 #define OSI_MAGIC_VALUE          0xFADEBEAD
 
 /* VHCI function interface */
@@ -143,6 +143,10 @@ struct osi_funcs_t {
 	void *(* _coex_schm_curr_phase_get)(void);
 	int (* _coex_wifi_channel_get)(uint8_t *primary, uint8_t *secondary);
 	int (* _coex_register_wifi_channel_change_callback)(void *cb);
+	void (*_set_isr_l3)(int n, void *f, void *arg);
+	void (*_interrupt_l3_disable)(void);
+	void (*_interrupt_l3_restore)(void);
+	void *(* _customer_queue_create)(uint32_t queue_len, uint32_t item_size);
 	uint32_t _magic;
 };
 
@@ -195,14 +199,14 @@ extern void * coex_schm_curr_phase_get(void);
 extern int coex_wifi_channel_get(uint8_t *primary, uint8_t *secondary);
 extern int coex_register_wifi_channel_change_callback(void *cb);
 extern void coex_ble_adv_priority_high_set(bool high);
+/* Shutdown */
+extern void esp_bt_controller_shutdown(void);
 
-extern char _data_start_btdm;
-extern char _data_end_btdm;
+extern char _data_start_btdm[];
+extern char _data_end_btdm[];
 extern uint32_t _data_start_btdm_rom;
 extern uint32_t _data_end_btdm_rom;
 
-static void IRAM_ATTR interrupt_disable(void);
-static void IRAM_ATTR interrupt_restore(void);
 static void IRAM_ATTR task_yield_from_isr(void);
 static void *semphr_create_wrapper(uint32_t max, uint32_t init);
 static void semphr_delete_wrapper(void *semphr);
@@ -251,6 +255,8 @@ static int coex_register_wifi_channel_change_callback_wrapper(void *cb);
 static void set_isr_wrapper(int32_t n, void *f, void *arg);
 static void intr_on(unsigned int mask);
 static void esp_bt_free(void *mem);
+static void IRAM_ATTR interrupt_l3_disable(void);
+static void IRAM_ATTR interrupt_l3_restore(void);
 
 /* Local variable definition
  ***************************************************************************
@@ -260,8 +266,8 @@ static const struct osi_funcs_t osi_funcs_ro = {
 	._version = OSI_VERSION,
 	._set_isr = set_isr_wrapper,
 	._ints_on = intr_on,
-	._interrupt_disable = interrupt_disable,
-	._interrupt_restore = interrupt_restore,
+	._interrupt_disable = interrupt_l3_disable,
+	._interrupt_restore = interrupt_l3_restore,
 	._task_yield = task_yield_from_isr,
 	._task_yield_from_isr = task_yield_from_isr,
 	._semphr_create = semphr_create_wrapper,
@@ -313,6 +319,10 @@ static const struct osi_funcs_t osi_funcs_ro = {
 	._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
 	._coex_wifi_channel_get = coex_wifi_channel_get_wrapper,
 	._coex_register_wifi_channel_change_callback = coex_register_wifi_channel_change_callback_wrapper,
+	._set_isr_l3 = set_isr_wrapper,
+	._interrupt_l3_disable = interrupt_l3_disable,
+	._interrupt_l3_restore = interrupt_l3_restore,
+	._customer_queue_create = NULL,
 	._magic = OSI_MAGIC_VALUE,
 };
 
@@ -338,6 +348,7 @@ static DRAM_ATTR int64_t s_time_phy_rf_just_enabled = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
 static unsigned int global_int_lock;
+static unsigned int global_nested_counter = 0;
 
 /* BT library uses a single task */
 K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
@@ -356,6 +367,40 @@ static DRAM_ATTR uint8_t btdm_lpclk_sel;
 #endif /* #ifdef CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG */
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
+
+static inline void esp_bt_power_domain_on(void)
+{
+	/* Bluetooth module power up */
+	esp_wifi_bt_power_domain_on();
+}
+
+static inline void esp_bt_power_domain_off(void)
+{
+	/* Bluetooth module power down */
+	esp_wifi_bt_power_domain_off();
+}
+
+static void IRAM_ATTR interrupt_l3_disable(void)
+{
+	if (global_nested_counter == 0) {
+		global_int_lock = irq_lock();
+	}
+	
+	if (global_nested_counter < 0xFFFFFFFF) {
+		global_nested_counter++;
+	}
+}
+
+static void IRAM_ATTR interrupt_l3_restore(void)
+{
+	if (global_nested_counter > 0) {
+		global_nested_counter--;
+	}
+
+	if (global_nested_counter == 0) {
+		irq_unlock(global_int_lock);
+	}
+}
 
 static inline void btdm_check_and_init_bb(void)
 {
@@ -385,16 +430,6 @@ static void intr_on(unsigned int mask)
 	}
 
 	irq_enable(pos);
-}
-
-static void IRAM_ATTR interrupt_disable(void)
-{	
-	global_int_lock = irq_lock();
-}
-
-static void IRAM_ATTR interrupt_restore(void)
-{
-	irq_unlock(global_int_lock);
 }
 
 static void IRAM_ATTR task_yield_from_isr(void)
@@ -920,9 +955,6 @@ static uint32_t btdm_config_mask_load(void)
 {
 	uint32_t mask = 0x0;
 
-#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4
-	mask |= BTDM_CFG_HCI_UART;
-#endif
 #if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
 	mask |= BTDM_CFG_CONTROLLER_RUN_APP_CPU;
 #endif
@@ -939,7 +971,7 @@ static uint32_t btdm_config_mask_load(void)
 static void btdm_controller_mem_init(void)
 {
 	/* initialise .data section */
-	memcpy(&_data_start_btdm, (void *)_data_start_btdm_rom, &_data_end_btdm - &_data_start_btdm);
+	memcpy(_data_start_btdm, (void *)_data_start_btdm_rom, _data_end_btdm - _data_start_btdm);
 	LOG_DBG(".data initialise [0x%08x] <== [0x%08x]", (uint32_t)&_data_start_btdm, (uint32_t)_data_start_btdm_rom);
 
 	/* initial em, .bss section */
@@ -997,6 +1029,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 		err = ESP_ERR_NO_MEM;
 		goto error;
 	}
+
+	esp_bt_power_domain_on();
 
 	btdm_controller_mem_init();
 
@@ -1057,12 +1091,6 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 		goto error;
 	}
 
-#ifdef CONFIG_BTDM_COEX_BLE_ADV_HIGH_PRIORITY
-	coex_ble_adv_priority_high_set(true);
-#else
-	coex_ble_adv_priority_high_set(false);
-#endif
-
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
 
 	return ESP_OK;
@@ -1096,18 +1124,15 @@ esp_err_t esp_bt_controller_deinit(void)
 	btdm_lpcycle_us = 0;
 	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
 
+	esp_bt_power_domain_off();
+
 	return ESP_OK;
 }
 
 static void bt_shutdown(void)
 {
-	esp_err_t ret = ESP_OK;
-	LOG_DBG("stop Bluetooth");
-
-	ret = esp_bt_controller_disable();
-	if (ESP_OK != ret) {
-		LOG_WRN("controller disable ret=%d", ret);
-	}
+	esp_bt_controller_shutdown();
+	esp_phy_disable();
 	return;
 }
 
