@@ -1,2 +1,3 @@
 # SPDX-License-Identifier: Apache-2.0
-add_subdirectory(${CONFIG_SOC})
+add_subdirectory_ifdef(CONFIG_SOC_ESP32 esp32)
+add_subdirectory_ifdef(CONFIG_SOC_ESP32C3 esp32c3)
