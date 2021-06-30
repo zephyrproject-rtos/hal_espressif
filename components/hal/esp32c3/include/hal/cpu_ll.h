@@ -63,7 +63,7 @@ static inline void IRAM_ATTR cpu_ll_set_cycle_count(uint32_t val)
 static inline void* cpu_ll_get_sp(void)
 {
     void *sp;
-    asm volatile ("mv %0, sp;" : "=r" (sp));
+    __asm volatile ("mv %0, sp;" : "=r" (sp));
     return sp;
 }
 
@@ -140,7 +140,7 @@ FORCE_INLINE_ATTR bool cpu_ll_is_debugger_attached(void)
 
 static inline void cpu_ll_break(void)
 {
-    asm volatile("ebreak\n");
+    __asm volatile("ebreak\n");
     return;
 }
 
@@ -153,7 +153,7 @@ static inline void cpu_ll_set_vecbase(const void* vecbase)
 
 static inline void cpu_ll_waiti(void)
 {
-    asm volatile ("wfi\n");
+    __asm volatile ("wfi\n");
 }
 
 #ifdef __cplusplus
