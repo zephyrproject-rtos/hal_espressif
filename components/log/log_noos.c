@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifdef __ZEPHYR__
-#include <zephyr.h>
-#endif
 #include <assert.h>
 #include "esp_log_private.h"
 #include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
+
+#ifdef __ZEPHYR__
+#include <zephyr.h>
+#endif
 
 static int s_lock = 0;
 

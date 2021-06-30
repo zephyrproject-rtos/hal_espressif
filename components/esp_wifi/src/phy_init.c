@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <zephyr.h>
-#include <logging/log.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <sys/lock.h>
-
 #include "soc/rtc.h"
+
+#if CONFIG_IDF_TARGET_ESP32
 #include "soc/dport_reg.h"
+#endif
+
 #include "esp_err.h"
 #include "esp_phy_init.h"
 #include "esp_system.h"
@@ -50,12 +46,21 @@
 #include "esp32s2/rom/ets_sys.h"
 #include "esp32s2/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32C3
+#include "soc/soc_caps.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/syscon_reg.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "soc/rtc_cntl_reg.h"
 #include "soc/syscon_reg.h"
 #endif
+
+#include <zephyr.h>
+#include <logging/log.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <sys/lock.h>
 
 #if CONFIG_IDF_TARGET_ESP32
 /* Callback function to update WiFi MAC time */

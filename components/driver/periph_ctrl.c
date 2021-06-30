@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <zephyr.h>
 #include "freertos/FreeRTOS.h"
 #include "hal/clk_gate_ll.h"
 #include "esp_attr.h"
 #include "driver/periph_ctrl.h"
+#include <zephyr.h>
 
 static unsigned int periph_spinlock;
 
