@@ -10,6 +10,12 @@
 	path = components/esp_wifi/lib
 	url = https://github.com/espressif/esp32-wifi-lib.git
 
+[submodule "components/bt/controller/lib_esp32"]
+	path = components/bt/controller/lib_esp32
+	url = https://github.com/espressif/esp32-bt-lib.git
 [submodule "components/esp_phy/lib"]
 	path = components/esp_phy/lib
 	url = https://github.com/espressif/esp-phy-lib.git
+[submodule "components/bt/controller/esp32c3-bt-lib"]
+	path = components/bt/controller/esp32c3-bt-lib
+	url = https://github.com/espressif/esp32c3-bt-lib

@@ -357,10 +357,10 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config)
 
 void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 {
-    rtc_cpu_freq_src_t source;
-    uint32_t source_freq_mhz;
-    uint32_t div;
-    uint32_t freq_mhz;
+    rtc_cpu_freq_src_t source = 0;
+    uint32_t source_freq_mhz = 0;
+    uint32_t div = 0;
+    uint32_t freq_mhz = 0;
     uint32_t soc_clk_sel = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_SOC_CLK_SEL);
     switch (soc_clk_sel) {
     case DPORT_SOC_CLK_SEL_XTAL: {

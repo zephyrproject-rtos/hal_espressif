@@ -3,10 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <zephyr.h>
 #include "hal/clk_gate_ll.h"
 #include "esp_attr.h"
 #include "driver/periph_ctrl.h"
+#include <zephyr.h>
 
 static unsigned int periph_spinlock;
 

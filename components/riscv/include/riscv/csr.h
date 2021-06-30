@@ -34,7 +34,11 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
+#ifndef __ZEPHYR__
 #include <sys/param.h>
+#endif
+
 #include "encoding.h"
 
 /********************************************************
