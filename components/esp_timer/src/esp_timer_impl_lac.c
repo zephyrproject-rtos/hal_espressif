@@ -14,7 +14,6 @@
 #include "esp_task.h"
 #include "esp_attr.h"
 #include "esp_log.h"
-#include "esp32/clk.h"
 #include "driver/periph_ctrl.h"
 #include "soc/soc.h"
 #include "soc/timer_group_reg.h"
@@ -24,6 +23,20 @@
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 #else
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32
+#include "esp32/rom/rtc.h"
+#include "esp32/clk.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/rtc.h"
+#include "esp32s2/clk.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/rom/rtc.h"
+#include "esp32s3/clk.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/rtc.h"
+#include "esp32c3/clk.h"
 #endif
 
 /**
@@ -260,7 +273,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     // Set the step for the sleep mode when the timer will work
     // from a slow_clk frequency instead of the APB frequency.
-    uint32_t slowclk_ticks_per_us = esp_clk_slowclk_cal_get() * TICKS_PER_US;
+    uint32_t slowclk_ticks_per_us = REG_READ(RTC_SLOW_CLK_CAL_REG) * TICKS_PER_US;
     REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
 
     return ESP_OK;
