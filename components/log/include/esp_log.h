@@ -144,11 +144,7 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
 #include "esp_log_internal.h"
 
 #ifndef LOG_LOCAL_LEVEL
-#ifndef BOOTLOADER_BUILD
-#define LOG_LOCAL_LEVEL  CONFIG_LOG_DEFAULT_LEVEL
-#else
 #define LOG_LOCAL_LEVEL  CONFIG_BOOTLOADER_LOG_LEVEL
-#endif
 #endif
 
 /** @endcond */
