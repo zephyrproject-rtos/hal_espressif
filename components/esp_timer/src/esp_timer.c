@@ -75,7 +75,7 @@ struct esp_timer {
     LIST_ENTRY(esp_timer) list_entry;
 };
 
-K_THREAD_STACK_DEFINE(timer_task_stack, 4096);
+K_KERNEL_STACK_MEMBER(timer_task_stack, 4096);
 static bool init_status = false;
 
 static bool is_initialized(void);
@@ -452,6 +452,8 @@ esp_err_t esp_timer_init(void)
     {
         goto out;
     }
+
+    k_thread_name_set(tid, "esp_timer");
 
     err = esp_timer_impl_init(&timer_alarm_handler);
     if (err != ESP_OK) {
