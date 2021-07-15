@@ -336,6 +336,8 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
 
+	k_thread_name_set(tid, name);
+
 	*(int32_t *)task_handle = (int32_t) tid;
 	return 1;
 }
@@ -345,6 +347,8 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 	k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
+
+	k_thread_name_set(tid, name);
 
 	*(int32_t *)task_handle = (int32_t) tid;
 	return 1;
