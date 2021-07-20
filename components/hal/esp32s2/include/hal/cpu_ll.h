@@ -48,7 +48,7 @@ static inline void IRAM_ATTR cpu_ll_set_cycle_count(uint32_t val)
 static inline void* cpu_ll_get_sp(void)
 {
     void *sp;
-    asm volatile ("mov %0, sp;" : "=r" (sp));
+    __asm volatile ("mov %0, sp;" : "=r" (sp));
     return sp;
 }
 
@@ -165,41 +165,41 @@ static inline bool cpu_ll_is_debugger_attached(void)
 
 static inline void cpu_ll_break(void)
 {
-    __asm__ ("break 0,0");
+    __asm ("break 0,0");
 }
 
 static inline void cpu_ll_set_vecbase(const void* vecbase)
 {
-    asm volatile ("wsr %0, vecbase" :: "r" (vecbase));
+    __asm volatile ("wsr %0, vecbase" :: "r" (vecbase));
 }
 
 static inline uint32_t cpu_ll_read_dedic_gpio_in(void)
 {
     uint32_t value = 0;
-    asm volatile("get_gpio_in %0" : "=r"(value) : :);
+    __asm volatile("get_gpio_in %0" : "=r"(value) : :);
     return value;
 }
 
 static inline uint32_t cpu_ll_read_dedic_gpio_out(void)
 {
     uint32_t value = 0;
-    asm volatile("rur.gpio_out %0" : "=r"(value) : :);
+    __asm volatile("rur.gpio_out %0" : "=r"(value) : :);
     return value;
 }
 
 static inline void cpu_ll_write_dedic_gpio_all(uint32_t value)
 {
-    asm volatile("wur.gpio_out %0"::"r"(value):);
+    __asm volatile("wur.gpio_out %0"::"r"(value):);
 }
 
 static inline void cpu_ll_write_dedic_gpio_mask(uint32_t mask, uint32_t value)
 {
-    asm volatile("wr_mask_gpio_out %0, %1" : : "r"(value), "r"(mask):);
+    __asm volatile("wr_mask_gpio_out %0, %1" : : "r"(value), "r"(mask):);
 }
 
 static inline void cpu_ll_waiti(void)
 {
-    asm volatile ("waiti 0\n");
+    __asm volatile ("waiti 0\n");
 }
 
 #ifdef __cplusplus
