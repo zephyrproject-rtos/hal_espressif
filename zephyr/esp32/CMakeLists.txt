@@ -4,6 +4,8 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
 
+  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
+
   zephyr_include_directories(
     include
     include/bt
@@ -45,23 +47,22 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/spi_flash/include
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
-    ../../components/newlib/priv_include
     ../../components/bootloader_support/include_bootloader
     )
 
-    zephyr_link_libraries(
-      gcc
-        -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32.rom.alias.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.api.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32/ld/esp32.peripherals.ld
-      )
+  zephyr_link_libraries(
+    gcc
+      -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32.rom.alias.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.api.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32/ld/esp32.peripherals.ld
+    )
 
-    zephyr_library_sources(
-      src/hal/windowspill_asm.S
-      )
+  zephyr_library_sources(
+    src/hal/windowspill_asm.S
+    )
 
   zephyr_link_libraries_ifdef(
     CONFIG_HEAP_MEM_POOL_SIZE
@@ -158,7 +159,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
         -Wl,--defsym,phy_printf=printf
         -Wl,--defsym,net80211_printf=printf
         -Wl,--defsym,coexist_printf=printf
-      )
+    )
 
   endif()
 
