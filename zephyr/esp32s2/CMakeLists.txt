@@ -4,6 +4,8 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_compile_options(-Wno-unused-variable)
 
+  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
+
   zephyr_include_directories(
     include
     include/crypto
