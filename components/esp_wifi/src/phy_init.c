@@ -84,6 +84,7 @@ static int64_t s_phy_rf_en_ts = 0;
 
 /* PHY spinlock for libphy.a */
 static DRAM_ATTR int s_phy_int_mux;
+static DRAM_ATTR int s_phy_lock_nest = 0;
 
 /* Memory to store PHY digital registers */
 static uint32_t *s_phy_digital_regs_mem = NULL;
@@ -157,15 +158,29 @@ static phy_country_to_bin_type_t s_country_code_map_type_table[] = {
 #endif
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-	s_phy_int_mux = irq_lock();
+	int key = irq_lock();
+	if(s_phy_lock_nest == 0) {
+		s_phy_int_mux = key;
+	}
+
+	if(s_phy_lock_nest < 0xFFFFFFFF) {
+		s_phy_lock_nest++; 
+	}
+
 	// Interrupt level will be stored in current tcb, so always return zero.
 	return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
-	// Param level don't need any more, ignore it.
-	irq_unlock(s_phy_int_mux);
+	if(s_phy_lock_nest > 0) {
+		s_phy_lock_nest--;
+	}
+
+	if(s_phy_lock_nest == 0) {
+		// Param level don't need any more, ignore it.
+		irq_unlock(s_phy_int_mux);
+	}
 }
 
 #if CONFIG_IDF_TARGET_ESP32
