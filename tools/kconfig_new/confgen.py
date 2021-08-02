@@ -30,14 +30,15 @@ import re
 import sys
 import tempfile
 
-import gen_kconfig_doc
-import kconfiglib
 
 if 'ZEPHYR_BASE' not in os.environ:
     raise RuntimeError('Could not find ZEPHYR_BASE environment path')
 
 # use zephyr kconfiglib
 sys.path.insert(0, os.path.join(os.environ['ZEPHYR_BASE'], "scripts", "kconfig"))
+
+import gen_kconfig_doc  # noqa: E402
+import kconfiglib  # noqa: E402
 
 __version__ = '0.1'
 
