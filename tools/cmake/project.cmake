@@ -274,8 +274,7 @@ macro(project project_name)
     # TEST_EXLUDE_COMPONENTS, TESTS_ALL, BUILD_TESTS
     __project_init(components test_components)
 
-    # Let toolchain be defined by Zephyr environment
-    # __target_set_toolchain()
+    __target_set_toolchain()
 
     if(CCACHE_ENABLE)
         find_program(CCACHE_FOUND ccache)
