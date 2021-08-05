@@ -3,8 +3,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#include <zephyr.h>
 #include <sys/param.h>
 #include <string.h>
 #include "soc/soc.h"
@@ -22,6 +20,8 @@
 #include "esp_timer_impl.h"
 #include "sdkconfig.h"
 
+#include <zephyr.h>
+
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
@@ -31,12 +31,16 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 
 #if CONFIG_IDF_TARGET_ESP32
+#include "esp32/rom/ets_sys.h"
 #include "esp32/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/rom/ets_sys.h"
 #include "esp32s2/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/rom/ets_sys.h"
 #include "esp32s3/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/ets_sys.h"
 #include "esp32c3/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32H2
 #include "esp32h2/rtc.h"
