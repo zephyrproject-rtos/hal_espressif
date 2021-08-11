@@ -6,11 +6,19 @@
 
 #include <assert.h>
 #include "esp_log_private.h"
-#include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
 
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+#include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
 #ifdef __ZEPHYR__
 #include <zephyr.h>
 #endif
+#else 
+#ifdef __ZEPHYR__
+#include <zephyr.h>
+#endif
+#include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
+#endif
+
 
 static int s_lock = 0;
 
