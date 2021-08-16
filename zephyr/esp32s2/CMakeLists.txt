@@ -28,6 +28,8 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
+    ../../components/hal/interrupt_controller_hal.c
+    ../../components/hal/esp32s2/interrupt_descriptor_table.c
     )
 
 endif()
