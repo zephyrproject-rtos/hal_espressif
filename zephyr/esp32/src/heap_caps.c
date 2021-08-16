@@ -18,7 +18,7 @@ void *__real_k_calloc(size_t nmemb, size_t size);
 
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
 char __aligned(sizeof(void *)) __NOINIT_ATTR dram0_seg_1_heap[CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE];
-Z_STRUCT_SECTION_ITERABLE(k_heap, _internal_heap_1) = {
+STRUCT_SECTION_ITERABLE(k_heap, _internal_heap_1) = {
     .heap = {
         .init_mem = dram0_seg_1_heap,
         .init_bytes = CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE,
@@ -28,7 +28,7 @@ Z_STRUCT_SECTION_ITERABLE(k_heap, _internal_heap_1) = {
 
 #if defined(CONFIG_ESP_SPIRAM)
 EXT_RAM_ATTR int _spiram_data_start;
-Z_STRUCT_SECTION_ITERABLE(k_heap, _spiram_heap) = {
+STRUCT_SECTION_ITERABLE(k_heap, _spiram_heap) = {
     .heap = {
         .init_mem = &_spiram_data_start,
 #if (CONFIG_ESP_SPIRAM_SIZE <= 0x400000)
