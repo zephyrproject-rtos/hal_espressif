@@ -26,4 +26,8 @@ if(CONFIG_SOC_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32s2/ld/esp32s2.peripherals.ld
       )
 
+  zephyr_sources(
+    ../../components/soc/esp32s2/gpio_periph.c
+    )
+
 endif()
