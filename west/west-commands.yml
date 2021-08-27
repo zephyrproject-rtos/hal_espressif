@@ -1,6 +1,6 @@
 west-commands:
-  - file: west/update.py
+  - file: west/tools.py
     commands:
       - name: espressif
-        class: UpdateTool
-        help: download toolchain or update ESP-IDF submodules
+        class: Tools
+        help: Espressif tools for west framework.
