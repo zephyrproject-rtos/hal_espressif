@@ -19,3 +19,4 @@ PROVIDE ( esp_rom_ets_set_user_start = ets_set_user_start );
 PROVIDE ( esp_rom_ets_printf = ets_printf );
 PROVIDE ( esp_rom_ets_delay_us = ets_delay_us );
 PROVIDE ( esp_rom_cache_set_idrom_mmu_size = Cache_Set_IDROM_MMU_Size );
+PROVIDE ( esp_rom_g_ticks_per_us_pro = g_ticks_per_us_pro );
