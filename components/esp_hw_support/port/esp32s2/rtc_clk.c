@@ -25,7 +25,11 @@
 #include "rtc_clk_common.h"
 #include "sdkconfig.h"
 
+#ifndef __ZEPHYR__
 static const char *TAG = "rtc_clk";
+#else
+extern void esp_rom_delay_us(uint32_t us);
+#endif
 
 #define RTC_PLL_FREQ_320M   320
 #define RTC_PLL_FREQ_480M   480
@@ -360,10 +364,10 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t* config)
 
 void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t* out_config)
 {
-    rtc_cpu_freq_src_t source;
-    uint32_t source_freq_mhz;
-    uint32_t div;
-    uint32_t freq_mhz;
+    rtc_cpu_freq_src_t source = 0;
+    uint32_t source_freq_mhz = 0;
+    uint32_t div = 0;
+    uint32_t freq_mhz = 0;
     uint32_t soc_clk_sel = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_SOC_CLK_SEL);
     switch (soc_clk_sel) {
         case DPORT_SOC_CLK_SEL_XTAL: {
