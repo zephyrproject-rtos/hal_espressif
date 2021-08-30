@@ -5,6 +5,8 @@ if(CONFIG_SOC_ESP32S2)
     include
     ../../components/hal/include
     ../../components/hal/esp32s2/include
+    ../../components/esp_hw_support/port/esp32s2
+    ../../components/esp_hw_support/port/esp32s2/private_include
     ../../components/esp_common/include
     ../../components/esp_rom/include
     ../../components/esp_rom/esp32s2/ld
@@ -14,6 +16,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/xtensa/include
     ../../components/xtensa/esp32s2/include
     ../../components/soc/include
+    ../../components/driver/include
     ../../components/esp_system/include
     ../../components/bootloader_support/include
     )
@@ -25,12 +28,15 @@ if(CONFIG_SOC_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.api.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.libgcc.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32s2/ld/esp32s2.peripherals.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld
       )
 
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
 
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
+    ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32s2/interrupt_descriptor_table.c
