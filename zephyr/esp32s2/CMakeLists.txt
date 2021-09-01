@@ -9,6 +9,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_rom/include
     ../../components/esp_rom/esp32s2/ld
     ../../components/esp32s2/include
+    ../../components/driver/include
     ../../components/soc/esp32s2/include
     ../../components/xtensa/include
     ../../components/xtensa/esp32s2/include
@@ -26,8 +27,11 @@ if(CONFIG_SOC_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32s2/ld/esp32s2.peripherals.ld
       )
 
+  zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
+
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
+    ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32s2/interrupt_descriptor_table.c
     )
