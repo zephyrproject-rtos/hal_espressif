@@ -11,7 +11,11 @@
 #include "esp_types.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+
+#ifdef CONFIG_SOC_ESP32
 #include "esp32/rom/ets_sys.h"
+#endif
+
 #include "esp_task.h"
 #include "esp_log.h"
 #include "esp_timer.h"

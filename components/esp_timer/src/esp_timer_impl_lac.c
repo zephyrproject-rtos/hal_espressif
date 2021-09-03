@@ -6,6 +6,11 @@
 
 #include <zephyr.h>
 #include <logging/log.h>
+
+#if defined(__ZEPHYR__)
+#include <stdlib.h>
+#endif
+
 #include "sys/param.h"
 #include "esp_timer_impl.h"
 #include "esp_timer.h"
