@@ -83,6 +83,15 @@
 #define DR_REG_APB_SARADC_BASE                  0x3f440000
 #define DR_REG_USB_BASE                         0x60080000
 
+/*
+ * This macro is defined under esp32's soc file. However, When building
+ * for Zephyr, other SoCs are not able to reach this definition.
+ * That's why it is also declared here.
+ */
+#ifndef DR_REG_DPORT_BASE
+#define DR_REG_DPORT_BASE                       0x3ff00000
+#endif
+
 #define REG_UHCI_BASE(i)         (DR_REG_UHCI0_BASE)
 #define REG_UART_BASE( i )  (DR_REG_UART_BASE + (i) * 0x10000 )
 #define REG_UART_AHB_BASE(i)  (0x60000000 + (i) * 0x10000 )
