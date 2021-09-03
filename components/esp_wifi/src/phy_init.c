@@ -43,6 +43,7 @@
 #include "esp32/rom/ets_sys.h"
 #include "esp32/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
+#include "soc/soc_caps.h"
 #include "esp32s2/rom/ets_sys.h"
 #include "esp32s2/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32C3
