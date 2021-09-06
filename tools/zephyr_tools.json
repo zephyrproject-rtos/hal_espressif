@@ -58,58 +58,58 @@
       },
       {
         "description": "Toolchain for Xtensa (ESP32-S2) based on GCC",
-	"export_paths": [
-        [
-          "xtensa-esp32s2-elf",
-          "bin"
-        ]
-      ],
-      "export_vars": {},
-      "info_url": "https://github.com/espressif/crosstool-NG",
-      "install": "always",
-      "license": "GPL-3.0-with-GCC-exception",
-      "name": "xtensa-esp32s2-elf",
-      "version_cmd": [
-        "xtensa-esp32s2-elf-gcc",
-        "--version"
-      ],
-      "version_regex": "\\(crosstool-NG\\s+(?:crosstool-ng-)?([0-9a-zA-Z\\.\\-]+)\\)\\s*([0-9\\.]+)",
-      "version_regex_replace": "\\1-\\2",
-      "versions": [
-        {
-          "linux-amd64": {
-            "sha256": "40fafa47045167feda0cd07827db5207ebfeb4a3b6b24475957a921bc92805ed",
-            "size": 86069526,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-amd64.tar.gz"
-          },
-          "linux-armel": {
-            "sha256": "6c1efec4c7829202279388ccb388e8a17a34464bc351d677c4f04d95ea4b4ce0",
-            "size": 84254468,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-armel.tar.gz"
-          },
-          "linux-i686": {
-            "sha256": "bd3a91166206a1a7ff7c572e15389e1938c3cdce588032a5e915be677a945638",
-            "size": 88053499,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-i686.tar.gz"
-          },
-          "macos": {
-            "sha256": "fe19b0c873879d8d89ec040f4db04a3ab27d769d3fd5f55fe59a28b6b111d09c",
-            "size": 92817351,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-macos.tar.gz"
-          },
-          "name": "esp-2020r3-8.4.0",
-          "status": "recommended",
-          "win32": {
-            "sha256": "d078d614ae864ae4a37fcb5b83323af0a5cfdbd8243607664becdd0f977a1e33",
-            "size": 104659541,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-win32.zip"
-          },
-          "win64": {
-            "sha256": "6ea78b72ec52330b69af91dbe6c77c22bdc827817f044aa30306270453032bb4",
-            "size": 107228353,
-            "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-win64.zip"
+        "export_paths": [
+          [
+            "xtensa-esp32s2-elf",
+            "bin"
+          ]
+        ],
+        "export_vars": {},
+        "info_url": "https://github.com/espressif/crosstool-NG",
+        "install": "always",
+        "license": "GPL-3.0-with-GCC-exception",
+        "name": "xtensa-esp32s2-elf",
+        "version_cmd": [
+          "xtensa-esp32s2-elf-gcc",
+          "--version"
+        ],
+        "version_regex": "\\(crosstool-NG\\s+(?:crosstool-ng-)?([0-9a-zA-Z\\.\\-]+)\\)\\s*([0-9\\.]+)",
+        "version_regex_replace": "\\1-\\2",
+        "versions": [
+          {
+            "linux-amd64": {
+              "sha256": "40fafa47045167feda0cd07827db5207ebfeb4a3b6b24475957a921bc92805ed",
+              "size": 86069526,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-amd64.tar.gz"
+            },
+            "linux-armel": {
+              "sha256": "6c1efec4c7829202279388ccb388e8a17a34464bc351d677c4f04d95ea4b4ce0",
+              "size": 84254468,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-armel.tar.gz"
+            },
+            "linux-i686": {
+              "sha256": "bd3a91166206a1a7ff7c572e15389e1938c3cdce588032a5e915be677a945638",
+              "size": 88053499,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-linux-i686.tar.gz"
+            },
+            "macos": {
+              "sha256": "fe19b0c873879d8d89ec040f4db04a3ab27d769d3fd5f55fe59a28b6b111d09c",
+              "size": 92817351,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-macos.tar.gz"
+            },
+            "name": "esp-2020r3-8.4.0",
+            "status": "recommended",
+            "win32": {
+              "sha256": "d078d614ae864ae4a37fcb5b83323af0a5cfdbd8243607664becdd0f977a1e33",
+              "size": 104659541,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-win32.zip"
+            },
+            "win64": {
+              "sha256": "6ea78b72ec52330b69af91dbe6c77c22bdc827817f044aa30306270453032bb4",
+              "size": 107228353,
+              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32s2-elf-gcc8_4_0-esp-2020r3-win64.zip"
+            }
           }
-         }
         ]
       },
       {
@@ -159,6 +159,66 @@
               "sha256": "51e392ed88498f3fc4ad07e9ff4b5225f6533b1c363ecd7dd67c10d8d31b6b23",
               "size": 191565525,
               "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-win64.zip"
+            }
+          }
+        ]
+      },
+      {
+        "description": "OpenOCD for ESP32",
+        "export_paths": [
+          [
+            "openocd-esp32",
+            "bin"
+          ]
+        ],
+        "export_vars": {
+          "OPENOCD_SCRIPTS": "${TOOL_PATH}/openocd-esp32/share/openocd/scripts"
+        },
+        "info_url": "https://github.com/espressif/openocd-esp32",
+        "install": "always",
+        "license": "GPL-2.0-only",
+        "name": "openocd-esp32",
+        "platform_overrides": [
+          {
+            "install": "on_request",
+            "platforms": [
+              "linux-i686"
+            ]
+          }
+        ],
+        "version_cmd": [
+          "openocd",
+          "--version"
+        ],
+        "version_regex": "Open On-Chip Debugger\\s+([a-z0-9.-]+)\\s+",
+        "versions": [
+          {
+            "linux-amd64": {
+              "sha256": "77a232510625c23489d9bf1b17bdadf56e95acf8f50ef8ebff51477f23c21ef0",
+              "size": 1729401,
+              "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200709/openocd-esp32-linux64-0.10.0-esp32-20200709.tar.gz"
+            },
+            "linux-armel": {
+              "sha256": "b2cc6b7837f3cac23a752a8c43c6e0b19701ee0ec1eca4896833f0e82746062e",
+              "size": 1778274,
+              "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200709/openocd-esp32-armel-0.10.0-esp32-20200709.tar.gz"
+            },
+            "macos": {
+              "sha256": "97cf84dd3dfb129a7d4842599870a3b0dbb40b2713d3c5153738c44907e85d6e",
+              "size": 1811755,
+              "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200709/openocd-esp32-macos-0.10.0-esp32-20200709.tar.gz"
+            },
+            "name": "v0.10.0-esp32-20200709",
+            "status": "recommended",
+            "win32": {
+              "sha256": "b96b95607ca0c5899427f5b88cda7389da11f53ac857d3d2fe467e571af5137e",
+              "size": 2152463,
+              "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200709/openocd-esp32-win32-0.10.0-esp32-20200709.zip"
+            },
+            "win64": {
+              "sha256": "b96b95607ca0c5899427f5b88cda7389da11f53ac857d3d2fe467e571af5137e",
+              "size": 2152463,
+              "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200709/openocd-esp32-win32-0.10.0-esp32-20200709.zip"
             }
           }
         ]
