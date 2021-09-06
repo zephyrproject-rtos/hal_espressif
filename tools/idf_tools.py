@@ -76,7 +76,7 @@ except ImportError:
         pass
 
 
-TOOLS_FILE = 'tools/tools.json'
+TOOLS_FILE = 'tools/zephyr_tools.json'
 TOOLS_SCHEMA_FILE = 'tools/tools_schema.json'
 TOOLS_FILE_NEW = 'tools/tools.new.json'
 TOOLS_FILE_VERSION = 1
@@ -527,7 +527,8 @@ class IDFTool(object):
         self.versions[version.version] = version
 
     def get_path(self):  # type: () -> str
-        return os.path.join(global_idf_tools_path, 'tools', self.name)
+        # Zephyr: extend zephyr folder so we can have esp-idf toolchain in same PC
+        return os.path.join(global_idf_tools_path, 'tools', 'zephyr', self.name)
 
     def get_path_for_version(self, version):  # type: (str) -> str
         assert(version in self.versions)
@@ -579,6 +580,30 @@ class IDFTool(object):
             return UNKNOWN_VERSION
         return re.sub(self._current_options.version_regex, self._current_options.version_regex_replace, match.group(0))
 
+    # Zephyr: retrieve tool version from file instead of folder name
+    def check_version_file(self):  # type: (typing.Optional[typing.List[str]]) -> str
+        """
+        Extract the version string and return it as a result.
+        Raises ToolNotFound if the tool is not found (not present in the paths).
+        Raises ToolExecError if the tool returns with a non-zero exit code.
+        Returns 'unknown' if tool returns something from which version string
+        can not be extracted.
+        """
+        # this function can not be called for a different platform
+        assert self._platform == CURRENT_PLATFORM
+        version_path = os.path.join(self.get_path(), 'version.txt')
+        try:
+            with open(version_path, 'r') as version_file:
+                version_cmd_result = version_file.read()
+        except OSError:
+            # tool is not on the path
+            raise ToolNotFound('Tool {} not found'.format(self.name))
+        except subprocess.CalledProcessError as e:
+            raise ToolExecError('Command {} has returned non-zero exit code ({})\n'.format(
+                ' '.join(self._current_options.version_cmd), e.returncode))
+
+        return version_cmd_result
+
     def get_install_type(self):
         return self._current_options.install
 
@@ -618,7 +643,8 @@ class IDFTool(object):
         assert self._platform == CURRENT_PLATFORM
         # First check if the tool is in system PATH
         try:
-            ver_str = self.check_version()
+            # Zephyr: find version in version file
+            ver_str = self.check_version_file()
         except ToolNotFound:
             # not in PATH
             pass
@@ -632,12 +658,15 @@ class IDFTool(object):
         for version, version_obj in self.versions.items():
             if not version_obj.compatible_with_platform():
                 continue
-            tool_path = self.get_path_for_version(version)
+            # Zephyr: do not extend tool version in folder name
+            # tool_path = self.get_path_for_version(version)
+            tool_path = self.get_path()
             if not os.path.exists(tool_path):
                 # version not installed
                 continue
             try:
-                ver_str = self.check_version(self.get_export_paths(version))
+                # Zephyr: find version in version file
+                ver_str = self.check_version_file()
             except ToolNotFound:
                 warn('directory for tool {} version {} is present, but tool was not found'.format(
                     self.name, version))
@@ -714,14 +743,25 @@ class IDFTool(object):
         archive_name = os.path.basename(download_obj.url)
         archive_path = os.path.join(global_idf_tools_path, 'dist', archive_name)
         assert (os.path.isfile(archive_path))
-        dest_dir = self.get_path_for_version(version)
+        # Zephyr: do not extend tool version in folder name
+        # dest_dir = self.get_path_for_version(version)
+        dest_dir = self.get_path()
         if os.path.exists(dest_dir):
             warn('destination path already exists, removing')
             shutil.rmtree(dest_dir)
-        mkdir_p(dest_dir)
-        unpack(archive_path, dest_dir)
+        # Zephyr: not necessary to create a primary folder
+        # mkdir_p(dest_dir)
+        # Zephyr: extend zephyr folder name so we can work with esp-idf and Zephyr toolchain
+        local_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
+        unpack(archive_path, local_path)
+
+        # Zephyr: write tool version in file
+        version_path = os.path.join(dest_dir, 'version.txt')
+        with open(version_path, 'w+') as version_file:
+            version_file.write(version)
+
         if self._current_options.strip_container_dirs:
-            strip_container_dirs(dest_dir, self._current_options.strip_container_dirs)
+            strip_container_dirs(local_path, self._current_options.strip_container_dirs)
 
     @staticmethod
     def check_download_file(download_obj, local_path):
