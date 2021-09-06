@@ -74,7 +74,7 @@ except ImportError:
         pass
 
 
-TOOLS_FILE = 'tools/tools.json'
+TOOLS_FILE = 'tools/zephyr_tools.json'
 TOOLS_SCHEMA_FILE = 'tools/tools_schema.json'
 TOOLS_FILE_NEW = 'tools/tools.new.json'
 IDF_ENV_FILE = 'idf-env.json'
