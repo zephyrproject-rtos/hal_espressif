@@ -189,11 +189,20 @@ class Tools(WestCommand):
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
+            toolchain_path = os.path.join(os.environ['USERPROFILE'], '.espressif', 'tools', 'zephyr')
+            cmd = "set"
         else:
             cmd_exec(("./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
+            toolchain_path = os.path.join(os.environ['HOME'], '.espressif', 'tools', 'zephyr')
+            cmd = "export"
 
         log.banner('downloading ESP-IDF tools completed')
+
+        log.inf("The toolchain has been downloaded to {}".format(toolchain_path))
+        log.inf("Export or set the following variables into the environment:")
+        log.inf("{} ESPRESSIF_TOOLCHAIN_PATH=\"{}\"".format(cmd, toolchain_path))
+        log.inf("{} ZEPHYR_TOOLCHAIN_VARIANT=\"espressif\"".format(cmd))
 
     def monitor(self, module_path, args):
 
