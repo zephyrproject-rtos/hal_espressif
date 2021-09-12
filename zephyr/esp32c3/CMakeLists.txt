@@ -59,6 +59,7 @@ if(CONFIG_SOC_ESP32C3)
     )
 
   zephyr_sources(
+    ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/driver/periph_ctrl.c
