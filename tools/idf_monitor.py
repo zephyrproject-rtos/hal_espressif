@@ -711,8 +711,15 @@ class Monitor(object):
                 self.output_enable(True)
 
     def lookup_pc_address(self, pc_addr):
-        cmd = ['%saddr2line' % self.toolchain_prefix,
-               '-pfiaC', '-e', self.elf_file, pc_addr]
+        # Zephyr: set toolchain from environment path
+        toolchain_home = os.environ.get('ESPRESSIF_TOOLCHAIN_PATH')
+        toolchain_name = '%s-addr2line' % self.toolchain_prefix
+        toolchain_path = os.path.join(toolchain_home, self.toolchain_prefix, "bin", toolchain_name)
+        if not os.path.exists(toolchain_path):
+            # consider toolchain is exported using deprecated path export
+            toolchain_path = os.path.join(toolchain_home, "bin", toolchain_name)
+
+        cmd = [toolchain_path, '-pfiaC', '-e', self.elf_file, pc_addr]
         try:
             translation = subprocess.check_output(cmd, cwd='.')
             if b'?? ??:0' not in translation:
