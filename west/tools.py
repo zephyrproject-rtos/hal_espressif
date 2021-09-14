@@ -20,10 +20,12 @@ from west.commands import WestCommand
 from west.configuration import config
 from west import log
 
-if 'ZEPHYR_BASE' not in os.environ:
-    raise RuntimeError('Could not find ZEPHYR_BASE environment path')
+# This relies on this file being in hal_espressif/west/tools.py
+# If you move this file, you'll break it, so be careful.
+THIS_ZEPHYR = Path(__file__).parents[4] / 'zephyr'
+ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 
-sys.path.insert(0, os.path.join(os.environ['ZEPHYR_BASE'], "scripts", "west_commands"))
+sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
 from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
 
