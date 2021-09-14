@@ -29,10 +29,14 @@ import os.path
 import re
 import sys
 import tempfile
+from pathlib import Path
 
+# This relies on this file being in hal_espressif/tools/kconfig_new/confgen.py
+# If you move this file, you'll break it, so be careful.
+THIS_ZEPHYR = Path(__file__).parents[5] / 'zephyr'
+ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 
-if 'ZEPHYR_BASE' not in os.environ:
-    raise RuntimeError('Could not find ZEPHYR_BASE environment path')
+sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
 # use zephyr kconfiglib
 sys.path.insert(0, os.path.join(os.environ['ZEPHYR_BASE'], "scripts", "kconfig"))
