@@ -51,7 +51,9 @@ extern "C" {
  * - rtc_init: initialization
  */
 
+#ifndef __ZEPHYR__
 #define MHZ (1000000)
+#endif
 
 #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
 #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
