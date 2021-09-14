@@ -9,7 +9,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef __ZEPHYR__
 #define MHZ (1000000)
+#endif
 
 #define DPORT_CPUPERIOD_SEL_80		0
 #define DPORT_CPUPERIOD_SEL_160		1

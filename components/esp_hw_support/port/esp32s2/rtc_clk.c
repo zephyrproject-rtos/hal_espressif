@@ -29,6 +29,7 @@
 static const char *TAG = "rtc_clk";
 #else
 extern void esp_rom_delay_us(uint32_t us);
+#define MHZ (1000000)
 #endif
 
 #define RTC_PLL_FREQ_320M   320
