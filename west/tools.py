@@ -28,8 +28,13 @@ ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
 from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
+from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
+
+TOOLCHAIN_SOC = {"esp32": "xtensa-esp32-elf",
+                 "esp32s2": "xtensa-esp32s2-elf",
+                 "esp32c3": "riscv32-esp-elf"}
 
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
@@ -224,9 +229,18 @@ class Tools(WestCommand):
             # detect usb port using esptool
             esp_port = get_esp_serial_port(module_path)
 
+        build_conf = BuildConfiguration(get_build_dir(None))
+        try:
+            soc_name = build_conf['CONFIG_SOC']
+            toolchain = TOOLCHAIN_SOC[soc_name]
+            print("toolchain: {}".format(toolchain))
+        except KeyError:
+            log.die("Unable to determine toolchain name. Rebuild the project")
+
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", "tools/idf_monitor.py", "-p", esp_port,
-                     "-b", args.baud, elf_path), cwd=module_path)
+                     "-b", args.baud, "--toolchain-prefix", toolchain, elf_path), cwd=module_path)
         else:
-            cmd_exec((sys.executable, "./tools/idf_monitor.py", "-p", esp_port, "-b", args.baud, elf_path),
+            cmd_exec((sys.executable, "./tools/idf_monitor.py", "-p", esp_port, "-b", args.baud,
+                      "--toolchain-prefix", toolchain, elf_path),
                      cwd=module_path)
