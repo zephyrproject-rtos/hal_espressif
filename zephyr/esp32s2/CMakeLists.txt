@@ -5,6 +5,8 @@ if(CONFIG_SOC_ESP32S2)
     include
     include/crypto
     include/wifi
+    ../esp_shared/include
+    ../esp_shared/include/wifi
     ../../components/hal/include
     ../../components/hal/esp32s2/include
     ../../components/esp_hw_support/port/esp32s2
@@ -60,7 +62,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/driver/periph_ctrl.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
-    src/common/esp_system_api.c
+    ../esp_shared/src/common/esp_system_api.c
     )
 
   ## WIFI definitions
