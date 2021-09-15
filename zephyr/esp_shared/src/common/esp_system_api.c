@@ -62,8 +62,13 @@ esp_err_t esp_read_mac(uint8_t *mac, esp_mac_type_t type)
 	}
 
 	lock_key = irq_lock();
+#if CONFIG_IDF_TARGET_ESP32
+	uint32_t high = REG_READ(EFUSE_BLK0_RDATA2_REG);
+	uint32_t low = REG_READ(EFUSE_BLK0_RDATA1_REG);
+#elif CONFIG_IDF_TARGET_ESP32S2
 	uint32_t high = REG_READ(EFUSE_RD_MAC_SPI_SYS_1_REG);
 	uint32_t low = REG_READ(EFUSE_RD_MAC_SPI_SYS_0_REG);
+#endif
 
 	irq_unlock(lock_key);
 
