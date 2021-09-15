@@ -11,7 +11,8 @@ if(CONFIG_SOC_ESP32)
     include
     include/bt
     include/crypto
-    include/wifi
+    ../esp_shared/include
+    ../esp_shared/include/wifi
     ../../components/hal/include
     ../../components/hal/esp32/include
     ../../components/esp_hw_support/include
@@ -115,7 +116,7 @@ if(CONFIG_SOC_ESP32)
     ../../components/log/log.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32/interrupt_descriptor_table.c
-    src/common/esp_system_api.c
+    ../esp_shared/src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
     src/heap_caps.c
