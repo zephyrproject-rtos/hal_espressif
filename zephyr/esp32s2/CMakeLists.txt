@@ -34,6 +34,8 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/wpa_supplicant/port/include
     ../../components/wpa_supplicant/src
     ../../components/wpa_supplicant/include/esp_supplicant
+    ../../components/spi_flash/include
+    ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     )
 
@@ -46,6 +48,12 @@ if(CONFIG_SOC_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32s2/ld/esp32s2.peripherals.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld
       )
+
+  zephyr_sources_ifdef(
+    CONFIG_SOC_FLASH_ESP32
+    ../../components/spi_flash/esp32s2/spi_flash_rom_patch.c
+    ../../components/spi_flash/flash_ops.c
+    )
 
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
 
