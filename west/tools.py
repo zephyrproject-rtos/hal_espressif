@@ -194,7 +194,7 @@ class Tools(WestCommand):
             toolchain_path = os.path.join(os.environ['USERPROFILE'], '.espressif', 'tools', 'zephyr')
             cmd = "set"
         else:
-            cmd_exec(("./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
+            cmd_exec((sys.executable, "./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
             toolchain_path = os.path.join(os.environ['HOME'], '.espressif', 'tools', 'zephyr')
             cmd = "export"
@@ -228,5 +228,5 @@ class Tools(WestCommand):
             cmd_exec(("python.exe", "tools/idf_monitor.py", "-p", esp_port,
                      "-b", args.baud, elf_path), cwd=module_path)
         else:
-            cmd_exec(("./tools/idf_monitor.py", "-p", esp_port, "-b", args.baud, elf_path),
+            cmd_exec((sys.executable, "./tools/idf_monitor.py", "-p", esp_port, "-b", args.baud, elf_path),
                      cwd=module_path)
