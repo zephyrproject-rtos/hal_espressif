@@ -15,6 +15,7 @@ PROVIDE ( esp_rom_Cache_Suspend_ICache = Cache_Suspend_ICache );
 PROVIDE ( esp_rom_Cache_Set_ICache_Mode = Cache_Set_ICache_Mode );
 PROVIDE ( esp_rom_Cache_Invalidate_ICache_All = Cache_Invalidate_ICache_All );
 PROVIDE ( esp_rom_Cache_Resume_ICache = Cache_Resume_ICache );
+PROVIDE ( esp_rom_Cache_Invalidate_Addr = Cache_Invalidate_Addr );
 PROVIDE ( esp_rom_ets_set_user_start = ets_set_user_start );
 PROVIDE ( esp_rom_ets_printf = ets_printf );
 PROVIDE ( esp_rom_ets_delay_us = ets_delay_us );
