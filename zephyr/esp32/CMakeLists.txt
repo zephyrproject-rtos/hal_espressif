@@ -108,6 +108,7 @@ if(CONFIG_SOC_ESP32)
   zephyr_sources(
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/src/esp32/rtc_clk.c
+    ../../components/esp32/clk.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
