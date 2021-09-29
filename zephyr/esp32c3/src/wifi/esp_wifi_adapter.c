@@ -36,7 +36,6 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
-
 #define portTICK_PERIOD_MS (1000 / 100)
 
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);
@@ -56,17 +55,20 @@ struct wifi_spin_lock {
 	k_spinlock_key_t key;
 };
 
-uint64_t g_wifi_feature_caps;
-
-static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_start(void)
-{
-
-}
-
-static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_end(void)
-{
-
-}
+uint64_t g_wifi_feature_caps =
+#if CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
+    CONFIG_FEATURE_WPA3_SAE_BIT |
+#endif
+#if (CONFIG_ESP32_SPIRAM_SUPPORT || CONFIG_ESP32S2_SPIRAM_SUPPORT || CONFIG_ESP32S3_SPIRAM_SUPPORT)
+    CONFIG_FEATURE_CACHE_TX_BUF_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
+    CONFIG_FEATURE_FTM_INITIATOR_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_RESPONDER_SUPPORT
+    CONFIG_FEATURE_FTM_RESPONDER_BIT |
+#endif
+0;
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -918,8 +920,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._event_post = esp_event_post_wrapper,
 	._get_free_heap_size = esp_get_free_heap_size,
 	._rand = sys_rand32_get,
-	._dport_access_stall_other_cpu_start_wrap = s_esp_dport_access_stall_other_cpu_start,
-	._dport_access_stall_other_cpu_end_wrap = s_esp_dport_access_stall_other_cpu_end,
+	._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
+	._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
 	._wifi_apb80m_request = wifi_apb80m_request_wrapper,
 	._wifi_apb80m_release = wifi_apb80m_release_wrapper,
 	._phy_disable = esp_phy_disable,
