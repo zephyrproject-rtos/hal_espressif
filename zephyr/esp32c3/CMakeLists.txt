@@ -63,6 +63,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/esp32c3/systimer_hal.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/driver/periph_ctrl.c
+    ../../components/esp32c3/clk.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
     )

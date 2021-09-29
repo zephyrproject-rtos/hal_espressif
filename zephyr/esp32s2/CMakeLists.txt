@@ -52,6 +52,7 @@ if(CONFIG_SOC_ESP32S2)
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
+    ../../components/esp32s2/clk.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c

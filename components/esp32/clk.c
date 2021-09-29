@@ -12,41 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <zephyr.h>
 #include <stdint.h>
 #include <sys/param.h>
-
 #include "esp_attr.h"
 #include "soc/rtc.h"
 #include "esp32/clk.h"
 
-#define MHZ (1000000)
-
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifndef CONFIG_SMP
 extern uint32_t g_ticks_per_us_app;
 #endif
 
 int IRAM_ATTR esp_clk_cpu_freq(void)
 {
-    return g_ticks_per_us_pro * MHZ;
+    return MHZ(g_ticks_per_us_pro);
 }
 
 int IRAM_ATTR esp_clk_apb_freq(void)
 {
-    return MIN(g_ticks_per_us_pro, 80) * MHZ;
+    return MHZ(MIN(g_ticks_per_us_pro, 80));
 }
 
 int IRAM_ATTR esp_clk_xtal_freq(void)
 {
-    return rtc_clk_xtal_freq_get() * MHZ;
+    return MHZ(rtc_clk_xtal_freq_get());
 }
 
 void IRAM_ATTR ets_update_cpu_frequency(uint32_t ticks_per_us)
 {
     /* Update scale factors used by esp_rom_delay_us */
     g_ticks_per_us_pro = ticks_per_us;
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifndef CONFIG_SMP
     g_ticks_per_us_app = ticks_per_us;
 #endif
 }
