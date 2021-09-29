@@ -30,7 +30,6 @@
 #include <zephyr.h>
 #include <sys/printk.h>
 #include <random/rand32.h>
-#include <drivers/interrupt_controller/intc_esp32c3.h>
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
@@ -322,7 +321,6 @@ static const struct osi_funcs_t osi_funcs_ro = {
 };
 
 static DRAM_ATTR struct osi_funcs_t *osi_funcs_p;
-static DRAM_ATTR int bt_interrupt_source;
 static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
 static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
@@ -374,10 +372,11 @@ void IRAM_ATTR btdm_backup_dma_copy_wrapper(uint32_t reg, uint32_t mem_addr, uin
 
 static void interrupt_set_wrapper(int cpu_no, int intr_source, int intr_num, int intr_prio)
 {
-	ARG_UNUSED(intr_prio);
-	ARG_UNUSED(intr_num);
 	ARG_UNUSED(cpu_no);
-	bt_interrupt_source = intr_source;
+
+	intr_matrix_set(0,intr_source, intr_num);
+	esprv_intc_int_set_priority(intr_num, intr_prio);
+	esprv_intc_int_set_type(intr_num, 0);
 }
 
 static void interrupt_clear_wrapper(int intr_source, int intr_num)
@@ -386,24 +385,20 @@ static void interrupt_clear_wrapper(int intr_source, int intr_num)
 
 static void interrupt_handler_set_wrapper(int n, intr_handler_t fn, void *arg)
 {
-	ARG_UNUSED(n);
-	esp_intr_alloc(bt_interrupt_source,
-		0,
-		(isr_handler_t)fn,
-		arg,
-		NULL);
+	irq_disable(n);
+	irq_connect_dynamic(n, 15 ,(void (*)(const void *))fn, arg, 0);
 }
 
 static void interrupt_on_wrapper(int intr_num)
 {
 	ARG_UNUSED(intr_num);
-	esp_intr_enable(bt_interrupt_source);
+	esprv_intc_int_enable(intr_num);
 }
 
 static void interrupt_off_wrapper(int intr_num)
 {
 	ARG_UNUSED(intr_num);
-	esp_intr_disable(bt_interrupt_source);
+	esprv_intc_int_disable(intr_num);
 }
 
 static void IRAM_ATTR interrupt_disable(void)
