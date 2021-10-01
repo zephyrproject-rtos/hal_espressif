@@ -30,6 +30,10 @@
 #include "esp32s2/rom/lldesc.h"
 #include "esp_attr.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

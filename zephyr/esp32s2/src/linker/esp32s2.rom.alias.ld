@@ -20,3 +20,5 @@ PROVIDE ( esp_rom_ets_printf = ets_printf );
 PROVIDE ( esp_rom_ets_delay_us = ets_delay_us );
 PROVIDE ( esp_rom_cache_set_idrom_mmu_size = Cache_Set_IDROM_MMU_Size );
 PROVIDE ( esp_rom_g_ticks_per_us_pro = g_ticks_per_us_pro );
+PROVIDE ( esp_rom_gpio_matrix_in = gpio_matrix_in );
+PROVIDE ( esp_rom_gpio_matrix_out = gpio_matrix_out );
