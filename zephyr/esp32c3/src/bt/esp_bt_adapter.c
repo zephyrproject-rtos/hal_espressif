@@ -378,6 +378,12 @@ static void interrupt_set_wrapper(int cpu_no, int intr_source, int intr_num, int
 	ARG_UNUSED(intr_num);
 	ARG_UNUSED(cpu_no);
 	bt_interrupt_source = intr_source;
+
+	/* This workaround is required for BT since interrupt
+	 * allocator driver does not change the priority and uses the
+	 * default one
+	 */ 
+	esprv_intc_int_set_priority(intr_num, intr_prio);
 }
 
 static void interrupt_clear_wrapper(int intr_source, int intr_num)
