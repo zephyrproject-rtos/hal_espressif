@@ -15,6 +15,9 @@
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
+#ifndef CONFIG_SOC_ESP32C3
+#include "esp_intr_alloc.h"
+#endif
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "soc/periph_defs.h"
@@ -23,7 +26,10 @@
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
 #include <zephyr.h>
+
+#ifdef CONFIG_SOC_ESP32C3
 #include <drivers/interrupt_controller/intc_esp32c3.h>
+#endif
 
 /**
  * @file esp_timer_systimer.c
