@@ -16,7 +16,6 @@
 #include "esp_err.h"
 #include "esp_timer.h"
 #include "esp_attr.h"
-#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "soc/periph_defs.h"
 #include "freertos/FreeRTOS.h"
@@ -24,6 +23,7 @@
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
 #include <zephyr.h>
+#include <drivers/interrupt_controller/intc_esp32c3.h>
 
 /**
  * @file esp_timer_systimer.c
@@ -102,10 +102,11 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
     s_alarm_handler = alarm_handler;
 
-    esp_rom_intr_matrix_set(0,
-        ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE,
-        SYS_TIMER_ESP_IRQ);
-    IRQ_CONNECT(SYS_TIMER_ESP_IRQ, 0, esp_timer_alarm_isr, NULL, 0);
+    esp_intr_alloc(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE,
+        0,
+        (isr_handler_t)esp_timer_alarm_isr,
+        NULL,
+        NULL);
 
     systimer_hal_connect_alarm_counter(SYSTIMER_ALARM_2, SYSTIMER_COUNTER_0);
     systimer_hal_enable_counter(SYSTIMER_COUNTER_0);
