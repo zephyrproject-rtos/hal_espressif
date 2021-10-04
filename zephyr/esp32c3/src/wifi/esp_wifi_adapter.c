@@ -33,6 +33,8 @@
 #include <zephyr.h>
 #include <sys/printk.h>
 #include <random/rand32.h>
+#include <drivers/interrupt_controller/intc_esp32c3.h>
+
 #include <logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -45,6 +47,7 @@ ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
+static DRAM_ATTR int wifi_interrupt_source;
 
 #if CONFIG_IDF_TARGET_ESP32
 extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
@@ -531,9 +534,13 @@ static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr
 {
 	ARG_UNUSED(cpu_no);
 
-	intr_matrix_set(0,intr_source, intr_num);
+	wifi_interrupt_source = intr_source;
+
+	/* This workaaround is required for wifi since interrupt
+	 * allocator driver does not change the priority and uses the
+	 * default one
+	 */ 
 	esprv_intc_int_set_priority(intr_num, intr_prio);
-	esprv_intc_int_set_type(intr_num, 0);
 }
 
 static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
@@ -544,18 +551,25 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	irq_disable(n);
-	irq_connect_dynamic(n, 2 ,f, arg, 0);
+	ARG_UNUSED(n);
+	esp_intr_alloc(wifi_interrupt_source,
+		0,
+		(isr_handler_t)f,
+		arg,
+		NULL);
+
 }
 
 static void intr_on(unsigned int mask)
 {
-	esprv_intc_int_enable(mask);
+	ARG_UNUSED(mask);
+	esp_intr_enable(wifi_interrupt_source);
 }
 
 static void intr_off(unsigned int mask)
 {
-	esprv_intc_int_disable(mask);
+	ARG_UNUSED(mask);
+	esp_intr_enable(wifi_interrupt_source);
 }
 
 uint32_t esp_get_free_heap_size(void)
