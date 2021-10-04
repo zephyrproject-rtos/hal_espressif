@@ -18,7 +18,12 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+
+#ifndef __ZEPHYR__
 #include "esp_intr_alloc.h"
+#else 
+typedef void (*intr_handler_t)(void *arg);
+#endif
 
 /**
  * @brief Minimal initialization of platform specific layer of esp_timer
