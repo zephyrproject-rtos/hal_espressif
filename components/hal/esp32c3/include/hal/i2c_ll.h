@@ -24,6 +24,10 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_rom_sys.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

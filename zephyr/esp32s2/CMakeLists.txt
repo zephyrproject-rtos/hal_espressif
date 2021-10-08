@@ -66,6 +66,12 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/soc/esp32s2/spi_periph.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk.c

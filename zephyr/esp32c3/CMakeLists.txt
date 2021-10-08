@@ -74,6 +74,12 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/spi_flash/flash_ops.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
