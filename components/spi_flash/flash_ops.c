@@ -217,7 +217,7 @@ void spi_flash_init(void)
 
 #if !CONFIG_SPI_FLASH_ROM_IMPL
 
-static const spi_flash_guard_funcs_t *s_flash_guard_ops;
+static const DRAM_ATTR spi_flash_guard_funcs_t *s_flash_guard_ops;
 
 void IRAM_ATTR spi_flash_guard_set(const spi_flash_guard_funcs_t *funcs)
 {

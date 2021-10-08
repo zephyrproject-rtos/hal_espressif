@@ -66,6 +66,12 @@ if(CONFIG_SOC_ESP32C3)
     ESPRESSIF_USE
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_SOC_FLASH_ESP32
+    ../../components/spi_flash/esp32c3/spi_flash_rom_patch.c
+    ../../components/spi_flash/flash_ops.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c

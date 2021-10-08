@@ -25,6 +25,10 @@
 #include "hal/misc.h"
 #include "hal/spi_types.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
