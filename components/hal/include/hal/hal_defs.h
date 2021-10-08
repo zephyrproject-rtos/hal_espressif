@@ -16,6 +16,10 @@
 
 #include "esp_log.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 // platform related stuff
 
 #define HAL_SWAP32(word) __builtin_bswap32(word)
