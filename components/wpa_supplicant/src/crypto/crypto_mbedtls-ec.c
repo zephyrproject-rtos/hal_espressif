@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#if !defined(MBEDTLS_ALLOW_PRIVATE_ACCESS)
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+#endif
+
 #ifdef ESP_PLATFORM
 #include "esp_system.h"
 #include "mbedtls/bignum.h"
@@ -28,6 +32,22 @@
 #include "mbedtls/oid.h"
 
 #define ECP_PRV_DER_MAX_BYTES   29 + 3 * MBEDTLS_ECP_MAX_BYTES
+
+/* A context for random number generation (RNG). */
+struct rng_context {
+#if defined(MBEDTLS_TEST_USE_PSA_CRYPTO_RNG)
+    unsigned char dummy;
+#else /* MBEDTLS_TEST_USE_PSA_CRYPTO_RNG */
+    mbedtls_entropy_context entropy;
+#if defined(MBEDTLS_CTR_DRBG_C)
+    mbedtls_ctr_drbg_context drbg;
+#elif defined(MBEDTLS_HMAC_DRBG_C)
+    mbedtls_hmac_drbg_context drbg;
+#else
+#error "No DRBG available"
+#endif
+#endif /* MBEDTLS_TEST_USE_PSA_CRYPTO_RNG */
+};
 
 #ifdef CONFIG_ECC
 struct crypto_ec {
@@ -441,9 +461,33 @@ int crypto_ec_point_cmp(const struct crypto_ec *e,
 	return mbedtls_ecp_point_cmp((const mbedtls_ecp_point *) a,
 			(const mbedtls_ecp_point *) b);
 }
+
+int rng_get( void *p_rng, unsigned char *output, size_t output_len )
+{
+#if defined(MBEDTLS_TEST_USE_PSA_CRYPTO_RNG)
+    (void) p_rng;
+    return( mbedtls_psa_get_random( MBEDTLS_PSA_RANDOM_STATE,
+                                    output, output_len ) );
+#else /* !MBEDTLS_TEST_USE_PSA_CRYPTO_RNG */
+    struct rng_context *rng = p_rng;
+
+#if defined(MBEDTLS_CTR_DRBG_C)
+    return( mbedtls_ctr_drbg_random( &rng->drbg, output, output_len ) );
+#elif defined(MBEDTLS_HMAC_DRBG_C)
+    return( mbedtls_hmac_drbg_random( &rng->drbg, output, output_len ) );
+#else
+#error "No DRBG available"
+#endif
+
+#endif /* !MBEDTLS_TEST_USE_PSA_CRYPTO_RNG */
+}
+
+struct rng_context rng;
+
 int crypto_key_compare(struct crypto_key *key1, struct crypto_key *key2)
 {
-	if (mbedtls_pk_check_pair((mbedtls_pk_context *)key1, (mbedtls_pk_context *)key2) < 0)
+	if (mbedtls_pk_check_pair((mbedtls_pk_context *)key1,
+		(mbedtls_pk_context *)key2, rng_get, &rng) < 0)
 		return 0;
 
 	return 1;
@@ -624,7 +668,7 @@ struct crypto_key *crypto_ec_get_key(const u8 *privkey, size_t privkey_len)
 		wpa_printf(MSG_ERROR, "memory allocation failed\n");
 		return NULL;
 	}
-	ret = mbedtls_pk_parse_key(kctx, privkey, privkey_len, NULL, 0);
+	ret = mbedtls_pk_parse_key(kctx, privkey, privkey_len, NULL, 0, rng_get, &rng);
 
 	if (ret < 0) {
 		//crypto_print_error_string(ret);
