@@ -20,6 +20,10 @@
 #include "hal/i2c_types.h"
 #include "hal/hal_defs.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

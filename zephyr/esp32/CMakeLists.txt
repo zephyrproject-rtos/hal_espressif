@@ -96,6 +96,12 @@ if(CONFIG_SOC_ESP32)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c

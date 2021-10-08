@@ -19,6 +19,10 @@
 #include "soc/i2c_struct.h"
 #include "hal/i2c_types.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
