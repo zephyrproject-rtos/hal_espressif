@@ -24,8 +24,11 @@
 #include "rtc_clk_common.h"
 #include "esp_rom_sys.h"
 #include "hal/usb_serial_jtag_ll.h"
-
 static const char *TAG = "rtc_clk";
+
+#ifdef __ZEPHYR__
+#define MHZ (1000000)
+#endif
 
 #define RTC_PLL_FREQ_320M   320
 #define RTC_PLL_FREQ_480M   480
