@@ -13,6 +13,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp32c3/include
     
     ../../components/esp_hw_support/port/esp32c3/private_include
+    ../../components/esp_hw_support/port/esp32c3
     ../../components/esp_hw_support/include
 
     ../../components/riscv/include
