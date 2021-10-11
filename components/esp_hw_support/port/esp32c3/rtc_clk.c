@@ -31,8 +31,11 @@
 #include "soc_log.h"
 #include "rtc_clk_common.h"
 #include "esp_rom_sys.h"
-
 static const char *TAG = "rtc_clk";
+
+#ifdef __ZEPHYR__
+#define MHZ (1000000)
+#endif
 
 #define RTC_PLL_FREQ_320M   320
 #define RTC_PLL_FREQ_480M   480
