@@ -6,6 +6,7 @@ if(CONFIG_SOC_ESP32C3)
     include/bt
     include/wifi
     include/crypto
+    ../esp_shared/include
 
     ../../components/esp_common/include
     ../../components/esp_rom/include
@@ -68,6 +69,7 @@ if(CONFIG_SOC_ESP32C3)
 
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
+    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/esp32c3/spi_flash_rom_patch.c
     ../../components/spi_flash/flash_ops.c
     )
