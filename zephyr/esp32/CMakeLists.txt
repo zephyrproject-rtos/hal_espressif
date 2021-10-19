@@ -79,6 +79,7 @@ if(CONFIG_SOC_ESP32)
 
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
+    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_mmap.c
     ../../components/spi_flash/esp32/spi_flash_rom_patch.c
     ../../components/spi_flash/flash_ops.c
