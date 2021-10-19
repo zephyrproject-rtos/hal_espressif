@@ -61,6 +61,14 @@ if(CONFIG_SOC_ESP32C3)
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32c3/ld/esp32c3.peripherals.ld
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESP32_SPIM
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/soc/esp32c3/spi_periph.c
+    )
+
   zephyr_compile_definitions(
     __ets__
     ESP_PLATFORM
