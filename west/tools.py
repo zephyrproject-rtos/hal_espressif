@@ -24,6 +24,7 @@ from west import log
 # If you move this file, you'll break it, so be careful.
 THIS_ZEPHYR = Path(__file__).parents[4] / 'zephyr'
 ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
+IDF_TOOLS_PATH_DEFAULT = os.path.join('~', '.espressif')
 
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
@@ -191,17 +192,20 @@ class Tools(WestCommand):
 
     def install(self, module_path):
 
+        global global_idf_tools_path
+        global_idf_tools_path = os.environ.get('IDF_TOOLS_PATH') or os.path.expanduser(IDF_TOOLS_PATH_DEFAULT)
+
         log.banner('downloading ESP-IDF tools..')
 
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
-            toolchain_path = os.path.join(os.environ['USERPROFILE'], '.espressif', 'tools', 'zephyr')
+            toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
             cmd = "set"
         else:
             cmd_exec((sys.executable, "./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
-            toolchain_path = os.path.join(os.environ['HOME'], '.espressif', 'tools', 'zephyr')
+            toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
             cmd = "export"
 
         log.banner('downloading ESP-IDF tools completed')
