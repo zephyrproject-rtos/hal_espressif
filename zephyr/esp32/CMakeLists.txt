@@ -1,12 +1,9 @@
-# At the moment there is only one supported ESP32 SoC, and it is not
-# supported to omit the esp-dif HAL library, so we don't check for a
-# KConfig option to enable the HAL
-#
-# In the future it might look like this:
-# if(CONFIG_ESP_DIF_LIBRARY)
-# to allow users to disable the HAL
+# SPDX-License-Identifier: Apache-2.0
 
 if(CONFIG_SOC_ESP32)
+
+  zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
+
   zephyr_include_directories(
     include
     include/bt
@@ -107,15 +104,16 @@ if(CONFIG_SOC_ESP32)
     ../../components/spi_flash/flash_ops.c
     ../../components/esp32/spiram.c
     ../../components/esp32/spiram_psram.c
-    ../../components/esp_hw_support/port/esp32/rtc_init.c
-    ../../components/soc/esp32/gpio_periph.c
     ../../components/esp32/cache_sram_mmu.c
     ../../components/bootloader_support/src/bootloader_common.c
     )
 
   zephyr_sources(
     ../../components/soc/esp32/gpio_periph.c
-    ../../components/soc/src/esp32/rtc_clk.c
+    ../../components/esp_hw_support/port/esp32/rtc_clk.c
+    ../../components/esp_hw_support/port/esp32/rtc_init.c
+    ../../components/esp_hw_support/port/esp32/rtc_time.c
+    ../../components/esp_hw_support/port/esp32/rtc_clk_init.c
     ../../components/esp32/clk.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c

@@ -21,6 +21,8 @@
 #include "sdkconfig.h"
 #include "rtc_clk_common.h"
 
+#define MHZ (1000000)
+
 /* Number of 8M/256 clock cycles to use for XTAL frequency estimation.
  * 10 cycles will take approximately 300 microseconds.
  */

@@ -9,8 +9,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MHZ (1000000)
-
 #ifdef __cplusplus
 extern "C" {
 #endif

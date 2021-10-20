@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if(CONFIG_SOC_ESP32C3)
+
+  zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
+
   zephyr_include_directories(
     include
     include/bt
@@ -92,6 +95,10 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_timer/src/ets_timer_legacy.c
+	../../components/esp_hw_support/port/esp32c3/rtc_clk.c
+    ../../components/esp_hw_support/port/esp32c3/rtc_init.c
+    ../../components/esp_hw_support/port/esp32c3/rtc_time.c
+    ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
     ../../components/esp32c3/clk.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c

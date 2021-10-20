@@ -22,6 +22,8 @@
 #include "rtc_clk_common.h"
 #include "esp_rom_uart.h"
 
+#define MHZ (1000000)
+
 static const char *TAG = "rtc_clk_init";
 
 void rtc_clk_init(rtc_clk_config_t cfg)
