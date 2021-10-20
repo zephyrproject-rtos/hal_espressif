@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if(CONFIG_SOC_ESP32S2)
+
+  zephyr_compile_options(-Wno-unused-variable)
+
   zephyr_include_directories(
     include
     include/crypto
@@ -37,6 +40,8 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/spi_flash/include
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
+	../../components/efuse/include
+	../../components/efuse/esp32s2/include
     )
 
     zephyr_link_libraries(
@@ -74,7 +79,10 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
-    ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
+	../../components/esp_hw_support/port/esp32s2/rtc_clk.c
+	../../components/esp_hw_support/port/esp32s2/rtc_init.c
+	../../components/esp_hw_support/port/esp32s2/rtc_time.c
+	../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
     ../../components/esp32s2/clk.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
