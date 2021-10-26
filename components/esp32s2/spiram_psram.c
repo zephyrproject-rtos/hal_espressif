@@ -16,7 +16,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
+#if defined(__ZEPHYR__)
+#include <zephyr.h>
+#include <logging/log.h>
+#endif
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"
@@ -37,7 +40,11 @@
 #include "soc/efuse_reg.h"
 #include "soc/soc.h"
 #include "driver/gpio.h"
+#if !defined(__ZEPHYR__)
 #include "driver/spi_common_internal.h"
+#else
+#include "hal/spi_types.h"
+#endif
 #include "driver/spi_common.h"
 #include "driver/periph_ctrl.h"
 #include "bootloader_common.h"
