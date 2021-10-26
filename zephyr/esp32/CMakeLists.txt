@@ -97,6 +97,7 @@ if(CONFIG_SOC_ESP32)
 
   zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
+    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
     ../../components/esp32/spiram.c
     ../../components/esp32/spiram_psram.c
