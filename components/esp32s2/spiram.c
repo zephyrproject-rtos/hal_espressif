@@ -17,6 +17,10 @@ we add more types of external RAM memory, this can be made into a more intellige
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(__ZEPHYR__)
+#include <zephyr.h>
+#include <logging/log.h>
+#endif
 #include <stdint.h>
 #include <string.h>
 #include <sys/param.h>
@@ -29,7 +33,9 @@ we add more types of external RAM memory, this can be made into a more intellige
 #include "freertos/FreeRTOS.h"
 #include "freertos/xtensa_api.h"
 #include "soc/soc.h"
+#if !defined(__ZEPHYR__)
 #include "esp_heap_caps_init.h"
+#endif
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
 #include "esp32s2/rom/cache.h"
@@ -325,7 +331,7 @@ esp_err_t esp_spiram_init(void)
     return ESP_OK;
 }
 
-
+#if !defined(__ZEPHYR__)
 esp_err_t esp_spiram_add_to_heapalloc(void)
 {
     size_t spiram_size = esp_spiram_get_size();
@@ -390,6 +396,7 @@ esp_err_t esp_spiram_reserve_dma_pool(size_t size) {
     uint32_t caps[]={MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL, 0, MALLOC_CAP_8BIT|MALLOC_CAP_32BIT};
     return heap_caps_add_region_with_caps(caps, (intptr_t) dma_heap, (intptr_t) dma_heap+size-1);
 }
+#endif /* __ZEPHYR__ */
 
 size_t esp_spiram_get_size(void)
 {

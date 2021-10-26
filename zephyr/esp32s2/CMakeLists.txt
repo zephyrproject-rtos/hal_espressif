@@ -40,8 +40,10 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/spi_flash/include
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
-	../../components/efuse/include
-	../../components/efuse/esp32s2/include
+    ../../components/efuse/include
+    ../../components/efuse/include/esp32s2
+    ../../components/efuse/esp32s2/include
+    ../../components/bootloader_support/include_bootloader
     )
 
     zephyr_link_libraries(
@@ -72,6 +74,17 @@ if(CONFIG_SOC_ESP32S2)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_ESP_SPIRAM
+    ../esp_shared/src/host_flash/cache_utils.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/esp32s2/spiram.c
+    ../../components/esp32s2/spiram_psram.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_init.c
+    ../../components/soc/esp32s2/gpio_periph.c
+    ../../components/bootloader_support/src/bootloader_common.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_I2C_ESP32
     ../../components/hal/i2c_hal_iram.c
     ../../components/hal/i2c_hal.c
@@ -79,10 +92,10 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
-	../../components/esp_hw_support/port/esp32s2/rtc_clk.c
-	../../components/esp_hw_support/port/esp32s2/rtc_init.c
-	../../components/esp_hw_support/port/esp32s2/rtc_time.c
-	../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_init.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_time.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
     ../../components/esp32s2/clk.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
