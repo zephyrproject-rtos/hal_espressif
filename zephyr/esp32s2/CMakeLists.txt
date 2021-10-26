@@ -56,6 +56,13 @@ if(CONFIG_SOC_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld
       )
 
+  zephyr_link_libraries_ifdef(
+    CONFIG_HEAP_MEM_POOL_SIZE
+    gcc
+    "-Wl,--wrap=k_calloc"
+    "-Wl,--wrap=k_malloc"
+    )
+
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
     ../esp_shared/src/host_flash/cache_utils.c
@@ -110,6 +117,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/log/log_noos.c
     ../../components/log/log.c
     ../esp_shared/src/common/esp_system_api.c
+    src/heap_caps.c
     )
 
   ## WIFI definitions
