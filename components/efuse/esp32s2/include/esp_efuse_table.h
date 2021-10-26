@@ -8,6 +8,9 @@
 extern "C" {
 #endif
 
+#if defined(__ZEPHYR__)
+#include "esp_efuse.h"
+#endif
 
 // md5_digest_table 614c862c2cfa8ccda3a79183ce767255
 // This file was generated from the file esp_efuse_table.csv. DO NOT CHANGE THIS FILE MANUALLY.
