@@ -49,18 +49,6 @@ the adv packet will be discarded until the memory is restored. */
 /* enable controller log debug when adv lost */
 #define CONTROLLER_ADV_LOST_DEBUG_BIT      (0<<0)
 
-#ifdef CONFIG_BT_HCI_UART_NO
-#define BT_HCI_UART_NO_DEFAULT                      CONFIG_BT_HCI_UART_NO
-#else
-#define BT_HCI_UART_NO_DEFAULT                      1
-#endif /* BT_HCI_UART_NO_DEFAULT */
-
-#ifdef CONFIG_BT_HCI_UART_BAUDRATE
-#define BT_HCI_UART_BAUDRATE_DEFAULT                CONFIG_BT_HCI_UART_BAUDRATE
-#else
-#define BT_HCI_UART_BAUDRATE_DEFAULT                921600
-#endif /* BT_HCI_UART_BAUDRATE_DEFAULT */
-
 #ifdef CONFIG_BTDM_SCAN_DUPL_TYPE
 #define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BTDM_SCAN_DUPL_TYPE
 #else
@@ -131,7 +119,7 @@ the adv packet will be discarded until the memory is restored. */
 #define ESP_TASK_BT_CONTROLLER_PRIO 1
 
 /* BT library heap usage from BT memory map documentation */
-#define ESP_BT_HEAP_SIZE 16384
+#define ESP_BT_HEAP_SIZE 20*1024
 
 /* SMP is not supported yet */
 #define CONFIG_BTDM_CTRL_PINNED_TO_CORE 0
@@ -155,8 +143,8 @@ the adv packet will be discarded until the memory is restored. */
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                              \
     .controller_task_stack_size = ESP_TASK_BT_CONTROLLER_STACK,            \
     .controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                   \
-    .hci_uart_no = BT_HCI_UART_NO_DEFAULT,                                 \
-    .hci_uart_baudrate = BT_HCI_UART_BAUDRATE_DEFAULT,                     \
+    .hci_uart_no = 0,                                                      \
+    .hci_uart_baudrate = 0,                                                \
     .scan_duplicate_mode = SCAN_DUPLICATE_MODE,                            \
     .scan_duplicate_type = SCAN_DUPLICATE_TYPE_VALUE,                      \
     .normal_adv_size = NORMAL_SCAN_DUPLICATE_CACHE_SIZE,                   \
