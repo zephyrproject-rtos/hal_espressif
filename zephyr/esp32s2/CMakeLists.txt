@@ -84,6 +84,8 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_timer/src/esp_timer_impl_lac.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/driver/periph_ctrl.c
+    ../../components/hal/uart_hal.c
+    ../../components/hal/uart_hal_iram.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
     ../esp_shared/src/common/esp_system_api.c
