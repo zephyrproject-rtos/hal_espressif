@@ -920,9 +920,6 @@ static uint32_t btdm_config_mask_load(void)
 {
 	uint32_t mask = 0x0;
 
-#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4
-	mask |= BTDM_CFG_HCI_UART;
-#endif
 #if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
 	mask |= BTDM_CFG_CONTROLLER_RUN_APP_CPU;
 #endif
