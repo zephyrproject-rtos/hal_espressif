@@ -97,6 +97,8 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/driver/periph_ctrl.c
+    ../../components/hal/uart_hal.c
+    ../../components/hal/uart_hal_iram.c
     ../../components/esp32c3/clk.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
