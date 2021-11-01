@@ -91,6 +91,8 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/i2c_hal.c
     )
 
+  zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
