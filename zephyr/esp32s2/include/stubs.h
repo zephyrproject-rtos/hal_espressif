@@ -14,4 +14,11 @@
 #define typeof  __typeof__
 #endif
 
+/*
+ * Used in Zephyr's soc.c during cache initialization.
+ * This function prototype is declared here to avoid Zephyr's coding guidelines
+ * checks violation (rule 21.2: "Should not use a reserved identifier")
+ */
+extern void abort(void);
+
 #endif /* _STUBS_H_ */
