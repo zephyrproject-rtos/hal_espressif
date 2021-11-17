@@ -22,14 +22,10 @@ if(CONFIG_SOC_ESP32)
     ../../components/soc/esp32/include
     ../../components/xtensa/include
     ../../components/xtensa/esp32/include
-    ../../components/soc/soc/include
-    ../../components/soc/soc/esp32/include
-    ../../components/soc/soc/esp32/private_include
     ../../components/soc/include/soc
     ../../components/soc/include
     ../../components/soc/src/esp32/include
     ../../components/driver/include
-    ../../components/soc/soc/esp32
     ../../components/esp_wifi/include
     ../../components/efuse/esp32/include
     ../../components/efuse/include
