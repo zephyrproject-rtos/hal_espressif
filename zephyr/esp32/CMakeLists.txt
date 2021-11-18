@@ -95,6 +95,11 @@ if(CONFIG_SOC_ESP32)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_WDT_ESP32
+    ../../components/hal/wdt_hal_iram.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
