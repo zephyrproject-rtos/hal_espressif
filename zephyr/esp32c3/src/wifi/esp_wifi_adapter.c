@@ -47,7 +47,7 @@ ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
-static DRAM_ATTR int wifi_interrupt_source;
+static DRAM_ATTR struct esp_intr_table_reg *wifi_isr_handler;
 
 #if CONFIG_IDF_TARGET_ESP32
 extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
@@ -534,13 +534,12 @@ static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr
 {
 	ARG_UNUSED(cpu_no);
 
-	wifi_interrupt_source = intr_source;
-
 	/* This workaaround is required for wifi since interrupt
 	 * allocator driver does not change the priority and uses the
 	 * default one
 	 */ 
 	esprv_intc_int_set_priority(intr_num, intr_prio);
+	esprv_intc_int_set_type(intr_num, INTR_TYPE_LEVEL);
 }
 
 static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
@@ -551,25 +550,37 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	ARG_UNUSED(n);
-	esp_intr_alloc(wifi_interrupt_source,
+	/* WiFi requires interupt source 0 and 2, provided in */
+	/* set_intr_wrapper call. Currently ESP32C3 implementation */
+	/* needs the source value and this wrapper only sends the IRQ once. */
+	/* Thus, we manually init interrupt allocation for both sources */
+
+	/* interrupt source 0 */
+	esp_intr_alloc(0,
+		0,
+		(isr_handler_t)f,
+		arg,
+		&wifi_isr_handler);
+
+	/* interrupt source 2 */
+	/* no need to use isr handler as the one above is enough */
+	esp_intr_alloc(2,
 		0,
 		(isr_handler_t)f,
 		arg,
 		NULL);
-
 }
 
 static void intr_on(unsigned int mask)
 {
 	ARG_UNUSED(mask);
-	esp_intr_enable(wifi_interrupt_source);
+	esp_intr_enable(wifi_isr_handler);
 }
 
 static void intr_off(unsigned int mask)
 {
 	ARG_UNUSED(mask);
-	esp_intr_enable(wifi_interrupt_source);
+	esp_intr_disable(wifi_isr_handler);
 }
 
 uint32_t esp_get_free_heap_size(void)
