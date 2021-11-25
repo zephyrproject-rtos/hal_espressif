@@ -164,9 +164,8 @@ static phy_country_to_bin_type_t s_country_code_map_type_table[] = {
 #endif
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-	int key = irq_lock();
 	if(s_phy_lock_nest == 0) {
-		s_phy_int_mux = key;
+		s_phy_int_mux = irq_lock();
 	}
 
 	if(s_phy_lock_nest < 0xFFFFFFFF) {
