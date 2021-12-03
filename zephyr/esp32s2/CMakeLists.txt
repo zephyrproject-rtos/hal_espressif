@@ -104,6 +104,7 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
+    ../../components/soc/esp32s2/rtc_io_periph.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
     ../../components/esp_hw_support/port/esp32s2/rtc_init.c
     ../../components/esp_hw_support/port/esp32s2/rtc_time.c
