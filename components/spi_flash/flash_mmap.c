@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(__ZEPHYR__)
+#include <zephyr.h>
+#endif 
+
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -138,7 +142,11 @@ esp_err_t IRAM_ATTR spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_
     int phys_page = src_addr / SPI_FLASH_MMU_PAGE_SIZE;
     int page_count = (size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
     // prepare a linear pages array to feed into spi_flash_mmap_pages
+#if defined(__ZEPHYR__)
+    int *pages = k_malloc(sizeof(int)*page_count);
+#else
     int *pages = heap_caps_malloc(sizeof(int)*page_count, MALLOC_CAP_INTERNAL);
+#endif
     if (pages == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -168,7 +176,11 @@ esp_err_t IRAM_ATTR spi_flash_mmap_pages(const int *pages, size_t page_count, sp
             return ESP_ERR_INVALID_ARG;
         }
     }
+#if defined(__ZEPHYR__)
+    mmap_entry_t* new_entry = (mmap_entry_t*) k_malloc(sizeof(mmap_entry_t));
+#else
     mmap_entry_t* new_entry = (mmap_entry_t*) heap_caps_malloc(sizeof(mmap_entry_t), MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+#endif
     if (new_entry == 0) {
         return ESP_ERR_NO_MEM;
     }
