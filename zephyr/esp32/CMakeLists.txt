@@ -77,6 +77,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/spi_flash/flash_mmap.c
     ../../components/spi_flash/esp32/spi_flash_rom_patch.c
     ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/esp32/flash_ops_esp32.c
     )
 
   zephyr_compile_definitions(

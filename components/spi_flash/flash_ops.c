@@ -110,8 +110,8 @@ static void spi_flash_os_yield(void);
 
 const DRAM_ATTR spi_flash_guard_funcs_t g_flash_guard_default_ops = {
 #if defined(__ZEPHYR__)
-    .start                  = esp32_spiflash_start,
-    .end                    = esp32_spiflash_end,
+    .start                  = spi_flash_disable_interrupts_caches_and_other_cpu,
+    .end                    = spi_flash_enable_interrupts_caches_and_other_cpu,
     .op_lock                = 0,
     .op_unlock              = 0,
 #if !CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
