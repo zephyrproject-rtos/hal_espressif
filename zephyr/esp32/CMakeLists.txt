@@ -79,6 +79,11 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/spi_flash/flash_ops.c
     )
 
+  zephyr_compile_definitions(
+    CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+    CONFIG_SPI_FLASH_USE_LEGACY_IMPL
+    )
+
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
 
   zephyr_sources_ifdef(

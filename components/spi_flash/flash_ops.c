@@ -18,9 +18,12 @@
 #include <stdio.h>
 #include <sys/param.h>  // For MIN/MAX(a, b)
 
+#if !defined(__ZEPHYR__)
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#endif
+
 #include <soc/soc.h>
 #include <soc/soc_memory_layout.h>
 #include "sdkconfig.h"
