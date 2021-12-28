@@ -9,6 +9,7 @@
 #include <sys/math_extras.h>
 #include <esp32s2/spiram.h>
 #include <esp_attr.h>
+#include <esp_heap_caps_adapter.h>
 
 #if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
