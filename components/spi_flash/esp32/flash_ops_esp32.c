@@ -81,7 +81,7 @@ esp_rom_spiflash_result_t IRAM_ATTR spi_flash_write_encrypted_chip(size_t dest_a
             break;
         }
     }
-    bzero(encrypt_buf, sizeof(encrypt_buf));
+    memset(encrypt_buf, 0, sizeof(encrypt_buf));
 
     return rc;
 }
