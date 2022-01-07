@@ -15,3 +15,5 @@ PROVIDE ( esp_rom_cache_set_idrom_mmu_size = Cache_Set_IDROM_MMU_Size );
 PROVIDE ( esp_rom_Cache_Invalidate_Addr = Cache_Invalidate_Addr );
 PROVIDE ( esp_rom_gpio_matrix_in  = gpio_matrix_in );
 PROVIDE ( esp_rom_gpio_matrix_out = gpio_matrix_out );
+PROVIDE ( esp_rom_usb_uart_rx_one_char = usb_uart_rx_one_char);
+PROVIDE ( esp_rom_usb_uart_tx_one_char = usb_uart_tx_one_char);
