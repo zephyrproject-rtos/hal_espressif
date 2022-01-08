@@ -109,6 +109,13 @@ if(CONFIG_SOC_ESP32)
     ../../components/bootloader_support/src/bootloader_common.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_UART_ESP32
+    ../../components/soc/esp32/uart_periph.c
+    ../../components/hal/uart_hal.c
+    ../../components/hal/uart_hal_iram.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/esp32/rtc_io_periph.c
@@ -125,8 +132,6 @@ if(CONFIG_SOC_ESP32)
     ../../components/log/log.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32/interrupt_descriptor_table.c
-    ../../components/hal/uart_hal.c
-    ../../components/hal/uart_hal_iram.c
     ../esp_shared/src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
