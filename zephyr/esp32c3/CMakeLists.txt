@@ -98,6 +98,13 @@ if(CONFIG_SOC_ESP32C3)
 
   zephyr_library_sources_ifdef(CONFIG_COUNTER_ESP32     ../../components/hal/timer_hal.c)
 
+  zephyr_sources_ifdef(
+    CONFIG_UART_ESP32
+    ../../components/soc/esp32c3/uart_periph.c
+    ../../components/hal/uart_hal.c
+    ../../components/hal/uart_hal_iram.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/ets_timer_legacy.c
@@ -111,8 +118,6 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/esp32c3/systimer_hal.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/driver/periph_ctrl.c
-    ../../components/hal/uart_hal.c
-    ../../components/hal/uart_hal_iram.c
     ../../components/esp32c3/clk.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
