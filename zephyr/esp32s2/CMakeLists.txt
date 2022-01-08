@@ -102,6 +102,13 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/hal/wdt_hal_iram.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_UART_ESP32
+    ../../components/soc/esp32s2/uart_periph.c
+    ../../components/hal/uart_hal.c
+    ../../components/hal/uart_hal_iram.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/soc/esp32s2/rtc_io_periph.c
@@ -118,8 +125,6 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_timer/src/esp_timer_impl_lac.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/driver/periph_ctrl.c
-    ../../components/hal/uart_hal.c
-    ../../components/hal/uart_hal_iram.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
     ../esp_shared/src/common/esp_system_api.c
