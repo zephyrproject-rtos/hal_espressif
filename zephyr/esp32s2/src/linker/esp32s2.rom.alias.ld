@@ -12,6 +12,7 @@ PROVIDE ( esp_rom_Cache_Disable_ICache = Cache_Disable_ICache );
 PROVIDE ( esp_rom_Cache_Disable_DCache = Cache_Disable_DCache );
 PROVIDE ( esp_rom_Cache_Allocate_SRAM = Cache_Allocate_SRAM );
 PROVIDE ( esp_rom_Cache_Suspend_ICache = Cache_Suspend_ICache );
+PROVIDE ( esp_rom_Cache_Ibus_MMU_Set = Cache_Ibus_MMU_Set );
 PROVIDE ( esp_rom_Cache_Set_ICache_Mode = Cache_Set_ICache_Mode );
 PROVIDE ( esp_rom_Cache_Invalidate_ICache_All = Cache_Invalidate_ICache_All );
 PROVIDE ( esp_rom_Cache_Resume_ICache = Cache_Resume_ICache );
