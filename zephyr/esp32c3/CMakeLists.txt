@@ -44,6 +44,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/spi_flash/include
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
+    ../../components/bootloader_support/include_bootloader
 
     ../../components/esp_wifi/include/
     ../../components/esp_wifi/esp32c3/include
