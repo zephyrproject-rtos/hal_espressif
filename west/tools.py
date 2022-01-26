@@ -33,6 +33,7 @@ from runners.core import BuildConfiguration  # noqa: E402
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
 
 TOOLCHAIN_SOC = {"esp32": "xtensa-esp32-elf",
+                 "esp32_net": "xtensa-esp32-elf",
                  "esp32s2": "xtensa-esp32s2-elf",
                  "esp32c3": "riscv32-esp-elf"}
 
