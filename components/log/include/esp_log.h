@@ -325,6 +325,10 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
  *
  * @see ``printf``
  */
+/* Zephyr: remove ESP_LOG */
+#define ESP_LOG_LEVEL(level, tag, format, ...)
+
+/*
 #if CONFIG_LOG_TIMESTAMP_SOURCE_RTOS
 #define ESP_LOG_LEVEL(level, tag, format, ...) do {                     \
         if (level==ESP_LOG_ERROR )          { esp_log_write(ESP_LOG_ERROR,      tag, LOG_FORMAT(E, format), esp_log_timestamp(), tag, ##__VA_ARGS__); } \
@@ -342,6 +346,7 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
         else                                { esp_log_write(ESP_LOG_INFO,       tag, LOG_SYSTEM_TIME_FORMAT(I, format), esp_log_system_timestamp(), tag, ##__VA_ARGS__); } \
     } while(0)
 #endif //CONFIG_LOG_TIMESTAMP_SOURCE_xxx
+*/
 
 /** runtime macro to output logs at a specified level. Also check the level with ``LOG_LOCAL_LEVEL``.
  *
