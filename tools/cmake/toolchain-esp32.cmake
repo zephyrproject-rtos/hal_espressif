@@ -7,3 +7,4 @@ set(CMAKE_SYSTEM_NAME Generic)
 
 set(CMAKE_C_FLAGS "-mlongcalls -Wno-frame-address" CACHE STRING "C Compiler Base Flags")
 set(CMAKE_CXX_FLAGS "-mlongcalls -Wno-frame-address" CACHE STRING "C++ Compiler Base Flags")
+set(CMAKE_EXE_LINKER_FLAGS "-nostartfiles -nodefaultlibs" CACHE STRING "Linker Base Flags")
