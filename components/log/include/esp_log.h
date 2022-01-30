@@ -161,7 +161,7 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
 
 #ifndef LOG_LOCAL_LEVEL
 #ifndef BOOTLOADER_BUILD
-#define LOG_LOCAL_LEVEL  CONFIG_LOG_MAXIMUM_LEVEL
+#define LOG_LOCAL_LEVEL  CONFIG_BOOTLOADER_LOG_LEVEL
 #else
 #define LOG_LOCAL_LEVEL  CONFIG_BOOTLOADER_LOG_LEVEL
 #endif
@@ -397,10 +397,10 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
  *
  * @see ``printf``
  */
-#if defined(__cplusplus) && (__cplusplus >  201703L)
-#if CONFIG_LOG_TIMESTAMP_SOURCE_RTOS
-#define ESP_LOG_LEVEL(level, tag, format, ...) do {                     \
-        if (level==ESP_LOG_ERROR )          { esp_log_write(ESP_LOG_ERROR,      tag, LOG_FORMAT(E, format), esp_log_timestamp(), tag __VA_OPT__(,) __VA_ARGS__); } \
+/* Zephyr: remove ESP_LOG */
+#define ESP_LOG_LEVEL(level, tag, format, ...)
+
+/*
         else if (level==ESP_LOG_WARN )      { esp_log_write(ESP_LOG_WARN,       tag, LOG_FORMAT(W, format), esp_log_timestamp(), tag __VA_OPT__(,) __VA_ARGS__); } \
         else if (level==ESP_LOG_DEBUG )     { esp_log_write(ESP_LOG_DEBUG,      tag, LOG_FORMAT(D, format), esp_log_timestamp(), tag __VA_OPT__(,) __VA_ARGS__); } \
         else if (level==ESP_LOG_VERBOSE )   { esp_log_write(ESP_LOG_VERBOSE,    tag, LOG_FORMAT(V, format), esp_log_timestamp(), tag __VA_OPT__(,) __VA_ARGS__); } \
@@ -434,6 +434,7 @@ void esp_log_writev(esp_log_level_t level, const char* tag, const char* format, 
     } while(0)
 #endif //CONFIG_LOG_TIMESTAMP_SOURCE_xxx
 #endif // !(defined(__cplusplus) && (__cplusplus >  201703L))
+*/
 
 /** runtime macro to output logs at a specified level. Also check the level with ``LOG_LOCAL_LEVEL``.
  *
