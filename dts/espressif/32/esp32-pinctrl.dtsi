@@ -51,6 +51,54 @@
 				input-enable;
 			};
 
+			/* SPIM_2 MISO pin states */
+			spim2_miso_gpio12: spim2_miso_gpio12 {
+				pinmux = <ESP32_PINMUX(12, ESP_HSPIQ_IN, ESP_NOSIG)>;
+				input-enable;
+			};
+
+			/* SPIM_2 MOSI pin states */
+			spim2_mosi_gpio13: spim2_mosi_gpio13 {
+				pinmux = <ESP32_PINMUX(13, ESP_NOSIG, ESP_HSPID_OUT)>;
+				output-low;
+			};
+
+			/* SPIM_2 SCLK pin states */
+			spim2_sclk_gpio14: spim2_sclk_gpio14 {
+				pinmux = <ESP32_PINMUX(14, ESP_NOSIG, ESP_HSPICLK_OUT)>;
+				output-enable;
+			};
+
+			/* SPIM_2 CSEL pin states */
+			spim2_csel_gpio15: spim2_csel_gpio15 {
+				pinmux = <ESP32_PINMUX(15, ESP_NOSIG, ESP_HSPICS0_OUT)>;
+				output-enable;
+			};
+
+			/* SPIM_3 MISO pin states */
+                        spim3_miso_gpio19: spim3_miso_gpio19 {
+                                pinmux = <ESP32_PINMUX(19, ESP_VSPIQ_IN, ESP_NOSIG)>;
+                                input-enable;
+                        };
+
+                        /* SPIM_3 MOSI pin states */
+                        spim3_mosi_gpio23: spim3_mosi_gpio23 {
+                                pinmux = <ESP32_PINMUX(23, ESP_NOSIG, ESP_VSPID_OUT)>;
+                                output-low;
+                        };
+
+                        /* SPIM_3 SCLK pin states */
+                        spim3_sclk_gpio18: spim3_sclk_gpio18 {
+                                pinmux = <ESP32_PINMUX(18, ESP_NOSIG, ESP_VSPICLK_OUT)>;
+                                output-enable;
+                        };
+
+                        /* SPIM_3 CSEL pin states */
+                        spim3_csel_gpio5: spim3_csel_gpio5 {
+                                pinmux = <ESP32_PINMUX(5, ESP_NOSIG, ESP_VSPICS0_OUT)>;
+                                output-enable;
+                        };
+
 		};
 	};
 };
