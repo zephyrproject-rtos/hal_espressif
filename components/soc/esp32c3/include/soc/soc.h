@@ -81,10 +81,15 @@
 #define ETS_UNCACHED_ADDR(addr) (addr)
 #define ETS_CACHED_ADDR(addr) (addr)
 
+/* this is necessary to avoid BIT redefinition */
+#ifndef __ZEPHYR__
+
 #ifndef __ASSEMBLER__
 #define BIT(nr)                 (1UL << (nr))
 #else
 #define BIT(nr)                 (1 << (nr))
+#endif
+
 #endif
 
 #ifndef __ASSEMBLER__

@@ -19,8 +19,7 @@
 #include "soc/rtc.h"
 #include "esp32c3/clk.h"
 #include "esp32c3/rom/ets_sys.h"
-
-#define MHZ (1000000)
+#include "rtc_clk_common.h"
 
 int IRAM_ATTR esp_clk_cpu_freq(void)
 {
