@@ -17,8 +17,7 @@
 #include "soc/rtc.h"
 #include "soc/timer_periph.h"
 #include "soc_log.h"
-
-#define MHZ (1000000)
+#include "rtc_clk_common.h"
 
 static const char* TAG = "rtc_time";
 

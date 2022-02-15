@@ -34,8 +34,6 @@
 #include "sdkconfig.h"
 #include "rtc_clk_common.h"
 
-#define MHZ (1000000)
-
 /* Frequency of the 8M oscillator is 8.5MHz +/- 5%, at the default DCAP setting */
 #define RTC_FAST_CLK_FREQ_8M        8500000
 #define RTC_SLOW_CLK_FREQ_150K      150000
