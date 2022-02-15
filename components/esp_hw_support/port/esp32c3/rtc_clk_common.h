@@ -6,9 +6,8 @@
 
 #pragma once
 
-#ifndef __ZEPHYR__
+#undef MHZ
 #define MHZ (1000000)
-#endif
 
 #define DPORT_CPUPERIOD_SEL_80      0
 #define DPORT_CPUPERIOD_SEL_160     1

@@ -20,6 +20,9 @@
 
 #define RTC_FAST_CLK_FREQ_8M        8500000
 
+#undef MHZ
+#define MHZ (1000000)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

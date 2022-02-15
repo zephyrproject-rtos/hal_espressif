@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include "esp32c3/rom/ets_sys.h"
 #include "esp32c3/rom/rtc.h"
-#include "esp32c3/rom/uart.h"
 #include "soc/rtc.h"
 #include "soc/rtc_periph.h"
 #include "soc/efuse_periph.h"
@@ -21,8 +20,6 @@
 #include "sdkconfig.h"
 #include "rtc_clk_common.h"
 #include "esp_rom_uart.h"
-
-#define MHZ (1000000)
 
 static const char *TAG = "rtc_clk_init";
 

@@ -12,7 +12,6 @@
 #include "sdkconfig.h"
 #include "esp32c3/rom/ets_sys.h"
 #include "esp32c3/rom/rtc.h"
-#include "esp32c3/rom/uart.h"
 #include "esp32c3/rom/gpio.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -25,10 +24,6 @@
 #include "esp_rom_sys.h"
 #include "hal/usb_serial_jtag_ll.h"
 static const char *TAG = "rtc_clk";
-
-#ifdef __ZEPHYR__
-#define MHZ (1000000)
-#endif
 
 #define RTC_PLL_FREQ_320M   320
 #define RTC_PLL_FREQ_480M   480
