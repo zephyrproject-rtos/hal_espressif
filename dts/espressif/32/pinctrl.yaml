@@ -35,3 +35,39 @@ uart2:
     gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
     bias: pull_up
     sigi: u2rxd_in
+
+spim2:
+  miso:
+    func: [in]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+    sigi: hspiq_in
+  mosi:
+    func: [out_low]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: hspid_out
+  sclk:
+    func: [out]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: hspiclk_out
+  csel:
+    func: [out]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: hspics0_out
+
+spim3:
+  miso:
+    func: [in]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+    sigi: vspiq_in
+  mosi:
+    func: [out_low]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: vspid_out
+  sclk:
+    func: [out]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: vspiclk_out
+  csel:
+    func: [out]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigo: vspics0_out
