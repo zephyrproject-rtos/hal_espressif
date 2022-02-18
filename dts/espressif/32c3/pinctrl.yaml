@@ -1,0 +1,45 @@
+# According to ESP32-C3's TRM:
+# Note that the GPIO pins are numbered from 0 ~ 21
+
+uart0:
+  tx:
+    func: [out]
+    gpio: [[0, 21]]
+    sigo: u0txd_out
+  rx:
+    func: [in]
+    bias: pull_up
+    gpio: [[0, 21]]
+    sigi: u0rxd_in
+
+spim2:
+  miso:
+    func: [in]
+    gpio: [[0, 21]]
+    sigi: fspiq_in
+  mosi:
+    func: [out_low]
+    gpio: [[0, 21]]
+    sigo: fspid_out
+  sclk:
+    func: [out]
+    gpio: [[0, 21]]
+    sigo: fspiclk_out
+  csel:
+    func: [out]
+    gpio: [[0, 21]]
+    sigo: fspics0_out
+
+i2c0:
+  sda:
+    func: [in, out_high]
+    gpio: [[0, 21]]
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    outm: open_drain
+  scl:
+    func: [in, out_high]
+    gpio: [[0, 21]]
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    outm: open_drain
