@@ -71,3 +71,31 @@ spim3:
     func: [out]
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: vspics0_out
+
+i2c0:
+  sda:
+    func: [in, out_high]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    outm: open_drain
+  scl:
+    func: [in, out_high]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    outm: open_drain
+
+i2c1:
+  sda:
+    func: [in, out_high]
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    outm: open_drain
+  scl:
+    func: [in, out_high]   
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    outm: open_drain
