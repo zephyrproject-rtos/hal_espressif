@@ -1,90 +1,133 @@
-# According to ESP32's TRM:
-# Note that the I/O GPIO pads are 0-19, 21-23, 25-27, 32-39, 
-# while the output GPIOs are 0-19, 21-23, 25-27, 32-33.
-# GPIO pads 34-39 are input­only.
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Notes:
+# - I/O GPIO pads are 0-19, 21-23, 25-27, 32-39
+# - the output GPIOs are 0-19, 21-23, 25-27, 32-33
+# - GPIOs 34-39 are input­only and do not have software-enabled pu/pd
 
 uart0:
   tx:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: u0txd_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   rx:
     func: [in]
-    bias: pull_up
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
     sigi: u0rxd_in
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+      g1:
+        pins: [[34, 39]]
 
 uart1:
   tx:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: u1txd_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   rx:
     func: [in]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
-    bias: pull_up
     sigi: u1rxd_in
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+      g1:
+        pins: [[34, 39]]
 
 uart2:
   tx:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: u2txd_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   rx:
     func: [in]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
-    bias: pull_up
     sigi: u2rxd_in
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+      g1:
+        pins: [[34, 39]]
 
 spim2:
   miso:
     func: [in]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
     sigi: hspiq_in
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 39]]
   mosi:
     func: [out_low]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: hspid_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   sclk:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: hspiclk_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   csel:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: hspics0_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
 
 spim3:
   miso:
     func: [in]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
     sigi: vspiq_in
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 39]]
   mosi:
     func: [out_low]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: vspid_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   sclk:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: vspiclk_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
   csel:
     func: [out]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigo: vspics0_out
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
 
 i2c0:
   sda:
     func: [in, out_high]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigi: i2cext0_sda_in
     sigo: i2cext0_sda_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+        outm: open_drain
   scl:
     func: [in, out_high]
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigi: i2cext0_scl_in
     sigo: i2cext0_scl_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+        outm: open_drain
 
 i2c1:
   sda:
@@ -92,10 +135,17 @@ i2c1:
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
     sigi: i2cext1_sda_in
     sigo: i2cext1_sda_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+        outm: open_drain
   scl:
-    func: [in, out_high]   
-    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+    func: [in, out_high]
     sigi: i2cext1_scl_in
     sigo: i2cext1_scl_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 19], [21, 23], [25, 27], [32, 33]]
+        bias: pull_up
+        outm: open_drain
