@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import sys
@@ -52,11 +54,11 @@ def err(source, msg):
     os.remove(path_temp)
     sys.exit('ERR(' + source + '):' + msg)
 
-def get_pin_ios(pin_info):
+def get_pin_ios(group_info):
     ios = []
-    if 'gpio' in pin_info:
-        gpio = pin_info['gpio']
-        for io in gpio:
+    if 'pins' in group_info:
+        pins = group_info['pins']
+        for io in pins:
             if type(io) is int:
                 ios.append(io)
             elif type(io) is list and io.__len__() == 2:
@@ -65,15 +67,21 @@ def get_pin_ios(pin_info):
             else:
                 err('gpio', 'bad type / wrong list size')
     else:
-        err('gpio', 'missing property')
+        err('pins', 'missing property')
 
     return ios
 
-def get_pin_bias(pin_info):
+def get_gpio_groups(pin_info):
+    if 'gpio' in pin_info:
+        return pin_info.get('gpio')
+    else:
+        err('gpio', 'missing property')
+
+def get_pin_bias(io_group_info):
     bias = ''
-    if 'bias' in pin_info:
-        if pin_info['bias'] in bias_lut:
-            return bias_lut[pin_info['bias']]
+    if 'bias' in io_group_info:
+        if io_group_info['bias'] in bias_lut:
+            return bias_lut[io_group_info['bias']]
         else:
             err('bias', 'unsupported value')
     else:
@@ -81,11 +89,11 @@ def get_pin_bias(pin_info):
 
     return bias
 
-def get_pin_outm(pin_info):
+def get_pin_outm(io_group_info):
     outm = ''
-    if 'outm' in pin_info:
-        if pin_info['outm'] in outm_lut:
-            return outm_lut[pin_info['outm']]
+    if 'outm' in io_group_info:
+        if io_group_info['outm'] in outm_lut:
+            return outm_lut[io_group_info['outm']]
         else:
             err('outm', 'unsupported value')
     else:
@@ -125,9 +133,9 @@ def get_pin_func(pin_info):
     func = sorted(func)
     return func
 
-def get_pin_state(dev_name, pin_name, pin_info, io):
-    bias = get_pin_bias(pin_info)
-    outm = get_pin_outm(pin_info)
+def get_pin_state(dev_name, pin_name, pin_info, io, io_group_info):
+    bias = get_pin_bias(io_group_info)
+    outm = get_pin_outm(io_group_info)
     sigi = get_pin_sigi(pin_info)
     sigo = get_pin_sigo(pin_info)
     func = get_pin_func(pin_info)
@@ -176,10 +184,13 @@ def main(data_path):
         for (pin_name, pin_info) in dev_info:
             global line_comment
             line_comment = '/* ' + dev_name.upper() + '\'s ' + pin_name.upper() + ' pin states */\n'
-            pin_ios = get_pin_ios(pin_info)
-            for io in pin_ios:
-                state = get_pin_state(dev_name, pin_name, pin_info, io)
-                f.write(state)
+            gpio_groups = get_gpio_groups(pin_info)
+            for io_group_name in gpio_groups.keys():
+                io_group_info = gpio_groups[io_group_name]
+                pin_ios = get_pin_ios(io_group_info)
+                for io in pin_ios:
+                    state = get_pin_state(dev_name, pin_name, pin_info, io, io_group_info)
+                    f.write(state)
 
     f.write(file_tail)
     f.close()
