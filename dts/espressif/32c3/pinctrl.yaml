@@ -1,45 +1,63 @@
-# According to ESP32-C3's TRM:
-# Note that the GPIO pins are numbered from 0 ~ 21
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
 
 uart0:
   tx:
     func: [out]
-    gpio: [[0, 21]]
     sigo: u0txd_out
+    gpio:
+      g0:
+        pins: [[0, 21]]
   rx:
     func: [in]
-    bias: pull_up
-    gpio: [[0, 21]]
     sigi: u0rxd_in
+    gpio:
+      g0:
+        pins: [[0, 21]]
+        bias: pull_up
 
 spim2:
   miso:
     func: [in]
-    gpio: [[0, 21]]
     sigi: fspiq_in
+    gpio:
+      g0:
+        pins: [[0, 21]]
   mosi:
     func: [out_low]
-    gpio: [[0, 21]]
     sigo: fspid_out
+    gpio:
+      g0:
+        pins: [[0, 21]]
   sclk:
     func: [out]
-    gpio: [[0, 21]]
     sigo: fspiclk_out
+    gpio:
+      g0:
+        pins: [[0, 21]]
   csel:
     func: [out]
-    gpio: [[0, 21]]
     sigo: fspics0_out
+    gpio:
+      g0:
+        pins: [[0, 21]]
 
 i2c0:
   sda:
     func: [in, out_high]
-    gpio: [[0, 21]]
     sigi: i2cext0_sda_in
     sigo: i2cext0_sda_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 21]]
+        bias: pull_up
+        outm: open_drain
   scl:
     func: [in, out_high]
-    gpio: [[0, 21]]
     sigi: i2cext0_scl_in
     sigo: i2cext0_scl_out
-    outm: open_drain
+    gpio:
+      g0:
+        pins: [[0, 21]]
+        bias: pull_up
+        outm: open_drain
