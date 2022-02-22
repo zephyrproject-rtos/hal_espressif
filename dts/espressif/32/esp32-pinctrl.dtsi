@@ -17,6 +17,7 @@
 			/* I2C0's SCL pin states */
 			i2c0_scl_gpio0: i2c0_scl_gpio0 {
 				pinmux = <ESP32_PINMUX(0, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -24,6 +25,7 @@
 
 			i2c0_scl_gpio1: i2c0_scl_gpio1 {
 				pinmux = <ESP32_PINMUX(1, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -31,6 +33,7 @@
 
 			i2c0_scl_gpio2: i2c0_scl_gpio2 {
 				pinmux = <ESP32_PINMUX(2, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -38,6 +41,7 @@
 
 			i2c0_scl_gpio3: i2c0_scl_gpio3 {
 				pinmux = <ESP32_PINMUX(3, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -45,6 +49,7 @@
 
 			i2c0_scl_gpio4: i2c0_scl_gpio4 {
 				pinmux = <ESP32_PINMUX(4, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -52,6 +57,7 @@
 
 			i2c0_scl_gpio5: i2c0_scl_gpio5 {
 				pinmux = <ESP32_PINMUX(5, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -59,6 +65,7 @@
 
 			i2c0_scl_gpio6: i2c0_scl_gpio6 {
 				pinmux = <ESP32_PINMUX(6, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -66,6 +73,7 @@
 
 			i2c0_scl_gpio7: i2c0_scl_gpio7 {
 				pinmux = <ESP32_PINMUX(7, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -73,6 +81,7 @@
 
 			i2c0_scl_gpio8: i2c0_scl_gpio8 {
 				pinmux = <ESP32_PINMUX(8, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -80,6 +89,7 @@
 
 			i2c0_scl_gpio9: i2c0_scl_gpio9 {
 				pinmux = <ESP32_PINMUX(9, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -87,6 +97,7 @@
 
 			i2c0_scl_gpio10: i2c0_scl_gpio10 {
 				pinmux = <ESP32_PINMUX(10, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -94,6 +105,7 @@
 
 			i2c0_scl_gpio11: i2c0_scl_gpio11 {
 				pinmux = <ESP32_PINMUX(11, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -101,6 +113,7 @@
 
 			i2c0_scl_gpio12: i2c0_scl_gpio12 {
 				pinmux = <ESP32_PINMUX(12, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -108,6 +121,7 @@
 
 			i2c0_scl_gpio13: i2c0_scl_gpio13 {
 				pinmux = <ESP32_PINMUX(13, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -115,6 +129,7 @@
 
 			i2c0_scl_gpio14: i2c0_scl_gpio14 {
 				pinmux = <ESP32_PINMUX(14, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -122,6 +137,7 @@
 
 			i2c0_scl_gpio15: i2c0_scl_gpio15 {
 				pinmux = <ESP32_PINMUX(15, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -129,6 +145,7 @@
 
 			i2c0_scl_gpio16: i2c0_scl_gpio16 {
 				pinmux = <ESP32_PINMUX(16, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -136,6 +153,7 @@
 
 			i2c0_scl_gpio17: i2c0_scl_gpio17 {
 				pinmux = <ESP32_PINMUX(17, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -143,6 +161,7 @@
 
 			i2c0_scl_gpio18: i2c0_scl_gpio18 {
 				pinmux = <ESP32_PINMUX(18, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -150,6 +169,7 @@
 
 			i2c0_scl_gpio19: i2c0_scl_gpio19 {
 				pinmux = <ESP32_PINMUX(19, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -157,6 +177,7 @@
 
 			i2c0_scl_gpio21: i2c0_scl_gpio21 {
 				pinmux = <ESP32_PINMUX(21, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -164,6 +185,7 @@
 
 			i2c0_scl_gpio22: i2c0_scl_gpio22 {
 				pinmux = <ESP32_PINMUX(22, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -171,6 +193,7 @@
 
 			i2c0_scl_gpio23: i2c0_scl_gpio23 {
 				pinmux = <ESP32_PINMUX(23, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -178,6 +201,7 @@
 
 			i2c0_scl_gpio25: i2c0_scl_gpio25 {
 				pinmux = <ESP32_PINMUX(25, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -185,6 +209,7 @@
 
 			i2c0_scl_gpio26: i2c0_scl_gpio26 {
 				pinmux = <ESP32_PINMUX(26, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -192,6 +217,7 @@
 
 			i2c0_scl_gpio27: i2c0_scl_gpio27 {
 				pinmux = <ESP32_PINMUX(27, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -199,6 +225,7 @@
 
 			i2c0_scl_gpio32: i2c0_scl_gpio32 {
 				pinmux = <ESP32_PINMUX(32, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -206,6 +233,7 @@
 
 			i2c0_scl_gpio33: i2c0_scl_gpio33 {
 				pinmux = <ESP32_PINMUX(33, ESP_I2CEXT0_SCL_IN, ESP_I2CEXT0_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -214,6 +242,7 @@
 			/* I2C0's SDA pin states */
 			i2c0_sda_gpio0: i2c0_sda_gpio0 {
 				pinmux = <ESP32_PINMUX(0, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -221,6 +250,7 @@
 
 			i2c0_sda_gpio1: i2c0_sda_gpio1 {
 				pinmux = <ESP32_PINMUX(1, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -228,6 +258,7 @@
 
 			i2c0_sda_gpio2: i2c0_sda_gpio2 {
 				pinmux = <ESP32_PINMUX(2, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -235,6 +266,7 @@
 
 			i2c0_sda_gpio3: i2c0_sda_gpio3 {
 				pinmux = <ESP32_PINMUX(3, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -242,6 +274,7 @@
 
 			i2c0_sda_gpio4: i2c0_sda_gpio4 {
 				pinmux = <ESP32_PINMUX(4, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -249,6 +282,7 @@
 
 			i2c0_sda_gpio5: i2c0_sda_gpio5 {
 				pinmux = <ESP32_PINMUX(5, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -256,6 +290,7 @@
 
 			i2c0_sda_gpio6: i2c0_sda_gpio6 {
 				pinmux = <ESP32_PINMUX(6, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -263,6 +298,7 @@
 
 			i2c0_sda_gpio7: i2c0_sda_gpio7 {
 				pinmux = <ESP32_PINMUX(7, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -270,6 +306,7 @@
 
 			i2c0_sda_gpio8: i2c0_sda_gpio8 {
 				pinmux = <ESP32_PINMUX(8, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -277,6 +314,7 @@
 
 			i2c0_sda_gpio9: i2c0_sda_gpio9 {
 				pinmux = <ESP32_PINMUX(9, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -284,6 +322,7 @@
 
 			i2c0_sda_gpio10: i2c0_sda_gpio10 {
 				pinmux = <ESP32_PINMUX(10, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -291,6 +330,7 @@
 
 			i2c0_sda_gpio11: i2c0_sda_gpio11 {
 				pinmux = <ESP32_PINMUX(11, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -298,6 +338,7 @@
 
 			i2c0_sda_gpio12: i2c0_sda_gpio12 {
 				pinmux = <ESP32_PINMUX(12, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -305,6 +346,7 @@
 
 			i2c0_sda_gpio13: i2c0_sda_gpio13 {
 				pinmux = <ESP32_PINMUX(13, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -312,6 +354,7 @@
 
 			i2c0_sda_gpio14: i2c0_sda_gpio14 {
 				pinmux = <ESP32_PINMUX(14, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -319,6 +362,7 @@
 
 			i2c0_sda_gpio15: i2c0_sda_gpio15 {
 				pinmux = <ESP32_PINMUX(15, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -326,6 +370,7 @@
 
 			i2c0_sda_gpio16: i2c0_sda_gpio16 {
 				pinmux = <ESP32_PINMUX(16, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -333,6 +378,7 @@
 
 			i2c0_sda_gpio17: i2c0_sda_gpio17 {
 				pinmux = <ESP32_PINMUX(17, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -340,6 +386,7 @@
 
 			i2c0_sda_gpio18: i2c0_sda_gpio18 {
 				pinmux = <ESP32_PINMUX(18, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -347,6 +394,7 @@
 
 			i2c0_sda_gpio19: i2c0_sda_gpio19 {
 				pinmux = <ESP32_PINMUX(19, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -354,6 +402,7 @@
 
 			i2c0_sda_gpio21: i2c0_sda_gpio21 {
 				pinmux = <ESP32_PINMUX(21, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -361,6 +410,7 @@
 
 			i2c0_sda_gpio22: i2c0_sda_gpio22 {
 				pinmux = <ESP32_PINMUX(22, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -368,6 +418,7 @@
 
 			i2c0_sda_gpio23: i2c0_sda_gpio23 {
 				pinmux = <ESP32_PINMUX(23, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -375,6 +426,7 @@
 
 			i2c0_sda_gpio25: i2c0_sda_gpio25 {
 				pinmux = <ESP32_PINMUX(25, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -382,6 +434,7 @@
 
 			i2c0_sda_gpio26: i2c0_sda_gpio26 {
 				pinmux = <ESP32_PINMUX(26, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -389,6 +442,7 @@
 
 			i2c0_sda_gpio27: i2c0_sda_gpio27 {
 				pinmux = <ESP32_PINMUX(27, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -396,6 +450,7 @@
 
 			i2c0_sda_gpio32: i2c0_sda_gpio32 {
 				pinmux = <ESP32_PINMUX(32, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -403,6 +458,7 @@
 
 			i2c0_sda_gpio33: i2c0_sda_gpio33 {
 				pinmux = <ESP32_PINMUX(33, ESP_I2CEXT0_SDA_IN, ESP_I2CEXT0_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -411,6 +467,7 @@
 			/* I2C1's SCL pin states */
 			i2c1_scl_gpio0: i2c1_scl_gpio0 {
 				pinmux = <ESP32_PINMUX(0, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -418,6 +475,7 @@
 
 			i2c1_scl_gpio1: i2c1_scl_gpio1 {
 				pinmux = <ESP32_PINMUX(1, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -425,6 +483,7 @@
 
 			i2c1_scl_gpio2: i2c1_scl_gpio2 {
 				pinmux = <ESP32_PINMUX(2, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -432,6 +491,7 @@
 
 			i2c1_scl_gpio3: i2c1_scl_gpio3 {
 				pinmux = <ESP32_PINMUX(3, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -439,6 +499,7 @@
 
 			i2c1_scl_gpio4: i2c1_scl_gpio4 {
 				pinmux = <ESP32_PINMUX(4, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -446,6 +507,7 @@
 
 			i2c1_scl_gpio5: i2c1_scl_gpio5 {
 				pinmux = <ESP32_PINMUX(5, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -453,6 +515,7 @@
 
 			i2c1_scl_gpio6: i2c1_scl_gpio6 {
 				pinmux = <ESP32_PINMUX(6, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -460,6 +523,7 @@
 
 			i2c1_scl_gpio7: i2c1_scl_gpio7 {
 				pinmux = <ESP32_PINMUX(7, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -467,6 +531,7 @@
 
 			i2c1_scl_gpio8: i2c1_scl_gpio8 {
 				pinmux = <ESP32_PINMUX(8, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -474,6 +539,7 @@
 
 			i2c1_scl_gpio9: i2c1_scl_gpio9 {
 				pinmux = <ESP32_PINMUX(9, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -481,6 +547,7 @@
 
 			i2c1_scl_gpio10: i2c1_scl_gpio10 {
 				pinmux = <ESP32_PINMUX(10, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -488,6 +555,7 @@
 
 			i2c1_scl_gpio11: i2c1_scl_gpio11 {
 				pinmux = <ESP32_PINMUX(11, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -495,6 +563,7 @@
 
 			i2c1_scl_gpio12: i2c1_scl_gpio12 {
 				pinmux = <ESP32_PINMUX(12, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -502,6 +571,7 @@
 
 			i2c1_scl_gpio13: i2c1_scl_gpio13 {
 				pinmux = <ESP32_PINMUX(13, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -509,6 +579,7 @@
 
 			i2c1_scl_gpio14: i2c1_scl_gpio14 {
 				pinmux = <ESP32_PINMUX(14, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -516,6 +587,7 @@
 
 			i2c1_scl_gpio15: i2c1_scl_gpio15 {
 				pinmux = <ESP32_PINMUX(15, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -523,6 +595,7 @@
 
 			i2c1_scl_gpio16: i2c1_scl_gpio16 {
 				pinmux = <ESP32_PINMUX(16, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -530,6 +603,7 @@
 
 			i2c1_scl_gpio17: i2c1_scl_gpio17 {
 				pinmux = <ESP32_PINMUX(17, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -537,6 +611,7 @@
 
 			i2c1_scl_gpio18: i2c1_scl_gpio18 {
 				pinmux = <ESP32_PINMUX(18, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -544,6 +619,7 @@
 
 			i2c1_scl_gpio19: i2c1_scl_gpio19 {
 				pinmux = <ESP32_PINMUX(19, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -551,6 +627,7 @@
 
 			i2c1_scl_gpio21: i2c1_scl_gpio21 {
 				pinmux = <ESP32_PINMUX(21, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -558,6 +635,7 @@
 
 			i2c1_scl_gpio22: i2c1_scl_gpio22 {
 				pinmux = <ESP32_PINMUX(22, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -565,6 +643,7 @@
 
 			i2c1_scl_gpio23: i2c1_scl_gpio23 {
 				pinmux = <ESP32_PINMUX(23, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -572,6 +651,7 @@
 
 			i2c1_scl_gpio25: i2c1_scl_gpio25 {
 				pinmux = <ESP32_PINMUX(25, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -579,6 +659,7 @@
 
 			i2c1_scl_gpio26: i2c1_scl_gpio26 {
 				pinmux = <ESP32_PINMUX(26, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -586,6 +667,7 @@
 
 			i2c1_scl_gpio27: i2c1_scl_gpio27 {
 				pinmux = <ESP32_PINMUX(27, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -593,6 +675,7 @@
 
 			i2c1_scl_gpio32: i2c1_scl_gpio32 {
 				pinmux = <ESP32_PINMUX(32, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -600,6 +683,7 @@
 
 			i2c1_scl_gpio33: i2c1_scl_gpio33 {
 				pinmux = <ESP32_PINMUX(33, ESP_I2CEXT1_SCL_IN, ESP_I2CEXT1_SCL_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -608,6 +692,7 @@
 			/* I2C1's SDA pin states */
 			i2c1_sda_gpio0: i2c1_sda_gpio0 {
 				pinmux = <ESP32_PINMUX(0, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -615,6 +700,7 @@
 
 			i2c1_sda_gpio1: i2c1_sda_gpio1 {
 				pinmux = <ESP32_PINMUX(1, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -622,6 +708,7 @@
 
 			i2c1_sda_gpio2: i2c1_sda_gpio2 {
 				pinmux = <ESP32_PINMUX(2, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -629,6 +716,7 @@
 
 			i2c1_sda_gpio3: i2c1_sda_gpio3 {
 				pinmux = <ESP32_PINMUX(3, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -636,6 +724,7 @@
 
 			i2c1_sda_gpio4: i2c1_sda_gpio4 {
 				pinmux = <ESP32_PINMUX(4, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -643,6 +732,7 @@
 
 			i2c1_sda_gpio5: i2c1_sda_gpio5 {
 				pinmux = <ESP32_PINMUX(5, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -650,6 +740,7 @@
 
 			i2c1_sda_gpio6: i2c1_sda_gpio6 {
 				pinmux = <ESP32_PINMUX(6, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -657,6 +748,7 @@
 
 			i2c1_sda_gpio7: i2c1_sda_gpio7 {
 				pinmux = <ESP32_PINMUX(7, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -664,6 +756,7 @@
 
 			i2c1_sda_gpio8: i2c1_sda_gpio8 {
 				pinmux = <ESP32_PINMUX(8, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -671,6 +764,7 @@
 
 			i2c1_sda_gpio9: i2c1_sda_gpio9 {
 				pinmux = <ESP32_PINMUX(9, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -678,6 +772,7 @@
 
 			i2c1_sda_gpio10: i2c1_sda_gpio10 {
 				pinmux = <ESP32_PINMUX(10, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -685,6 +780,7 @@
 
 			i2c1_sda_gpio11: i2c1_sda_gpio11 {
 				pinmux = <ESP32_PINMUX(11, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -692,6 +788,7 @@
 
 			i2c1_sda_gpio12: i2c1_sda_gpio12 {
 				pinmux = <ESP32_PINMUX(12, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -699,6 +796,7 @@
 
 			i2c1_sda_gpio13: i2c1_sda_gpio13 {
 				pinmux = <ESP32_PINMUX(13, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -706,6 +804,7 @@
 
 			i2c1_sda_gpio14: i2c1_sda_gpio14 {
 				pinmux = <ESP32_PINMUX(14, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -713,6 +812,7 @@
 
 			i2c1_sda_gpio15: i2c1_sda_gpio15 {
 				pinmux = <ESP32_PINMUX(15, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -720,6 +820,7 @@
 
 			i2c1_sda_gpio16: i2c1_sda_gpio16 {
 				pinmux = <ESP32_PINMUX(16, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -727,6 +828,7 @@
 
 			i2c1_sda_gpio17: i2c1_sda_gpio17 {
 				pinmux = <ESP32_PINMUX(17, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -734,6 +836,7 @@
 
 			i2c1_sda_gpio18: i2c1_sda_gpio18 {
 				pinmux = <ESP32_PINMUX(18, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -741,6 +844,7 @@
 
 			i2c1_sda_gpio19: i2c1_sda_gpio19 {
 				pinmux = <ESP32_PINMUX(19, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -748,6 +852,7 @@
 
 			i2c1_sda_gpio21: i2c1_sda_gpio21 {
 				pinmux = <ESP32_PINMUX(21, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -755,6 +860,7 @@
 
 			i2c1_sda_gpio22: i2c1_sda_gpio22 {
 				pinmux = <ESP32_PINMUX(22, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -762,6 +868,7 @@
 
 			i2c1_sda_gpio23: i2c1_sda_gpio23 {
 				pinmux = <ESP32_PINMUX(23, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -769,6 +876,7 @@
 
 			i2c1_sda_gpio25: i2c1_sda_gpio25 {
 				pinmux = <ESP32_PINMUX(25, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -776,6 +884,7 @@
 
 			i2c1_sda_gpio26: i2c1_sda_gpio26 {
 				pinmux = <ESP32_PINMUX(26, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -783,6 +892,7 @@
 
 			i2c1_sda_gpio27: i2c1_sda_gpio27 {
 				pinmux = <ESP32_PINMUX(27, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -790,6 +900,7 @@
 
 			i2c1_sda_gpio32: i2c1_sda_gpio32 {
 				pinmux = <ESP32_PINMUX(32, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -797,6 +908,7 @@
 
 			i2c1_sda_gpio33: i2c1_sda_gpio33 {
 				pinmux = <ESP32_PINMUX(33, ESP_I2CEXT1_SDA_IN, ESP_I2CEXT1_SDA_OUT)>;
+				bias-pull-up;
 				drive-open-drain;
 				input-enable;
 				output-high;
@@ -2161,37 +2273,31 @@
 
 			uart0_rx_gpio34: uart0_rx_gpio34 {
 				pinmux = <ESP32_PINMUX(34, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart0_rx_gpio35: uart0_rx_gpio35 {
 				pinmux = <ESP32_PINMUX(35, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart0_rx_gpio36: uart0_rx_gpio36 {
 				pinmux = <ESP32_PINMUX(36, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart0_rx_gpio37: uart0_rx_gpio37 {
 				pinmux = <ESP32_PINMUX(37, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart0_rx_gpio38: uart0_rx_gpio38 {
 				pinmux = <ESP32_PINMUX(38, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart0_rx_gpio39: uart0_rx_gpio39 {
 				pinmux = <ESP32_PINMUX(39, ESP_U0RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
@@ -2507,37 +2613,31 @@
 
 			uart1_rx_gpio34: uart1_rx_gpio34 {
 				pinmux = <ESP32_PINMUX(34, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart1_rx_gpio35: uart1_rx_gpio35 {
 				pinmux = <ESP32_PINMUX(35, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart1_rx_gpio36: uart1_rx_gpio36 {
 				pinmux = <ESP32_PINMUX(36, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart1_rx_gpio37: uart1_rx_gpio37 {
 				pinmux = <ESP32_PINMUX(37, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart1_rx_gpio38: uart1_rx_gpio38 {
 				pinmux = <ESP32_PINMUX(38, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart1_rx_gpio39: uart1_rx_gpio39 {
 				pinmux = <ESP32_PINMUX(39, ESP_U1RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
@@ -2853,37 +2953,31 @@
 
 			uart2_rx_gpio34: uart2_rx_gpio34 {
 				pinmux = <ESP32_PINMUX(34, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart2_rx_gpio35: uart2_rx_gpio35 {
 				pinmux = <ESP32_PINMUX(35, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart2_rx_gpio36: uart2_rx_gpio36 {
 				pinmux = <ESP32_PINMUX(36, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart2_rx_gpio37: uart2_rx_gpio37 {
 				pinmux = <ESP32_PINMUX(37, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart2_rx_gpio38: uart2_rx_gpio38 {
 				pinmux = <ESP32_PINMUX(38, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
 			uart2_rx_gpio39: uart2_rx_gpio39 {
 				pinmux = <ESP32_PINMUX(39, ESP_U2RXD_IN, ESP_NOSIG)>;
-				bias-pull-up;
 				input-enable;
 			};
 
