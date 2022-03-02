@@ -36,6 +36,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/wpa_supplicant/include
     ../../components/wpa_supplicant/port/include
     ../../components/wpa_supplicant/src
+    ../../components/wpa_supplicant/src/crypto
     ../../components/wpa_supplicant/include/esp_supplicant
     ../../components/spi_flash/include
     ../../components/spi_flash/private_include

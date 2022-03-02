@@ -20,7 +20,11 @@
 #include "common/wpa_common.h"
 
 #include "crypto/aes_wrap.h"
+#ifdef __ZEPHYR__
+#include "crypto.h"
+#else
 #include "crypto/crypto.h"
+#endif
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
 #include "crypto/random.h"
