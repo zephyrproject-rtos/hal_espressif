@@ -24,7 +24,11 @@
 #include "esp_supplicant/esp_wpas_glue.h"
 #include "esp_supplicant/esp_wifi_driver.h"
 
+#ifdef __ZEPHYR__
+#include "crypto.h"
+#else
 #include "crypto/crypto.h"
+#endif
 #include "crypto/sha1.h"
 #include "crypto/aes_wrap.h"
 #include "crypto/ccmp.h"

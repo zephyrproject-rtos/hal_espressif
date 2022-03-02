@@ -10,7 +10,11 @@
 
 #include "utils/includes.h"
 #include "utils/common.h"
+#ifdef __ZEPHYR__
+#include "crypto.h"
+#else
 #include "crypto/crypto.h"
+#endif
 #include "crypto/sha256.h"
 #include "crypto/random.h"
 #include "crypto/dh_groups.h"
