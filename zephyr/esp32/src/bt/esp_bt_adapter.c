@@ -338,6 +338,7 @@ static DRAM_ATTR int64_t s_time_phy_rf_just_enabled = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
 static unsigned int global_int_lock;
+static unsigned int global_nested_counter = 0;
 
 /* BT library uses a single task */
 K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
@@ -389,12 +390,24 @@ static void intr_on(unsigned int mask)
 
 static void IRAM_ATTR interrupt_disable(void)
 {	
-	global_int_lock = irq_lock();
+	if (global_nested_counter == 0) {
+		global_int_lock = irq_lock();
+	}
+	
+	if (global_nested_counter < 0xFFFFFFFF) {
+		global_nested_counter++;
+	}
 }
 
 static void IRAM_ATTR interrupt_restore(void)
 {
-	irq_unlock(global_int_lock);
+	if (global_nested_counter > 0) {
+		global_nested_counter--;
+	}
+
+	if (global_nested_counter == 0) {
+		irq_unlock(global_int_lock);
+	}
 }
 
 static void IRAM_ATTR task_yield_from_isr(void)
