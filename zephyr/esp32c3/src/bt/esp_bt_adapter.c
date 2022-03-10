@@ -262,6 +262,8 @@ static void btdm_hw_mac_power_up_wrapper(void);
 static void btdm_hw_mac_power_down_wrapper(void);
 static void btdm_backup_dma_copy_wrapper(uint32_t reg, uint32_t mem_addr, uint32_t num,  bool to_mem);
 
+static void esp_bt_free(void *mem);
+
 /* Local variable definition
  ***************************************************************************
  */
@@ -298,7 +300,7 @@ static const struct osi_funcs_t osi_funcs_ro = {
 	._cause_sw_intr_to_core = NULL,
 	._malloc = malloc_internal_wrapper,
 	._malloc_internal = malloc_internal_wrapper,
-	._free = free,
+	._free = esp_bt_free,
 	._read_efuse_mac = read_mac_wrapper,
 	._srand = srand_wrapper,
 	._rand = rand_wrapper,
@@ -328,6 +330,7 @@ static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
 static unsigned int global_int_lock;
+static unsigned int global_nested_counter = 0;
 
 K_THREAD_STACK_DEFINE(bt_stack, BT_CONTROLLER_STACK);
 static struct k_thread bt_task_handle;
@@ -374,8 +377,6 @@ void IRAM_ATTR btdm_backup_dma_copy_wrapper(uint32_t reg, uint32_t mem_addr, uin
 
 static void interrupt_set_wrapper(int cpu_no, int intr_source, int intr_num, int intr_prio)
 {
-	ARG_UNUSED(intr_prio);
-	ARG_UNUSED(intr_num);
 	ARG_UNUSED(cpu_no);
 	bt_interrupt_source = intr_source;
 
@@ -402,24 +403,34 @@ static void interrupt_handler_set_wrapper(int n, intr_handler_t fn, void *arg)
 
 static void interrupt_on_wrapper(int intr_num)
 {
-	ARG_UNUSED(intr_num);
-	esp_intr_enable(bt_interrupt_source);
+	irq_enable(intr_num);
 }
 
 static void interrupt_off_wrapper(int intr_num)
 {
-	ARG_UNUSED(intr_num);
-	esp_intr_disable(bt_interrupt_source);
+	irq_disable(intr_num);
 }
 
 static void IRAM_ATTR interrupt_disable(void)
 {	
-	global_int_lock = irq_lock();
+	if (global_nested_counter == 0) {
+		global_int_lock = irq_lock();
+	}
+	
+	if (global_nested_counter < 0xFFFFFFFF) {
+		global_nested_counter++;
+	}
 }
 
 static void IRAM_ATTR interrupt_restore(void)
 {
-	irq_unlock(global_int_lock);
+	if (global_nested_counter > 0) {
+		global_nested_counter--;
+	}
+
+	if (global_nested_counter == 0) {
+		irq_unlock(global_int_lock);
+	}
 }
 
 static void IRAM_ATTR task_yield_from_isr(void)
