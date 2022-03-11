@@ -26,6 +26,7 @@ endif()
 # Warn if the toolchain version doesn't match
 #
 # TODO: make these platform-specific for diff toolchains
-get_expected_ctng_version(expected_toolchain expected_gcc)
-gcc_version_check("${expected_gcc}")
-crosstool_version_check("${expected_toolchain}")
+# Zephyr: remove ctng, gcc and version check
+# get_expected_ctng_version(expected_toolchain expected_gcc)
+# gcc_version_check("${expected_gcc}")
+# crosstool_version_check("${expected_toolchain}")
