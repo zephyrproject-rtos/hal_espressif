@@ -1,0 +1,79 @@
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Notes:
+# - I/O GPIO pads are 0-19, 21-23, 25-27, 32-39
+# - the output GPIOs are 0-19, 21-23, 25-27, 32-33
+# - GPIOs 34-39 are input­only and do not have software-enabled pu/pd
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+uart2:
+  tx:
+    sigo: u2txd_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  rx:
+    sigi: u2rxd_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+spim2:
+  miso:
+    sigi: hspiq_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  mosi:
+    sigo: hspid_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  sclk:
+    sigo: hspiclk_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  csel:
+    sigo: hspics0_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
+spim3:
+  miso:
+    sigi: vspiq_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  mosi:
+    sigo: vspid_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  sclk:
+    sigo: vspiclk_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  csel:
+    sigo: vspics0_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
+i2c0:
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
+i2c1:
+  sda:
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  scl:
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
