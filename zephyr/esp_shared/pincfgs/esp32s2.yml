@@ -1,0 +1,62 @@
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Notes:
+# - GPIO pads are numbered from 0-21 and 26-46
+# - GPIO46 is fixed to pull-down and is input-only
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 21], [26, 45]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 21], [26, 46]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 21], [26, 46]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 21], [26, 45]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 21], [26, 45]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 21], [26, 45]]
+
+spim3:
+  miso:
+    sigi: spi3_q_in
+    gpio: [[0, 21], [26, 46]]
+  mosi:
+    sigo: spi3_d_out
+    gpio: [[0, 21], [26, 45]]
+  sclk:
+    sigo: spi3_clk_out_mux
+    gpio: [[0, 21], [26, 45]]
+  csel:
+    sigo: spi3_cs0_out
+    gpio: [[0, 21], [26, 45]]
+
+i2c0:
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 21], [26, 45]]
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 21], [26, 45]]
+
+i2c1:
+  sda:
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    gpio: [[0, 21], [26, 45]]
+  scl:
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    gpio: [[0, 21], [26, 45]]
