@@ -29,11 +29,13 @@ file_out_tail = '''
 file_out_path = 'include/dt-bindings/pinctrl/'
 file_out_temp = '{SOC}-pinctrl-temp.h'
 file_out_name = '{SOC}-pinctrl.h'
+file_tmp_abs = ''
 
 line_comment = ''
 
 def err(source, msg):
-    os.remove(path_temp)
+    global file_tmp_abs
+    os.remove(file_tmp_abs)
     sys.exit('ERR(' + source + '):' + msg)
 
 def get_pin_ios(pins):
@@ -97,6 +99,7 @@ def main(pcfg_in):
 
     base_path = os.path.dirname(__file__)
     file_out_abs = path.abspath(path.join(base_path, '..', '..', file_out_path + soc + '-pinctrl.h'))
+    global file_tmp_abs
     file_tmp_abs = path.abspath(path.join(base_path, '..', '..', file_out_path + soc + '-pinctrl-temp.h'))
 
     # sorts by dev name, which keeps git
