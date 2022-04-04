@@ -21,6 +21,7 @@
 #include "esp_timer.h"
 #include "os.h"
 #include "esp_event.h"
+#include "esp_wpa.h"
 #include "driver/periph_ctrl.h"
 #include "esp_phy_init.h"
 #include <soc/syscon_reg.h>
@@ -569,7 +570,7 @@ static void intr_on(unsigned int mask)
 static void intr_off(unsigned int mask)
 {
 	ARG_UNUSED(mask);
-	esp_intr_enable(wifi_interrupt_source);
+	esp_intr_disable(wifi_interrupt_source);
 }
 
 uint32_t esp_get_free_heap_size(void)
@@ -1004,6 +1005,16 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
 
+esp_err_t esp_wifi_deinit(void)
+{
+	esp_err_t err = ESP_OK;
+
+	esp_supplicant_deinit();
+	err = esp_wifi_deinit_internal();
+
+	return err;
+}
+
 esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 {
 	esp_wifi_power_domain_on();
@@ -1012,9 +1023,14 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 	coex_init();
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32
-	s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
-#endif
+	esp_err_t result = esp_wifi_init_internal(config);
+	if (result == ESP_OK) {
+		result = esp_supplicant_init();
+		if (result != ESP_OK) {
+		LOG_ERR("Failed to init supplicant (0x%x)", result);
+			esp_wifi_deinit();
+		}
+	}
 
-	return esp_wifi_init_internal(config);
+	return result;
 }

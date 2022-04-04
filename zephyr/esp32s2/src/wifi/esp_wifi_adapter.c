@@ -23,6 +23,7 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 #include "soc/dport_access.h"
 #include "esp_log.h"
 #include "esp_event.h"
+#include "esp_wpa.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
 #include "esp_event.h"
@@ -884,6 +885,16 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
 
+esp_err_t esp_wifi_deinit(void)
+{
+	esp_err_t err = ESP_OK;
+
+	esp_supplicant_deinit();
+	err = esp_wifi_deinit_internal();
+
+	return err;
+}
+
 esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 {
 	esp_wifi_power_domain_on();
@@ -892,5 +903,14 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 	coex_init();
 #endif
 
-	return esp_wifi_init_internal(config);
+	esp_err_t result = esp_wifi_init_internal(config);
+	if (result == ESP_OK) {
+		result = esp_supplicant_init();
+		if (result != ESP_OK) {
+		LOG_ERR("Failed to init supplicant (0x%x)", result);
+			esp_wifi_deinit();
+		}
+	}
+
+	return result;
 }
