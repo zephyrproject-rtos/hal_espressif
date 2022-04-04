@@ -48,7 +48,7 @@ Compare the following description of the required fields in a `{soc}.yaml` file 
 
 ---
 
-## Generating pin musing information ##
+## Generating pin muxing information ##
 
 From `hal_espressif`'s root folder, run the script (here, using `ESP32-S2` as target):
 
