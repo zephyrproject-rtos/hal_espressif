@@ -71,6 +71,7 @@ key_description = miniterm.key_description
 # Control-key characters
 CTRL_A = '\x01'
 CTRL_B = '\x02'
+CTRL_C = '\x03'
 CTRL_F = '\x06'
 CTRL_H = '\x08'
 CTRL_R = '\x12'
@@ -283,7 +284,7 @@ class ConsoleParser(object):
             ret = self._handle_menu_key(key)
         elif key == self.menu_key:
             self._pressed_menu_key = True
-        elif key == self.exit_key:
+        elif key == self.exit_key or key == CTRL_C:
             ret = (TAG_CMD, CMD_STOP)
         else:
             key = self.translate_eol(key)
@@ -613,7 +614,7 @@ class Monitor(object):
             sys.stderr.write(ANSI_NORMAL + '\n')
 
     def handle_serial_input(self, data, finalize_line=False):
-        sp = data.split(b'\n')
+        sp = data.split(b'\r\n')
         if self._last_line_part != b'':
             # add unprocessed part from previous "data" to the first line
             sp[0] = self._last_line_part + sp[0]
@@ -1043,7 +1044,7 @@ def main():
         choices=['CR', 'LF', 'CRLF'],
         type=lambda c: c.upper(),
         help='End of line to use when sending to the serial port',
-        default='CR')
+        default='CRLF')
 
     parser.add_argument(
         'elf_file', help='ELF file of application',
