@@ -37,9 +37,7 @@
 #include <drivers/interrupt_controller/intc_esp32c3.h>
 
 #include <logging/log.h>
-LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_LOG_DEFAULT_LEVEL);
-
-#define portTICK_PERIOD_MS (1000 / 100)
+LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);
 
@@ -228,8 +226,7 @@ static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
 			return 1;
 		}
 	} else {
-		int ms = block_time_tick * portTICK_PERIOD_MS;
-		int ret = k_sem_take((struct k_sem *)semphr, K_MSEC(ms));
+		int ret = k_sem_take((struct k_sem *)semphr, K_TICKS(block_time_tick));
 
 		if (ret == 0) {
 			return 1;
@@ -304,9 +301,7 @@ static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_t
 	if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
 		k_msgq_put((struct k_msgq *)queue, item, K_FOREVER);
 	} else {
-		int ms = block_time_tick * portTICK_PERIOD_MS;
-
-		k_msgq_put((struct k_msgq *)queue, item, K_MSEC(ms));
+		k_msgq_put((struct k_msgq *)queue, item, K_TICKS(block_time_tick));
 	}
 	return 1;
 }
@@ -343,9 +338,7 @@ static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_t
 	if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
 		k_msgq_get((struct k_msgq *)queue, item, K_FOREVER);
 	} else {
-		int ms = block_time_tick * portTICK_PERIOD_MS;
-
-		k_msgq_get((struct k_msgq *)queue, item, K_MSEC(ms));
+		k_msgq_get((struct k_msgq *)queue, item, K_MSEC(block_time_tick));
 	}
 	return 1;
 }
@@ -387,7 +380,7 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 
 static int32_t IRAM_ATTR task_ms_to_tick_wrapper(uint32_t ms)
 {
-	return (int32_t) K_MSEC(ms).ticks;
+	return (int32_t)(k_ms_to_ticks_ceil32(ms));
 }
 
 static int32_t task_get_max_priority_wrapper(void)
@@ -526,9 +519,7 @@ void *xTaskGetCurrentTaskHandle(void)
 
 void vTaskDelay(uint32_t ticks)
 {
-	int ms = ticks * portTICK_PERIOD_MS;
-
-	k_sleep(K_MSEC(ms));
+	k_sleep(K_TICKS(ticks));
 }
 
 static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
@@ -886,6 +877,23 @@ static uint32_t esp_clk_slowclk_cal_get_wrapper(void)
 	return (REG_READ(RTC_SLOW_CLK_CAL_REG) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
 }
 
+static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
+{
+#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
+	esp_log_writev((esp_log_level_t)level,tag,format,args);
+#endif
+}
+
+static void esp_log_write_wrapper(uint32_t level,const char *tag,const char *format, ...)
+{
+#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
+	va_list list;
+	va_start(list, format);
+	esp_log_writev((esp_log_level_t)level, tag, format, list);
+	va_end(list);
+#endif
+}
+
 wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._version = ESP_WIFI_OS_ADAPTER_VERSION,
 	._env_is_chip = env_is_chip_wrapper,
@@ -970,8 +978,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._get_time = get_time_wrapper,
 	._random = random,
 	._slowclk_cal_get = esp_clk_slowclk_cal_get_wrapper,
-	._log_write = esp_log_write,
-	._log_writev = esp_log_writev,
+	._log_write = esp_log_write_wrapper,
+	._log_writev = esp_log_writev_wrapper,
 	._log_timestamp = k_uptime_get_32,
 	._malloc_internal =  malloc_internal_wrapper,
 	._realloc_internal = realloc_internal_wrapper,
