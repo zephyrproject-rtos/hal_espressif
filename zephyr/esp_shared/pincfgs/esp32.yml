@@ -75,6 +75,9 @@ spim3:
   csel:
     sigo: vspics0_out
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  csel1:
+    sigo: vspics1_out
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
 
 i2c0:
   sda:
