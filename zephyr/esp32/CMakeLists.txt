@@ -118,7 +118,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
-    ../../components/soc/esp32/uart_periph.c
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
     )
