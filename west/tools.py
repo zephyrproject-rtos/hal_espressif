@@ -221,27 +221,16 @@ class Tools(WestCommand):
             # get build elf file path
             elf_path = get_build_elf_path()
 
-        if not os.path.exists(elf_path):
-            log.die("Unable to determine ELF file path. Rebuild the project "
-                    "or add '-e path/to/elf' argument to continue.")
-
         esp_port = args.port
         if not esp_port:
             # detect usb port using esptool
             esp_port = get_esp_serial_port(module_path)
 
-        build_conf = BuildConfiguration(get_build_dir(None))
-        try:
-            soc_name = build_conf['CONFIG_SOC']
-            toolchain = TOOLCHAIN_SOC[soc_name]
-            print("toolchain: {}".format(toolchain))
-        except KeyError:
-            log.die("Unable to determine toolchain name. Rebuild the project")
-
+        monitor_path = Path(module_path, "tools/idf_monitor.py")
+        cmd_path = Path(os.getenv("ZEPHYR_BASE")).absolute()
         if platform.system() == 'Windows':
-            cmd_exec(("python.exe", "tools/idf_monitor.py", "-p", esp_port,
-                     "-b", args.baud, "--toolchain-prefix", toolchain, elf_path), cwd=module_path)
+            cmd_exec(("python.exe", monitor_path, "-p", esp_port,
+                     "-b", args.baud, elf_path), cwd=cmd_path)
         else:
-            cmd_exec((sys.executable, "./tools/idf_monitor.py", "-p", esp_port, "-b", args.baud,
-                      "--toolchain-prefix", toolchain, elf_path),
-                     cwd=module_path)
+            cmd_exec((sys.executable, monitor_path, "-p", esp_port, "-b", args.baud,
+                      elf_path), cwd=cmd_path)
