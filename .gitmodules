@@ -1,7 +1,3 @@
-[submodule "components/esptool_py/esptool"]
-	path = components/esptool_py/esptool
-	url = https://github.com/espressif/esptool.git
-
 [submodule "components/bootloader/subproject/components/micro-ecc/micro-ecc"]
 	path = components/bootloader/subproject/components/micro-ecc/micro-ecc
 	url = https://github.com/kmackay/micro-ecc.git
