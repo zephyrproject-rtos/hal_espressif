@@ -33,11 +33,6 @@ from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
 
-TOOLCHAIN_SOC = {"esp32": "xtensa-esp32-elf",
-                 "esp32_net": "xtensa-esp32-elf",
-                 "esp32s2": "xtensa-esp32s2-elf",
-                 "esp32c3": "riscv32-esp-elf"}
-
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
     return subprocess.check_output(cmd, cwd=cwd, stderr=stderr)
@@ -139,7 +134,7 @@ class Tools(WestCommand):
                                          description=self.description)
 
         parser.add_argument('command', choices=['install', 'update', 'monitor'],
-                            help='install espressif toolchain or fetch submodules')
+                            help='install espressif openocd or fetch submodules')
 
         # monitor arguments
         group = parser.add_argument_group('monitor optional arguments')
@@ -196,25 +191,20 @@ class Tools(WestCommand):
         global global_idf_tools_path
         global_idf_tools_path = os.environ.get('IDF_TOOLS_PATH') or os.path.expanduser(IDF_TOOLS_PATH_DEFAULT)
 
-        log.banner('downloading ESP-IDF tools..')
+        log.banner('downloading ESP-IDF OpenOCD tool..')
 
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
             toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
-            cmd = "set"
         else:
             cmd_exec((sys.executable, "./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
             toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
-            cmd = "export"
 
-        log.banner('downloading ESP-IDF tools completed')
+        log.banner('downloading ESP-IDF OpenOCD completed')
 
-        log.inf("The toolchain has been downloaded to {}".format(toolchain_path))
-        log.inf("Export or set the following variables into the environment:")
-        log.inf("{} ESPRESSIF_TOOLCHAIN_PATH=\"{}\"".format(cmd, toolchain_path))
-        log.inf("{} ZEPHYR_TOOLCHAIN_VARIANT=\"espressif\"".format(cmd))
+        log.inf("OpenOCD has been downloaded to {}".format(toolchain_path))
 
     def monitor(self, module_path, args):
 
