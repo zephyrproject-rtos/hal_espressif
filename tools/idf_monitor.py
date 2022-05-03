@@ -60,6 +60,20 @@ import serial
 import serial.tools.list_ports
 import serial.tools.miniterm as miniterm
 
+from west.commands import WestCommand
+from west.configuration import config
+from west import log
+# This relies on this file being in hal_espressif/west/tools.py
+# If you move this file, you'll break it, so be careful.
+from pathlib import Path
+THIS_ZEPHYR = Path(__file__).parents[4] / 'zephyr'
+ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
+sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
+
+from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
+from runners.core import BuildConfiguration  # noqa: E402
+from zcmake import CMakeCache
+
 try:
     import websocket
 except ImportError:
@@ -109,6 +123,26 @@ def yellow_print(message, newline='\n'):
 def red_print(message, newline='\n'):
     color_print(message, ANSI_RED, newline)
 
+
+def get_build_dir(args, die_if_none=True):
+    # Get the build directory for the given argument list and environment.
+
+    guess = config.get('build', 'guess-dir', fallback='never')
+    guess = guess == 'runners'
+    dir = find_build_dir(None, guess)
+    
+    if dir and is_zephyr_build(dir):
+        return dir
+    elif die_if_none:
+        msg = 'could not find build directory and '
+        if dir:
+            msg = msg + 'neither {} nor {} are zephyr build directories.'
+        else:
+            msg = msg + ('{} is not a build directory and the default build '
+                         'directory cannot be determined. ')
+        log.die(msg.format(os.getcwd(), dir))
+    else:
+        return None
 
 __version__ = '1.1'
 
@@ -713,13 +747,8 @@ class Monitor(object):
 
     def lookup_pc_address(self, pc_addr):
         # Zephyr: set toolchain from environment path
-        toolchain_home = os.environ.get('ESPRESSIF_TOOLCHAIN_PATH')
-        toolchain_name = '%s-addr2line' % self.toolchain_prefix
-        toolchain_path = os.path.join(toolchain_home, self.toolchain_prefix, "bin", toolchain_name)
-        if not os.path.exists(toolchain_path):
-            # consider toolchain is exported using deprecated path export
-            toolchain_path = os.path.join(toolchain_home, "bin", toolchain_name)
-
+        cache = CMakeCache.from_build_dir(get_build_dir(None))
+        toolchain_path = cache['CMAKE_ADDR2LINE']
         cmd = [toolchain_path, '-pfiaC', '-e', self.elf_file, pc_addr]
         try:
             translation = subprocess.check_output(cmd, cwd='.')
