@@ -1,7 +1,3 @@
-[submodule "components/bootloader/subproject/components/micro-ecc/micro-ecc"]
-	path = components/bootloader/subproject/components/micro-ecc/micro-ecc
-	url = https://github.com/kmackay/micro-ecc.git
-
 [submodule "components/esp_wifi/lib"]
 	path = components/esp_wifi/lib
 	url = https://github.com/espressif/esp32-wifi-lib.git
