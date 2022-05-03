@@ -31,6 +31,7 @@ from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
 from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
+SUBMODULES_FILE = Path(__file__).parents[1] / "git_submodules.txt"
 
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
@@ -180,8 +181,16 @@ class Tools(WestCommand):
                 cmd_exec(("git", "remote", "set-url", "origin",
                          ESP_IDF_REMOTE), cwd=module_path)
 
-        cmd_exec(("git", "submodule", "update", "--init", "--recursive"),
-                 cwd=module_path)
+        with open(SUBMODULES_FILE) as f:
+            for submodule in f:
+                git_rev, git_dir, git_url = submodule.split()
+                folder = Path(module_path, git_dir)
+                if not folder.exists():
+                    log.inf('Cloning into', git_dir)
+                    cmd_exec(("git", "clone", git_url, git_dir, "--quiet"), cwd=module_path)
+                log.inf(f"Checking out revision {git_rev} at {git_dir}")
+                cmd_exec(("git", "-C", git_dir, "fetch"), cwd=module_path)
+                cmd_exec(("git", "-C", git_dir, "checkout", git_rev, "--quiet"), cwd=module_path)
 
         log.banner('updating ESP-IDF submodules completed')
 
@@ -197,7 +206,7 @@ class Tools(WestCommand):
                      cwd=module_path)
             toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
         else:
-            cmd_exec((sys.executable, "./tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
+            cmd_exec((sys.executable, "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
                      cwd=module_path)
             toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
 
