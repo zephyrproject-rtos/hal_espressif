@@ -26,6 +26,11 @@ components/**/build
 components/**/sdkconfig
 components/**/sdkconfig.old
 
+# Zephyr - Folders that contains binary files
+components/bt/controller/esp32c3-bt-lib/
+components/bt/controller/lib_esp32/
+components/esp_wifi/lib/
+
 # Example project files
 examples/**/sdkconfig
 examples/**/sdkconfig.old
