@@ -1,112 +1,83 @@
 {
-    "tools": [
-      {
-        "description": "Toolchain for Xtensa (ESP32) based on GCC",
-        "export_paths": [
-          [
-            "xtensa-esp32-elf",
-            "bin"
-          ]
-        ],
-        "export_vars": {},
-        "info_url": "https://github.com/espressif/crosstool-NG",
-        "install": "always",
-        "license": "GPL-3.0-with-GCC-exception",
-        "name": "xtensa-esp32-elf",
-        "version_cmd": [
-          "xtensa-esp32-elf-gcc",
-          "--version"
-        ],
-        "version_regex": "\\(crosstool-NG\\s+(?:crosstool-ng-)?([0-9a-zA-Z\\.\\-]+)\\)\\s*([0-9\\.]+)",
-        "version_regex_replace": "\\1-\\2",
-        "versions": [
-          {
-            "linux-amd64": {
-              "sha256": "674080a12f9c5ebe5a3a5ce51c6deaeffe6dfb06d6416233df86f25b574e9279",
-              "size": 85731226,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-linux-amd64.tar.gz"
-            },
-            "linux-armel": {
-              "sha256": "6771e011dffa2438ef84ff3474538b4a69df8f9d4cfae3b3707ca31c782ed7db",
-              "size": 83888892,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-linux-armel.tar.gz"
-            },
-            "linux-i686": {
-              "sha256": "076b7e05304e26aa6ec105c9e0dc74addca079bc2cae6e42ee7575c5ded29877",
-              "size": 87715092,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-linux-i686.tar.gz"
-            },
-            "macos": {
-              "sha256": "6845f786303b26c4a55ede57487ba65bd25737232fe6104be03f25bb62f4631c",
-              "size": 92424226,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-macos.tar.gz"
-            },
-            "name": "esp-2020r3-8.4.0",
-            "status": "recommended",
-            "win32": {
-              "sha256": "81cecd5493a3fcf2118977f3fd60bd0a13a4aeac8fe6760d912f96d2c34fab66",
-              "size": 104226379,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-win32.zip"
-            },
-            "win64": {
-              "sha256": "58419852fefb7111fdec056ac2fd7c4bd09c1f4c17610a761a97b788413527cf",
-              "size": 106855139,
-              "url": "https://github.com/espressif/crosstool-NG/releases/download/esp-2020r3/xtensa-esp32-elf-gcc8_4_0-esp-2020r3-win64.zip"
-            }
-          }
-        ]
-      },
-      {
-        "description": "Toolchain for 32-bit RISC-V based on GCC",
-        "export_paths": [
-          [
-            "riscv32-esp-elf",
-            "bin"
-          ]
-        ],
-        "export_vars": {},
-        "info_url": "https://github.com/espressif/crosstool-NG",
-        "install": "always",
-        "license": "GPL-3.0-with-GCC-exception",
-        "name": "riscv32-esp-elf",
-        "version_cmd": [
-          "riscv32-esp-elf-gcc",
-          "--version"
-        ],
-        "version_regex": "\\(crosstool-NG\\s+(?:crosstool-ng-)?([0-9a-zA-Z\\.\\-_]+)\\)\\s*([0-9\\.]+)",
-        "version_regex_replace": "\\1-\\2",
-        "versions": [
-          {
-            "linux-amd64": {
-              "sha256": "425454c5c4e2cde5dd2dd3a1d398befc70addf71547840fb6d0ec4b307b08894",
-              "size": 152042971,
-              "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-linux-amd64.tar.gz"
-            },
-            "linux-armel": {
-              "sha256": "8ae098751b5196ca8a80d832cc9930bc4d639762a6cb22be3cfe0a8d71b2f230",
-              "size": 150801079,
-              "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-linux-armel.tar.gz"
-            },
-            "macos": {
-              "sha256": "35b1aef85b7e6b4268774f627e8e835d087bcf8b9972cfb6436614aa2e40d4a9",
-              "size": 158594401,
-              "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-macos.tar.gz"
-            },
-            "name": "1.24.0.123_64eb9ff-8.4.0",
-            "status": "recommended",
-            "win32": {
-              "sha256": "4f576b08620f57c270ac677cc94dce2767fff72d27a539e348d448f63b480d1f",
-              "size": 190014086,
-              "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-win32.zip"
-            },
-            "win64": {
-              "sha256": "51e392ed88498f3fc4ad07e9ff4b5225f6533b1c363ecd7dd67c10d8d31b6b23",
-              "size": 191565525,
-              "url": "https://dl.espressif.com/dl/toolchains/preview/riscv32-esp-elf-gcc8_4_0-crosstool-ng-1.24.0-123-g64eb9ff-win64.zip"
-            }
-          }
-        ]
-      }
-    ],
-    "version": 1
-  }
+	"tools": [
+		{
+			"description": "OpenOCD for ESP32",
+			"export_paths": [
+				[
+					"openocd-esp32",
+					"bin"
+				]
+			],
+			"export_vars": {
+				"OPENOCD_SCRIPTS": "${TOOL_PATH}/openocd-esp32/share/openocd/scripts"
+			},
+			"info_url": "https://github.com/espressif/openocd-esp32",
+			"install": "always",
+			"license": "GPL-2.0-only",
+			"name": "openocd-esp32",
+			"platform_overrides": [
+				{
+					"install": "on_request",
+					"platforms": [
+						"linux-i686"
+					]
+				}
+			],
+			"supported_targets": [
+				"all"
+			],
+			"version_cmd": [
+				"openocd",
+				"--version"
+			],
+			"version_regex": "Open On-Chip Debugger\\s+([a-z0-9.-]+)\\s+",
+			"versions": [
+				{
+					"linux-amd64": {
+						"sha256": "8d49845d7f0f2f9178e72c694a76e39a6ef3dd219cfccbfc2b8e09fc8d8f1c6e",
+						"size": 2058842,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-linux-amd64-0.11.0-esp32-20220411.tar.gz"
+					},
+					"linux-arm64": {
+						"sha256": "584e4d10d6efb9985f4212542cfa2a92f89c747b54035bac8aa75b5f5e768e28",
+						"size": 1902060,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-linux-arm64-0.11.0-esp32-20220411.tar.gz"
+					},
+					"linux-armel": {
+						"sha256": "49189d645d8c482b81d1870766a5795da30a79b352d98803f0054f200174fc5a",
+						"size": 2128366,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-linux-armel-0.11.0-esp32-20220411.tar.gz"
+					},
+					"linux-armhf": {
+						"sha256": "a538a2b98fd09fb548a9dbfa0b5155364273e1ae37e944d1abfa04cc4e6e0ba2",
+						"size": 2009408,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-linux-armhf-0.11.0-esp32-20220411.tar.gz"
+					},
+					"macos": {
+						"sha256": "d718bc24087f796ff06f49fb9052183b302402ab775460b1ebdfc4b5e1768463",
+						"size": 2125935,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-macos-0.11.0-esp32-20220411.tar.gz"
+					},
+					"macos-arm64": {
+						"sha256": "19448f0d4aaafa85c93c86e363ca879e5ccdcfdda42ba5ce4ac3817e9d8eecdb",
+						"size": 2165892,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-macos-arm64-0.11.0-esp32-20220411.tar.gz"
+					},
+					"name": "v0.11.0-esp32-20220411",
+					"status": "recommended",
+					"win32": {
+						"sha256": "167e9299fa1d022b493c76332f507f6a6735c7bfec3cf91c54a598b331c78b5f",
+						"size": 2570094,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-win32-0.11.0-esp32-20220411.zip"
+					},
+					"win64": {
+						"sha256": "167e9299fa1d022b493c76332f507f6a6735c7bfec3cf91c54a598b331c78b5f",
+						"size": 2570094,
+						"url": "https://github.com/espressif/openocd-esp32/releases/download/v0.11.0-esp32-20220411/openocd-esp32-win32-0.11.0-esp32-20220411.zip"
+					}
+				}
+			]
+		}
+	],
+	"version": 1
+}
