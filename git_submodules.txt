@@ -1,0 +1,3 @@
+12f00c45ce9c8cf9a9b2e607b4954f12d4191ffb components/bt/controller/esp32c3-bt-lib https://github.com/espressif/esp32c3-bt-lib
+ec61ca3caa64874e11f39a92654b4160bb5db06e components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib.git
+6e096b5e7a8b527732499f943c70d3203f2abd2f components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib.git
