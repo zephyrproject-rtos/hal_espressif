@@ -12,6 +12,7 @@
 #include "esp32s2/rom/cache.h"
 #elif defined(CONFIG_SOC_ESP32C3)
 #include "soc/soc.h"
+#include "esp32c3/rom/cache.h"
 #endif
 
 #include <zephyr.h>
