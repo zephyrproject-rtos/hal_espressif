@@ -55,8 +55,8 @@
 #include "soc/syscon_reg.h"
 #endif
 
-#include <zephyr.h>
-#include <logging/log.h>
+#include <zephyr/zephyr.h>
+#include <zephyr/logging/log.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
