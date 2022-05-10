@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 #include <string.h>
-#include <sys/math_extras.h>
+#include <zephyr/sys/math_extras.h>
 #include <esp32/spiram.h>
 #include <esp_attr.h>
 

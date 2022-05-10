@@ -31,12 +31,12 @@
 #include <riscv/interrupt.h>
 
 #include <soc.h>
-#include <zephyr.h>
-#include <sys/printk.h>
-#include <random/rand32.h>
-#include <drivers/interrupt_controller/intc_esp32c3.h>
+#include <zephyr/zephyr.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/random/rand32.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);

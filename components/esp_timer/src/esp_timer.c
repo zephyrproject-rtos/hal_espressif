@@ -20,13 +20,13 @@
 #include "esp_timer_impl.h"
 #include "sdkconfig.h"
 
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
 #define LOG_MODULE_NAME esp_timer
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 

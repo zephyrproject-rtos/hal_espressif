@@ -27,12 +27,12 @@
 #include <rom/efuse.h>
 #include <riscv/interrupt.h>
 
-#include <zephyr.h>
-#include <sys/printk.h>
-#include <random/rand32.h>
-#include <drivers/interrupt_controller/intc_esp32c3.h>
+#include <zephyr/zephyr.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/random/rand32.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define BTDM_INIT_PERIOD                    (5000)    /* ms */

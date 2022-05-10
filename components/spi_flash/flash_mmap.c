@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #if defined(__ZEPHYR__)
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 #endif 
 
 #include <stdlib.h>
