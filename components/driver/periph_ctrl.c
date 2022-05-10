@@ -15,7 +15,7 @@
 #include "hal/clk_gate_ll.h"
 #include "esp_attr.h"
 #include "driver/periph_ctrl.h"
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 
 static unsigned int periph_spinlock;
 

@@ -28,7 +28,7 @@
 #include <rom/efuse.h>
 #include <riscv/interrupt.h>
 
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/rand32.h>
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>

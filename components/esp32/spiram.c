@@ -18,7 +18,7 @@ we add more types of external RAM memory, this can be made into a more intellige
 // limitations under the License.
 
 #if defined(__ZEPHYR__)
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #endif
 #include <stdint.h>
