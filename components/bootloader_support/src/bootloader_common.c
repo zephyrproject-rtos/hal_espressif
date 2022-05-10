@@ -5,7 +5,7 @@
  */
 
 #if defined(__ZEPHYR__)
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #endif
 #include <stdbool.h>

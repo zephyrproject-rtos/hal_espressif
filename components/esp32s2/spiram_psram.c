@@ -17,7 +17,7 @@
 // limitations under the License.
 
 #if defined(__ZEPHYR__)
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #endif
 #include "sdkconfig.h"
