@@ -32,7 +32,7 @@
 #include "esp_timer_impl.h"
 #include "sdkconfig.h"
 
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_timer_private.h"

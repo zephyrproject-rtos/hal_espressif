@@ -6,7 +6,7 @@
 
 #include "esp_system.h"
 #include <rom/efuse.h>
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 
 esp_err_t esp_read_mac(uint8_t *mac, esp_mac_type_t type)
 {
