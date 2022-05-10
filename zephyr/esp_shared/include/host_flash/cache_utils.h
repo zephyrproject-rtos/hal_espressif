@@ -15,7 +15,7 @@
 #include "esp32c3/rom/cache.h"
 #endif
 
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 
 void IRAM_ATTR esp32_spiflash_start(void);
 

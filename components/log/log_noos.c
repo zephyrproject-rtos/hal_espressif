@@ -18,11 +18,11 @@
 #ifdef CONFIG_IDF_TARGET_ESP32C3
 #include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
 #ifdef __ZEPHYR__
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 #endif
 #else 
 #ifdef __ZEPHYR__
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 #endif
 #include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
 #endif

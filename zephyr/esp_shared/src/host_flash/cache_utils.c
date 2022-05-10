@@ -5,7 +5,7 @@
  */
 
 #include "host_flash/cache_utils.h"
-#include <drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #define DPORT_CACHE_BIT(cpuid, regid) DPORT_ ## cpuid ## regid
 

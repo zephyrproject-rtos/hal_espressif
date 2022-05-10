@@ -25,10 +25,10 @@
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 
 #ifdef CONFIG_SOC_ESP32C3
-#include <drivers/interrupt_controller/intc_esp32c3.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 #endif
 
 /**
