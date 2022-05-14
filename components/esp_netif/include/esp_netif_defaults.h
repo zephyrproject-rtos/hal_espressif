@@ -15,7 +15,9 @@
 #ifndef _ESP_NETIF_DEFAULTS_H
 #define _ESP_NETIF_DEFAULTS_H
 
+#ifndef __ZEPHYR__
 #include "esp_compiler.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
