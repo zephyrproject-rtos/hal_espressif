@@ -270,4 +270,6 @@ if(CONFIG_SOC_ESP32C3)
 
   endif()
 
+  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
+
 endif()

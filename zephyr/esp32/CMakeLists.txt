@@ -4,8 +4,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
 
-  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
-
   zephyr_include_directories(
     include
     include/bt
@@ -184,7 +182,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
         -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/bt/controller/lib_esp32/esp32
       coexist
         -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32
-
       )
 
   endif()
@@ -281,5 +278,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
       )
 
   endif()
+
+  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
