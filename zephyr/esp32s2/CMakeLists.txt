@@ -236,9 +236,9 @@ if(CONFIG_SOC_ESP32S2)
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32s2
         -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32s2
-        -Wl,--defsym,phy_printf=printf
-        -Wl,--defsym,net80211_printf=printf
-        -Wl,--defsym,coexist_printf=printf
+        -Wl,--defsym,phy_printf=printk
+        -Wl,--defsym,net80211_printf=printk
+        -Wl,--defsym,coexist_printf=printk
       )
 
   endif() ## CONFIG_WIFI_ESP32
