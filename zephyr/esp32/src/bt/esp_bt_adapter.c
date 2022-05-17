@@ -196,8 +196,8 @@ extern int coex_wifi_channel_get(uint8_t *primary, uint8_t *secondary);
 extern int coex_register_wifi_channel_change_callback(void *cb);
 extern void coex_ble_adv_priority_high_set(bool high);
 
-extern char _data_start_btdm;
-extern char _data_end_btdm;
+extern char _data_start_btdm[];
+extern char _data_end_btdm[];
 extern uint32_t _data_start_btdm_rom;
 extern uint32_t _data_end_btdm_rom;
 
