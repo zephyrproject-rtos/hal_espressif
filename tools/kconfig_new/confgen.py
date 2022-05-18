@@ -39,7 +39,7 @@ ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
 # use zephyr kconfiglib
-sys.path.insert(0, os.path.join(os.environ['ZEPHYR_BASE'], "scripts", "kconfig"))
+sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "kconfig"))
 
 import gen_kconfig_doc  # noqa: E402
 import kconfiglib  # noqa: E402
