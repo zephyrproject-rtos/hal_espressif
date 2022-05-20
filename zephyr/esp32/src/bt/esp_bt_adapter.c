@@ -949,7 +949,7 @@ static uint32_t btdm_config_mask_load(void)
 static void btdm_controller_mem_init(void)
 {
 	/* initialise .data section */
-	memcpy(&_data_start_btdm, (void *)_data_start_btdm_rom, &_data_end_btdm - &_data_start_btdm);
+	memcpy(_data_start_btdm, (void *)_data_start_btdm_rom, _data_end_btdm - _data_start_btdm);
 	LOG_DBG(".data initialise [0x%08x] <== [0x%08x]", (uint32_t)&_data_start_btdm, (uint32_t)_data_start_btdm_rom);
 
 	/* initial em, .bss section */
