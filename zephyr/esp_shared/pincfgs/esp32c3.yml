@@ -38,3 +38,17 @@ i2c0:
     sigi: i2cext0_scl_in
     sigo: i2cext0_scl_out
     gpio: [[0, 21]]
+
+twai:
+  rx:
+    sigi: twai_rx
+    gpio: [[0, 21]]
+  tx:
+    sigo: twai_tx
+    gpio: [[0, 21]]
+  clkout:
+    sigo: twai_clkout
+    gpio: [[0, 21]]
+  bus_off:
+    sigo: twai_bus_off_on
+    gpio: [[0, 21]]
