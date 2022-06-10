@@ -19,6 +19,20 @@ uart0:
     sigi: u0cts_in
     gpio: [[0, 21], [26, 46]]
 
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 21], [26, 45]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 21], [26, 46]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 21], [26, 45]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 21], [26, 46]]
+
 spim2:
   miso:
     sigi: fspiq_in
