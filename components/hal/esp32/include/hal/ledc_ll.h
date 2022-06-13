@@ -23,6 +23,10 @@
 
 #define LEDC_LL_GET_HW() &LEDC
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
