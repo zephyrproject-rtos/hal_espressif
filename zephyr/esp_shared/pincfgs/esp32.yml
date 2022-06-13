@@ -94,3 +94,53 @@ twai:
   bus_off:
     sigo: twai_bus_off_on
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch6:
+    sigo: ledc_ls_sig_out6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch7:
+    sigo: ledc_ls_sig_out7
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch8:
+    sigo: ledc_hs_sig_out0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch9:
+    sigo: ledc_hs_sig_out1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch10:
+    sigo: ledc_hs_sig_out2
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch11:
+    sigo: ledc_hs_sig_out3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch12:
+    sigo: ledc_hs_sig_out4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch13:
+    sigo: ledc_hs_sig_out5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch14:
+    sigo: ledc_hs_sig_out6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  ch15:
+    sigo: ledc_hs_sig_out7
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
