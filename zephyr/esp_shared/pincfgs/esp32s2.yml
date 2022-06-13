@@ -94,3 +94,29 @@ twai:
   bus_off:
     sigo: twai_bus_off_on
     gpio: [[0, 21], [26, 45]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 21], [26, 45]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 21], [26, 45]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 21], [26, 45]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 21], [26, 45]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 21], [26, 45]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 21], [26, 45]]
+  ch6:
+    sigo: ledc_ls_sig_out6
+    gpio: [[0, 21], [26, 45]]
+  ch7:
+    sigo: ledc_ls_sig_out7
+    gpio: [[0, 21], [26, 45]]
