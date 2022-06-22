@@ -10,8 +10,10 @@
 #if SOC_MCPWM_SUPPORTED
 #include "esp_err.h"
 #include "soc/soc.h"
+#ifndef __ZEPHYR__
 #include "driver/gpio.h"
 #include "esp_intr_alloc.h"
+#endif
 #include "hal/mcpwm_types.h"
 
 #ifdef __cplusplus
@@ -921,8 +923,10 @@ esp_err_t mcpwm_sync_invert_gpio_synchro(mcpwm_unit_t mcpwm_num, mcpwm_sync_sign
  *     - ESP_OK Success
  *     - ESP_ERR_INVALID_ARG Function pointer error.
  */
+#ifndef __ZEPHYR__
 esp_err_t mcpwm_isr_register(mcpwm_unit_t mcpwm_num, void (*fn)(void *), void *arg, int intr_alloc_flags,
                              intr_handle_t *handle);
+#endif
 
 #ifdef __cplusplus
 }
