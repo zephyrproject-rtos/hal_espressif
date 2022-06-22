@@ -22,6 +22,10 @@
 #include "hal/mcpwm_types.h"
 #include "hal/assert.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

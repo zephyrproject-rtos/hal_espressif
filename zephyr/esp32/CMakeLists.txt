@@ -11,6 +11,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../esp_shared/include
     ../esp_shared/include/wifi
     ../../components/hal/include
+    ../../components/hal/platform_port/include
     ../../components/hal/esp32/include
     ../../components/esp_hw_support/include
     ../../components/esp_hw_support/port/esp32
@@ -125,6 +126,11 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/soc/esp32/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
+  )
+
+  zephyr_sources_ifdef(
+    CONFIG_MCPWM_ESP32
+    ../../components/hal/mcpwm_hal.c
     )
 
   zephyr_sources(
@@ -151,7 +157,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
-    zephyr_sources( 
+    zephyr_sources(
       ../../components/esp_wifi/src/phy_init.c
       )
 
