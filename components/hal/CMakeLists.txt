@@ -2,7 +2,7 @@ idf_build_get_property(target IDF_TARGET)
 
 set(srcs    "wdt_hal_iram.c"
             "mpu_hal.c")
-set(includes "${target}/include" "include")
+set(includes "${target}/include" "include" "platform_port/include")
 
 if(NOT BOOTLOADER_BUILD)
     list(APPEND srcs
