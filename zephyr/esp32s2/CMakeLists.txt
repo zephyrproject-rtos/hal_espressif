@@ -122,6 +122,11 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/hal/ledc_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_PCNT_ESP32
+    ../../components/hal/pcnt_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/soc/esp32s2/rtc_io_periph.c

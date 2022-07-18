@@ -27,6 +27,10 @@
 #include "soc/pcnt_struct.h"
 #include "hal/pcnt_types.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

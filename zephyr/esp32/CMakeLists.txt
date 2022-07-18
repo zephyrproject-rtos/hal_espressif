@@ -133,6 +133,11 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/hal/mcpwm_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_PCNT_ESP32
+    ../../components/hal/pcnt_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/esp32/rtc_io_periph.c
