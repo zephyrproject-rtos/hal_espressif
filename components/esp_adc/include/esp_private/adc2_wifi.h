@@ -21,11 +21,10 @@ extern "C" {
  * The WIFI module may have to wait for a short time for the current conversion (if exist) to finish.
  *
  * @return
- *      - ESP_OK success
- *      - ESP_ERR_TIMEOUT reserved for future use. Currently the function will wait until success.
+ *        - ESP_OK success
+ *        - ESP_ERR_TIMEOUT reserved for future use. Currently the function will wait until success.
  */
 esp_err_t adc2_wifi_acquire(void);
-
 
 /**
  * @brief For WIFI module to let other tasks use the ADC2 when WIFI is not work.
@@ -33,7 +32,9 @@ esp_err_t adc2_wifi_acquire(void);
  * Other tasks will be forbidden to use ADC2 between ``adc2_wifi_acquire`` and ``adc2_wifi_release``.
  * Call this function to release the occupation of ADC2 by WIFI.
  *
- * @return always return ESP_OK.
+ * @return
+ *        - ESP_OK:                On success
+ *        - ESP_ERR_INVALID_STATE: The lock(s) isn't acquired yet
  */
 esp_err_t adc2_wifi_release(void);
 
