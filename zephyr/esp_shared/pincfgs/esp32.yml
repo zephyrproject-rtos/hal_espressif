@@ -144,6 +144,7 @@ ledc:
   ch15:
     sigo: ledc_hs_sig_out7
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
 mcpwm0:
   out0a:
     sigo: pwm0_out0a
@@ -236,4 +237,116 @@ mcpwm1:
     gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
   cap2:
     sigi: pwm1_cap2_in
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt0:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in0
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt1:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in1
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt2:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in2
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in2
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in2
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt3:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in3
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt4:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in4
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt5:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in5
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt6:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in6
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+pcnt7:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in7
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in7
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in7
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in7
     gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
