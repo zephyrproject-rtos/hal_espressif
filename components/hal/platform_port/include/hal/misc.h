@@ -36,7 +36,7 @@
 #define HAL_FORCE_MODIFY_U32_REG_FIELD(base_reg, reg_field, field_val)    \
 {                                                           \
     uint32_t temp_val = base_reg.val;                       \
-    typeof(base_reg) temp_reg;                              \
+    __typeof__(base_reg) temp_reg;                              \
     temp_reg.val = temp_val;                                \
     temp_reg.reg_field = (field_val);                       \
     (base_reg).val = temp_reg.val;                          \
@@ -51,7 +51,7 @@
  */
 #define HAL_FORCE_READ_U32_REG_FIELD(base_reg, reg_field) ({    \
     uint32_t temp_val = base_reg.val;                       \
-    typeof(base_reg) temp_reg;                              \
+    __typeof__(base_reg) temp_reg;                              \
     temp_reg.val = temp_val;                                \
     temp_reg.reg_field;                                     \
 })

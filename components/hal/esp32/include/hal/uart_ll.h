@@ -131,7 +131,7 @@ FORCE_INLINE_ATTR void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud)
 FORCE_INLINE_ATTR uint32_t uart_ll_get_baudrate(uart_dev_t *hw)
 {
     uint32_t sclk_freq = uart_ll_get_sclk_freq(hw);
-    typeof(hw->clk_div) div_reg = hw->clk_div;
+    __typeof__(hw->clk_div) div_reg = hw->clk_div;
     return ((sclk_freq << 4)) / ((div_reg.div_int << 4) | div_reg.div_frag);
 }
 
@@ -248,7 +248,7 @@ FORCE_INLINE_ATTR void uart_ll_rxfifo_rst(uart_dev_t *hw)
 {
     //Hardware issue: we can not use `rxfifo_rst` to reset the hw rxfifo.
     uint16_t fifo_cnt;
-    typeof(hw->mem_rx_status) rxmem_sta;
+    __typeof__(hw->mem_rx_status) rxmem_sta;
     //Get the UART APB fifo addr
     uint32_t fifo_addr = (hw == &UART0) ? UART_FIFO_REG(0) : (hw == &UART1) ? UART_FIFO_REG(1) : UART_FIFO_REG(2);
     do {
@@ -291,7 +291,7 @@ FORCE_INLINE_ATTR void uart_ll_txfifo_rst(uart_dev_t *hw)
 FORCE_INLINE_ATTR uint32_t uart_ll_get_rxfifo_len(uart_dev_t *hw)
 {
     uint32_t fifo_cnt = HAL_FORCE_READ_U32_REG_FIELD(hw->status, rxfifo_cnt);
-    typeof(hw->mem_rx_status) rx_status = hw->mem_rx_status;
+    __typeof__(hw->mem_rx_status) rx_status = hw->mem_rx_status;
     uint32_t len = 0;
 
     // When using DPort to read fifo, fifo_cnt is not credible, we need to calculate the real cnt based on the fifo read and write pointer.
@@ -770,7 +770,7 @@ FORCE_INLINE_ATTR void uart_ll_get_data_bit_num(uart_dev_t *hw, uart_word_length
  */
 FORCE_INLINE_ATTR IRAM_ATTR bool uart_ll_is_tx_idle(uart_dev_t *hw)
 {
-    typeof(hw->status) status = hw->status;
+    __typeof__(hw->status) status = hw->status;
     return ((status.txfifo_cnt == 0) && (status.st_utx_out == 0));
 }
 
@@ -822,7 +822,7 @@ FORCE_INLINE_ATTR void uart_ll_set_loop_back(uart_dev_t *hw, bool loop_back_en)
  */
 FORCE_INLINE_ATTR void uart_ll_inverse_signal(uart_dev_t *hw, uint32_t inv_mask)
 {
-    typeof(hw->conf0) conf0_reg = hw->conf0;
+    __typeof__(hw->conf0) conf0_reg = hw->conf0;
     conf0_reg.irda_tx_inv = (inv_mask & UART_SIGNAL_IRDA_TX_INV) ? 1 : 0;
     conf0_reg.irda_rx_inv = (inv_mask & UART_SIGNAL_IRDA_RX_INV) ? 1 : 0;
     conf0_reg.rxd_inv = (inv_mask & UART_SIGNAL_RXD_INV) ? 1 : 0;

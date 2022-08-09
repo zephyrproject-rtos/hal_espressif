@@ -107,24 +107,24 @@ extern "C" {
  */
 
 #define RV_READ_CONST_CSR(reg) ({ unsigned long __tmp; \
-  asm ("csrr %0, " _CSR_STRINGIFY(reg) : "=r"(__tmp)); __tmp; })
+  __asm__ ("csrr %0, " _CSR_STRINGIFY(reg) : "=r"(__tmp)); __tmp; })
 
 #define RV_READ_CSR(reg) ({ unsigned long __tmp; \
-  asm volatile ("csrr %0, " _CSR_STRINGIFY(reg) : "=r"(__tmp)); __tmp; })
+  __asm__ volatile ("csrr %0, " _CSR_STRINGIFY(reg) : "=r"(__tmp)); __tmp; })
 
 #define RV_WRITE_CSR(reg, val) ({ \
-  asm volatile ("csrw " _CSR_STRINGIFY(reg) ", %0" :: "rK"(val)); })
+  __asm__ volatile ("csrw " _CSR_STRINGIFY(reg) ", %0" :: "rK"(val)); })
 
 #define RV_SWAP_CSR(reg, val) ({ unsigned long __tmp; \
-  asm volatile ("csrrw %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(val)); __tmp; })
+  __asm__ volatile ("csrrw %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(val)); __tmp; })
 
 /* Note: this uses the atomic read-and-set instruction so possible to read the old CSR value as a result */
 #define RV_SET_CSR(reg, bit) ({ unsigned long __tmp; \
-  asm volatile ("csrrs %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(bit)); __tmp; })
+  __asm__ volatile ("csrrs %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(bit)); __tmp; })
 
 /* Note: this uses the atomic read-and-clear instruction so possible to read the old CSR value as a result */
 #define RV_CLEAR_CSR(reg, bit) ({ unsigned long __tmp; \
-  asm volatile ("csrrc %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(bit)); __tmp; })
+  __asm__ volatile ("csrrc %0, " _CSR_STRINGIFY(reg) ", %1" : "=r"(__tmp) : "rK"(bit)); __tmp; })
 
 #define RV_SET_CSR_FIELD(_r, _f, _v) ({ (RV_WRITE_CSR((_r),((RV_READ_CSR(_r) & ~((_f##_V) << (_f##_S)))|(((_v) & (_f##_V))<<(_f##_S)))));})
 #define RV_CLEAR_CSR_FIELD(_r, _f) ({ (RV_WRITE_CSR((_r),(RV_READ_CSR(_r) & ~((_f##_V) << (_f##_S)))));})

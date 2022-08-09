@@ -60,7 +60,7 @@ extern "C" {
 #define spi_flash_ll_set_dummy_out(dev, out_en, out_lev)
 
 /// type to store pre-calculated register value in above layers
-typedef typeof(SPI1.clock) spi_flash_ll_clock_reg_t;
+typedef __typeof__(SPI1.clock) spi_flash_ll_clock_reg_t;
 
 /*------------------------------------------------------------------------------
  * Control
@@ -253,7 +253,7 @@ static inline void spi_flash_ll_set_cs_pin(spi_dev_t *dev, int pin)
  */
 static inline void spi_flash_ll_set_read_mode(spi_dev_t *dev, esp_flash_io_mode_t read_mode)
 {
-    typeof (dev->ctrl) ctrl = dev->ctrl;
+    __typeof__ (dev->ctrl) ctrl = dev->ctrl;
     ctrl.val &= ~(SPI_FREAD_QIO_M | SPI_FREAD_QUAD_M | SPI_FREAD_DIO_M | SPI_FREAD_DUAL_M);
     ctrl.val |= SPI_FASTRD_MODE_M;
     switch (read_mode) {
@@ -327,7 +327,7 @@ static inline void spi_flash_ll_set_mosi_bitlen(spi_dev_t *dev, uint32_t bitlen)
 static inline void spi_flash_ll_set_command(spi_dev_t *dev, uint8_t command, uint32_t bitlen)
 {
     dev->user.usr_command = 1;
-    typeof(dev->user2) user2 = {
+    __typeof__(dev->user2) user2 = {
         .usr_command_value = command,
         .usr_command_bitlen = (bitlen - 1),
     };

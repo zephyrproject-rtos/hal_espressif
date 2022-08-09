@@ -838,7 +838,7 @@ static inline void i2c_ll_set_source_clk(i2c_dev_t *hw, i2c_sclk_t src_clk)
  */
 static inline void i2c_ll_master_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
 {
-    typeof(hw->int_status) int_sts = hw->int_status;
+    __typeof__(hw->int_status) int_sts = hw->int_status;
     if (int_sts.arbitration_lost) {
         *event = I2C_INTR_EVENT_ARBIT_LOST;
     } else if (int_sts.nack) {
@@ -864,7 +864,7 @@ static inline void i2c_ll_master_get_event(i2c_dev_t *hw, i2c_intr_event_t *even
  */
 static inline void i2c_ll_slave_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
 {
-    typeof(hw->int_status) int_sts = hw->int_status;
+    __typeof__(hw->int_status) int_sts = hw->int_status;
     if (int_sts.tx_fifo_wm) {
         *event = I2C_INTR_EVENT_TXFIFO_EMPTY;
     } else if (int_sts.trans_complete) {
@@ -885,7 +885,7 @@ static inline void i2c_ll_slave_get_event(i2c_dev_t *hw, i2c_intr_event_t *event
  */
 static inline void i2c_ll_master_init(i2c_dev_t *hw)
 {
-    typeof(hw->ctr) ctrl_reg;
+    __typeof__(hw->ctr) ctrl_reg;
     ctrl_reg.val = 0;
     ctrl_reg.ms_mode = 1;
     ctrl_reg.clk_en = 1;
@@ -903,7 +903,7 @@ static inline void i2c_ll_master_init(i2c_dev_t *hw)
  */
 static inline void i2c_ll_slave_init(i2c_dev_t *hw)
 {
-    typeof(hw->ctr) ctrl_reg;
+    __typeof__(hw->ctr) ctrl_reg;
     ctrl_reg.val = 0;
     ctrl_reg.sda_force_out = 1;
     ctrl_reg.scl_force_out = 1;

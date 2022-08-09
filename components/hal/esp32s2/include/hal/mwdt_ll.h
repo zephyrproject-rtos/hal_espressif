@@ -45,7 +45,7 @@ _Static_assert(WDT_RESET_SIG_LENGTH_3_2us == TIMG_WDT_RESET_LENGTH_3200_NS, "Add
 
 #define FORCE_MODIFY_WHOLE_REG(i, j, k) \
 {                                       \
-    typeof(i) temp_reg = (i);           \
+    __typeof__(i) temp_reg = (i);           \
     temp_reg.j = (k);                   \
     (i) = temp_reg;                     \
 }

@@ -368,7 +368,7 @@ static inline void rmt_ll_tx_set_carrier_high_low_ticks(rmt_dev_t *dev, uint32_t
 {
     // In case the compiler optimise a 32bit instruction (e.g. s32i) into two 16bit instruction (e.g. s16i, which is not allowed to access a register)
     // We take care of the "read-modify-write" procedure by ourselves.
-    typeof(dev->carrier_duty_ch[0]) reg;
+    __typeof__(dev->carrier_duty_ch[0]) reg;
     reg.high = high_ticks;
     reg.low = low_ticks;
     dev->carrier_duty_ch[channel].val = reg.val;
@@ -376,7 +376,7 @@ static inline void rmt_ll_tx_set_carrier_high_low_ticks(rmt_dev_t *dev, uint32_t
 
 static inline void rmt_ll_rx_set_carrier_high_low_ticks(rmt_dev_t *dev, uint32_t channel, uint32_t high_ticks, uint32_t low_ticks)
 {
-    typeof(dev->ch_rx_carrier_rm[0]) reg;
+    __typeof__(dev->ch_rx_carrier_rm[0]) reg;
     reg.carrier_high_thres_ch = high_ticks;
     reg.carrier_low_thres_ch = low_ticks;
     dev->ch_rx_carrier_rm[channel].val = reg.val;

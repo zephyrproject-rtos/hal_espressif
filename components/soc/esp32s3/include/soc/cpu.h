@@ -21,9 +21,9 @@
 
 /* C macros for xtensa special register read/write/exchange */
 
-#define RSR(reg, curval)  asm volatile ("rsr %0, " #reg : "=r" (curval));
-#define WSR(reg, newval)  asm volatile ("wsr %0, " #reg : : "r" (newval));
-#define XSR(reg, swapval) asm volatile ("xsr %0, " #reg : "+r" (swapval));
+#define RSR(reg, curval)  __asm__ volatile ("rsr %0, " #reg : "=r" (curval));
+#define WSR(reg, newval)  __asm__ volatile ("wsr %0, " #reg : : "r" (newval));
+#define XSR(reg, swapval) __asm__ volatile ("xsr %0, " #reg : "+r" (swapval));
 
 /** @brief Read current stack pointer address
  *
@@ -31,7 +31,7 @@
 static inline void *get_sp(void)
 {
     void *sp;
-    asm volatile ("mov %0, sp;" : "=r" (sp));
+    __asm__ volatile ("mov %0, sp;" : "=r" (sp));
     return sp;
 }
 
@@ -41,13 +41,13 @@ static inline void *get_sp(void)
 
 static inline void cpu_write_dtlb(uint32_t vpn, unsigned attr)
 {
-    asm volatile ("wdtlb  %1, %0; dsync\n" :: "r" (vpn), "r" (attr));
+    __asm__ volatile ("wdtlb  %1, %0; dsync\n" :: "r" (vpn), "r" (attr));
 }
 
 
 static inline void cpu_write_itlb(unsigned vpn, unsigned attr)
 {
-    asm volatile ("witlb  %1, %0; isync\n" :: "r" (vpn), "r" (attr));
+    __asm__ volatile ("witlb  %1, %0; isync\n" :: "r" (vpn), "r" (attr));
 }
 
 /**

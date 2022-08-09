@@ -94,7 +94,7 @@ static inline void pcnt_ll_set_level_action(pcnt_dev_t *hw, uint32_t unit, uint3
  */
 static inline int pcnt_ll_get_count(pcnt_dev_t *hw, uint32_t unit)
 {
-    typeof(hw->cnt_unit[unit]) cnt_reg = hw->cnt_unit[unit];
+    __typeof__(hw->cnt_unit[unit]) cnt_reg = hw->cnt_unit[unit];
     int16_t value = cnt_reg.cnt_val;
     return value;
 }
@@ -245,7 +245,7 @@ static inline void pcnt_ll_disable_all_events(pcnt_dev_t *hw, uint32_t unit)
  */
 static inline void pcnt_ll_set_high_limit_value(pcnt_dev_t *hw, uint32_t unit, int value)
 {
-    typeof(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
+    __typeof__(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
     conf2_reg.cnt_h_lim = value;
     hw->conf_unit[unit].conf2 = conf2_reg;
 }
@@ -259,7 +259,7 @@ static inline void pcnt_ll_set_high_limit_value(pcnt_dev_t *hw, uint32_t unit, i
  */
 static inline void pcnt_ll_set_low_limit_value(pcnt_dev_t *hw, uint32_t unit, int value)
 {
-    typeof(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
+    __typeof__(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
     conf2_reg.cnt_l_lim = value;
     hw->conf_unit[unit].conf2 = conf2_reg;
 }
@@ -274,7 +274,7 @@ static inline void pcnt_ll_set_low_limit_value(pcnt_dev_t *hw, uint32_t unit, in
  */
 static inline void pcnt_ll_set_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32_t thres, int value)
 {
-    typeof(hw->conf_unit[unit].conf1) conf1_reg = hw->conf_unit[unit].conf1;
+    __typeof__(hw->conf_unit[unit].conf1) conf1_reg = hw->conf_unit[unit].conf1;
     if (thres == 0) {
         conf1_reg.cnt_thres0 = value;
     } else {
@@ -292,7 +292,7 @@ static inline void pcnt_ll_set_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32
  */
 static inline int pcnt_ll_get_high_limit_value(pcnt_dev_t *hw, uint32_t unit)
 {
-    typeof(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
+    __typeof__(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
     int16_t value = conf2_reg.cnt_h_lim;
     return value;
 }
@@ -306,7 +306,7 @@ static inline int pcnt_ll_get_high_limit_value(pcnt_dev_t *hw, uint32_t unit)
  */
 static inline int pcnt_ll_get_low_limit_value(pcnt_dev_t *hw, uint32_t unit)
 {
-    typeof(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
+    __typeof__(hw->conf_unit[unit].conf2) conf2_reg = hw->conf_unit[unit].conf2;
     int16_t value = conf2_reg.cnt_l_lim;
     return value;
 }
@@ -322,7 +322,7 @@ static inline int pcnt_ll_get_low_limit_value(pcnt_dev_t *hw, uint32_t unit)
 static inline int pcnt_ll_get_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32_t thres)
 {
     int16_t value;
-    typeof(hw->conf_unit[unit].conf1) conf1_reg = hw->conf_unit[unit].conf1;
+    __typeof__(hw->conf_unit[unit].conf1) conf1_reg = hw->conf_unit[unit].conf1;
     if (thres == 0) {
         value = conf1_reg.cnt_thres0;
     } else {

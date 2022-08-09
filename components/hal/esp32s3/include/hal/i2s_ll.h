@@ -464,7 +464,7 @@ static inline void i2s_ll_rx_set_chan_num(i2s_dev_t *hw, int total_num)
  */
 static inline void i2s_ll_tx_set_active_chan_mask(i2s_dev_t *hw, uint32_t chan_mask)
 {
-    typeof(hw->tx_tdm_ctrl) tdm_ctrl_reg = hw->tx_tdm_ctrl;
+    __typeof__(hw->tx_tdm_ctrl) tdm_ctrl_reg = hw->tx_tdm_ctrl;
     tdm_ctrl_reg.val &= ~I2S_LL_TDM_CH_MASK;
     tdm_ctrl_reg.val |= chan_mask & I2S_LL_TDM_CH_MASK;
     hw->tx_tdm_ctrl.val = tdm_ctrl_reg.val;
@@ -478,7 +478,7 @@ static inline void i2s_ll_tx_set_active_chan_mask(i2s_dev_t *hw, uint32_t chan_m
  */
 static inline void i2s_ll_rx_set_active_chan_mask(i2s_dev_t *hw, uint32_t chan_mask)
 {
-    typeof(hw->rx_tdm_ctrl) tdm_ctrl_reg = hw->rx_tdm_ctrl;
+    __typeof__(hw->rx_tdm_ctrl) tdm_ctrl_reg = hw->rx_tdm_ctrl;
     tdm_ctrl_reg.val &= ~I2S_LL_TDM_CH_MASK;
     tdm_ctrl_reg.val |= chan_mask & I2S_LL_TDM_CH_MASK;
     hw->rx_tdm_ctrl.val = tdm_ctrl_reg.val;

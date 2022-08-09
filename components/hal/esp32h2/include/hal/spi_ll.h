@@ -638,7 +638,7 @@ static inline int spi_ll_freq_for_pre_n(int fapb, int pre, int n)
  */
 static inline int spi_ll_master_cal_clock(int fapb, int hz, int duty_cycle, spi_ll_clock_val_t *out_reg)
 {
-    typeof(GPSPI2.clock) reg;
+    __typeof__(GPSPI2.clock) reg;
     int eff_clk;
 
     //In hw, n, h and l are 1-64, pre is 1-8K. Value written to register is one lower than used value.

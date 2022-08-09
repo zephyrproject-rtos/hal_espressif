@@ -40,7 +40,7 @@ extern "C" {
 #define gpspi_flash_ll_get_hw(host_id)  ( ((host_id)==SPI2_HOST) ? &GPSPI2 : ({abort();(spi_dev_t*)0;}) )
 #define gpspi_flash_ll_hw_get_id(dev)   ( ((dev) == (void*)&GPSPI2) ? SPI2_HOST : -1 )
 
-typedef typeof(GPSPI2.clock) gpspi_flash_ll_clock_reg_t;
+typedef __typeof__(GPSPI2.clock) gpspi_flash_ll_clock_reg_t;
 
 //Supported clock register values
 #define GPSPI_FLASH_LL_CLKREG_VAL_5MHZ   ((gpspi_flash_ll_clock_reg_t){.val=0x0000F1CF})   ///< Clock set to 5 MHz
@@ -184,7 +184,7 @@ static inline bool gpspi_flash_ll_host_idle(const spi_dev_t *dev)
  */
 static inline void gpspi_flash_ll_read_phase(spi_dev_t *dev)
 {
-    typeof (dev->user) user = {
+    __typeof__ (dev->user) user = {
         .usr_command = 1,
         .usr_mosi = 0,
         .usr_miso = 1,
@@ -215,8 +215,8 @@ static inline void gpspi_flash_ll_set_cs_pin(spi_dev_t *dev, int pin)
  */
 static inline void gpspi_flash_ll_set_read_mode(spi_dev_t *dev, esp_flash_io_mode_t read_mode)
 {
-    typeof (dev->ctrl) ctrl = dev->ctrl;
-    typeof (dev->user) user = dev->user;
+    __typeof__ (dev->ctrl) ctrl = dev->ctrl;
+    __typeof__ (dev->user) user = dev->user;
 
     ctrl.val &= ~(SPI_FCMD_QUAD_M | SPI_FADDR_QUAD_M | SPI_FREAD_QUAD_M | SPI_FCMD_DUAL_M | SPI_FADDR_DUAL_M | SPI_FREAD_DUAL_M);
     user.val &= ~(SPI_FWRITE_QUAD_M | SPI_FWRITE_DUAL_M);
@@ -302,7 +302,7 @@ static inline void gpspi_flash_ll_set_mosi_bitlen(spi_dev_t *dev, uint32_t bitle
 static inline void gpspi_flash_ll_set_command(spi_dev_t *dev, uint8_t command, uint32_t bitlen)
 {
     dev->user.usr_command = 1;
-    typeof(dev->user2) user2 = {
+    __typeof__(dev->user2) user2 = {
         .usr_command_value = command,
         .usr_command_bitlen = (bitlen - 1),
     };
