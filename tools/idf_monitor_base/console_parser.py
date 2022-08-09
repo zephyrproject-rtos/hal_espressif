@@ -8,7 +8,7 @@ from typing import Optional
 from serial.tools import miniterm
 
 from .constants import (CMD_APP_FLASH, CMD_ENTER_BOOT, CMD_MAKE, CMD_OUTPUT_TOGGLE, CMD_RESET, CMD_STOP,
-                        CMD_TOGGLE_LOGGING, CMD_TOGGLE_TIMESTAMPS, CTRL_A, CTRL_F, CTRL_H, CTRL_I, CTRL_L, CTRL_P,
+                        CMD_TOGGLE_LOGGING, CMD_TOGGLE_TIMESTAMPS, CTRL_A, CTRL_C, CTRL_F, CTRL_H, CTRL_I, CTRL_L, CTRL_P,
                         CTRL_R, CTRL_RBRACKET, CTRL_T, CTRL_X, CTRL_Y, TAG_CMD, TAG_KEY, __version__)
 from .output_helpers import red_print
 
@@ -55,7 +55,7 @@ class ConsoleParser(object):
             ret = self._handle_menu_key(key)
         elif key == self.menu_key:
             self._pressed_menu_key = True
-        elif key == self.exit_key:
+        elif key == self.exit_key or key == CTRL_C:
             ret = (TAG_CMD, CMD_STOP)
         else:
             key = self.translate_eol(key)
@@ -98,7 +98,7 @@ class ConsoleParser(object):
             --- idf_monitor ({version}) - ESP-IDF monitor tool
             --- based on miniterm from pySerial
             ---
-            --- {exit:8} Exit program
+            --- {exit:8} Exit program (or CTRL+C)
             --- {menu:8} Menu escape key, followed by:
             --- Menu keys:
             ---    {menu:14} Send the menu character itself to remote

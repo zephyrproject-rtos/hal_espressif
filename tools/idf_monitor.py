@@ -56,7 +56,6 @@ from serial.tools import miniterm
 
 key_description = miniterm.key_description
 
-
 class Monitor:
     """
     Monitor application base class.
@@ -154,7 +153,7 @@ class Monitor:
                 try:
                     self._main_loop()
                 except KeyboardInterrupt:
-                    yellow_print('To exit from IDF monitor please use \"Ctrl+]\"')
+                    yellow_print('To exit from IDF monitor please use \"Ctrl+]\" or \"Ctrl+C\"')
                     self.serial_write(codecs.encode(CTRL_C))
         except SerialStopException:
             normal_print('Stopping condition has been received\n')
