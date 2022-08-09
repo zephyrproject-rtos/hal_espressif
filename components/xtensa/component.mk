@@ -1,6 +1,7 @@
 COMPONENT_ADD_INCLUDEDIRS := include esp32/include
 
-COMPONENT_ADD_LDFLAGS += $(COMPONENT_PATH)/esp32/libxt_hal.a
+# ZEPHYR: libxt_hal.a not used
+# COMPONENT_ADD_LDFLAGS += $(COMPONENT_PATH)/esp32/libxt_hal.a
 
 COMPONENT_ADD_LDFRAGMENTS += linker.lf
 

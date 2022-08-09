@@ -15,4 +15,5 @@ idf_component_register(SRCS ${srcs}
                     INCLUDE_DIRS include ${target}/include
                     LDFRAGMENTS linker.lf)
 
-target_link_libraries(${COMPONENT_LIB} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/${target}/libxt_hal.a")
+# ZEPHYR: libxt_hal.a not used
+# target_link_libraries(${COMPONENT_LIB} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/${target}/libxt_hal.a")
