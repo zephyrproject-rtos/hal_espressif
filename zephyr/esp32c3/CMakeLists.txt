@@ -10,21 +10,21 @@ if(CONFIG_SOC_ESP32C3)
     include/wifi
     include/crypto
     ../esp_shared/include
-
+    ../esp_shared/include/wifi
     ../../components/esp_common/include
     ../../components/esp_rom/include
     ../../components/esp_rom/include/esp32c3
     ../../components/esp32c3/include
-    
     ../../components/esp_hw_support/port/esp32c3/private_include
     ../../components/esp_hw_support/port/esp32c3
+    ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/include
 
     ../../components/riscv/include
-  
-    ../../components/hal/include 
+    ../../components/hal/include
     ../../components/hal/esp32c3/include
-    
+    ../../components/hal/platform_port/include
+
     ../../components/soc/esp32c3/include
     ../../components/soc/src/esp32c3/include
     ../../components/soc/include
@@ -42,28 +42,42 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_netif/include
     ../../components/log/include
     ../../components/spi_flash/include
+    ../../components/spi_flash/include/spi_flash
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     ../../components/bootloader_support/include_bootloader
 
     ../../components/esp_wifi/include/
     ../../components/esp_wifi/esp32c3/include
+    ../../components/esp_phy/include
+    ../../components/esp_phy/include/esp32c3
+    ../../components/esp_phy/esp32c3/include
 
     ../../components/wpa_supplicant/include
     ../../components/wpa_supplicant/port/include
     ../../components/wpa_supplicant/src
     ../../components/wpa_supplicant/include/esp_supplicant
     ../../components/wpa_supplicant/src/crypto
-	)
+    ../../components/wpa_supplicant/esp_supplicant/src
+    ../../components/wpa_supplicant/esp_supplicant/include
+    ../../components/wpa_supplicant/src/utils
+    ../../components/wpa_supplicant/src/eap_peer
+
+    ../../components/heap/include
+    ../../components/mbedtls/port/include
+    )
 
   zephyr_link_libraries(
     gcc
     -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32c3.rom.alias.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.eco3.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.api.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.libgcc.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32c3/ld/esp32c3.peripherals.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32c3/ld/esp32c3.peripherals.ld
     )
+
+  zephyr_compile_definitions(ESP_PLATFORM)
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
@@ -71,12 +85,6 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
     ../../components/soc/esp32c3/spi_periph.c
-    )
-
-  zephyr_compile_definitions(
-    __ets__
-    ESP_PLATFORM
-    ESPRESSIF_USE
     )
 
   zephyr_sources_ifdef(
@@ -123,13 +131,15 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_timer/src/ets_timer_legacy.c
-	../../components/esp_hw_support/port/esp32c3/rtc_clk.c
+    ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/esp_hw_support/port/esp32c3/rtc_init.c
     ../../components/esp_hw_support/port/esp32c3/rtc_time.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
     ../../components/esp32c3/clk.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
+    ../../components/hal/systimer_hal.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/driver/periph_ctrl.c
     ../../components/esp32c3/clk.c
@@ -139,8 +149,10 @@ if(CONFIG_SOC_ESP32C3)
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
-    zephyr_sources( 
-      ../../components/esp_wifi/src/phy_init.c
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+    #   ../../components/esp_hw_support/mac_addr.c
       src/common/esp_read_mac.c
       )
 
@@ -153,12 +165,8 @@ if(CONFIG_SOC_ESP32C3)
       mesh
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp32c3
         -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32c3
-        -Wl,--defsym,phy_printf=printk
-        -Wl,--defsym,net80211_printf=printk
-        -Wl,--defsym,coexist_printf=printk
-        -Wl,--defsym,pp_printf=printk
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_phy/lib/esp32c3
       )
 
   endif()
@@ -189,63 +197,67 @@ if(CONFIG_SOC_ESP32C3)
 
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
     set(WPA_SUPPLICANT_SRCS "src/wpa_supplicant/port/os_riscv.c"
-                        "../../components/wpa_supplicant/src/ap/ap_config.c"
-                        "../../components/wpa_supplicant/src/ap/ieee802_1x.c"
-                        "../../components/wpa_supplicant/src/ap/wpa_auth.c"
-                        "../../components/wpa_supplicant/src/ap/wpa_auth_ie.c"
-                        "../../components/wpa_supplicant/src/common/sae.c"
-                        "../../components/wpa_supplicant/src/common/wpa_common.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-ctr.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-siv.c"
-                        "../../components/wpa_supplicant/src/crypto/sha256-kdf.c"
-                        "../../components/wpa_supplicant/src/crypto/sha256-prf.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-cbc.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-ccm.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-internal-dec.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-internal-enc.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-omac1.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-unwrap.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-wrap.c"
-                        "../../components/wpa_supplicant/src/crypto/aes-omac1.c"
-                        "../../components/wpa_supplicant/src/crypto/sha256-tlsprf.c"
-                        "../../components/wpa_supplicant/src/crypto/bignum.c"
-                        "../../components/wpa_supplicant/src/crypto/ccmp.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_mbedtls-bignum.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_mbedtls-ec.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_ops.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_internal-cipher.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_internal-modexp.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_internal-rsa.c"
-                        "../../components/wpa_supplicant/src/crypto/crypto_internal.c"
-                        "../../components/wpa_supplicant/src/crypto/des-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/dh_group5.c"
-                        "../../components/wpa_supplicant/src/crypto/dh_groups.c"
-                        "../../components/wpa_supplicant/src/crypto/md4-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/md5-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/md5.c"
-                        "../../components/wpa_supplicant/src/crypto/ms_funcs.c"
-                        "../../components/wpa_supplicant/src/crypto/rc4.c"
-                        "../../components/wpa_supplicant/src/crypto/sha1-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/sha1-pbkdf2.c"
-                        "../../components/wpa_supplicant/src/crypto/sha1.c"
-                        "../../components/wpa_supplicant/src/crypto/sha256-internal.c"
-                        "../../components/wpa_supplicant/src/crypto/sha256.c"
-                        "../../components/wpa_supplicant/src/esp_supplicant/esp_hostap.c"
-                        "../../components/wpa_supplicant/src/esp_supplicant/esp_wpa_main.c"
-                        "../../components/wpa_supplicant/src/esp_supplicant/esp_wpas_glue.c"
-                        "../../components/wpa_supplicant/src/esp_supplicant/esp_wpa3.c"
-                        "../../components/wpa_supplicant/src/rsn_supp/pmksa_cache.c"
-                        "../../components/wpa_supplicant/src/rsn_supp/wpa.c"
-                        "../../components/wpa_supplicant/src/rsn_supp/wpa_ie.c"
-                        "../../components/wpa_supplicant/src/utils/base64.c"
-                        "../../components/wpa_supplicant/src/utils/common.c"
-                        "../../components/wpa_supplicant/src/utils/ext_password.c"
-                        "../../components/wpa_supplicant/src/utils/uuid.c"
-                        "../../components/wpa_supplicant/src/utils/wpabuf.c"
-                        "../../components/wpa_supplicant/src/utils/wpa_debug.c"
-                        "../../components/wpa_supplicant/src/utils/json.c"
-                        )
+                       "../../components/wpa_supplicant/src/ap/ap_config.c"
+                       "../../components/wpa_supplicant/src/ap/ieee802_1x.c"
+                       "../../components/wpa_supplicant/src/ap/wpa_auth.c"
+                       "../../components/wpa_supplicant/src/ap/wpa_auth_ie.c"
+                       "../../components/wpa_supplicant/src/common/sae.c"
+                       "../../components/wpa_supplicant/src/common/wpa_common.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-ctr.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-siv.c"
+                       "../../components/wpa_supplicant/src/crypto/sha256-kdf.c"
+                       "../../components/wpa_supplicant/src/crypto/sha256-prf.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-cbc.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-ccm.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-internal-dec.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-internal-enc.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-omac1.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-unwrap.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-wrap.c"
+                       "../../components/wpa_supplicant/src/crypto/aes-omac1.c"
+                       "../../components/wpa_supplicant/src/crypto/sha256-tlsprf.c"
+                       "../../components/wpa_supplicant/src/tls/bignum.c"
+                       "../../components/wpa_supplicant/src/crypto/ccmp.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_mbedtls-bignum.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_mbedtls-ec.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_ops.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_internal-cipher.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_internal-modexp.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_internal-rsa.c"
+                       "../../components/wpa_supplicant/src/crypto/crypto_internal.c"
+                       "../../components/wpa_supplicant/src/crypto/des-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/dh_group5.c"
+                       "../../components/wpa_supplicant/src/crypto/dh_groups.c"
+                       "../../components/wpa_supplicant/src/crypto/md4-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/md5-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/md5.c"
+                       "../../components/wpa_supplicant/src/crypto/ms_funcs.c"
+                       "../../components/wpa_supplicant/src/crypto/rc4.c"
+                       "../../components/wpa_supplicant/src/crypto/sha1-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/sha1-pbkdf2.c"
+                       "../../components/wpa_supplicant/src/crypto/sha1-prf.c"
+                       "../../components/wpa_supplicant/src/crypto/sha1.c"
+                       "../../components/wpa_supplicant/src/crypto/sha256-internal.c"
+                       "../../components/wpa_supplicant/src/crypto/sha256.c"
+                       "../../components/wpa_supplicant/src/eap_peer/eap.c"
+                       "../../components/wpa_supplicant/src/eap_peer/eap_common.c"
+                       "../../components/wpa_supplicant/esp_supplicant/src/esp_hostap.c"
+                       "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa_main.c"
+                       "../../components/wpa_supplicant/esp_supplicant/src/esp_wpas_glue.c"
+                       # "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa2.c"
+                       "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c"
+                       "../../components/wpa_supplicant/src/rsn_supp/pmksa_cache.c"
+                       "../../components/wpa_supplicant/src/rsn_supp/wpa.c"
+                       "../../components/wpa_supplicant/src/rsn_supp/wpa_ie.c"
+                       "../../components/wpa_supplicant/src/utils/base64.c"
+                       "../../components/wpa_supplicant/src/utils/common.c"
+                       "../../components/wpa_supplicant/src/utils/ext_password.c"
+                       "../../components/wpa_supplicant/src/utils/uuid.c"
+                       "../../components/wpa_supplicant/src/utils/wpabuf.c"
+                       "../../components/wpa_supplicant/src/utils/wpa_debug.c"
+                       "../../components/wpa_supplicant/src/utils/json.c"
+                       )
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
@@ -254,20 +266,26 @@ if(CONFIG_SOC_ESP32C3)
 
     zephyr_compile_definitions(
       __ets__
-      ESP_PLATFORM
       ESP_SUPPLICANT
       IEEE8021X_EAPOL
       EAP_PEER_METHOD
       EAP_MSCHAPv2
+      EAP_TTLS
+      EAP_TLS
       EAP_PEAP
+      EAP_FAST
       USE_WPA2_TASK
+      CONFIG_WPS2
+      CONFIG_WPS_PIN
+      USE_WPS_TASK
       ESPRESSIF_USE
       ESP32_WORKAROUND
       CONFIG_ECC
       CONFIG_IEEE80211W
-      CONFIG_WPA3_SAE
+    #   CONFIG_WPA3_SAE
       CONFIG_SHA256
       CONFIG_DPP
+      CONFIG_WNM
       )
 
     zephyr_link_libraries(
