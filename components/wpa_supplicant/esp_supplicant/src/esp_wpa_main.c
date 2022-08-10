@@ -160,7 +160,8 @@ void wpa_ap_get_peer_spp_msg(void *sm_data, bool *spp_cap, bool *spp_req)
 
 bool  wpa_deattach(void)
 {
-    esp_wifi_sta_wpa2_ent_disable();
+    // TODO: Implemente esp_wpa2.c
+    // esp_wifi_sta_wpa2_ent_disable();
     wpa_sm_deinit();
     return true;
 }

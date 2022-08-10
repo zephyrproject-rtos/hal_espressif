@@ -6,11 +6,6 @@
 
 #include <string.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-
 #include "esp_err.h"
 
 #include "utils/includes.h"
@@ -40,8 +35,8 @@
 
 #define WPA2_VERSION    "v2.0"
 
-#define DATA_MUTEX_TAKE() xSemaphoreTakeRecursive(s_wpa2_data_lock,portMAX_DELAY)
-#define DATA_MUTEX_GIVE() xSemaphoreGiveRecursive(s_wpa2_data_lock)
+#define DATA_MUTEX_TAKE() k_sem_take(&s_wpa2_data_lock,K_FOREVER)
+#define DATA_MUTEX_GIVE() k_sem_give(&s_wpa2_data_lock)
 
 //length of the string "fast_provisioning={0/1/2} "
 #define FAST_PROVISIONING_CONFIG_STR_LEN 20
@@ -52,7 +47,7 @@
 //Total
 #define PHASE1_PARAM_STRING_LEN FAST_PROVISIONING_CONFIG_STR_LEN + FAST_MAX_PAC_LIST_CONFIG_STR_LEN + FAST_PAC_FORMAT_STR_LEN
 
-static void *s_wpa2_data_lock = NULL;
+static struct k_sem s_wpa2_data_lock;
 
 static struct eap_sm *gEapSm = NULL;
 
@@ -64,31 +59,22 @@ static int wpa2_start_eapol_internal(void);
 int wpa2_post(uint32_t sig, uint32_t par);
 
 #ifdef USE_WPA2_TASK
-static void *s_wpa2_task_hdl = NULL;
-static void *s_wpa2_queue = NULL;
+void wpa2_task(void *pvParameters );
+K_THREAD_DEFINE(s_wpa2_task_hdl, WPA2_TASK_STACK_SIZE, wpa2_task, NULL, NULL, NULL,	2, 0, 0);
+K_MSGQ_DEFINE(s_wpa2_queue, sizeof(ETSEvent), SIG_WPA2_MAX, 4);
 static wpa2_state_t s_wpa2_state = WPA2_STATE_DISABLED;
-static void *s_wpa2_api_lock = NULL;
-static void *s_wifi_wpa2_sync_sem = NULL;
+K_SEM_DEFINE(s_wpa2_api_lock, 0, 20);
+K_SEM_DEFINE(s_wifi_wpa2_sync_sem, 0, 1);
 static bool s_disable_time_check = true;
 
 static void wpa2_api_lock(void)
 {
-    if (s_wpa2_api_lock == NULL) {
-        s_wpa2_api_lock = xSemaphoreCreateRecursiveMutex();
-        if (!s_wpa2_api_lock) {
-            wpa_printf(MSG_ERROR, "WPA2: failed to create wpa2 api lock");
-            return;
-        }
-    }
-
-    xSemaphoreTakeRecursive(s_wpa2_api_lock, portMAX_DELAY);
+	k_sem_take(&s_wpa2_api_lock, K_FOREVER);
 }
 
 static void wpa2_api_unlock(void)
 {
-    if (s_wpa2_api_lock) {
-        xSemaphoreGiveRecursive(s_wpa2_api_lock);
-    }
+	k_sem_give(&s_wpa2_api_lock);
 }
 
 static bool inline wpa2_is_enabled(void)
@@ -118,7 +104,7 @@ static void wpa2_set_eap_state(wpa2_ent_eap_state_t state)
 
 static inline void wpa2_task_delete(void *arg)
 {
-    void *my_task_hdl = xTaskGetCurrentTaskHandle();
+    k_tid_t my_task_hdl = k_current_get();
     int ret = ESP_OK;
 
     if (my_task_hdl == s_wpa2_task_hdl) {
@@ -194,7 +180,7 @@ void wpa2_task(void *pvParameters )
     }
 
     for (;;) {
-        if ( pdPASS == xQueueReceive(s_wpa2_queue, &e, portMAX_DELAY) ) {
+		if (k_msgq_get(&s_wpa2_queue, &e, K_FOREVER) == 0) {
             if (e->sig < SIG_WPA2_MAX) {
                 DATA_MUTEX_TAKE();
                 if(sm->wpa2_sig_cnt[e->sig]) {
@@ -230,28 +216,16 @@ void wpa2_task(void *pvParameters )
         if (task_del) {
             break;
         } else {
-            if (s_wifi_wpa2_sync_sem) {
-                wpa_printf(MSG_DEBUG, "WPA2: wifi->wpa2 api completed sig(%d)", e->sig);
-                xSemaphoreGive(s_wifi_wpa2_sync_sem);
-            } else {
-                wpa_printf(MSG_ERROR, "WPA2: null wifi->wpa2 sync sem");
-            }
+            wpa_printf(MSG_DEBUG, "WPA2: wifi->wpa2 api completed sig(%d)", e->sig);
+			k_sem_give(&s_wifi_wpa2_sync_sem);
         }
     }
 
     wpa_printf(MSG_DEBUG, "WPA2: queue deleted");
-    vQueueDelete(s_wpa2_queue);
+    k_free(&s_wpa2_queue);
     wpa_printf(MSG_DEBUG, "WPA2: task deleted");
-    s_wpa2_queue = NULL;
-    if (s_wifi_wpa2_sync_sem) {
-        wpa_printf(MSG_DEBUG, "WPA2: wifi->wpa2 api completed sig(%d)", e->sig);
-        xSemaphoreGive(s_wifi_wpa2_sync_sem);
-    } else {
-        wpa_printf(MSG_ERROR, "WPA2: null wifi->wpa2 sync sem");
-    }
-
-    /* At this point, we completed */
-    vTaskDelete(NULL);
+    wpa_printf(MSG_DEBUG, "WPA2: wifi->wpa2 api completed sig(%d)", e->sig);
+	k_sem_give(&s_wifi_wpa2_sync_sem);
 }
 
 int wpa2_post(uint32_t sig, uint32_t par)
@@ -277,16 +251,12 @@ int wpa2_post(uint32_t sig, uint32_t par)
         DATA_MUTEX_GIVE();
         evt->sig = sig;
         evt->par = par;
-        if ( xQueueSend(s_wpa2_queue, &evt, 10 / portTICK_PERIOD_MS ) != pdPASS) {
+		if (k_msgq_put(&s_wpa2_queue, &evt, K_MSEC(10)) != 0) {
             wpa_printf(MSG_ERROR, "WPA2: Q S E");
             return ESP_FAIL;
         } else {
-            if (s_wifi_wpa2_sync_sem) {
-                xSemaphoreTake(s_wifi_wpa2_sync_sem, portMAX_DELAY);
-                wpa_printf(MSG_DEBUG, "WPA2: wpa2 api return, sm->state(%d)", sm->finish_state);
-            } else {
-                wpa_printf(MSG_ERROR, "WPA2: null wifi->wpa2 sync sem");
-            }
+			k_sem_take(&s_wifi_wpa2_sync_sem, K_FOREVER);
+            wpa_printf(MSG_DEBUG, "WPA2: wpa2 api return, sm->state(%d)", sm->finish_state);
         }
     }
     return ESP_OK;
@@ -748,12 +718,8 @@ static int eap_peer_sm_init(void)
     }
 
     gEapSm = sm;
-    s_wpa2_data_lock = xSemaphoreCreateRecursiveMutex();
-    if (!s_wpa2_data_lock) {
-        wpa_printf(MSG_ERROR, "wpa2 eap_peer_sm_init: failed to alloc data lock");
-        ret = ESP_ERR_NO_MEM;
-        goto _err;
-    }
+
+	k_sem_init(&s_wpa2_data_lock, 0, 1);
 
     wpa2_set_eap_state(WPA2_ENT_EAP_STATE_NOT_START);
     sm->current_identifier = 0xff;
@@ -783,20 +749,7 @@ static int eap_peer_sm_init(void)
 
     gEapSm = sm;
 #ifdef USE_WPA2_TASK
-    s_wpa2_queue = xQueueCreate(SIG_WPA2_MAX, sizeof(s_wpa2_queue));
-    ret = xTaskCreate(wpa2_task, "wpa2T", WPA2_TASK_STACK_SIZE, NULL, 2, s_wpa2_task_hdl);
-    if (ret != pdPASS) {
-        wpa_printf(MSG_ERROR, "wps enable: failed to create task");
-        ret = ESP_FAIL;
-        goto _err;
-    }
-    s_wifi_wpa2_sync_sem = xSemaphoreCreateCounting(1, 0);
-    if (!s_wifi_wpa2_sync_sem) {
-        wpa_printf(MSG_ERROR, "WPA2: failed create wifi wpa2 task sync sem");
-        ret = ESP_FAIL;
-        goto _err;
-    }
-
+	k_thread_name_set(s_wpa2_task_hdl, "wpa2T");
     wpa_printf(MSG_INFO, "wpa2_task prio:%d, stack:%d\n", 2, WPA2_TASK_STACK_SIZE);
 #endif
     return ESP_OK;
@@ -834,21 +787,17 @@ static void eap_peer_sm_deinit(void)
         wpa2_rxq_deinit();
     }
 
-    if (s_wifi_wpa2_sync_sem) {
-        vSemaphoreDelete(s_wifi_wpa2_sync_sem);
-        s_wifi_wpa2_sync_sem = NULL;
-    }
+#ifdef USE_WPA2_TASK
+    k_free(&s_wifi_wpa2_sync_sem);
+#endif
 
-    if (s_wpa2_data_lock) {
-        vSemaphoreDelete(s_wpa2_data_lock);
-        s_wpa2_data_lock = NULL;
-        wpa_printf(MSG_DEBUG, "wpa2 eap_peer_sm_deinit: free data lock");
-    }
+    k_free(&s_wpa2_data_lock);
+    wpa_printf(MSG_DEBUG, "wpa2 eap_peer_sm_deinit: free data lock");
 
-    if (s_wpa2_queue) {
-        vQueueDelete(s_wpa2_queue);
-        s_wpa2_queue = NULL;
-    }
+#ifdef USE_WPA2_TASK
+    k_free(&s_wpa2_queue);
+#endif
+
     os_free(sm);
     gEapSm = NULL;
 }
