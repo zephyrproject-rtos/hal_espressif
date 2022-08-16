@@ -62,12 +62,11 @@ void rom_usb_cdc_set_descriptor_patch(void)
     memcpy(mac_bytes + 4, &mac1, 2);
 
     /* Convert to UTF16 string */
-    uint16_t* dst = s_str_serial_descr.bString;
     for (int i = 0; i < 6; ++i) {
         uint8_t b = mac_bytes[5 - i]; /* printing from the MSB */
-        *dst++ = nibble_to_hex_u16(b >> 4);
-        *dst++ = nibble_to_hex_u16(b & 0xf);
-        dst++;
+		uint16_t nb_h = nibble_to_hex_u16(b >> 4);
+		uint16_t nb_l = nibble_to_hex_u16(b & 0xf);
+		s_str_serial_descr.bString[i] = (nb_h << 8) | nb_l;
     }
 
     /* Override the pointer to descriptors structure */
