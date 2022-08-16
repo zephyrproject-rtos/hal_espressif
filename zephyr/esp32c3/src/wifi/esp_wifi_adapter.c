@@ -48,7 +48,6 @@ static void esp_wifi_free(void *mem);
 static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
-static DRAM_ATTR int wifi_interrupt_source;
 
 #if CONFIG_IDF_TARGET_ESP32
 extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
@@ -306,7 +305,7 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 	}
 
 	k_msgq_init((struct k_msgq *)queue, wifi_msgq_buffer, item_size, queue_len);
-	
+
 	return (void *)queue;
 }
 
@@ -535,13 +534,9 @@ static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr
 {
 	ARG_UNUSED(cpu_no);
 
-	wifi_interrupt_source = intr_source;
-
-	/* This workaaround is required for wifi since interrupt
-	 * allocator driver does not change the priority and uses the
-	 * default one
-	 */ 
-	esprv_intc_int_set_priority(intr_num, intr_prio);
+    REG_WRITE(DR_REG_INTERRUPT_BASE + 4 * intr_source, intr_num);
+    esprv_intc_int_set_priority(intr_num, intr_prio);
+    esprv_intc_int_set_type(intr_num, INTR_TYPE_LEVEL);
 }
 
 static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
@@ -553,24 +548,20 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
 	ARG_UNUSED(n);
-	esp_intr_alloc(wifi_interrupt_source,
-		0,
-		(isr_handler_t)f,
-		arg,
-		NULL);
 
+	/* workaround to force allocating same handler for wifi interrupts */
+	esp_intr_alloc(0, 0, (isr_handler_t)f, arg, NULL);
+	esp_intr_alloc(2, 0, (isr_handler_t)f, arg,	NULL);
 }
 
 static void intr_on(unsigned int mask)
 {
-	ARG_UNUSED(mask);
-	esp_intr_enable(wifi_interrupt_source);
+	esp_intr_enable(mask);
 }
 
 static void intr_off(unsigned int mask)
 {
-	ARG_UNUSED(mask);
-	esp_intr_disable(wifi_interrupt_source);
+	esp_intr_disable(mask);
 }
 
 uint32_t esp_get_free_heap_size(void)
@@ -582,7 +573,7 @@ uint32_t esp_get_free_heap_size(void)
 
 static unsigned long random(void)
 {
-	return sys_rand32_get(); 
+	return sys_rand32_get();
 }
 
 static void wifi_clock_enable_wrapper(void)
