@@ -32,8 +32,9 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/driver/include
 
     ../../components/efuse/include
+    ../../components/efuse/private_include
     ../../components/efuse/esp32c3/include
-    ../../components/efuse/private_include/esp32c3
+    ../../components/efuse/esp32c3/private_include
 
     ../../components/esp_system/include
     ../../components/esp_event/include
@@ -136,6 +137,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/port/esp32c3/rtc_init.c
     ../../components/esp_hw_support/port/esp32c3/rtc_time.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
+    ../../components/esp_hw_support/mac_addr.c
     ../../components/esp32c3/clk.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
@@ -145,6 +147,12 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp32c3/clk.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
+    ../../components/efuse/esp32c3/esp_efuse_fields.c
+    ../../components/efuse/esp32c3/esp_efuse_table.c
+    ../../components/efuse/esp32c3/esp_efuse_utility.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
+    ../../components/efuse/src/esp_efuse_utility.c
     )
 
   ## shared WIFI/BT resources
@@ -152,8 +160,6 @@ if(CONFIG_SOC_ESP32C3)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
-    #   ../../components/esp_hw_support/mac_addr.c
-      src/common/esp_read_mac.c
       )
 
     zephyr_link_libraries(

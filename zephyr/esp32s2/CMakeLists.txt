@@ -57,6 +57,10 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/bootloader_support/include_bootloader
     ../../components/heap/include
     ../../components/mbedtls/port/include
+    ../../components/efuse/include
+    ../../components/efuse/private_include
+    ../../components/efuse/esp32s2/include
+    ../../components/efuse/esp32s2/private_include
     )
 
     zephyr_link_libraries(
@@ -151,6 +155,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_hw_support/port/esp32s2/rtc_init.c
     ../../components/esp_hw_support/port/esp32s2/rtc_time.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
+    ../../components/esp_hw_support/mac_addr.c
     ../../components/esp32s2/clk.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
@@ -162,6 +167,12 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/driver/periph_ctrl.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
+    ../../components/efuse/esp32s2/esp_efuse_fields.c
+    ../../components/efuse/esp32s2/esp_efuse_table.c
+    ../../components/efuse/esp32s2/esp_efuse_utility.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
+    ../../components/efuse/src/esp_efuse_utility.c
     ../esp_shared/src/common/esp_system_api.c
     src/heap_caps.c
     )

@@ -112,8 +112,8 @@ void esp_efuse_write_random_key(uint32_t blk_wdata0_reg)
         ESP_LOGV(TAG, "EFUSE_BLKx_WDATA%d_REG = 0x%08x", i, buf[i]);
         REG_WRITE(blk_wdata0_reg + 4*i, buf[i]);
     }
-    bzero(buf, sizeof(buf));
-    bzero(raw, sizeof(raw));
+    memset(buf, 0, sizeof(buf));
+    memset(raw, 0, sizeof(raw));
 }
 
 // Permanently update values written to the efuse write registers

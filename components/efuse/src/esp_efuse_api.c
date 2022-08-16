@@ -11,11 +11,19 @@
 #include "sdkconfig.h"
 #include "esp_efuse_table.h"
 
+
 const static char *TAG = "efuse";
 
 #if defined(BOOTLOADER_BUILD)
 #define EFUSE_LOCK_ACQUIRE_RECURSIVE()
 #define EFUSE_LOCK_RELEASE_RECURSIVE()
+#else
+#ifdef __ZEPHYR__
+#include <string.h>
+#include <zephyr/kernel.h>
+K_MUTEX_DEFINE(s_efuse_lock);
+#define EFUSE_LOCK_ACQUIRE_RECURSIVE() k_mutex_lock(&s_efuse_lock, K_FOREVER)
+#define EFUSE_LOCK_RELEASE_RECURSIVE() k_mutex_unlock(&s_efuse_lock)
 #else
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,6 +31,7 @@ const static char *TAG = "efuse";
 static _lock_t s_efuse_lock;
 #define EFUSE_LOCK_ACQUIRE_RECURSIVE() _lock_acquire_recursive(&s_efuse_lock)
 #define EFUSE_LOCK_RELEASE_RECURSIVE() _lock_release_recursive(&s_efuse_lock)
+#endif
 #endif
 
 static int s_batch_writing_mode = 0;
@@ -41,7 +50,11 @@ esp_err_t esp_efuse_read_field_blob(const esp_efuse_desc_t* field[], void* dst, 
             err = esp_efuse_utility_process(field, dst, dst_size_bits, esp_efuse_utility_fill_buff);
 #ifndef BOOTLOADER_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
+#ifdef __ZEPHYR__
+                k_msleep(1);
+#else
                 vTaskDelay(1);
+#endif
             }
 #endif // BOOTLOADER_BUILD
         } while (err == ESP_ERR_DAMAGED_READING);
@@ -69,7 +82,11 @@ esp_err_t esp_efuse_read_field_cnt(const esp_efuse_desc_t* field[], size_t* out_
             err = esp_efuse_utility_process(field, out_cnt, 0, esp_efuse_utility_count_once);
 #ifndef BOOTLOADER_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
+#ifdef __ZEPHYR__
+                k_msleep(1);
+#else
                 vTaskDelay(1);
+#endif
             }
 #endif // BOOTLOADER_BUILD
         } while (err == ESP_ERR_DAMAGED_READING);

@@ -32,8 +32,10 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/esp_phy/include/esp32
     ../../components/esp_phy/esp32/include
     ../../components/esp_wifi/include
-    ../../components/efuse/esp32/include
     ../../components/efuse/include
+    ../../components/efuse/private_include
+    ../../components/efuse/esp32/include
+    ../../components/efuse/esp32/private_include
     ../../components/esp_system/include
     ../../components/esp_wifi/esp32/include
     ../../components/esp_timer/include
@@ -158,6 +160,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/esp_hw_support/port/esp32/rtc_init.c
     ../../components/esp_hw_support/port/esp32/rtc_time.c
     ../../components/esp_hw_support/port/esp32/rtc_clk_init.c
+    ../../components/esp_hw_support/mac_addr.c
     ../../components/esp32/clk.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
@@ -167,6 +170,12 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/log/log.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32/interrupt_descriptor_table.c
+    ../../components/efuse/esp32/esp_efuse_fields.c
+    ../../components/efuse/esp32/esp_efuse_table.c
+    ../../components/efuse/esp32/esp_efuse_utility.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_api_key_esp32.c
+    ../../components/efuse/src/esp_efuse_utility.c
     ../esp_shared/src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
