@@ -53,7 +53,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/wpa_supplicant/src/utils
     ../../components/wpa_supplicant/src/eap_peer
     ../../components/spi_flash/include
-	../../components/spi_flash/include/spi_flash
+    ../../components/spi_flash/include/spi_flash
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     ../../components/bootloader_support/include_bootloader
@@ -156,12 +156,12 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/esp32/rtc_io_periph.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/port/esp32/rtc_clk.c
     ../../components/esp_hw_support/port/esp32/rtc_init.c
     ../../components/esp_hw_support/port/esp32/rtc_time.c
     ../../components/esp_hw_support/port/esp32/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
-    ../../components/esp32/clk.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
@@ -276,7 +276,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_hostap.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa_main.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpas_glue.c"
-                       # "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa2.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c"
                        "../../components/wpa_supplicant/src/rsn_supp/pmksa_cache.c"
                        "../../components/wpa_supplicant/src/rsn_supp/wpa.c"
@@ -310,7 +309,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
       ESP32_WORKAROUND
       CONFIG_ECC
       CONFIG_IEEE80211W
-    #   CONFIG_WPA3_SAE
       CONFIG_SHA256
       CONFIG_DPP
       CONFIG_WNM

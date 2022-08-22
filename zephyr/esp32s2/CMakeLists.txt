@@ -48,7 +48,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/wpa_supplicant/src/utils
     ../../components/wpa_supplicant/src/eap_peer
     ../../components/spi_flash/include
-	../../components/spi_flash/include/spi_flash
+    ../../components/spi_flash/include/spi_flash
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     ../../components/efuse/include
@@ -112,8 +112,6 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/spi_flash/flash_ops.c
     ../../components/esp32s2/spiram.c
     ../../components/esp32s2/spiram_psram.c
-    ../../components/esp_hw_support/port/esp32s2/rtc_init.c
-    ../../components/soc/esp32s2/gpio_periph.c
     ../../components/bootloader_support/src/bootloader_common.c
     )
 
@@ -150,13 +148,13 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/soc/esp32s2/rtc_io_periph.c
     ../../components/esp_hw_support/regi2c_ctrl.c
-	../../components/esp_hw_support/cpu_util.c
+    ../../components/esp_hw_support/cpu_util.c
+    ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
     ../../components/esp_hw_support/port/esp32s2/rtc_init.c
     ../../components/esp_hw_support/port/esp32s2/rtc_time.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
-    ../../components/esp32s2/clk.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c
@@ -230,7 +228,6 @@ if(CONFIG_SOC_ESP32S2)
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_hostap.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa_main.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpas_glue.c"
-                       # "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa2.c"
                        "../../components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c"
                        "../../components/wpa_supplicant/src/rsn_supp/pmksa_cache.c"
                        "../../components/wpa_supplicant/src/rsn_supp/wpa.c"

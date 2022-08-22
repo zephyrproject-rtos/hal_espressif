@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif
 #include <stdint.h>
 #include <sys/param.h>
 #include <sys/lock.h>
@@ -34,17 +37,19 @@
 #include "esp32h2/rtc.h"
 #endif
 
+#ifndef __ZEPHYR__
 #define MHZ (1000000)
+#endif
 
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
 #if CONFIG_IDF_TARGET_ESP32
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifdef CONFIG_SMP
 extern uint32_t g_ticks_per_us_app;
 #endif
 #endif
 
-static _lock_t s_esp_rtc_time_lock;
+static int s_esp_rtc_time_lock;
 static RTC_DATA_ATTR uint64_t s_esp_rtc_time_us = 0, s_rtc_last_ticks = 0;
 
 inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
@@ -58,17 +63,29 @@ inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
 
 int IRAM_ATTR esp_clk_cpu_freq(void)
 {
+#ifdef __ZEPHYR__
+    return MHZ(s_get_cpu_freq_mhz());
+#else
     return s_get_cpu_freq_mhz() * MHZ;
+#endif
 }
 
 int IRAM_ATTR esp_clk_apb_freq(void)
 {
+#ifdef __ZEPHYR__
+    return MHZ(MIN(s_get_cpu_freq_mhz(), 80));
+#else
     return MIN(s_get_cpu_freq_mhz(), 80) * MHZ;
+#endif
 }
 
 int IRAM_ATTR esp_clk_xtal_freq(void)
 {
+#ifdef __ZEPHYR__
+    return MHZ(rtc_clk_xtal_freq_get());
+#else
     return rtc_clk_xtal_freq_get() * MHZ;
+#endif
 }
 
 #if !CONFIG_IDF_TARGET_ESP32C3 && !CONFIG_IDF_TARGET_ESP32H2
@@ -77,7 +94,7 @@ void IRAM_ATTR ets_update_cpu_frequency(uint32_t ticks_per_us)
     /* Update scale factors used by esp_rom_delay_us */
     g_ticks_per_us_pro = ticks_per_us;
 #if CONFIG_IDF_TARGET_ESP32
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifdef CONFIG_SMP
     g_ticks_per_us_app = ticks_per_us;
 #endif
 #endif
@@ -86,7 +103,7 @@ void IRAM_ATTR ets_update_cpu_frequency(uint32_t ticks_per_us)
 
 uint64_t esp_rtc_get_time_us(void)
 {
-    _lock_acquire(&s_esp_rtc_time_lock);
+    s_esp_rtc_time_lock = irq_lock();
     const uint32_t cal = esp_clk_slowclk_cal_get();
     const uint64_t rtc_this_ticks = rtc_time_get();
     const uint64_t ticks = rtc_this_ticks - s_rtc_last_ticks;
@@ -107,7 +124,7 @@ uint64_t esp_rtc_get_time_us(void)
            ((ticks_high * cal) << (32 - RTC_CLK_CAL_FRACT));
     s_esp_rtc_time_us += delta_time_us;
     s_rtc_last_ticks = rtc_this_ticks;
-    _lock_release(&s_esp_rtc_time_lock);
+    irq_unlock(s_esp_rtc_time_lock);
     return s_esp_rtc_time_us;
 }
 
