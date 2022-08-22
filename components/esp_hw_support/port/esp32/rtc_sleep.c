@@ -264,7 +264,7 @@ uint32_t rtc_deep_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt)
     const unsigned CRC_LEN = 0x7ff;
     const unsigned RTC_MEM_PID = 1;
 
-    asm volatile(
+    __asm__ volatile(
                  "movi a2, 0\n" // trigger a stack spill on working register if needed
 
                  /* Start CRC calculation */
