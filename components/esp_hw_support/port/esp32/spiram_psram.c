@@ -8,7 +8,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
+#if defined(__ZEPHYR__)
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#endif
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"
@@ -26,7 +29,11 @@
 #include "soc/soc_caps.h"
 #include "driver/gpio.h"
 #include "hal/gpio_hal.h"
+#if !defined(__ZEPHYR__)
 #include "driver/spi_common_internal.h"
+#else
+#include "hal/spi_types.h"
+#endif
 #include "driver/periph_ctrl.h"
 #include "bootloader_common.h"
 #include "esp_rom_gpio.h"
@@ -884,7 +891,7 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
         psram_io.psram_spiq_sd0_io  = EFUSE_SPICONFIG_RET_SPIQ(spiconfig);
         psram_io.psram_spid_sd1_io  = EFUSE_SPICONFIG_RET_SPID(spiconfig);
         psram_io.psram_spihd_sd2_io = EFUSE_SPICONFIG_RET_SPIHD(spiconfig);
-        psram_io.psram_spiwp_sd3_io = bootloader_flash_get_wp_pin();
+        psram_io.psram_spiwp_sd3_io = CONFIG_SPIRAM_SPIWP_SD3_PIN;
     }
 
     assert(mode < PSRAM_CACHE_MAX && "we don't support any other mode for now.");
@@ -952,10 +959,12 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
                  Application code should never touch HSPI/VSPI hardware in this case.  We try to stop applications
                  from doing this using the drivers by claiming the port for ourselves */
             periph_module_enable(PSRAM_SPI_MODULE);
+#if !defined(__ZEPHYR__)
             bool r=spicommon_periph_claim(PSRAM_SPI_HOST, "psram");
             if (!r) {
                 return ESP_ERR_INVALID_STATE;
             }
+#endif
             esp_rom_gpio_connect_out_signal(psram_io.psram_clk_io, PSRAM_CLK_SIGNAL, 0, 0);
             //use spi3 clock,but use spi1 data/cs wires
             //We get a solid 80MHz clock from SPI3 by setting it up, starting a transaction, waiting until it

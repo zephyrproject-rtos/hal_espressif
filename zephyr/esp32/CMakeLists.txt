@@ -123,9 +123,9 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
-    ../../components/esp32/spiram.c
-    ../../components/esp32/spiram_psram.c
-    ../../components/esp32/cache_sram_mmu.c
+    ../../components/esp_hw_support/port/esp32/spiram.c
+    ../../components/esp_hw_support/port/esp32/spiram_psram.c
+    ../../components/esp_hw_support/port/esp32/cache_sram_mmu.c
     ../../components/bootloader_support/src/bootloader_common.c
     )
 

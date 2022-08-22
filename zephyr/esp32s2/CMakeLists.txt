@@ -110,8 +110,8 @@ if(CONFIG_SOC_ESP32S2)
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
-    ../../components/esp32s2/spiram.c
-    ../../components/esp32s2/spiram_psram.c
+    ../../components/esp_hw_support/port/esp32s2/spiram.c
+    ../../components/esp_hw_support/port/esp32s2/spiram_psram.c
     ../../components/bootloader_support/src/bootloader_common.c
     )
 

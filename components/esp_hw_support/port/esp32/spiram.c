@@ -8,7 +8,11 @@ we add more types of external RAM memory, this can be made into a more intellige
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
+#if defined(__ZEPHYR__)
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include "esp_rom_uart.h"
+#endif
 #include <stdint.h>
 #include <string.h>
 #include <sys/param.h>
@@ -22,7 +26,9 @@ we add more types of external RAM memory, this can be made into a more intellige
 #include "freertos/FreeRTOS.h"
 #include "freertos/xtensa_api.h"
 #include "soc/soc.h"
+#if !defined(__ZEPHYR__)
 #include "esp_heap_caps_init.h"
+#endif
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
 #include "esp32/himem.h"
@@ -185,10 +191,14 @@ esp_err_t esp_spiram_init(void)
                                           (PSRAM_MODE==PSRAM_VADDR_MODE_EVENODD)?"even/odd (2-core)": \
                                           (PSRAM_MODE==PSRAM_VADDR_MODE_LOWHIGH)?"low/high (2-core)": \
                                           (PSRAM_MODE==PSRAM_VADDR_MODE_NORMAL)?"normal (1-core)":"ERROR");
+// workaround to fix garbage in the output
+#ifdef __ZEPHYR__
+	esp_rom_uart_tx_wait_idle(0);
+#endif
     return ESP_OK;
 }
 
-
+#if !defined(__ZEPHYR__)
 esp_err_t esp_spiram_add_to_heapalloc(void)
 {
     //Add entire external RAM region to heap allocator. Heap allocator knows the capabilities of this type of memory, so there's
@@ -234,7 +244,7 @@ esp_err_t esp_spiram_reserve_dma_pool(size_t size) {
     }
     return ESP_OK;
 }
-
+#endif
 size_t esp_spiram_get_size(void)
 {
     psram_size_t size=esp_spiram_get_chip_size();
