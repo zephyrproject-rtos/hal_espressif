@@ -13,7 +13,9 @@
 #include "bootloader_clock.h"
 #include "hal/wdt_hal.h"
 
+#if !defined(__ZEPHYR__)
 #include "driver/spi_common_internal.h" // [refactor-todo]: for spicommon_periph_in_use
+#endif
 
 #include "esp_log.h"
 
@@ -21,7 +23,12 @@
 #include "esp_rom_uart.h"
 #include "esp_rom_sys.h"
 
+#if !defined(__ZEPHYR__)
 #include "sdkconfig.h"
+#else
+#include "stubs.h"
+#define CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ   ESP_SOC_DEFAULT_CPU_FREQ_MHZ
+#endif
 
 static const char* TAG = "clk";
 
