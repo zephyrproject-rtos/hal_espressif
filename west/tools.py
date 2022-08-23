@@ -4,9 +4,7 @@
 
 '''tools.py
 
-Espressif west extension adds some functions and features
-to enable proper submodules update, toolchain installation
-and serial port monitor logging.'''
+Espressif west extension for serial port monitor logging.'''
 
 import os
 import platform
@@ -31,7 +29,6 @@ from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
 from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
-SUBMODULES_FILE = Path(__file__).parents[1] / "git_submodules.txt"
 
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
@@ -123,9 +120,7 @@ class Tools(WestCommand):
             # Keep this in sync with the string in west-commands.yml.
             'Espressif tools for west framework.',
             dedent('''
-            This interface allows updating hal_espressif submodules,
-            installing Espressif toolchain and open serial monitor for
-            Espressif SoC devices.'''),
+            This interface allows having esp-idf monitor support.'''),
             accepts_unknown_args=False)
 
     def do_add_parser(self, parser_adder):
@@ -133,8 +128,8 @@ class Tools(WestCommand):
                                          help=self.help,
                                          description=self.description)
 
-        parser.add_argument('command', choices=['install', 'update', 'monitor'],
-                            help='install espressif openocd or fetch submodules')
+        parser.add_argument('command', choices=['monitor'],
+                            help='open serial port based on esp-idf monitor')
 
         # monitor arguments
         group = parser.add_argument_group('monitor optional arguments')
@@ -157,62 +152,8 @@ class Tools(WestCommand):
         if not module_path.exists():
             log.die('cannot find espressif project in $ZEPHYR_BASE path')
 
-        if args.command == "update":
-            self.update(module_path)
-        elif args.command == "install":
-            self.install(module_path)
-        elif args.command == "monitor":
+        if args.command == "monitor":
             self.monitor(module_path, args)
-
-    def update(self, module_path):
-        log.banner('updating ESP-IDF submodules..')
-
-        # look for origin remote
-        remote_name = cmd_check(("git", "remote"), cwd=module_path).decode('utf-8')
-
-        if "origin" not in remote_name:
-            # add origin url
-            cmd_exec(("git", "remote", "add", "origin", ESP_IDF_REMOTE), cwd=module_path)
-        else:
-            remote_url = cmd_check(("git", "remote", "get-url", "origin"),
-                                   cwd=module_path).decode('utf-8')
-            # update origin URL
-            if ESP_IDF_REMOTE not in remote_url:
-                cmd_exec(("git", "remote", "set-url", "origin",
-                         ESP_IDF_REMOTE), cwd=module_path)
-
-        with open(SUBMODULES_FILE) as f:
-            for submodule in f:
-                git_rev, git_dir, git_url = submodule.split()
-                folder = Path(module_path, git_dir)
-                if not folder.exists():
-                    log.inf('Cloning into', git_dir)
-                    cmd_exec(("git", "clone", git_url, git_dir, "--quiet"), cwd=module_path)
-                log.inf(f"Checking out revision {git_rev} at {git_dir}")
-                cmd_exec(("git", "-C", git_dir, "fetch"), cwd=module_path)
-                cmd_exec(("git", "-C", git_dir, "checkout", git_rev, "--quiet"), cwd=module_path)
-
-        log.banner('updating ESP-IDF submodules completed')
-
-    def install(self, module_path):
-
-        global global_idf_tools_path
-        global_idf_tools_path = os.environ.get('IDF_TOOLS_PATH') or os.path.expanduser(IDF_TOOLS_PATH_DEFAULT)
-
-        log.banner('downloading ESP-IDF OpenOCD tool..')
-
-        if platform.system() == 'Windows':
-            cmd_exec(("python.exe", "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
-                     cwd=module_path)
-            toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
-        else:
-            cmd_exec((sys.executable, "tools/idf_tools.py", "--tools-json=tools/zephyr_tools.json", "install"),
-                     cwd=module_path)
-            toolchain_path = os.path.join(global_idf_tools_path, 'tools', 'zephyr')
-
-        log.banner('downloading ESP-IDF OpenOCD completed')
-
-        log.inf("OpenOCD has been downloaded to {}".format(toolchain_path))
 
     def monitor(self, module_path, args):
 
