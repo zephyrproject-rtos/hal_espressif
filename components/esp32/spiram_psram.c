@@ -208,7 +208,7 @@ typedef struct {
     uint32_t dummyBitLen;
 } psram_cmd_t;
 
-static void IRAM_ATTR psram_cache_init(psram_cache_mode_t psram_cache_mode, psram_vaddr_mode_t vaddrmode);
+static void psram_cache_init(psram_cache_mode_t psram_cache_mode, psram_vaddr_mode_t vaddrmode);
 
 static void psram_clear_spi_fifo(psram_spi_num_t spi_num)
 {
