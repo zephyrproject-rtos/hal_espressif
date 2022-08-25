@@ -14,7 +14,7 @@
 
 #ifndef OS_H
 #define OS_H
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include "esp_types.h"
 #include <string.h>
 #include <stdio.h>
