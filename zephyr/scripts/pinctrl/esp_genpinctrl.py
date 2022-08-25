@@ -33,10 +33,12 @@ file_tmp_abs = ''
 
 line_comment = ''
 
+
 def err(source, msg):
     global file_tmp_abs
     os.remove(file_tmp_abs)
     sys.exit('ERR(' + source + '):' + msg)
+
 
 def get_pin_ios(pins):
     ios = []
@@ -51,11 +53,13 @@ def get_pin_ios(pins):
 
     return ios
 
+
 def get_gpios(pin_info):
     if 'gpio' in pin_info:
         return get_pin_ios(pin_info.get('gpio'))
     else:
         err('gpio', 'missing property')
+
 
 def get_pin_sigi(pin_info):
     sigi = 'ESP_'
@@ -66,6 +70,7 @@ def get_pin_sigi(pin_info):
 
     return sigi
 
+
 def get_pin_sigo(pin_info):
     sigo = 'ESP_'
     if 'sigo' in pin_info:
@@ -75,11 +80,12 @@ def get_pin_sigo(pin_info):
 
     return sigo
 
+
 def get_pinmux(dev_name, pin_name, pin_info, io):
     sigi = get_pin_sigi(pin_info)
     sigo = get_pin_sigo(pin_info)
     global line_comment
-    
+
     pinmux = dev_name.upper() + '_' + pin_name.upper() + '_GPIO' + str(io)
     pinmux = '#define ' + pinmux + ' \\\n'
     pinmux = pinmux + '\tESP32_PINMUX(' + str(io) + ', ' + sigi + ', ' + sigo + ')\n\n'
@@ -90,23 +96,20 @@ def get_pinmux(dev_name, pin_name, pin_info, io):
 
     return pinmux
 
-from os import path
 
 def main(pcfg_in):
     stream = open(pcfg_in, 'r')
     pcfg_data = yaml.load(stream, Loader=yaml.FullLoader)
     soc = os.path.basename(pcfg_in).replace('.yml', '')
 
-    base_path = os.path.dirname(__file__)
-    file_out_abs = path.abspath(path.join(base_path, '..', '..', file_out_path + soc + '-pinctrl.h'))
+    file_out_abs = Path(Path(__file__).resolve().parents[3], file_out_path + soc + '-pinctrl.h')
     global file_tmp_abs
-    file_tmp_abs = path.abspath(path.join(base_path, '..', '..', file_out_path + soc + '-pinctrl-temp.h'))
+    file_tmp_abs = Path(Path(__file__).resolve().parents[3], file_out_path + soc + '-pinctrl-temp.h')
 
     # sorts by dev name, which keeps git
     # diffs minimal and easily trackable
     all_data = sorted(pcfg_data.items())
 
-    file_tmp_abs.replace('{SOC}', soc)
     f = open(file_tmp_abs, 'w')
     f.write(file_out_head.replace('{SOC}', soc.upper()))
 
@@ -132,14 +135,15 @@ def main(pcfg_in):
 
     os.rename(file_tmp_abs, file_out_abs)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-            '-p',
-            '--path',
-            type=Path,
-            required=True,
-            help='Path to target file',
+        '-p',
+        '--path',
+        type=Path,
+        required=True,
+        help='Path to target file',
     )
     args = parser.parse_args()
 
