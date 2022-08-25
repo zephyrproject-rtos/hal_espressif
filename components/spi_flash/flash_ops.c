@@ -57,7 +57,7 @@
 #include "host_flash/cache_utils.h"
 #endif
 
-esp_rom_spiflash_result_t IRAM_ATTR spi_flash_write_encrypted_chip(size_t dest_addr, const void *src, size_t size);
+esp_rom_spiflash_result_t spi_flash_write_encrypted_chip(size_t dest_addr, const void *src, size_t size);
 
 /* bytes erased by SPIEraseBlock() ROM function */
 #define BLOCK_ERASE_SIZE 65536

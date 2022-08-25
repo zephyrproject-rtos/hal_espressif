@@ -222,15 +222,15 @@ extern void ets_backup_dma_copy(uint32_t reg, uint32_t mem_addr, uint32_t num, b
 static void interrupt_set_wrapper(int cpu_no, int intr_source, int intr_num, int intr_prio);
 static void interrupt_clear_wrapper(int intr_source, int intr_num);
 static void interrupt_handler_set_wrapper(int n, intr_handler_t fn, void *arg);
-static void IRAM_ATTR interrupt_disable(void);
-static void IRAM_ATTR interrupt_restore(void);
-static void IRAM_ATTR task_yield_from_isr(void);
+static void interrupt_disable(void);
+static void interrupt_restore(void);
+static void task_yield_from_isr(void);
 static void *semphr_create_wrapper(uint32_t max, uint32_t init);
 static void semphr_delete_wrapper(void *semphr);
-static int IRAM_ATTR semphr_take_from_isr_wrapper(void *semphr, void *hptw);
-static int IRAM_ATTR semphr_give_from_isr_wrapper(void *semphr, void *hptw);
-static int  semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
-static int  semphr_give_wrapper(void *semphr);
+static int semphr_take_from_isr_wrapper(void *semphr, void *hptw);
+static int semphr_give_from_isr_wrapper(void *semphr, void *hptw);
+static int semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
+static int semphr_give_wrapper(void *semphr);
 static void *mutex_create_wrapper(void);
 static void mutex_delete_wrapper(void *mutex);
 static int mutex_lock_wrapper(void *mutex);
@@ -238,19 +238,19 @@ static int mutex_unlock_wrapper(void *mutex);
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size);
 static void queue_delete_wrapper(void *queue);
 static int queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw);
+static int queue_send_from_isr_wrapper(void *queue, void *item, void *hptw);
 static int queue_recv_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw);
+static int queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw);
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id);
 static void task_delete_wrapper(void *task_handle);
-static bool IRAM_ATTR is_in_isr_wrapper(void);
+static bool is_in_isr_wrapper(void);
 static void *malloc_internal_wrapper(size_t size);
-static int IRAM_ATTR read_mac_wrapper(uint8_t mac[6]);
-static void IRAM_ATTR srand_wrapper(unsigned int seed);
-static int IRAM_ATTR rand_wrapper(void);
-static uint32_t IRAM_ATTR btdm_lpcycles_2_hus(uint32_t cycles, uint32_t *error_corr);
-static uint32_t IRAM_ATTR btdm_hus_2_lpcycles(uint32_t hus);
-static bool IRAM_ATTR btdm_sleep_check_duration(uint32_t *slot_cnt);
+static int read_mac_wrapper(uint8_t mac[6]);
+static void srand_wrapper(unsigned int seed);
+static int rand_wrapper(void);
+static uint32_t btdm_lpcycles_2_hus(uint32_t cycles, uint32_t *error_corr);
+static uint32_t btdm_hus_2_lpcycles(uint32_t hus);
+static bool btdm_sleep_check_duration(uint32_t *slot_cnt);
 static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles);
 static void btdm_sleep_enter_phase2_wrapper(void);
 static void btdm_sleep_exit_phase3_wrapper(void);
@@ -342,7 +342,7 @@ static struct k_heap bt_heap;
 static DRAM_ATTR uint8_t btdm_lpclk_sel;
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
-static void esp_bt_free(void *mem) 
+static void esp_bt_free(void *mem)
 {
 	k_heap_free(&bt_heap, mem);
 }
@@ -384,7 +384,7 @@ static void interrupt_set_wrapper(int cpu_no, int intr_source, int intr_num, int
 	/* This workaround is required for BT since interrupt
 	 * allocator driver does not change the priority and uses the
 	 * default one
-	 */ 
+	 */
 	esprv_intc_int_set_priority(intr_num, intr_prio);
 }
 
@@ -413,11 +413,11 @@ static void interrupt_off_wrapper(int intr_num)
 }
 
 static void IRAM_ATTR interrupt_disable(void)
-{	
+{
 	if (global_nested_counter == 0) {
 		global_int_lock = irq_lock();
 	}
-	
+
 	if (global_nested_counter < 0xFFFFFFFF) {
 		global_nested_counter++;
 	}
@@ -745,7 +745,7 @@ static void btdm_sleep_enter_phase2_wrapper(void)
 {
 	if (btdm_controller_get_sleep_mode() == ESP_BT_SLEEP_MODE_1) {
 		esp_phy_disable();
-	} 
+	}
 }
 
 static void btdm_sleep_exit_phase3_wrapper(void)
@@ -968,7 +968,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
 error:
 	if (s_wakeup_req_sem) {
-		semphr_delete_wrapper(s_wakeup_req_sem); 
+		semphr_delete_wrapper(s_wakeup_req_sem);
 		s_wakeup_req_sem = NULL;
 	}
 	return err;

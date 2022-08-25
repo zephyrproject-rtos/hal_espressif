@@ -109,7 +109,7 @@ struct osi_funcs_t {
 	int32_t (*_queue_send_from_isr)(void *queue, void *item, void *hptw);
 	int32_t (*_queue_recv)(void *queue, void *item, uint32_t block_time_ms);
 	int32_t (*_queue_recv_from_isr)(void *queue, void *item, void *hptw);
-	int32_t (*_task_create)(void *task_func, const char *name, uint32_t stack_depth, void *param, 
+	int32_t (*_task_create)(void *task_func, const char *name, uint32_t stack_depth, void *param,
 							uint32_t prio, void *task_handle, uint32_t core_id);
 	void (*_task_delete)(void *task_handle);
 	bool (*_is_in_isr)(void);
@@ -201,15 +201,15 @@ extern char _data_end_btdm[];
 extern uint32_t _data_start_btdm_rom;
 extern uint32_t _data_end_btdm_rom;
 
-static void IRAM_ATTR interrupt_disable(void);
-static void IRAM_ATTR interrupt_restore(void);
-static void IRAM_ATTR task_yield_from_isr(void);
+static void interrupt_disable(void);
+static void interrupt_restore(void);
+static void task_yield_from_isr(void);
 static void *semphr_create_wrapper(uint32_t max, uint32_t init);
 static void semphr_delete_wrapper(void *semphr);
-static int32_t IRAM_ATTR semphr_take_from_isr_wrapper(void *semphr, void *hptw);
-static int32_t IRAM_ATTR semphr_give_from_isr_wrapper(void *semphr, void *hptw);
-static int32_t  semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
-static int32_t  semphr_give_wrapper(void *semphr);
+static int32_t semphr_take_from_isr_wrapper(void *semphr, void *hptw);
+static int32_t semphr_give_from_isr_wrapper(void *semphr, void *hptw);
+static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
+static int32_t semphr_give_wrapper(void *semphr);
 static void *mutex_create_wrapper(void);
 static void mutex_delete_wrapper(void *mutex);
 static int32_t mutex_lock_wrapper(void *mutex);
@@ -217,19 +217,19 @@ static int32_t mutex_unlock_wrapper(void *mutex);
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size);
 static void queue_delete_wrapper(void *queue);
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw);
+static int32_t queue_send_from_isr_wrapper(void *queue, void *item, void *hptw);
 static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw);
+static int32_t queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw);
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id);
 static void task_delete_wrapper(void *task_handle);
-static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no);
+static int cause_sw_intr_to_core_wrapper(int core_id, int intr_no);
 static void *malloc_internal_wrapper(size_t size);
-static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6]);
-static void IRAM_ATTR srand_wrapper(unsigned int seed);
-static int IRAM_ATTR rand_wrapper(void);
-static uint32_t IRAM_ATTR btdm_lpcycles_2_us(uint32_t cycles);
-static uint32_t IRAM_ATTR btdm_us_2_lpcycles(uint32_t us);
-static bool IRAM_ATTR btdm_sleep_check_duration(uint32_t *slot_cnt);
+static int32_t read_mac_wrapper(uint8_t mac[6]);
+static void srand_wrapper(unsigned int seed);
+static int rand_wrapper(void);
+static uint32_t btdm_lpcycles_2_us(uint32_t cycles);
+static uint32_t btdm_us_2_lpcycles(uint32_t us);
+static bool btdm_sleep_check_duration(uint32_t *slot_cnt);
 static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles);
 static void btdm_sleep_enter_phase2_wrapper(void);
 static void btdm_sleep_exit_phase3_wrapper(void);
@@ -389,11 +389,11 @@ static void intr_on(unsigned int mask)
 }
 
 static void IRAM_ATTR interrupt_disable(void)
-{	
+{
 	if (global_nested_counter == 0) {
 		global_int_lock = irq_lock();
 	}
-	
+
 	if (global_nested_counter < 0xFFFFFFFF) {
 		global_nested_counter++;
 	}
