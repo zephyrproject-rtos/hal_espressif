@@ -28,8 +28,9 @@
 #include "hal/cpu_hal.h"
 
 #include "hal/brownout_hal.h"
-
+#if !defined(__ZEPHYR__)
 #include "sdkconfig.h"
+#endif
 
 #if defined(CONFIG_ESP32_BROWNOUT_DET_LVL)
 #define BROWNOUT_DET_LVL CONFIG_ESP32_BROWNOUT_DET_LVL
