@@ -28,7 +28,10 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/soc/include
     ../../components/soc/include/soc
     ../../components/driver/include
+    ../../components/driver/esp32s2/include
     ../../components/esp_system/include
+    ../../components/esp_system/port/include
+    ../../components/esp_system/port/public_compat
     ../../components/esp_wifi/esp32s2/include
     ../../components/esp_wifi/include
     ../../components/esp_phy/include
@@ -144,6 +147,14 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/hal/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_PM
+    ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_system/port/brownout.c
+    ../../components/hal/esp32s2/brownout_hal.c
+    ../../components/hal/esp32s2/touch_sensor_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/soc/esp32s2/rtc_io_periph.c
@@ -154,15 +165,16 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_hw_support/port/esp32s2/rtc_init.c
     ../../components/esp_hw_support/port/esp32s2/rtc_time.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk_init.c
+    ../../components/esp_hw_support/port/esp32s2/rtc_sleep.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
+    ../../components/esp_system/port/soc/esp32s2/clk.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32s2/interrupt_descriptor_table.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
     ../../components/esp_timer/src/esp_timer.c
-    ../../components/driver/periph_ctrl.c
     ../../components/log/log_noos.c
     ../../components/log/log.c
     ../../components/efuse/esp32s2/esp_efuse_fields.c
