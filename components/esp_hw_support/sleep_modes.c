@@ -8,17 +8,22 @@
 #include <string.h>
 #include <sys/lock.h>
 #include <sys/param.h>
+#if defined(__ZEPHYR__)
+#include <zephyr/kernel.h>
+#endif
 
 #include "esp_attr.h"
 #include "esp_sleep.h"
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
 #include "esp_log.h"
+#if !defined(__ZEPHYR__)
 #include "esp_newlib.h"
 #include "esp_timer.h"
 #include "esp_ipc_isr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#endif // __ZEPHYR__
 #include "soc/soc_caps.h"
 #include "driver/rtc_io.h"
 #include "hal/rtc_io_hal.h"
@@ -40,7 +45,11 @@
 #endif
 #include "hal/clk_gate_ll.h"
 
+#if !defined(__ZEPHYR__)
 #include "sdkconfig.h"
+#else
+#include "stubs.h"
+#endif
 #include "esp_rom_uart.h"
 #include "esp_rom_sys.h"
 #include "brownout.h"
@@ -86,12 +95,12 @@
 // Cycles for RTC Timer clock source (internal oscillator) calibrate
 #define RTC_CLK_SRC_CAL_CYCLES      (10)
 
+#define DEFAULT_CPU_FREQ_MHZ                ESP_SOC_DEFAULT_CPU_FREQ_MHZ
+
 #ifdef CONFIG_IDF_TARGET_ESP32
-#define DEFAULT_CPU_FREQ_MHZ                CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (212)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (60)
 #elif CONFIG_IDF_TARGET_ESP32S2
-#define DEFAULT_CPU_FREQ_MHZ                CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (147)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (28)
 #elif CONFIG_IDF_TARGET_ESP32S3
@@ -99,7 +108,6 @@
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (382)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (133)
 #elif CONFIG_IDF_TARGET_ESP32C3
-#define DEFAULT_CPU_FREQ_MHZ                CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (105)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (37)
 #elif CONFIG_IDF_TARGET_ESP32H2
@@ -124,6 +132,9 @@
 #endif
 
 extern void periph_inform_out_light_sleep_overhead(uint32_t out_light_sleep_time);
+#if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
+extern void touch_hal_sleep_channel_get_work_time(uint16_t *sleep_cycle, uint16_t *meas_times);
+#endif
 
 // Minimal amount of time we can sleep for
 #define LIGHT_SLEEP_MIN_TIME_US     200
@@ -175,7 +186,7 @@ static bool s_light_sleep_wakeup = false;
 
 /* Updating RTC_MEMORY_CRC_REG register via set_rtc_memory_crc()
    is not thread-safe, so we need to disable interrupts before going to deep sleep. */
-static portMUX_TYPE spinlock_rtc_deep_sleep = portMUX_INITIALIZER_UNLOCKED;
+static int spinlock_rtc_deep_sleep;
 
 static const char *TAG = "sleep";
 
@@ -217,6 +228,7 @@ static void __attribute__((section(".rtc.entry.text"))) esp_wake_stub_entry(void
 }
 #endif // SOC_PM_SUPPORT_DEEPSLEEP_VERIFY_STUB_ONLY
 
+#if !defined(__ZEPHYR__)
 /* Wake from deep sleep stub
    See esp_deepsleep.h esp_wake_deep_sleep() comments for details.
 */
@@ -232,6 +244,7 @@ esp_deep_sleep_wake_stub_fn_t esp_get_deep_sleep_wake_stub(void)
     }
     return stub_ptr;
 }
+#endif //__ZEPHYR__
 
 void esp_set_deep_sleep_wake_stub(esp_deep_sleep_wake_stub_fn_t new_stub)
 {
@@ -355,7 +368,7 @@ inline static void IRAM_ATTR misc_modules_wake_prepare(void)
 #endif
 }
 
-inline static uint32_t IRAM_ATTR call_rtc_sleep_start(uint32_t reject_triggers, uint32_t lslp_mem_inf_fpu);
+inline static uint32_t call_rtc_sleep_start(uint32_t reject_triggers, uint32_t lslp_mem_inf_fpu);
 
 //TODO: IDF-4813
 bool esp_no_sleep = false;
@@ -465,7 +478,7 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
          * Note: for ESP32-S3 running in dual core mode this is currently not enough,
          * see the assert at top of this function.
          */
-        portENTER_CRITICAL(&spinlock_rtc_deep_sleep);
+        spinlock_rtc_deep_sleep = irq_lock();
 
 #if SOC_PM_SUPPORT_DEEPSLEEP_VERIFY_STUB_ONLY
         extern char _rtc_text_start[];
@@ -489,7 +502,7 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
 #endif
 #endif // SOC_PM_SUPPORT_DEEPSLEEP_VERIFY_STUB_ONLY
 
-        portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+        irq_unlock(spinlock_rtc_deep_sleep);
     } else {
         result = call_rtc_sleep_start(reject_triggers, config.lslp_mem_inf_fpu);
     }
@@ -525,21 +538,28 @@ void IRAM_ATTR esp_deep_sleep_start(void)
     esp_brownout_disable();
 #endif //CONFIG_IDF_TARGET_ESP32S2
 
+#if !defined(__ZEPHYR__)
     esp_sync_counters_rtc_and_frc();
+#endif
 
     /* Disable interrupts and stall another core in case another task writes
      * to RTC memory while we calculate RTC memory CRC.
      */
-    portENTER_CRITICAL(&spinlock_rtc_deep_sleep);
+    spinlock_rtc_deep_sleep = irq_lock();
+
+#if !defined(__ZEPHYR__)
     esp_ipc_isr_stall_other_cpu();
+#endif
 
     // record current RTC time
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
 
+#if !defined(__ZEPHYR__)
     // Configure wake stub
     if (esp_get_deep_sleep_wake_stub() == NULL) {
         esp_set_deep_sleep_wake_stub(esp_wake_deep_sleep);
     }
+#endif //__ZEPHYR__
 
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
@@ -568,8 +588,10 @@ void IRAM_ATTR esp_deep_sleep_start(void)
         ;
     }
     // Never returns here
+#if !defined(__ZEPHYR__)
     esp_ipc_isr_release_other_cpu();
-    portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+#endif
+    irq_unlock(spinlock_rtc_deep_sleep);
 }
 
 /**
@@ -578,11 +600,12 @@ void IRAM_ATTR esp_deep_sleep_start(void)
  */
 static esp_err_t esp_light_sleep_inner(uint32_t pd_flags,
                                        uint32_t flash_enable_time_us,
-                                       rtc_vddsdio_config_t vddsdio_config) IRAM_ATTR __attribute__((noinline));
+                                       rtc_vddsdio_config_t vddsdio_config);
 
-static esp_err_t esp_light_sleep_inner(uint32_t pd_flags,
-                                       uint32_t flash_enable_time_us,
-                                       rtc_vddsdio_config_t vddsdio_config)
+static esp_err_t IRAM_ATTR __attribute__((noinline))
+esp_light_sleep_inner(uint32_t pd_flags,
+                      uint32_t flash_enable_time_us,
+                      rtc_vddsdio_config_t vddsdio_config)
 {
     // Enter sleep
     esp_err_t err = esp_sleep_start(pd_flags);
@@ -604,8 +627,8 @@ static esp_err_t esp_light_sleep_inner(uint32_t pd_flags,
 esp_err_t esp_light_sleep_start(void)
 {
     s_config.ccount_ticks_record = cpu_ll_get_cycle_count();
-    static portMUX_TYPE light_sleep_lock = portMUX_INITIALIZER_UNLOCKED;
-    portENTER_CRITICAL(&light_sleep_lock);
+    static int light_sleep_lock;
+    light_sleep_lock = irq_lock();
     /* We will be calling esp_timer_private_advance inside DPORT access critical
      * section. Make sure the code on the other CPU is not holding esp_timer
      * lock, otherwise there will be deadlock.
@@ -617,7 +640,9 @@ esp_err_t esp_light_sleep_start(void)
     uint64_t frc_time_at_start = esp_system_get_time();
     uint32_t sleep_time_overhead_in = (ccount_at_sleep_start - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
 
+#if !defined(__ZEPHYR__)
     esp_ipc_isr_stall_other_cpu();
+#endif
 
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
@@ -738,16 +763,21 @@ esp_err_t esp_light_sleep_start(void)
     if (time_diff > 0) {
         esp_timer_private_advance(time_diff);
     }
+#if !defined(__ZEPHYR__)
     esp_set_time_from_rtc();
+#endif
 
     esp_timer_private_unlock();
+
+#if !defined(__ZEPHYR__)
     esp_ipc_isr_release_other_cpu();
+#endif
     if (!wdt_was_enabled) {
         wdt_hal_write_protect_disable(&rtc_wdt_ctx);
         wdt_hal_disable(&rtc_wdt_ctx);
         wdt_hal_write_protect_enable(&rtc_wdt_ctx);
     }
-    portEXIT_CRITICAL(&light_sleep_lock);
+    irq_unlock(light_sleep_lock);
     s_config.sleep_time_overhead_out = (cpu_ll_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
     return err;
 }
@@ -1248,9 +1278,11 @@ static uint32_t get_power_down_flags(void)
 
     // Prepare flags based on the selected options
     uint32_t pd_flags = 0;
+
     if (s_config.pd_options[ESP_PD_DOMAIN_RTC_FAST_MEM] != ESP_PD_OPTION_ON) {
         pd_flags |= RTC_SLEEP_PD_RTC_FAST_MEM;
     }
+
 #if SOC_RTC_SLOW_MEM_SUPPORTED
     if (s_config.pd_options[ESP_PD_DOMAIN_RTC_SLOW_MEM] != ESP_PD_OPTION_ON) {
         pd_flags |= RTC_SLEEP_PD_RTC_SLOW_MEM;
