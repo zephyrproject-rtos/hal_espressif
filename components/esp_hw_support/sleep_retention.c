@@ -173,7 +173,7 @@ esp_err_t esp_sleep_cpu_pd_low_init(bool enable)
             if (buf) {
                 memset(buf, 0, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE + RTC_HAL_DMA_LINK_NODE_SIZE);
                 s_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
-                                      buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+                                      (uint32_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
             } else {
                 return ESP_ERR_NO_MEM;
             }

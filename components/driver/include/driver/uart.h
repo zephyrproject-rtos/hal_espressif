@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+#if !defined(__ZEPHYR__)
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
 #include "soc/soc_caps.h"
@@ -19,6 +20,7 @@ extern "C" {
 #include "freertos/queue.h"
 #include "freertos/ringbuf.h"
 #include "hal/uart_types.h"
+#endif // __ZEPHYR__
 
 // Valid UART port number
 #define UART_NUM_0             (0) /*!< UART port 0 */
@@ -28,6 +30,7 @@ extern "C" {
 #endif
 #define UART_NUM_MAX           (SOC_UART_NUM) /*!< UART port max */
 
+#if !defined(__ZEPHYR__)
 /* @brief When calling `uart_set_pin`, instead of GPIO number, `UART_PIN_NO_CHANGE`
  *        can be provided to keep the currently allocated pin.
  */
@@ -866,6 +869,7 @@ esp_err_t uart_set_loop_back(uart_port_t uart_num, bool loop_back_en);
   *
   */
 void uart_set_always_rx_timeout(uart_port_t uart_num, bool always_rx_timeout_en);
+#endif // __ZEPHYR__
 
 #ifdef __cplusplus
 }
