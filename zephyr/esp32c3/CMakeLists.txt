@@ -20,6 +20,9 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/include
 
+    ../../components/esp_system/port/include
+    ../../components/esp_system/port/public_compat
+
     ../../components/riscv/include
     ../../components/hal/include
     ../../components/hal/esp32c3/include
@@ -129,10 +132,20 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/ledc_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_PM
+    ../esp_shared/components/driver/gpio.c
+    ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_retention.c
+    ../../components/esp_system/esp_err.c
+    ../../components/hal/esp32c3/rtc_cntl_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_timer/src/ets_timer_legacy.c
+    ../../components/esp_hw_support/port/esp32c3/rtc_sleep.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
@@ -140,6 +153,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/port/esp32c3/rtc_time.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
+    ../../components/esp_system/port/soc/esp32c3/clk.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/hal/systimer_hal.c
