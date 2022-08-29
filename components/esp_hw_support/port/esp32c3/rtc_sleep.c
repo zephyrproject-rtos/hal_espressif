@@ -194,7 +194,7 @@ uint32_t rtc_deep_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt)
     const unsigned CRC_START_ADDR = 0;
     const unsigned CRC_LEN = 0x7ff;
 
-    asm volatile(
+    __asm__ volatile(
                  /* Start CRC calculation */
                  "sw %1, 0(%0)\n" // set RTC_MEM_CRC_ADDR & RTC_MEM_CRC_LEN
                  "or t0, %1, %2\n"
