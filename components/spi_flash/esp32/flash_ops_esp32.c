@@ -32,7 +32,7 @@ static inline void IRAM_ATTR spi_flash_guard_end(void)
     }
 }
 
-extern void IRAM_ATTR flash_rom_init(void);
+extern void flash_rom_init(void);
 esp_rom_spiflash_result_t IRAM_ATTR spi_flash_write_encrypted_chip(size_t dest_addr, const void *src, size_t size)
 {
     const uint8_t *ssrc = (const uint8_t *)src;
