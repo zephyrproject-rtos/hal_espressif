@@ -169,8 +169,7 @@ if(CONFIG_SOC_ESP32C3)
       mesh
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32c3
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_phy/lib/esp32c3
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32c3
       )
 
   endif()
@@ -189,9 +188,8 @@ if(CONFIG_SOC_ESP32C3)
       ## ble
       btbb
       btdm_app
-      -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/bt/controller/esp32c3-bt-lib/esp32c3
       coexist
-      -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32c3
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32c3
       )
 
   endif()
