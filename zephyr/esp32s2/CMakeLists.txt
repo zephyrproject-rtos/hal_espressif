@@ -278,8 +278,7 @@ if(CONFIG_SOC_ESP32S2)
       mbedTLS
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_wifi/lib/esp32s2
-        -L${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_phy/lib/esp32s2
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s2
       )
 
   endif() ## CONFIG_WIFI_ESP32
