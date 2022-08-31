@@ -10,7 +10,7 @@
 
 static unsigned int periph_spinlock;
 
-static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
+static uint8_t ref_counts[PERIPH_MODULE_MAX + 1] = {0};
 
 void periph_module_enable(periph_module_t periph)
 {
