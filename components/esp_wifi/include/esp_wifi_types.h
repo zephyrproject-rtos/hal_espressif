@@ -15,11 +15,11 @@ extern "C" {
 #endif
 
 typedef enum {
-    WIFI_MODE_NULL = 0,  /**< null mode */
-    WIFI_MODE_STA,       /**< WiFi station mode */
-    WIFI_MODE_AP,        /**< WiFi soft-AP mode */
-    WIFI_MODE_APSTA,     /**< WiFi station + soft-AP mode */
-    WIFI_MODE_MAX
+    ESP32_WIFI_MODE_NULL = 0,  /**< null mode */
+    ESP32_WIFI_MODE_STA,       /**< WiFi station mode */
+    ESP32_WIFI_MODE_AP,        /**< WiFi soft-AP mode */
+    ESP32_WIFI_MODE_APSTA,     /**< WiFi station + soft-AP mode */
+    ESP32_WIFI_MODE_MAX
 } wifi_mode_t;
 
 typedef enum {
