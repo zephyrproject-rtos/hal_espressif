@@ -14,6 +14,7 @@
 #ifndef __ESP_COMPILER_H
 #define __ESP_COMPILER_H
 
+#ifndef __ZEPHYR__
 /*
  * The likely and unlikely macro pairs:
  * These macros are useful to place when application
@@ -36,6 +37,8 @@
 #if !defined(unlikely)
 #define unlikely(x)    (x)
 #endif
+#endif
+
 #endif
 
 /*
