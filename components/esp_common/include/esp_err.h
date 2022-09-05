@@ -9,10 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
-
-#ifndef __ZEPHYR__
 #include "esp_compiler.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
