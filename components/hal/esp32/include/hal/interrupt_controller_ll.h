@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <stdint.h>
 #include "soc/soc_caps.h"
 #include "soc/soc.h"
