@@ -5,7 +5,7 @@
  */
 
 #ifdef __ZEPHYR__
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #endif
 
 #include "regi2c_ctrl.h"
