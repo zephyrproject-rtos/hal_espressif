@@ -18,6 +18,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/esp_hw_support/port/esp32/private_include
     ../../components/esp_hw_support/include
     ../../components/esp_common/include
+    ../../components/esp_pm/include
     ../../components/esp_rom/include
     ../../components/esp_rom/esp32/ld
     ../../components/esp32/include
@@ -166,9 +167,13 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   zephyr_sources_ifdef(
     CONFIG_PM
+    ../esp_shared/components/driver/gpio.c
+    ../esp_shared/components/driver/rtc_io.c
     ../../components/esp_hw_support/port/esp32/rtc_sleep.c
     ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_pm/pm_impl.c
     ../../components/hal/rtc_io_hal.c
+    ../../components/hal/wdt_hal_iram.c
     )
 
   if (NOT CONFIG_SOC_ESP32_NET)
