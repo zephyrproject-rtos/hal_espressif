@@ -194,6 +194,14 @@ esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull);
  */
 esp_err_t gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type);
 
+#if defined(__ZEPHYR__) && defined(CONFIG_PM)
+/*
+ * This interface is a wrapper around gpio_wakeup_enable, whose only purpose is to provide a consistent
+ * API naming convention to Zephyr users.
+ */
+esp_err_t esp_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type);
+#endif
+
 /**
  * @brief Disable GPIO wake-up function.
  *
