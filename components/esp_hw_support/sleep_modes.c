@@ -10,6 +10,7 @@
 #include <sys/param.h>
 #if defined(__ZEPHYR__)
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/timer/system_timer.h>
 #endif
 
 #include "esp_attr.h"
@@ -637,7 +638,7 @@ esp_err_t esp_light_sleep_start(void)
 
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
     uint32_t ccount_at_sleep_start = cpu_ll_get_cycle_count();
-    uint64_t frc_time_at_start = esp_system_get_time();
+    uint64_t frc_time_at_start = k_uptime_get() * MSEC_PER_SEC;
     uint32_t sleep_time_overhead_in = (ccount_at_sleep_start - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
 
 #if !defined(__ZEPHYR__)
@@ -647,7 +648,11 @@ esp_err_t esp_light_sleep_start(void)
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
 
-#ifdef CONFIG_ESP_SLEEP_RTC_BUS_ISO_WORKAROUND
+    /* This is used instead of the ESP_SLEEP_RTC_BUS_ISO_WORKAROUND
+     * config. Otherwise that config would add a SoC level Kconfig
+     * option for each supportive SoC.
+     */
+#if !defined(CONFIG_IDF_TARGET_ESP32C3)
     pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
 #endif
 
@@ -745,11 +750,11 @@ esp_err_t esp_light_sleep_start(void)
      * On esp32c3, rtc_time_get() is non-blocking, esp_system_get_time() is
      * blocking, and the measurement data shows that this order is better.
      */
-    uint64_t frc_time_at_end = esp_system_get_time();
+    uint64_t frc_time_at_end = k_uptime_get() * MSEC_PER_SEC;
     uint64_t rtc_ticks_at_end = rtc_time_get();
 #else
     uint64_t rtc_ticks_at_end = rtc_time_get();
-    uint64_t frc_time_at_end = esp_system_get_time();
+    uint64_t frc_time_at_end = k_uptime_get() * MSEC_PER_SEC;
 #endif
 
     uint64_t rtc_time_diff = rtc_time_slowclk_to_us(rtc_ticks_at_end - s_config.rtc_ticks_at_sleep_start, s_config.rtc_clk_cal_period);
@@ -761,7 +766,7 @@ esp_err_t esp_light_sleep_start(void)
      * monotonic.
      */
     if (time_diff > 0) {
-        esp_timer_private_advance(time_diff);
+	sys_clock_announce((time_diff * CONFIG_SYS_CLOCK_TICKS_PER_SEC) / USEC_PER_SEC);
     }
 #if !defined(__ZEPHYR__)
     esp_set_time_from_rtc();

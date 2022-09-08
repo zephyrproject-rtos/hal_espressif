@@ -11,6 +11,9 @@
 
 #include "hal/touch_sensor_types.h"
 #include "hal/gpio_types.h"
+#if defined(__ZEPHYR__)
+#include "driver/gpio.h"
+#endif
 
 #include "soc/soc_caps.h"
 
