@@ -319,6 +319,11 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
 
   endif()
 
+  ## Ethernet MAC/PHY definitions
+  if(CONFIG_ESP32_EMAC)
+    zephyr_sources(../../components/hal/emac_hal.c)
+  endif()
+
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
