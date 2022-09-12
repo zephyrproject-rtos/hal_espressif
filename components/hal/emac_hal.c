@@ -153,8 +153,8 @@ void emac_hal_reset_desc_chain(emac_hal_context_t *hal)
 {
     /* reset DMA descriptors */
     hal->rx_desc = (eth_dma_rx_descriptor_t *)(hal->descriptors);
-    hal->tx_desc = (eth_dma_tx_descriptor_t *)(hal->descriptors +
-                   sizeof(eth_dma_rx_descriptor_t) * CONFIG_ETH_DMA_RX_BUFFER_NUM);
+    hal->tx_desc = (eth_dma_tx_descriptor_t *)(hal->rx_desc +
+                   CONFIG_ETH_DMA_RX_BUFFER_NUM);
     /* init rx chain */
     for (int i = 0; i < CONFIG_ETH_DMA_RX_BUFFER_NUM; i++) {
         /* Set Own bit of the Rx descriptor Status: DMA */
