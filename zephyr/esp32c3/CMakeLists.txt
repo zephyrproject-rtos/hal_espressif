@@ -86,6 +86,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
     ../../components/soc/esp32c3/spi_periph.c
+    ../../components/hal/gdma_hal.c
     )
 
   zephyr_sources_ifdef(
