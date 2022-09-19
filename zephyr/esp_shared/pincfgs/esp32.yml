@@ -350,3 +350,12 @@ pcnt7:
   ch1ctrl:
     sigi: pcnt_ctrl_ch1_in7
     gpio: [[0, 19], [21, 23], [25, 27], [32, 39]]
+
+smi:
+  mdc:
+    sigo: emac_mdc_o
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+  mdio:
+    sigi: emac_mdi_i
+    sigo: emac_mdo_o
+    gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
