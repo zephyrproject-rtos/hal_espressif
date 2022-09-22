@@ -12,6 +12,7 @@ if(CONFIG_SOC_ESP32C3)
     ../esp_shared/include
     ../esp_shared/include/wifi
     ../../components/esp_common/include
+    ../../components/esp_pm/include
     ../../components/esp_rom/include
     ../../components/esp_rom/include/esp32c3
     ../../components/esp32c3/include
@@ -19,28 +20,23 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/port/esp32c3
     ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/include
-
     ../../components/esp_system/port/include
     ../../components/esp_system/port/public_compat
-
     ../../components/riscv/include
     ../../components/hal/include
     ../../components/hal/esp32c3/include
     ../../components/hal/platform_port/include
-
     ../../components/soc/esp32c3/include
     ../../components/soc/src/esp32c3/include
     ../../components/soc/include
-
     ../../components/driver/include
-
     ../../components/efuse/include
     ../../components/efuse/private_include
     ../../components/efuse/esp32c3/include
     ../../components/efuse/esp32c3/private_include
-
     ../../components/esp_system/include
     ../../components/esp_event/include
+    ../../components/esp_pm/include
     ../../components/esp_timer/include
     ../../components/esp_timer/private_include
     ../../components/esp_netif/include
@@ -50,13 +46,11 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/spi_flash/private_include
     ../../components/bootloader_support/include
     ../../components/bootloader_support/include_bootloader
-
     ../../components/esp_wifi/include/
     ../../components/esp_wifi/esp32c3/include
     ../../components/esp_phy/include
     ../../components/esp_phy/include/esp32c3
     ../../components/esp_phy/esp32c3/include
-
     ../../components/wpa_supplicant/include
     ../../components/wpa_supplicant/port/include
     ../../components/wpa_supplicant/src
@@ -66,7 +60,6 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/wpa_supplicant/esp_supplicant/include
     ../../components/wpa_supplicant/src/utils
     ../../components/wpa_supplicant/src/eap_peer
-
     ../../components/heap/include
     ../../components/mbedtls/port/include
     )
@@ -137,8 +130,10 @@ if(CONFIG_SOC_ESP32C3)
     ../esp_shared/components/driver/gpio.c
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_retention.c
+    ../../components/esp_pm/pm_impl.c
     ../../components/esp_system/esp_err.c
     ../../components/hal/esp32c3/rtc_cntl_hal.c
+    ../../components/hal/wdt_hal_iram.c
     )
 
   zephyr_sources(
