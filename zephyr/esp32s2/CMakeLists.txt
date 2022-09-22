@@ -18,6 +18,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/include
     ../../components/esp_common/include
+    ../../components/esp_pm/include
     ../../components/esp_rom/include
     ../../components/esp_rom/esp32s2/ld
     ../../components/esp32s2/include
@@ -158,10 +159,14 @@ if(CONFIG_SOC_ESP32S2)
 
   zephyr_sources_ifdef(
     CONFIG_PM
+    ../esp_shared/components/driver/gpio.c
+    ../esp_shared/components/driver/rtc_io.c
     ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_pm/pm_impl.c
     ../../components/esp_system/port/brownout.c
     ../../components/hal/esp32s2/brownout_hal.c
     ../../components/hal/esp32s2/touch_sensor_hal.c
+    ../../components/hal/wdt_hal_iram.c
     )
 
   zephyr_sources(
