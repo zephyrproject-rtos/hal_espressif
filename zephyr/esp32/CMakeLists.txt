@@ -162,6 +162,13 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/hal/rtc_io_hal.c
     )
 
+  if (NOT CONFIG_SOC_ESP32_NET)
+    zephyr_sources(
+      ../../components/esp_system/port/soc/esp32/clk.c
+    )
+
+  endif()
+
   zephyr_sources(
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/esp32/rtc_io_periph.c
@@ -172,7 +179,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/esp_hw_support/port/esp32/rtc_time.c
     ../../components/esp_hw_support/port/esp32/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
-    ../../components/esp_system/port/soc/esp32/clk.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
