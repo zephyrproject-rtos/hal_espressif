@@ -156,6 +156,15 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_DAC_ESP32
+    ../../components/hal/dac_hal.c
+    ../../components/soc/esp32/dac_periph.c
+    ../esp_shared/components/driver/dac_common.c
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_PM
     ../../components/esp_hw_support/port/esp32/rtc_sleep.c
     ../../components/esp_hw_support/sleep_modes.c
