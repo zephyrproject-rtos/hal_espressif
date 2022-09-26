@@ -377,3 +377,11 @@ smi:
     sigi: emac_mdi_i
     sigo: emac_mdo_o
     gpio: [[0, 19], [21, 23], [25, 27], [32, 33]]
+
+dac:
+  ch1:
+    sigo: dac1_out
+    gpio: [25]
+  ch2:
+    sigo: dac2_out
+    gpio: [26]
