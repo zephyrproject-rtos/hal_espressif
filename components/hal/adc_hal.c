@@ -180,6 +180,7 @@ static adc_ll_controller_t get_controller(adc_ll_num_t unit, adc_hal_work_mode_t
 #endif
         }
     }
+	return (adc_ll_controller_t) 0; /* make compiler happy */
 }
 
 void adc_hal_set_controller(adc_ll_num_t unit, adc_hal_work_mode_t work_mode)
@@ -212,6 +213,7 @@ static adc_ll_digi_convert_mode_t get_convert_mode(adc_digi_convert_mode_t conve
             abort();
     }
 #endif
+	return (adc_ll_digi_convert_mode_t) 0; /* make compiler happy */
 }
 
 /**

@@ -11,6 +11,7 @@ if(CONFIG_SOC_ESP32C3)
     include/crypto
     ../esp_shared/include
     ../esp_shared/include/wifi
+    ../esp_shared/components/include
     ../../components/esp_common/include
     ../../components/esp_pm/include
     ../../components/esp_rom/include
@@ -142,7 +143,20 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/driver/esp32c3/rtc_tempsensor.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ADC_ESP32
+    ../../components/hal/adc_hal.c
+    ../../components/hal/esp32c3/adc_hal.c
+    ../esp_shared/components/driver/adc.c
+	../esp_shared/components/driver/adc_common.c
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    ../esp_shared/components/esp_adc_cal/esp_adc_cal_common.c
+    src/esp_adc_cal/esp_adc_cal.c
+    )
+
   zephyr_sources(
+    ../../components/soc/esp32c3/adc_periph.c
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_timer/src/ets_timer_legacy.c
@@ -163,6 +177,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/log/log.c
     ../../components/efuse/esp32c3/esp_efuse_fields.c
     ../../components/efuse/esp32c3/esp_efuse_table.c
+    ../../components/efuse/esp32c3/esp_efuse_rtc_calib.c
     ../../components/efuse/esp32c3/esp_efuse_utility.c
     ../../components/efuse/esp32c3/esp_efuse_rtc_calib.c
     ../../components/efuse/src/esp_efuse_api.c

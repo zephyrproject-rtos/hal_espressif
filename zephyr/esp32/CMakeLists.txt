@@ -10,6 +10,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     include/crypto
     ../esp_shared/include
     ../esp_shared/include/wifi
+    ../esp_shared/components/include
     ../../components/hal/include
     ../../components/hal/esp32/include
     ../../components/hal/platform_port/include
@@ -176,6 +177,15 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/hal/wdt_hal_iram.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ADC_ESP32
+    ../../components/hal/adc_hal.c
+    ../esp_shared/components/driver/adc_common.c
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    src/esp_adc_cal/esp_adc_cal.c
+    )
+
   if (NOT CONFIG_SOC_ESP32_NET)
     zephyr_sources(
       ../../components/esp_system/port/soc/esp32/clk.c
@@ -184,6 +194,8 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
   endif()
 
   zephyr_sources(
+    ../../components/soc/esp32/adc_periph.c
+    ../../components/soc/esp32/i2s_periph.c
     ../../components/soc/esp32/gpio_periph.c
     ../../components/soc/esp32/rtc_io_periph.c
     ../../components/esp_hw_support/regi2c_ctrl.c
