@@ -39,7 +39,7 @@ uint32_t esp_efuse_rtc_calib_get_init_code(int version, uint32_t adc_unit, int a
     assert(init_code_size == 10);
 
     uint32_t init_code = 0;
-    ESP_ERROR_CHECK(esp_efuse_read_field_blob(init_code_efuse, &init_code, init_code_size));
+    esp_efuse_read_field_blob(init_code_efuse, &init_code, init_code_size);
     return init_code + 1000;    // version 1 logic
 }
 
@@ -70,7 +70,7 @@ esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, int atten, uint32_t* 
     assert(cal_vol_efuse[0]->bit_count == 10);
 
     uint32_t cal_vol = 0;
-    ESP_ERROR_CHECK(esp_efuse_read_field_blob(cal_vol_efuse, &cal_vol, cal_vol_efuse[0]->bit_count));
+    esp_efuse_read_field_blob(cal_vol_efuse, &cal_vol, cal_vol_efuse[0]->bit_count);
 
     *out_digi = 2000 + ((cal_vol & BIT(9))? -(cal_vol & ~BIT9): cal_vol);
     *out_vol_mv = calib_vol_expected_mv;

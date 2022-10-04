@@ -17,7 +17,7 @@
 #include "hal/adc_ll.h"
 #include "hal/adc_types.h"
 
-#include_next "hal/adc_hal.h"
+#include "hal/adc_hal.h"
 
 #ifdef __cplusplus
 extern "C" {

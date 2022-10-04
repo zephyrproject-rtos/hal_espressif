@@ -703,7 +703,7 @@ int adc1_get_raw(adc1_channel_t channel)
     adc_hal_set_calibration_param(ADC_NUM_1, cal_val);
 
     ADC_REG_LOCK_ENTER();
-    adc_hal_set_atten(ADC_NUM_2, channel, atten);
+    adc_hal_set_atten(ADC_NUM_1, channel, atten);
     adc_hal_convert(ADC_NUM_1, channel, &raw_out);
     ADC_REG_LOCK_EXIT();
 
