@@ -128,9 +128,9 @@ if(CONFIG_SOC_ESP32C3)
   zephyr_sources_ifdef(
     CONFIG_PM
     ../esp_shared/components/driver/gpio.c
-    ../../components/esp_hw_support/sleep_modes.c
+    ../esp_shared/components/esp_hw_support/sleep_modes.c
+    ../esp_shared/components/esp_pm/pm_impl.c
     ../../components/esp_hw_support/sleep_retention.c
-    ../../components/esp_pm/pm_impl.c
     ../../components/esp_system/esp_err.c
     ../../components/hal/esp32c3/rtc_cntl_hal.c
     ../../components/hal/wdt_hal_iram.c
