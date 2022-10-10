@@ -169,9 +169,9 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     CONFIG_PM
     ../esp_shared/components/driver/gpio.c
     ../esp_shared/components/driver/rtc_io.c
+    ../esp_shared/components/esp_hw_support/sleep_modes.c
+    ../esp_shared/components/esp_pm/pm_impl.c
     ../../components/esp_hw_support/port/esp32/rtc_sleep.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_pm/pm_impl.c
     ../../components/hal/rtc_io_hal.c
     ../../components/hal/wdt_hal_iram.c
     )

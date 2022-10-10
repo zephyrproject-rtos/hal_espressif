@@ -161,8 +161,8 @@ if(CONFIG_SOC_ESP32S2)
     CONFIG_PM
     ../esp_shared/components/driver/gpio.c
     ../esp_shared/components/driver/rtc_io.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_pm/pm_impl.c
+    ../esp_shared/components/esp_hw_support/sleep_modes.c
+    ../esp_shared/components/esp_pm/pm_impl.c
     ../../components/esp_system/port/brownout.c
     ../../components/hal/esp32s2/brownout_hal.c
     ../../components/hal/esp32s2/touch_sensor_hal.c
