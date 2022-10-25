@@ -1,13 +1,12 @@
-idf_build_get_property(target IDF_TARGET)
-
 set(srcs "test_app_main.c"
-         "test_psram.c")
-
-if(${target} STREQUAL "esp32")
-    list(APPEND srcs "test_himem.c" "test_4mpsram.c")
-endif()
+          "test_dport.c"
+          "test_fp.c"
+          "test_intr_alloc.c"
+          "test_dport_xt_highint5.S"
+           )
 
 # In order for the cases defined by `TEST_CASE` to be linked into the final elf,
 # the component can be registered as WHOLE_ARCHIVE
 idf_component_register(SRCS ${srcs}
+                       REQUIRES unity driver test_utils efuse
                        WHOLE_ARCHIVE)
