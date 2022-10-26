@@ -158,7 +158,7 @@ uint32_t IRAM_ATTR phy_enter_critical(void)
     }
 
     if(s_phy_lock_nest < 0xFFFFFFFF) {
-        s_phy_lock_nest++; 
+        s_phy_lock_nest++;
     }
 
     // Interrupt level will be stored in current tcb, so always return zero.
@@ -674,7 +674,7 @@ void esp_phy_load_cal_and_init(void)
     }
 #endif
 
-#if CONFIG_ESP_PHY_ENABLE_USB
+#if CONFIG_SERIAL_ESP32_USB
     phy_bbpll_en_usb(true);
 #endif
 
