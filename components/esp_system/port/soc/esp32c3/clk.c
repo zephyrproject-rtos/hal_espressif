@@ -30,17 +30,17 @@
 #include "soc/syscon_reg.h"
 #include "esp_rom_uart.h"
 #include "esp_rom_sys.h"
+
 #if defined(__ZEPHYR__)
 #include "stubs.h"
-#endif
+#define CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ ESP_SOC_DEFAULT_CPU_FREQ_MHZ
+#endif /* defined(__ZEPHYR__) */
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
 #define SLOW_CLK_CAL_CYCLES     CONFIG_ESP32C3_RTC_CLK_CAL_CYCLES
-
-#define MHZ (1000000)
 
 /* Lower threshold for a reasonably-looking calibration value for a 32k XTAL.
  * The ideal value (assuming 32768 Hz frequency) is 1000000/32768*(2**19) = 16*10^6.
@@ -51,10 +51,6 @@
  * than a crystal.
  */
 #define EXT_OSC_FLAG    BIT(3)
-
-#if defined(__ZEPHYR__)
-#define CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ   ESP_SOC_DEFAULT_CPU_FREQ_MHZ
-#endif
 
 /* This is almost the same as rtc_slow_freq_t, except that we define
  * an extra enum member for the external 32k oscillator.
