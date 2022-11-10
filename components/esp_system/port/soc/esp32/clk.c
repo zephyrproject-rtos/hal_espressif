@@ -23,13 +23,6 @@
 #include "esp_rom_uart.h"
 #include "esp_rom_sys.h"
 
-#if !defined(__ZEPHYR__)
-#include "sdkconfig.h"
-#else
-#include "stubs.h"
-#define CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ   ESP_SOC_DEFAULT_CPU_FREQ_MHZ
-#endif
-
 static const char* TAG = "clk";
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.

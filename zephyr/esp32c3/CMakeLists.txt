@@ -11,6 +11,7 @@ if(CONFIG_SOC_ESP32C3)
     include/crypto
     ../esp_shared/include
     ../esp_shared/include/wifi
+    ../esp_shared/components/include
     ../../components/esp_common/include
     ../../components/esp_pm/include
     ../../components/esp_rom/include

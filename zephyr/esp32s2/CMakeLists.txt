@@ -10,6 +10,7 @@ if(CONFIG_SOC_ESP32S2)
     include/wifi
     ../esp_shared/include
     ../esp_shared/include/wifi
+    ../esp_shared/components/include
     ../../components/hal/include
     ../../components/hal/esp32s2/include
     ../../components/hal/platform_port/include

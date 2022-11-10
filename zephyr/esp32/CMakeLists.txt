@@ -10,6 +10,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     include/crypto
     ../esp_shared/include
     ../esp_shared/include/wifi
+    ../esp_shared/components/include
     ../../components/hal/include
     ../../components/hal/esp32/include
     ../../components/hal/platform_port/include

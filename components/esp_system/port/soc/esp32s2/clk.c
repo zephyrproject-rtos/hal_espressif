@@ -11,10 +11,6 @@
 #endif
 #include <sys/param.h>
 
-#if !defined(__ZEPHYR__)
-#include "sdkconfig.h"
-#endif
-
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp32s2/clk.h"
@@ -33,11 +29,6 @@
 #include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
 #include "hal/clk_gate_ll.h"
-
-#if defined(__ZEPHYR__)
-#include "stubs.h"
-#define CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ   ESP_SOC_DEFAULT_CPU_FREQ_MHZ
-#endif
 
 static const char *TAG = "clk";
 
