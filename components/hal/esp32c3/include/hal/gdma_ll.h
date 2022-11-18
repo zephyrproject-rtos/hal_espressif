@@ -165,8 +165,9 @@ static inline uint32_t gdma_ll_rx_get_fifo_bytes(gdma_dev_t *dev, uint32_t chann
  */
 static inline uint32_t gdma_ll_rx_pop_data(gdma_dev_t *dev, uint32_t channel)
 {
+	uint32_t pop_data = dev->channel[channel].in.in_pop.infifo_rdata;
     dev->channel[channel].in.in_pop.infifo_pop = 1;
-    return dev->channel[channel].in.in_pop.infifo_rdata;
+    return pop_data;
 }
 
 /**
