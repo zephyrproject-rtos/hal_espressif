@@ -28,6 +28,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/esp32c3/include
     ../../components/hal/platform_port/include
     ../../components/soc/esp32c3/include
+    ../../components/soc/esp32c3/include/soc
     ../../components/soc/src/esp32c3/include
     ../../components/soc/include
     ../../components/driver/include
@@ -153,6 +154,12 @@ if(CONFIG_SOC_ESP32C3)
     ../esp_shared/components/driver/rtc_io.c
     ../esp_shared/components/esp_adc_cal/esp_adc_cal_common.c
     src/esp_adc_cal/esp_adc_cal.c
+  )
+
+  zephyr_sources_ifdef(
+    CONFIG_DMA_ESP32
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
     )
 
   zephyr_sources(
