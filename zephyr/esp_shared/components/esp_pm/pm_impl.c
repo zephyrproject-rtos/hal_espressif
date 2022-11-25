@@ -103,8 +103,6 @@
 #define WITH_PROFILING
 #endif
 
-_Static_assert(CONFIG_ESP_CONSOLE_UART_BAUDRATE <= 1000000, "Unsupported UART baudrate");
-
 static int s_switch_lock;
 /* The following state variables are protected using s_switch_lock: */
 /* Current sleep mode; When switching, contains old mode until switch is complete */
