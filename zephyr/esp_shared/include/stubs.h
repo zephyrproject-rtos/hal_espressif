@@ -41,8 +41,6 @@
 #define CONFIG_ESP_CONSOLE_UART_NUM 2
 #define CONFIG_ESP_CONSOLE_UART_BAUDRATE DT_PROP(DT_NODELABEL(uart2), current_speed)
 
-#else
-#error "ESP console uart missing or not enabled in the dts"
 #endif
 
 #endif /* _STUBS_H_ */
