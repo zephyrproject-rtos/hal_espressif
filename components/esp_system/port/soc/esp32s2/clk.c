@@ -131,9 +131,9 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk);
 
     // Wait for UART TX to finish, otherwise some UART output will be lost
     // when switching APB frequency
-    if (CONFIG_ESP_CONSOLE_UART_NUM >= 0) {
-        esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
-    }
+#ifdef CONFIG_ESP_CONSOLE_UART
+    esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+#endif
 
     if (res) {
         rtc_clk_cpu_freq_set_config(&new_config);
