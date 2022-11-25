@@ -128,7 +128,9 @@ static const char *TAG = "clk";
 
     // Wait for UART TX to finish, otherwise some UART output will be lost
     // when switching APB frequency
+#ifdef CONFIG_ESP_CONSOLE_UART
     esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+#endif
 
     if (res)  {
         rtc_clk_cpu_freq_set_config(&new_config);
