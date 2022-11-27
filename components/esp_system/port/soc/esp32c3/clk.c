@@ -34,6 +34,7 @@
 #if defined(__ZEPHYR__)
 #include "stubs.h"
 #define CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ ESP_SOC_DEFAULT_CPU_FREQ_MHZ
+#define CONFIG_ESP32C3_RTC_CLK_CAL_CYCLES ESP_SOC_DEFAULT_RTC_CLK_CAL_CYCLES
 #endif /* defined(__ZEPHYR__) */
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.
