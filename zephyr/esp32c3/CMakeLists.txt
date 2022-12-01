@@ -30,6 +30,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/soc/src/esp32c3/include
     ../../components/soc/include
     ../../components/driver/include
+    ../../components/driver/esp32c3/include
     ../../components/efuse/include
     ../../components/efuse/private_include
     ../../components/efuse/esp32c3/include
@@ -136,6 +137,11 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/wdt_hal_iram.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESP32_TEMP
+    ../../components/driver/esp32c3/rtc_tempsensor.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
@@ -158,6 +164,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/efuse/esp32c3/esp_efuse_fields.c
     ../../components/efuse/esp32c3/esp_efuse_table.c
     ../../components/efuse/esp32c3/esp_efuse_utility.c
+    ../../components/efuse/esp32c3/esp_efuse_rtc_calib.c
     ../../components/efuse/src/esp_efuse_api.c
     ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
     ../../components/efuse/src/esp_efuse_utility.c
