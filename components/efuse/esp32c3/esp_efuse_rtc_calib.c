@@ -8,6 +8,10 @@
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif /* __ZEPHYR__ */
+
 int esp_efuse_rtc_calib_get_ver(void)
 {
     uint32_t result = 0;

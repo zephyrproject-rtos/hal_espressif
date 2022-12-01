@@ -22,6 +22,10 @@
 #include "esp_log.h"
 #include "esp_efuse_rtc_table.h"
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif /* __ZEPHYR__ */
+
 static const char *TAG = "tsens";
 
 #define TSENS_XPD_WAIT_DEFAULT 0xFF   /* Set wait cycle time(8MHz) from power up to reset enable. */
@@ -55,7 +59,11 @@ typedef enum {
 
 static tsens_hw_state_t tsens_hw_state = TSENS_HW_STATE_UNCONFIGURED;
 
+#ifdef __ZEPHYR__
+K_MUTEX_DEFINE(rtc_tsens_mux);
+#else
 static SemaphoreHandle_t rtc_tsens_mux = NULL;
+#endif /* __ZEPHYR__ */
 
 static float s_deltaT = NAN; // Unused number
 
@@ -110,10 +118,12 @@ esp_err_t temp_sensor_start(void)
         ESP_LOGE(TAG, "Temperature sensor is already running or not be configured");
         err = ESP_ERR_INVALID_STATE;
     }
+#ifndef __ZEPHYR__
     if (rtc_tsens_mux == NULL) {
         rtc_tsens_mux = xSemaphoreCreateMutex();
     }
     ESP_RETURN_ON_FALSE(rtc_tsens_mux != NULL, ESP_ERR_NO_MEM, TAG, "failed to create mutex");
+#endif /* __ZEPHYR__ */
     SENS.sar_tctrl.tsens_dump_out = 0;
     SENS.sar_tctrl2.tsens_clkgate_en = 1;
     SENS.sar_tctrl.tsens_power_up = 1;
@@ -125,23 +135,33 @@ esp_err_t temp_sensor_stop(void)
 {
     SENS.sar_tctrl.tsens_power_up = 0;
     SENS.sar_tctrl2.tsens_clkgate_en = 0;
+#ifndef __ZEPHYR__
     if (rtc_tsens_mux != NULL) {
         vSemaphoreDelete(rtc_tsens_mux);
         rtc_tsens_mux = NULL;
     }
+#endif /* __ZEPHYR__ */
     return ESP_OK;
 }
 
 esp_err_t temp_sensor_read_raw(uint32_t *tsens_out)
 {
     ESP_RETURN_ON_FALSE(tsens_out != NULL, ESP_ERR_INVALID_ARG, TAG, "no tsens_out specified");
+#ifndef __ZEPHYR__
     ESP_RETURN_ON_FALSE(rtc_tsens_mux != NULL, ESP_ERR_INVALID_STATE, TAG, "mutex not ready");
     xSemaphoreTake(rtc_tsens_mux, portMAX_DELAY);
+#else
+    k_mutex_lock(&rtc_tsens_mux, K_FOREVER);
+#endif /* __ZEPHYR__ */
     SENS.sar_tctrl.tsens_dump_out = 1;
     while (!SENS.sar_tctrl.tsens_ready);
     *tsens_out = SENS.sar_tctrl.tsens_out;
     SENS.sar_tctrl.tsens_dump_out = 0;
+#ifndef __ZEPHYR__
     xSemaphoreGive(rtc_tsens_mux);
+#else
+    k_mutex_unlock(&rtc_tsens_mux);
+#endif /* __ZEPHYR__ */
     return ESP_OK;
 }
 

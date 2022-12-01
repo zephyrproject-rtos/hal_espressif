@@ -22,6 +22,10 @@
 #include "esp32c3/rom/ets_sys.h"
 #include "esp_efuse_rtc_calib.h"
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif /* __ZEPHYR__ */
+
 static const char *TAG = "tsens";
 
 #define TSENS_XPD_WAIT_DEFAULT 0xFF   /* Set wait cycle time(8MHz) from power up to reset enable. */

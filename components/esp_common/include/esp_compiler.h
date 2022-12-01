@@ -37,9 +37,9 @@
 #if !defined(unlikely)
 #define unlikely(x)    (x)
 #endif
-#endif
+#endif /* CONFIG_COMPILER_OPTIMIZATION_PERF */
 
-#endif
+#endif	/* __ZEPHYR__ */
 
 /*
  * Utility macros used for designated initializers, which work differently
