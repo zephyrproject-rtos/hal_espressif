@@ -136,6 +136,7 @@ class Tools(WestCommand):
         group.add_argument('-b', '--baud', default="115200", help='Serial port baud rate')
         group.add_argument('-p', '--port', help='Serial port address')
         group.add_argument('-e', '--elf', help='ELF file')
+        group.add_argument('-n', '--eol', default='CRLF', help='EOL to use')
 
         return parser
 
@@ -173,7 +174,7 @@ class Tools(WestCommand):
         cmd_path = Path(os.getenv("ZEPHYR_BASE")).absolute()
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", monitor_path, "-p", esp_port,
-                     "-b", args.baud, elf_path), cwd=cmd_path)
+                     "-b", args.baud, elf_path, "--eol", args.eol), cwd=cmd_path)
         else:
             cmd_exec((sys.executable, monitor_path, "-p", esp_port, "-b", args.baud,
-                      elf_path), cwd=cmd_path)
+                      elf_path, "--eol", args.eol), cwd=cmd_path)
