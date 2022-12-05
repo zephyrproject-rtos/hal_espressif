@@ -73,7 +73,7 @@ class SerialHandler:
             if pos != -1:
                 data = data[(pos + 1):]
 
-        sp = data.split(b'\n')
+        sp = data.split(console_parser.eol)
         if self._last_line_part != b'':
             # add unprocessed part from previous "data" to the first line
             sp[0] = self._last_line_part + sp[0]

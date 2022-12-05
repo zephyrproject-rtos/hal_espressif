@@ -48,6 +48,7 @@ class ConsoleParser(object):
         self.menu_key = CTRL_T
         self.exit_key = CTRL_RBRACKET
         self._pressed_menu_key = False
+        self.eol = {'CRLF': b'\r\n', 'CR': b'\r', 'LF': b'\n'}[eol]
 
     def parse(self, key):  # type: (str) -> Optional[tuple]
         ret = None
