@@ -283,7 +283,6 @@ if(CONFIG_SOC_ESP32C3)
                        "../../components/wpa_supplicant/src/rsn_supp/pmksa_cache.c"
                        "../../components/wpa_supplicant/src/rsn_supp/wpa.c"
                        "../../components/wpa_supplicant/src/rsn_supp/wpa_ie.c"
-                       "../../components/wpa_supplicant/src/utils/base64.c"
                        "../../components/wpa_supplicant/src/utils/common.c"
                        "../../components/wpa_supplicant/src/utils/ext_password.c"
                        "../../components/wpa_supplicant/src/utils/uuid.c"
