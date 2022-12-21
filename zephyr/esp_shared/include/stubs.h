@@ -16,7 +16,15 @@
 
 #include <zephyr/device.h>
 
-#define ESP_SOC_DEFAULT_CPU_FREQ_MHZ (CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC / 1000000)
+#if defined(CONFIG_SOC_ESP32) || defined(CONFIG_SOC_ESP32_NET)
+#define DT_CPU_COMPAT cdns_tensilica_xtensa_lx6
+#elif defined(CONFIG_SOC_ESP32S2)
+#define DT_CPU_COMPAT cdns_tensilica_xtensa_lx7
+#elif CONFIG_IDF_TARGET_ESP32C3
+#define DT_CPU_COMPAT espressif_riscv
+#endif
+
+#define ESP_SOC_DEFAULT_CPU_FREQ_MHZ ((DT_PROP(DT_INST(0, DT_CPU_COMPAT), clock_frequency)))
 #define ESP_SOC_DEFAULT_RTC_CLK_CAL_CYCLES 1024
 
 /* Extract configuration from the devicetree */
