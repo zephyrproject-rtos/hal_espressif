@@ -8,16 +8,15 @@
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
-#ifndef CONFIG_SOC_ESP32C3
-#include "esp_intr_alloc.h"
-#endif
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_compiler.h"
 #include "soc/periph_defs.h"
 #include "soc/soc_caps.h"
 #include "soc/rtc.h"
+#ifndef __ZEPHYR__
 #include "freertos/FreeRTOS.h"
+#endif
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
@@ -25,6 +24,10 @@
 
 #ifdef CONFIG_SOC_ESP32C3
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#define ISR_HANDLER isr_handler_t
+#else
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#define ISR_HANDLER intr_handler_t
 #endif
 
 /**
@@ -141,7 +144,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     esp_intr_alloc(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE,
         ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | int_type | interrupt_lvl,
-        (isr_handler_t)timer_alarm_isr,
+        (ISR_HANDLER)timer_alarm_isr,
         NULL,
         NULL);
 
