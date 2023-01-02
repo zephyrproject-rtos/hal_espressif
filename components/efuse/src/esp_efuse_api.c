@@ -51,7 +51,7 @@ esp_err_t esp_efuse_read_field_blob(const esp_efuse_desc_t* field[], void* dst, 
 #ifndef BOOTLOADER_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
 #ifdef __ZEPHYR__
-                k_msleep(1);
+                esp_rom_delay_us(1000);
 #else
                 vTaskDelay(1);
 #endif
@@ -83,7 +83,7 @@ esp_err_t esp_efuse_read_field_cnt(const esp_efuse_desc_t* field[], size_t* out_
 #ifndef BOOTLOADER_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
 #ifdef __ZEPHYR__
-                k_msleep(1);
+                esp_rom_delay_us(1000);
 #else
                 vTaskDelay(1);
 #endif
