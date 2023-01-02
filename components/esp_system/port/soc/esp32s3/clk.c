@@ -6,9 +6,11 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
+#if !defined(__ZEPHYR__)
 #include <sys/time.h>
-#include <sys/param.h>
 #include "sdkconfig.h"
+#endif
+#include <sys/param.h>
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp32s3/clk.h"
@@ -26,6 +28,11 @@
 #include "driver/periph_ctrl.h"
 #include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
+
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#define CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ ESP_SOC_DEFAULT_CPU_FREQ_MHZ
+#endif /* defined(__ZEPHYR__) */
 
 static const char *TAG = "clk";
 
@@ -73,6 +80,7 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk);
     if (rst_reas == RESET_REASON_CHIP_POWER_ON) {
         cfg.cali_ocode = 1;
     }
+
     rtc_init(cfg);
 
     assert(rtc_clk_xtal_freq_get() == RTC_XTAL_FREQ_40M);
@@ -305,6 +313,11 @@ __attribute__((weak)) void esp_perip_clk_init(void)
     /* Disable hardware crypto clocks. */
     CLEAR_PERI_REG_MASK(SYSTEM_PERIP_CLK_EN1_REG, hwcrypto_perip_clk);
     SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, hwcrypto_perip_clk);
+
+    /* Force clear backup dma reset signal. This is a fix to the backup dma
+     * implementation in the ROM, the reset signal was not cleared when the
+     * backup dma was started, which caused the backup dma operation to fail. */
+    CLEAR_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_PERI_BACKUP_RST);
 
     /* Disable WiFi/BT/SDIO clocks. */
     CLEAR_PERI_REG_MASK(SYSTEM_WIFI_CLK_EN_REG, wifi_bt_sdio_clk);
