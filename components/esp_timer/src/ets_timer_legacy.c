@@ -24,9 +24,11 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
+#ifndef __ZEPHYR__
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#endif
 #include "sdkconfig.h"
 #include "esp_timer.h"
 #if CONFIG_IDF_TARGET_ESP32
