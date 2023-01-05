@@ -171,7 +171,7 @@ class Tools(WestCommand):
             esp_port = get_esp_serial_port(module_path)
 
         monitor_path = Path(module_path, "tools/idf_monitor.py")
-        cmd_path = Path(os.getenv("ZEPHYR_BASE")).absolute()
+        cmd_path = Path(os.getcwd())
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", monitor_path, "-p", esp_port,
                      "-b", args.baud, elf_path, "--eol", args.eol), cwd=cmd_path)
