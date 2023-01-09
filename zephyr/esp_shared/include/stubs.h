@@ -24,7 +24,7 @@
 #define DT_CPU_COMPAT espressif_riscv
 #endif
 
-#define ESP_SOC_DEFAULT_CPU_FREQ_MHZ ((DT_PROP(DT_INST(0, DT_CPU_COMPAT), clock_frequency)))
+#define ESP_SOC_DEFAULT_CPU_FREQ_MHZ ((DT_PROP(DT_INST(0, DT_CPU_COMPAT), clock_frequency)) / 1000000)
 #define ESP_SOC_DEFAULT_RTC_CLK_CAL_CYCLES 1024
 
 /* Extract configuration from the devicetree */
