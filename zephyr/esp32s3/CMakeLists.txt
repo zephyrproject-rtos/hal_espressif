@@ -128,6 +128,12 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_DMA_ESP32
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
