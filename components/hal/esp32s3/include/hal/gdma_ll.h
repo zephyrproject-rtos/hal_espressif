@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "soc/soc_caps.h"
 #include "soc/gdma_struct.h"
 #include "soc/gdma_reg.h"
