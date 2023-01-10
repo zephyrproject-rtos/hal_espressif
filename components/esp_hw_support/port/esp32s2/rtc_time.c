@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif
+
 #include <stdint.h>
 #include "esp_rom_sys.h"
 #include "soc/rtc.h"
@@ -62,13 +66,17 @@ static uint32_t rtc_clk_cal_internal_oneoff(rtc_cal_sel_t cal_clk, uint32_t slow
         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_90K_CAL_TIMEOUT_THRES(slowclk_cycles));
         expected_freq = RTC_SLOW_CLK_FREQ_90K;
     }
-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
+    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * 1000000 / expected_freq);
     /* Start calibration */
     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
 
     /* Wait for calibration to finish up to another us_time_estimate */
+#ifdef __ZEPHYR__
+    k_busy_wait(us_time_estimate);
+#else
     esp_rom_delay_us(us_time_estimate);
+#endif
     uint32_t cal_val;
     while (true) {
         if (GET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_RDY)) {
