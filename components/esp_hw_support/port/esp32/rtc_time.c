@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#ifdef __ZEPHYR__
+#include <zephyr/kernel.h>
+#endif
+
 #include <stdint.h>
 #include "esp_rom_sys.h"
 #include "soc/rtc.h"
@@ -59,7 +63,7 @@ static uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cyc
     } else {
         expected_freq = 150000; /* 150k internal oscillator */
     }
-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
+    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * 1000000 / expected_freq);
     /* Check if the required number of slowclk_cycles may result in an overflow of TIMG_RTC_CALI_VALUE */
     rtc_xtal_freq_t xtal_freq = rtc_clk_xtal_freq_get();
     if (xtal_freq == RTC_XTAL_FREQ_AUTO) {
@@ -78,7 +82,11 @@ static uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cyc
      * TODO: if running under RTOS, and us_time_estimate > RTOS tick, use the
      * RTOS delay function.
      */
+#ifdef __ZEPHYR__
+    k_busy_wait(us_time_estimate);
+#else
     esp_rom_delay_us(us_time_estimate);
+#endif
     /* Wait for calibration to finish up to another us_time_estimate */
     int timeout_us = us_time_estimate;
     while (!GET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_RDY) &&
