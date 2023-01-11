@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#undef MHZ
 #define MHZ (1000000)
 
 #define DPORT_CPUPERIOD_SEL_80      0
