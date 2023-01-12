@@ -45,3 +45,23 @@ uart2:
   cts:
     sigi: u2cts_in
     gpio: [[0, 21], [26, 48]]
+
+i2c0:
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 21], [26, 48]]
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 21], [26, 48]]
+
+i2c1:
+  sda:
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    gpio: [[0, 21], [26, 48]]
+  scl:
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    gpio: [[0, 21], [26, 48]]
