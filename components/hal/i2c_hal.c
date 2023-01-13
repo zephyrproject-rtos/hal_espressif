@@ -79,6 +79,11 @@ void i2c_hal_set_tout(i2c_hal_context_t *hal, int tout_num)
     i2c_ll_set_tout(hal->dev, tout_num);
 }
 
+void i2c_hal_set_tout_en(i2c_hal_context_t *hal, bool tout_en)
+{
+    i2c_ll_set_tout_en(hal->dev, tout_en);
+}
+
 void i2c_hal_set_slave_addr(i2c_hal_context_t *hal, uint16_t slave_addr, bool addr_10bit_en)
 {
     i2c_ll_set_slave_addr(hal->dev, slave_addr, addr_10bit_en);
