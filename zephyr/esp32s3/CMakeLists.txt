@@ -24,6 +24,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/esp_rom/esp32/ld
     ../../components/esp32s3/include
     ../../components/soc/esp32s3/include
+    ../../components/soc/esp32s3/include/soc
     ../../components/xtensa/include
     ../../components/xtensa/esp32s3/include
     ../../components/soc/include/soc
@@ -88,7 +89,13 @@ if(CONFIG_SOC_ESP32S3)
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
-  )
+  	)
+
+  zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
 
   zephyr_sources(
     ../../components/soc/esp32s3/gpio_periph.c
