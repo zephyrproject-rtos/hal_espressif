@@ -298,6 +298,19 @@ static inline void i2c_ll_set_tout(i2c_dev_t *hw, int tout)
 }
 
 /**
+ * @brief  Enable I2C timeout
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  tout_en Set true to enable I2C timeout
+ *
+ * @return None
+ */
+static inline void i2c_ll_set_tout_en(i2c_dev_t *hw, bool tout_en)
+{
+    hw->timeout.time_out_en = tout_en;
+}
+
+/**
  * @brief  Configure I2C slave address
  *
  * @param  hw Beginning address of the peripheral registers

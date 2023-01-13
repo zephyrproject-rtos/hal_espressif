@@ -263,6 +263,16 @@ void i2c_hal_set_fifo_mode(i2c_hal_context_t *hal, bool fifo_mode_en);
 void i2c_hal_set_tout(i2c_hal_context_t *hal, int tout_val);
 
 /**
+ * @brief  Configure the I2C timeout value
+ *
+ * @param  hal Context of the HAL layer
+ * @param  tout_val the timeout value to be set
+ *
+ * @return None
+ */
+void i2c_hal_set_tout_en(i2c_hal_context_t *hal, bool tout_en);
+
+/**
  * @brief  Get the I2C time out configuration
  *
  * @param  tout_val Pointer to accept the timeout configuration
