@@ -219,6 +219,8 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/efuse/src/esp_efuse_api.c
     ../../components/efuse/src/esp_efuse_api_key_esp32.c
     ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/bootloader_support/src/bootloader_flash_config_esp32.c
+    ../../components/bootloader_support/src/bootloader_efuse_esp32.c
     ../esp_shared/src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
