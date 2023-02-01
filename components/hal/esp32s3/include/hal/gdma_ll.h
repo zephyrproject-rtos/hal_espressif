@@ -11,6 +11,11 @@
 #include "soc/gdma_struct.h"
 #include "soc/gdma_reg.h"
 
+#if defined(__ZEPHYR__)
+#include <stddef.h>
+#include "stubs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -92,6 +92,15 @@ if(CONFIG_SOC_ESP32S3)
   	)
 
   zephyr_sources_ifdef(
+    CONFIG_ESP32_SPIM
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/soc/esp32s3/spi_periph.c
+	../../components/hal/gdma_hal.c
+    )
+	
+  zephyr_sources_ifdef(
     CONFIG_I2C_ESP32
     ../../components/hal/i2c_hal_iram.c
     ../../components/hal/i2c_hal.c
