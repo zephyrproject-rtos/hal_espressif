@@ -65,3 +65,31 @@ i2c1:
     sigi: i2cext1_scl_in
     sigo: i2cext1_scl_out
     gpio: [[0, 21], [26, 48]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 21], [26, 48]]
+
+spim3:
+  miso:
+    sigi: spi3_q_in
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigo: spi3_d_out
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigo: spi3_clk_out
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigo: spi3_cs0_out
+    gpio: [[0, 21], [26, 48]]
