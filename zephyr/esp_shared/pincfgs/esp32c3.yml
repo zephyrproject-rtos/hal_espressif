@@ -42,6 +42,21 @@ spim2:
   csel:
     sigo: fspics0_out
     gpio: [[0, 21]]
+  csel1:
+    sigo: fspics1_out
+    gpio: [[0, 21]]
+  csel2:
+    sigo: fspics2_out
+    gpio: [[0, 21]]
+  csel3:
+    sigo: fspics3_out
+    gpio: [[0, 21]]
+  csel4:
+    sigo: fspics4_out
+    gpio: [[0, 21]]
+  csel5:
+    sigo: fspics5_out
+    gpio: [[0, 21]]
 
 i2c0:
   sda:

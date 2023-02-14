@@ -46,6 +46,21 @@ spim2:
   csel:
     sigo: fspics0_out
     gpio: [[0, 21], [26, 45]]
+  csel1:
+    sigo: fspics1_out
+    gpio: [[0, 21], [26, 45]]
+  csel2:
+    sigo: fspics2_out
+    gpio: [[0, 21], [26, 45]]
+  csel3:
+    sigo: fspics3_out
+    gpio: [[0, 21], [26, 45]]
+  csel4:
+    sigo: fspics4_out
+    gpio: [[0, 21], [26, 45]]
+  csel5:
+    sigo: fspics5_out
+    gpio: [[0, 21], [26, 45]]
 
 spim3:
   miso:
@@ -59,6 +74,12 @@ spim3:
     gpio: [[0, 21], [26, 45]]
   csel:
     sigo: spi3_cs0_out
+    gpio: [[0, 21], [26, 45]]
+  csel1:
+    sigo: spi3_cs1_out
+    gpio: [[0, 21], [26, 45]]
+  csel2:
+    sigo: spi3_cs2_out
     gpio: [[0, 21], [26, 45]]
 
 i2c0:
