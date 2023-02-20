@@ -17,6 +17,12 @@ uart0:
   cts:
     sigi: u0cts_in
     gpio: [[0, 21], [26, 48]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 21], [26, 48]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 21], [26, 48]]
 
 uart1:
   tx:
@@ -31,6 +37,12 @@ uart1:
   cts:
     sigi: u1cts_in
     gpio: [[0, 21], [26, 48]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 21], [26, 48]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 21], [26, 48]]
 
 uart2:
   tx:
@@ -44,6 +56,12 @@ uart2:
     gpio: [[0, 21], [26, 48]]
   cts:
     sigi: u2cts_in
+    gpio: [[0, 21], [26, 48]]
+  dtr:
+    sigo: u2dtr_out
+    gpio: [[0, 21], [26, 48]]
+  dsr:
+    sigi: u2dsr_in
     gpio: [[0, 21], [26, 48]]
 
 i2c0:
