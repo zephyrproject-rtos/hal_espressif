@@ -1,19 +1,19 @@
 Contributions Guide
 ===================
 
-We welcome contributions to the esptool project!
+We welcome contributions to the ``esptool.py`` project!
 
 How to Contribute
 -----------------
 
-Contributions to esptool - fixing bugs, adding features, adding documentation - are welcome. We accept contributions via `Github Pull Requests <https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests>`_.
+Contributions to ``esptool.py`` - fixing bugs, adding features, adding documentation - are welcome. We accept contributions via `Github Pull Requests <https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests>`_.
 
 .. _development-setup:
 
 Development Setup
 -----------------
 
-Development mode allows you to run the latest development version from the `esptool repository on GitHub <https://github.com/espressif/esptool>`_.
+Development mode allows you to run the latest development version from the `esptool.py repository on GitHub <https://github.com/espressif/esptool>`_.
 
 .. code-block:: sh
 
@@ -21,22 +21,22 @@ Development mode allows you to run the latest development version from the `espt
    $ cd esptool
    $ pip install --user -e .
 
-This will install esptool’s dependencies and create some executable script wrappers in the user’s ``bin`` directory. The wrappers will run the scripts found in the git working directory directly, so any time the working directory contents change it will pick up the new versions.
+This will install ``esptool.py``’s dependencies and create some executable script wrappers in the user’s ``bin`` directory. The wrappers will run the scripts found in the git working directory directly, so any time the working directory contents change it will pick up the new versions.
 
 It’s also possible to run the scripts directly from the working directory with this Development Mode installation.
 
-To also install additional tools needed for actually developing and testing esptool, run this command to install a development copy of esptool *plus* packages useful for development:
+To also install additional tools needed for actually developing and testing ``esptool.py``, run this command to install a development copy of ``esptool.py`` *plus* packages useful for development:
 
 ::
 
-   $ pip install --user -e .[dev]
+   $ pip install --user -e ".[dev]"
 
 (This command uses the “extras” feature of setuptools.)
 
 Reporting Issues
 ----------------
 
-Please report bugs in esptool if you find them. However, before reporting a bug please check through the following:
+Please report bugs in ``esptool.py`` if you find them. However, before reporting a bug please check through the following:
 
 *  `Troubleshooting Guide <https://docs.espressif.com/projects/esptool/en/latest/troubleshooting.html>`_ - common problems and known issues.
 
@@ -56,7 +56,7 @@ Before Contributing
 
 Before sending us a Pull Request, please consider this list of points:
 
-* Have you tried running esptool test suite locally?
+* Have you tried running ``esptool.py`` test suite locally?
 
 * Is the code adequately commented for people to understand how it is structured?
 
@@ -71,35 +71,90 @@ Before sending us a Pull Request, please consider this list of points:
 Code Style & Static Analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-esptool complies with Flake 8 and is valid Python 2 & Python 3 code (in the same source file.)
+Please follow these coding standards when writing code for ``esptool.py``:
 
-When you submit a Pull Request, the GitHub Actions automated build system will run automated checks for this, using the `flake8 tool <http://flake8.readthedocs.io/en/latest/>`_. To check your code locally before submitting, run ``python -m flake8`` (the flake8 tool is installed as part of the development requirements shown at the beginning of this document.)
+Pre-commit checks
+"""""""""""""""""
+
+`pre-commit <https://pre-commit.com/>`_ is a framework for managing pre-commit hooks. These hooks help to identify simple issues before committing code for review.
+
+To use the tool, first install ``pre-commit`` and then the git hooks:
+
+::
+
+   $ python -m pip install pre-commit
+   $ pre-commit install
+
+On the first commit ``pre-commit`` will install the hooks, subsequent checks will be significantly faster. If an error is found an appropriate error message will be displayed. If the error was with ``black`` then the tool will fix them for you automatically. Review the changes and re-stage for commit if you are happy with them.
+
+Flake8
+""""""
+
+``esptool.py`` complies with `flake8 <http://flake8.readthedocs.io/en/latest/>`_ style guide enforcement.
+
+Black
+"""""
+
+All files should be formatted using the `Black <https://black.readthedocs.io/en/stable/index.html>`_ auto-formatter.
+
+``Black`` and ``flake8`` tools will be automatically run by ``pre-commit`` if that is configured. To check your code manually before submitting, run ``python -m flake8`` and ``black .`` (the tools are installed as part of the development requirements shown at the beginning of this document).
+
+When you submit a Pull Request, the GitHub Actions automated build system will run automated checks using these tools.
 
 Automated Integration Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The test directory contains an integration suite with some integration tests for ``esptool.py``:
+The test directory contains a `pytest <https://docs.pytest.org/>`_ integration suite with some integration tests for ``esptool.py``, ``espefuse.py``, and ``espsecure.py``.
 
-*  ``test_imagegen.py`` tests the elf2image command and is run automatically by GitHub Actions for each Pull Request. You can run this command locally to check for regressions in the elf2image functionality.
+It is necessary to have ``esptool.py`` installed (see `Development Setup`_) in your environment in order to run these tests.
 
-*  ``test_esptool.py`` is a `Python unittest <https://docs.python.org/3/library/unittest.html>`_ file that contains integration tests to be run against real Espressif hardware. These tests need real hardware so are not run automatically by GitHub Actions, they need to be run locally in a command line with the following format:
+The following tests run automatically by GitHub Actions for each Pull Request. You can run them locally to check for regressions in the respective functionality:
 
-   ``./test_esptool.py <serial port> <name of chip> <baud rate> [optional test name(s)]``
+*  ``test_imagegen.py`` tests the ``elf2image`` command
+*  ``test_image_info.py`` tests the ``image_info`` command
+*  ``test_mergebin.py`` tests the ``merge_bin`` command
+*  ``test_modules.py`` tests the modules used by ``esptool.py`` for regressions
+*  ``test_espsecure.py`` tests ``espsecure.py`` functionality
+
+The following tests are not run automatically by GitHub Actions, because they need real connected hardware. Therefore, they need to be run locally in a command line:
+
+*  ``test_esptool.py`` contains integration tests for ``esptool.py`` and needs to be run against real Espressif hardware with the following format:
+
+   ``pytest test_esptool.py --port <serial port> --chip <name of chip> --baud <baud rate>``
 
    For example, to run all tests on an ESP32 board connected to /dev/ttyUSB0, at 230400bps:
 
-   ``./test_esptool.py /dev/ttyUSB0 esp32 230400``
+   ``pytest test_esptool.py --port /dev/ttyUSB0 --chip esp32 --baud 230400``
 
-   Or to run the TestFlashing suite only on an ESP8266 board connected to /dev/ttyUSB2, at 460800bps:
+   Or to run the TestFlashing suite only (using the pytest ``-k`` option to select tests based on their name) on an ESP8266 board connected to /dev/ttyUSB2, at 460800bps:
 
-   ``./test_esptool.py /dev/ttyUSB2 esp8266 460800 TestFlashing``
+   ``pytest test_esptool.py --port /dev/ttyUSB2 --chip esp8266 --baud 460800 -k TestFlashing``
 
    .. note::
 
       Some tests might fail at higher baud rates on some hardware.
 
+The following tests are not run automatically by GitHub Actions, but can be run locally in a command line:
+
+*  ``test_espefuse.py`` tests ``espefuse.py`` functionality. To run it:
+
+   ``pytest test_espefuse.py --chip <name of chip>``
+
+   These test use the ``--virt`` virtual mode of ``espefuse.py`` to safely test the functionality without a connection to a chip and without the possibility of affecting the actual eFuses in a real hardware.
+
+   .. warning::
+
+      Do not attempt to run these tests on real hardware! You risk damaging or destroying the ESP chip!
+
+The whole test suite (without the tests needing an actual hardware) can be easily run with the following command in the esptool root folder: ``pytest --ignore=test/test_esptool.py``
+
+
 Pull Request Process
 --------------------
+
+.. note::
+
+   If you are developing the stub flasher and plan to send a pull request, please use the latest toolchains available.
 
 After you open the Pull Request, there will probably be some discussion in the comments field of the request itself.
 
