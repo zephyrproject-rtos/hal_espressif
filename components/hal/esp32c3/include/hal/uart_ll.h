@@ -665,7 +665,7 @@ static inline void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
  *
  * @param  hw Beginning address of the peripheral registers.
  *
- * @return None.
+ * @return True if RS485 half duplex mode enabled.
  */
 static inline bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
 {
