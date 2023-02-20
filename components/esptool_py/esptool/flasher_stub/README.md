@@ -20,7 +20,7 @@ The stub loader is already automatically integrated into esptool.py. You don't n
 
 If you want to build the stub to test modifications or updates, here's how:
 
-* You will need an ESP8266 gcc toolchain (xtensa-lx106-elf-) and toolchains for ESP32 and later chips (xtensa-esp32-elf-, riscv32-esp-elf-) on your PATH.
+* You will need an ESP8266 gcc toolchain (xtensa-lx106-elf-) and toolchains for ESP32 and later chips (xtensa-esp32-elf-, riscv32-esp-elf-) on your PATH. If you are developing the stub flasher and plan to send a pull request, please use the latest toolchains available.
 
 * Set the environment variables SDK_PATH to the path to an ESP8266 IoT NON-OS SDK directory (last stub was built with SDK v1.5.1).
 
@@ -28,14 +28,14 @@ If you want to build the stub to test modifications or updates, here's how:
 
 * Set any other environment variables you'd like to override in the Makefile.
 
-* To build type `make`
+* To build type `make`. To build only for the ESP32 family, type `make esp32` (this negates the need of an ESP8266 toolchain).
 
 Activating an ESP-IDF environment takes care of most of these steps (only the ESP8266 gcc toolchain has to be manually added to PATH).
 
 # To Test
 
-To test the built stub, you can run `make embed`, which will update the stubs in `esptool.py` to the newly compiled ones. Or there are some convenience wrappers to make testing quicker to iterate on:
+To test the built stub, you can run `make embed` (or `make embed_esp32`), which will update the stubs in `esptool.py` to the newly compiled ones. Or there are some convenience wrappers to make testing quicker to iterate on:
 
 * Running `esptool_test_stub.py` is the same as running `esptool.py`, only it uses the just-compiled stubs from the build directory.
 
-* Running `run_tests_with_stub.py` is the same as running `test/test_esptool.py`, only it uses the just-compiled stubs from the build directory.
+* Running `run_tests_with_stub.sh` is the same as running `pytest test/test_esptool.py`, only it uses the just-compiled stubs from the build directory. See the [Automated Integration Tests](https://docs.espressif.com/projects/esptool/en/latest/contributing.html#automated-integration-tests) docs for more information.

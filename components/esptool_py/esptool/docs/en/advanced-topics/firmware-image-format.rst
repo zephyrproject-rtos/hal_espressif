@@ -1,3 +1,5 @@
+.. _image-format:
+
 Firmware Image Format
 =====================
 
@@ -59,12 +61,7 @@ The image header is 8 bytes long:
 
         TODO: Update flash frequency lists to be esp32c2 or esp32h2 specific
 
-esptool.py overrides the 2nd and 3rd (start from 0) bytes according to the SPI flash info provided through command line option, regardless of corresponding bytes from the input .bin file that will be written to address 0x00000.
-So you must provide SPI flash info when running ``esptool.py write_flash`` command. For example: ``esptool.py write_flash -ff 80m -fm qio -fs 1MB 0x00000 boot.bin 0x01000 user1.bin``
-
-.. only:: not esp8266
-
-    Please note that the appended SHA256 hash becomes incorrect when esptool.py overrides these SPI flash info bytes in a bootloader image, which leads to an error if Secure Boot is enabled.
+``esptool.py`` overrides the 2nd and 3rd (start from 0) bytes according to the SPI flash info provided through command line option, but only if there is no SHA256 digest appended after the image. Therefore, if you would like to change SPI flash info during flashing, i.e. with the ``esptool.py write_flash`` command, then generate images without SHA256 digests. This can be achieved by running ``esptool.py elf2image`` with the ``--dont-append-digest`` argument.
 
 .. only:: esp8266
 
@@ -86,9 +83,13 @@ So you must provide SPI flash info when running ``esptool.py write_flash`` comma
     +--------+---------------------------------------------------------------------------------------------------------+
     | 4-5    | Chip ID (which ESP device is this image for)                                                            |
     +--------+---------------------------------------------------------------------------------------------------------+
-    | 6      | Minimum chip revision supported by the image                                                            |
+    | 6      | Minimal chip revision supported by the image (deprecated, use the following field)                      |
     +--------+---------------------------------------------------------------------------------------------------------+
-    | 7-14   | Reserved bytes in additional header space, currently unused                                             |
+    | 7-8    | Minimal chip revision supported by the image (in format: major * 100 + minor)                           |
+    +--------+---------------------------------------------------------------------------------------------------------+
+    | 9-10   | Maximal chip revision supported by the image (in format: major * 100 + minor)                           |
+    +--------+---------------------------------------------------------------------------------------------------------+
+    | 11-14  | Reserved bytes in additional header space, currently unused                                             |
     +--------+---------------------------------------------------------------------------------------------------------+
     | 15     | Hash appended (If 1, SHA256 digest is appended after the checksum)                                      |
     +--------+---------------------------------------------------------------------------------------------------------+
@@ -113,16 +114,12 @@ The file is padded with zeros until its size is one byte less than a multiple of
 
 .. only:: not esp8266
 
-    If ``hash appended`` in the extended file header is ``0x01``, a SHA256 digest “simple hash” (of the entire image) is appended after the checksum. This digest is separate to secure boot and only used for detecting corruption.
+    If ``hash appended`` in the extended file header is ``0x01``, a SHA256 digest “simple hash” (of the entire image) is appended after the checksum. This digest is separate to secure boot and only used for detecting corruption. The SPI flash info cannot be changed during flashing if hash is appended after the image.
 
     If secure boot is enabled, a signature is also appended (and the simple hash is included in the signed data). This image signature is `Secure Boot V1 <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/security/secure-boot-v1.html#image-signing-algorithm>`_ and `Secure Boot V2 <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/security/secure-boot-v2.html#signature-block-format>`_ specific.
 
 
-.. only:: not esp8266
+Analyzing a Binary Image
+------------------------
 
-    Analyzing the Binary Image Format
-    ---------------------------------
-
-    A great tool to inspect and parse the binary image format is the `Kaitai Struct online IDE <https://ide.kaitai.io/>`_. It allows the user to describe types and structures, import a real binary image and watch how these get parsed in real-time.
-
-    Kaitai Struct description of the binary structure used by Espressif chips can `be found here. <https://gist.github.com/igrr/ab899cef9b121134785a82eaee50ed89>`_
+To analyze a binary image and get a complete summary of its headers and segments, use the :ref:`image_info <image-info>` command with the ``--version 2`` option.

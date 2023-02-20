@@ -59,6 +59,43 @@ Esptool will display information about which flash memory sectors will be erased
 
 Use the ``-e/--erase-all`` option to erase all flash sectors (not just the write areas) before programming.
 
+.. only:: not esp8266
+
+    Bootloader Protection
+    ^^^^^^^^^^^^^^^^^^^^^
+
+    Flashing into the bootloader region (``0x0`` -> ``0x8000``) is disabled by default if active `Secure Boot <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/secure-boot-v2.html>`_ is detected.
+    This is a safety measure to prevent accidentally overwriting the secure bootloader, which **can ultimately lead to bricking the device**.
+
+    This behavior can be overridden with the ``--force`` option. **Use this only at your own risk and only if you know what you are doing!**
+
+
+    Encrypted Flash Protection
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    .. only:: esp32
+
+        Overwriting the encrypted firmware (bootloader, application, etc.) without the ``--encrypt`` option is disabled, if `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled and Encrypted Download being disabled (efuse bit ``EFUSE_DISABLE_DL_ENCRYPT`` is set).
+
+    .. only:: not esp32
+
+        Overwriting the encrypted firmware (bootloader, application, etc.) without the ``--encrypt`` option is disabled, if:
+
+        *  `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ and Secure Download Mode are enabled or
+        *  `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled but Encrypted Download is disabled (efuse bit ``EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT`` is set).
+
+    This is a safety measure to prevent accidentally overwriting the encrypted firmware with a plaintext binary, which **can ultimately lead to bricking the device**.
+
+    This behavior can be overridden with the ``--force`` option. **Use this option provided that the flash encryption key is generated external to the device and you could perform the encryption on the host machine.**
+
+    Flashing an Incompatible Image
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    ``esptool.py`` checks every binary before flashing. If a valid firmware image is detected, the ``Chip ID`` and ``Minimum chip revision`` fields in its :ref:`header <image-format>` are compared against the actually connected chip.
+    If the image turns out to be incompatible with the chip in use or requires a newer chip revision, flashing is stopped.
+
+    This behavior can be overridden with the ``--force`` option.
+
 Read Flash Contents: read_flash
 --------------------------------
 
@@ -91,6 +128,17 @@ To erase a region of the flash, starting at address 0x20000 with length 0x4000 b
 
 The address and length must both be multiples of the SPI flash erase sector size. This is 0x1000 (4096) bytes for supported flash chips.
 
+.. only:: not esp8266
+
+    Flash Protection
+    ^^^^^^^^^^^^^^^^
+
+    Erasing the flash chip is disabled by default if either active `Secure Boot <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/secure-boot-v2.html>`_ or
+    `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is detected.
+    This is a safety measure to prevent accidentally deleting the secure bootloader or encrypted data, which **can ultimately lead to bricking the device**.
+
+    This behavior can be overridden with the ``--force`` option. **Use this only at your own risk and only if you know what you are doing!**
+
 Read Built-in MAC Address: read_mac
 ------------------------------------
 
@@ -117,6 +165,8 @@ Example output:
 
 Refer to `flashrom source code <https://review.coreboot.org/plugins/gitiles/flashrom/+/refs/heads/master/flashchips.h>`__ for flash chip manufacturer name and part number.
 
+.. _elf-2-image:
+
 Convert ELF to Binary: elf2image
 --------------------------------
 
@@ -129,7 +179,7 @@ The ``elf2image`` command converts an ELF file (from compiler/linker output) int
 This command does not require a serial connection.
 
 ``elf2image`` also accepts the `Flash Modes <#flash-modes>`__ arguments ``--flash_freq`` and ``--flash_mode``, which can be used to set the default values in the image header. This is important when generating any image which will be booted directly by the chip.
-These values can also be overwritten via the ``write_flash`` command, see the `write_flash command <#write-binary-data-to-flash-write-flash>`__ for details.
+These values can also be overwritten via the ``write_flash`` command, see the `write_flash command <#write-binary-data-to-flash-write-flash>`__ for details. However, if you want to overwrite these values via the ``write_flash`` command then use the ``--dont-append-digest`` argument of the ``elf2image`` command in order to skip appending a SHA256 digest after the image. The SHA256 digest would be invalidated by rewriting the image header, therefore, it is not allowed.
 
 By default, ``elf2image`` uses the sections in the ELF file to generate each segment in the binary executable. To use segments (PHDRs) instead, pass the ``--use_segments`` option.
 
@@ -153,20 +203,24 @@ By default, ``elf2image`` uses the sections in the ELF file to generate each seg
 
     In the above example, the output image file would be called ``my_esp_app.bin``.
 
+.. _image-info:
+
 Output .bin Image Details: image_info
 -------------------------------------
 
 The ``image_info`` command outputs some information (load addresses, sizes, etc) about a ``.bin`` file created by ``elf2image``.
 
+To view more information about the image, such as set flash size, frequency and mode, or extended header information, use the ``--version 2`` option. This extended output will become the default in a future major release.
+
+This information corresponds to the headers described in :ref:`image-format`.
+
 ::
 
-    esptool.py --chip {IDF_TARGET_NAME} image_info my_esp_app.bin
+    esptool.py image_info --version 2 my_esp_app.bin
 
 .. only:: not esp8266
 
-    .. note::
-
-        Note that ``--chip {IDF_TARGET_NAME}`` is required when reading {IDF_TARGET_NAME} images. Otherwise the default is ``--chip esp8266`` and the image will be interpreted as an invalid ESP8266 image.
+    If a valid `ESP-IDF application header <https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/app_image_format.html#application-description>`__ is detected in the image, specific fields describing the application are also displayed.
 
 .. _merge-bin:
 
@@ -213,6 +267,6 @@ The following commands are less commonly used, or only of interest to advanced u
     *  :ref:`read-mem-write-mem`
     *  :ref:`read-flash-status`
     *  :ref:`write-flash-status`
-    *  :ref:`chip-id`
+    :esp8266: *  :ref:`chip-id`
     :esp8266: *  :ref:`make-image`
     :esp8266: *  :ref:`run`

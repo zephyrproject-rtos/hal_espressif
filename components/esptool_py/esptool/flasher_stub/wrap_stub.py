@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-#
-# Stub has to be generated via Python 3, for correct repr() output
+#!/usr/bin/env python
 #
 # SPDX-FileCopyrightText: 2016 Cesanta Software Limited
 #
@@ -8,119 +6,86 @@
 #
 # SPDX-FileContributor: 2016-2022 Espressif Systems (Shanghai) CO LTD
 
-from __future__ import division, print_function
-
 import argparse
 import base64
+import json
 import os
 import os.path
-import re
 import sys
-import zlib
 
-sys.path.append('..')
+sys.path.append("..")
 import esptool  # noqa: E402
+
+THIS_DIR = os.path.dirname(__file__)
+BUILD_DIR = os.path.join(THIS_DIR, "./build/")
+STUBS_DIR = os.path.join(THIS_DIR, "../esptool/targets/stub_flasher/")
 
 
 def wrap_stub(elf_file):
-    """ Wrap an ELF file into a stub 'dict' """
-    print('Wrapping ELF file %s...' % elf_file)
-    e = esptool.ELFFile(elf_file)
+    """Wrap an ELF file into a stub JSON dict"""
+    print("Wrapping ELF file %s..." % elf_file)
 
-    text_section = e.get_section('.text')
-    try:
-        data_section = e.get_section('.data')
-    except ValueError:
-        data_section = None
+    e = esptool.bin_image.ELFFile(elf_file)
+
+    text_section = e.get_section(".text")
     stub = {
-        'text': text_section.data,
-        'text_start': text_section.addr,
-        'entry': e.entrypoint,
+        "entry": e.entrypoint,
+        "text": text_section.data,
+        "text_start": text_section.addr,
     }
-    if data_section is not None:
-        stub['data'] = data_section.data
-        stub['data_start'] = data_section.addr
+    try:
+        data_section = e.get_section(".data")
+        stub["data"] = data_section.data
+        stub["data_start"] = data_section.addr
+    except ValueError:
+        pass
 
     # Pad text with NOPs to mod 4.
-    if len(stub['text']) % 4 != 0:
-        stub['text'] += (4 - (len(stub['text']) % 4)) * '\0'
+    if len(stub["text"]) % 4 != 0:
+        stub["text"] += (4 - (len(stub["text"]) % 4)) * "\0"
 
-    print('Stub text: %d @ 0x%08x, data: %d @ 0x%08x, entry @ 0x%x' % (
-        len(stub['text']), stub['text_start'],
-        len(stub.get('data', '')), stub.get('data_start', 0),
-        stub['entry']), file=sys.stderr)
+    print(
+        "Stub text: %d @ 0x%08x, data: %d @ 0x%08x, entry @ 0x%x"
+        % (
+            len(stub["text"]),
+            stub["text_start"],
+            len(stub.get("data", "")),
+            stub.get("data_start", 0),
+            stub["entry"],
+        ),
+        file=sys.stderr,
+    )
+
     return stub
 
 
-PYTHON_TEMPLATE = """\
-ESP%sROM.STUB_CODE = eval(zlib.decompress(base64.b64decode(b\"\"\"
-%s\"\"\")))
-"""
+def write_json_files(stubs_dict):
+    class BytesEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytes):
+                return base64.b64encode(obj).decode("ascii")
+            return json.JSONEncoder.default(self, obj)
 
-ESPTOOL_PY = "../esptool.py"
-
-
-def write_python_snippet_to_file(stub_name, stub_data, out_file):
-    print("writing %s stub" % stub_name)
-    encoded = base64.b64encode(zlib.compress(repr(stub_data).encode("utf-8"), 9)).decode("utf-8")
-    in_lines = ""
-    # split encoded data into 160 character lines
-    LINE_LEN = 160
-    for c in range(0, len(encoded), LINE_LEN):
-        in_lines += encoded[c:c + LINE_LEN] + "\\\n"
-    out_file.write(PYTHON_TEMPLATE % (stub_name, in_lines))
-
-
-def write_python_snippets(stub_dict, out_file):
-    for name, stub_data in stub_dict.items():
-        m = re.match(r"stub_flasher_([a-z0-9_]+)", name)
-        key = m.group(1).upper()
-        write_python_snippet_to_file(key, stub_data, out_file)
-
-
-def embed_python_snippets(stubs):
-    with open(ESPTOOL_PY, 'r') as f:
-        lines = [line for line in f]
-
-    with open(ESPTOOL_PY, "w") as f:
-        skip_until = None
-        for line in lines:
-            if skip_until is not None:
-                if skip_until in line:
-                    skip_until = None
-                continue
-
-            m = re.search(r"ESP([A-Z0-9]+)ROM.STUB_CODE = eval", line)
-            if not m:
-                f.write(line)
-                continue
-
-            key = m.group(1)
-            stub_data = stubs.get("stub_flasher_%s" % key.lower(), None)
-            if not stub_data:
-                f.write(line)
-                continue
-
-            write_python_snippet_to_file(key, stub_data, f)
-            skip_until = r'""")))'
+    for filename, stub_data in stubs_dict.items():
+        DIR = STUBS_DIR if args.embed else BUILD_DIR
+        with open(DIR + filename, "w") as outfile:
+            json.dump(stub_data, outfile, cls=BytesEncoder, indent=4)
 
 
 def stub_name(filename):
-    """ Return a dictionary key for the stub with filename 'filename' """
-    return os.path.splitext(os.path.basename(filename))[0]
+    """Return a dictionary key for the stub with filename 'filename'"""
+    return os.path.splitext(os.path.basename(filename))[0] + ".json"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out-file", required=False, type=argparse.FileType('w'),
-                        help="Output file name. If not specified, stubs are embedded into esptool.py.")
+    parser.add_argument(
+        "--embed", help="Embed stub json files into esptool.py", action="store_true"
+    )
     parser.add_argument("elf_files", nargs="+", help="Stub ELF files to convert")
     args = parser.parse_args()
 
-    stubs = dict((stub_name(elf_file), wrap_stub(elf_file)) for elf_file in args.elf_files)
-    if args.out_file:
-        print('Dumping to Python snippet file %s.' % args.out_file.name)
-        write_python_snippets(stubs, args.out_file)
-    else:
-        print('Embedding Python snippets into esptool.py')
-        embed_python_snippets(stubs)
+    stubs = dict(
+        (stub_name(elf_file), wrap_stub(elf_file)) for elf_file in args.elf_files
+    )
+    write_json_files(stubs)

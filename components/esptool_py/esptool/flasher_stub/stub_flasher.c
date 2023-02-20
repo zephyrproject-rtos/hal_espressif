@@ -48,6 +48,77 @@ static uint8_t calculate_checksum(uint8_t *buf, int length)
   return res;
 }
 
+#if USE_MAX_CPU_FREQ
+static bool can_use_max_cpu_freq()
+{
+  /* Check if any of available USB modes are being used. */
+  #if WITH_USB_OTG && !WITH_USB_JTAG_SERIAL
+  return stub_uses_usb_otg();
+  #elif !WITH_USB_OTG && WITH_USB_JTAG_SERIAL
+  return stub_uses_usb_jtag_serial();
+  #elif WITH_USB_OTG && WITH_USB_JTAG_SERIAL
+  return stub_uses_usb_otg() || stub_uses_usb_jtag_serial();
+  #else
+  return false;
+  #endif
+}
+
+#if ESP32C6 || ESP32H2
+static uint32_t pcr_sysclk_conf_reg = 0;
+#else
+static uint32_t cpu_per_conf_reg = 0;
+static uint32_t sysclk_conf_reg = 0;
+#endif
+
+static void set_max_cpu_freq()
+{
+  if (can_use_max_cpu_freq())
+  {
+    /* Set CPU frequency to max. This also increases SPI speed. */
+    #if ESP32C6 || ESP32H2
+    pcr_sysclk_conf_reg = READ_REG(PCR_SYSCLK_CONF_REG);
+    WRITE_REG(PCR_SYSCLK_CONF_REG, (pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
+    #else
+    cpu_per_conf_reg = READ_REG(SYSTEM_CPU_PER_CONF_REG);
+    sysclk_conf_reg = READ_REG(SYSTEM_SYSCLK_CONF_REG);
+    WRITE_REG(SYSTEM_SYSCLK_CONF_REG, (sysclk_conf_reg & ~SYSTEM_SOC_CLK_SEL_M) | (SYSTEM_SOC_CLK_MAX << SYSTEM_SOC_CLK_SEL_S));
+    ets_delay_us(100);  /* Leave some time for the change to settle, needed for ESP32-S3 */
+    WRITE_REG(SYSTEM_CPU_PER_CONF_REG, (cpu_per_conf_reg & ~SYSTEM_CPUPERIOD_SEL_M) | (SYSTEM_CPUPERIOD_MAX << SYSTEM_CPUPERIOD_SEL_S));
+    #endif
+  }
+}
+
+static void reset_cpu_freq()
+{
+  /* Restore saved sysclk_conf and cpu_per_conf registers.
+     Use only if set_max_cpu_freq() has been called. */
+  #if ESP32C6 || ESP32H2
+  if (can_use_max_cpu_freq() && pcr_sysclk_conf_reg != 0)
+  {
+    WRITE_REG(PCR_SYSCLK_CONF_REG, (READ_REG(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
+  }
+  #else
+  if (can_use_max_cpu_freq() && sysclk_conf_reg != 0 && cpu_per_conf_reg != 0)
+  {
+    WRITE_REG(SYSTEM_CPU_PER_CONF_REG, (READ_REG(SYSTEM_CPU_PER_CONF_REG) & ~SYSTEM_CPUPERIOD_SEL_M) | (cpu_per_conf_reg & SYSTEM_CPUPERIOD_SEL_M));
+    WRITE_REG(SYSTEM_SYSCLK_CONF_REG, (READ_REG(SYSTEM_SYSCLK_CONF_REG) & ~SYSTEM_SOC_CLK_SEL_M) | (sysclk_conf_reg & SYSTEM_SOC_CLK_SEL_M));
+  }
+  #endif
+}
+#endif // USE_MAX_CPU_FREQ
+
+#if WITH_USB_JTAG_SERIAL
+static void disable_rtc_watchdog()
+{
+  if (stub_uses_usb_jtag_serial())
+  {
+    WRITE_REG(RTC_CNTL_WDTWPROTECT_REG, RTC_CNTL_WDT_WKEY); // Disable write protection
+    WRITE_REG(RTC_CNTL_WDTCONFIG0_REG, 0x0);                // Disable RTC watchdog
+    WRITE_REG(RTC_CNTL_WDTWPROTECT_REG, 0x0);               // Re-enable write protection
+  }
+}
+#endif // WITH_USB_JTAG_SERIAL
+
 static void stub_handle_rx_byte(char byte)
 {
   int16_t r = SLIP_recv_byte(byte, (slip_state_t *)&ub.state);
@@ -156,7 +227,7 @@ void cmd_loop() {
          * ended. */
       }
       break;
-    #if ESP32S2_OR_LATER && !ESP32H2BETA2
+    #if ESP32S2_OR_LATER
     case ESP_GET_SECURITY_INFO:
       error = verify_data_len(command, 0) || handle_get_security_info();
       break;
@@ -309,6 +380,9 @@ void cmd_loop() {
           /* Flush the FLASH_END response before rebooting */
           stub_tx_flush();
           ets_delay_us(10000);
+          #if USE_MAX_CPU_FREQ
+            reset_cpu_freq();
+          #endif // USE_MAX_CPU_FREQ
           software_reset();
         }
         break;
@@ -324,6 +398,9 @@ void cmd_loop() {
                  function. But for our purposes so far, having a bit of
                  extra stuff on the stack doesn't really matter.
               */
+              #if USE_MAX_CPU_FREQ
+                reset_cpu_freq();
+              #endif // USE_MAX_CPU_FREQ
               entrypoint_fn();
           }
           break;
@@ -368,6 +445,14 @@ void stub_main()
   /* this points to stub_main now, clear for next boot */
   ets_set_user_start(0);
 
+  #if USE_MAX_CPU_FREQ
+    set_max_cpu_freq();
+  #endif // USE_MAX_CPU_FREQ
+
+  #if WITH_USB_JTAG_SERIAL
+    disable_rtc_watchdog();
+  #endif // WITH_USB_JTAG_SERIAL
+
   /* zero bss */
   for(uint32_t *p = &_bss_start; p < &_bss_end; p++) {
     *p = 0;
@@ -385,10 +470,10 @@ void stub_main()
 
         spi_flash_attach();
 #else
-#if !ESP32C2
+#if !ESP32C2 && !ESP32C6 && !ESP32H2
         uint32_t spiconfig = ets_efuse_get_spiconfig();
 #else
-        // ESP32C2 doesn't support get spiconfig.
+        // ESP32C2/ESP32C6 doesn't support get spiconfig.
         uint32_t spiconfig = 0;
 #endif
         uint32_t strapping = READ_REG(GPIO_STRAP_REG);
@@ -400,12 +485,25 @@ void stub_main()
         }
         spi_flash_attach(spiconfig, 0);
 #endif
+#if ESP32S3 && !ESP32S3BETA2
+        // Initialize OPI flash driver only when flash is detected octal. Otherwise, we don't need to
+        // initialize such a driver
+        if (ets_efuse_flash_octal_mode()) {
+          static const esp_rom_opiflash_def_t flash_driver = OPIFLASH_DRIVER();
+          esp_rom_opiflash_legacy_driver_init(&flash_driver);
+          esp_rom_opiflash_wait_idle();
+        }
+#endif //ESP32S3 && !ESP32S3BETA2
         SPIParamCfg(0, FLASH_MAX_SIZE, FLASH_BLOCK_SIZE, FLASH_SECTOR_SIZE,
                     FLASH_PAGE_SIZE, FLASH_STATUS_MASK);
 
   cmd_loop();
 
   /* if cmd_loop returns, it's due to ESP_RUN_USER_CODE command. */
+
+  #if USE_MAX_CPU_FREQ
+    reset_cpu_freq();
+  #endif // USE_MAX_CPU_FREQ
 
   return;
 }
