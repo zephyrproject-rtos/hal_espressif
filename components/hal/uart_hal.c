@@ -120,6 +120,11 @@ void uart_hal_set_mode(uart_hal_context_t *hal, uart_mode_t mode)
     uart_ll_set_mode(hal->dev, mode);
 }
 
+bool uart_hal_is_mode_rs485_half_duplex(uart_hal_context_t *hal)
+{
+    return uart_ll_is_mode_rs485_half_duplex(hal->dev);
+}
+
 bool uart_hal_is_hw_rts_en(uart_hal_context_t *hal)
 {
     return uart_ll_is_hw_rts_en(hal->dev);

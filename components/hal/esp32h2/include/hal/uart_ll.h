@@ -661,6 +661,18 @@ static inline void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
 }
 
 /**
+ * @brief  Get the rs485_half_duplex mode.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return None.
+ */
+static inline bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+    return (!hw->rs485_conf.rx_busy_tx_en &&  hw->rs485_conf.en);
+}
+
+/**
  * @brief  Configure the UART work in collision_detect mode.
  *
  * @param  hw Beginning address of the peripheral registers.
