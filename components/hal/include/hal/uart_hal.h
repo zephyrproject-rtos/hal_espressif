@@ -432,6 +432,15 @@ void uart_hal_get_baudrate(uart_hal_context_t *hal, uint32_t *baud_rate);
 void uart_hal_get_hw_flow_ctrl(uart_hal_context_t *hal, uart_hw_flowcontrol_t *flow_ctrl);
 
 /**
+ * @brief Check if the UART is in hw RS485 half duplex mode
+ *
+ * @param  hal Context of the HAL layer
+ *
+ * @return True if hw RS485 half duplex mode is enabled, otherwise false will be returned
+ */
+bool uart_hal_is_mode_rs485_half_duplex(uart_hal_context_t *hal);
+
+/**
  * @brief Check if the UART rts flow control is enabled
  *
  * @param  hal Context of the HAL layer
