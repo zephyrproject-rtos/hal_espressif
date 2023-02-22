@@ -44,7 +44,7 @@ static inline void soc_ll_unstall_core(int core)
 
 static inline void soc_ll_reset_core(int core)
 {
-    SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_PROCPU_RST_M);
+    SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_SYS_RST_M);
 }
 
 #ifdef __cplusplus
