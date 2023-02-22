@@ -110,6 +110,13 @@ if(CONFIG_SOC_ESP32S3)
 
   zephyr_library_sources_ifdef(CONFIG_WDT_ESP32 ../../components/hal/wdt_hal_iram.c)
 
+  zephyr_sources_ifdef(
+    CONFIG_PWM_LED_ESP32
+    ../../components/soc/esp32s3/ledc_periph.c
+    ../../components/hal/ledc_hal_iram.c
+    ../../components/hal/ledc_hal.c
+    )
+
   zephyr_sources(
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
