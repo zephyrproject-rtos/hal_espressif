@@ -25,6 +25,7 @@ ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
+from build_helpers import load_domains
 from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
 from runners.core import BuildConfiguration  # noqa: E402
 
@@ -62,12 +63,12 @@ def get_esp_serial_port(module_path):
         return None
 
 
-def get_build_dir(args, die_if_none=True):
+def get_build_dir(path, die_if_none=True):
     # Get the build directory for the given argument list and environment.
 
     guess = config.get('build', 'guess-dir', fallback='never')
     guess = guess == 'runners'
-    dir = find_build_dir(None, guess)
+    dir = find_build_dir(path, guess)
 
     if dir and is_zephyr_build(dir):
         return dir
@@ -106,6 +107,13 @@ def get_build_elf_path():
         return content
 
     build_dir = get_build_dir(None)
+    domain = load_domains(build_dir).get_default_domain()
+
+    # build dir differs when sysbuild is used
+    if domain.name != 'app':
+        build_dir = Path(build_dir) / domain.name
+        build_dir = get_build_dir(build_dir)
+
     yaml_path = runners_yaml_path(build_dir)
     runners_yaml = load_runners_yaml(yaml_path)
 
@@ -151,7 +159,7 @@ class Tools(WestCommand):
         )
 
         if not module_path.exists():
-            log.die('cannot find espressif project in $ZEPHYR_BASE path')
+            log.die('cannot find espressif hal in $ZEPHYR_BASE/../modules/hal/ path')
 
         if args.command == "monitor":
             self.monitor(module_path, args)

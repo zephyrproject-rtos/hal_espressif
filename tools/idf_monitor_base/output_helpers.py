@@ -29,6 +29,7 @@ ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
+from build_helpers import load_domains
 from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
 from runners.core import BuildConfiguration  # noqa: E402
 from zcmake import CMakeCache
@@ -81,8 +82,15 @@ def red_print(message, newline='\n'):  # type: (str, Optional[str]) -> None
 def lookup_pc_address(pc_addr, toolchain_prefix, elf_file):  # type: (str, str, str) -> Optional[str]
     # cmd = ['%saddr2line' % toolchain_prefix, '-pfiaC', '-e', elf_file, pc_addr]
 
+    # build dir differs when sysbuild is used
+    build_dir = get_build_dir(None)
+    domain = load_domains(build_dir).get_default_domain()
+    if domain.name == 'app':
+        cache = CMakeCache.from_build_dir(build_dir)
+    else:
+        cache = CMakeCache.from_build_dir(Path(build_dir) / domain.name)
+
     # Zephyr: set toolchain from environment path
-    cache = CMakeCache.from_build_dir(get_build_dir(None))
     toolchain_path = cache['CMAKE_ADDR2LINE']
     cmd = [toolchain_path, '-pfiaC', '-e', elf_file, pc_addr]
 
