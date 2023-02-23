@@ -117,7 +117,12 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/ledc_hal.c
     )
 
-  zephyr_sources(
+  zephyr_sources_ifdef(
+    CONFIG_MCPWM_ESP32
+    ../../components/hal/mcpwm_hal.c
+    )
+  
+	zephyr_sources(
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
     ../../components/spi_flash/spi_flash_timing_tuning.c
