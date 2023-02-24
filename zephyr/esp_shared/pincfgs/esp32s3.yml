@@ -234,3 +234,59 @@ mcpwm1:
   cap2:
     sigi: pwm1_cap2_in
     gpio: [[0, 21], [26, 48]]
+
+pcnt0:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in0
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in0
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in0
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in0
+    gpio: [[0, 21], [26, 48]]
+
+pcnt1:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in1
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in1
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in1
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in1
+    gpio: [[0, 21], [26, 48]]
+
+pcnt2:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in2
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in2
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in2
+    gpio: [[0, 21], [26, 48]]
+
+pcnt3:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in3
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in3
+    gpio: [[0, 21], [26, 48]]
