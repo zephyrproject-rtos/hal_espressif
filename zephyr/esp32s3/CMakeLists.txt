@@ -21,6 +21,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/esp_common/include
     ../../components/esp_pm/include
     ../../components/esp_rom/include
+    ../../components/esp_rom/include/esp32s3/rom
     ../../components/esp_rom/esp32/ld
     ../../components/esp32s3/include
     ../../components/soc/esp32s3/include
@@ -145,6 +146,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_rom/patches/esp_rom_uart.c
     ../../components/esp_system/port/soc/esp32s3/clk.c
+    ../../components/esp_system/port/soc/esp32s3/reset_reason.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/cpu_hal.c
     ../../components/hal/interrupt_controller_hal.c

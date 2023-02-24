@@ -22,6 +22,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_pm/include
     ../../components/esp_rom/include
     ../../components/esp_rom/esp32s2/ld
+    ../../components/esp_rom/include/esp32s2/rom
     ../../components/esp32s2/include
     ../../components/driver/include
     ../../components/soc/esp32s2/include
@@ -198,6 +199,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
     ../../components/esp_system/port/soc/esp32s2/clk.c
+    ../../components/esp_system/port/soc/esp32s2/reset_reason.c
     ../../components/driver/periph_ctrl.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32s2/interrupt_descriptor_table.c

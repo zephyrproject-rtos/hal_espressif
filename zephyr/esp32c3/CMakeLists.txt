@@ -16,6 +16,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_pm/include
     ../../components/esp_rom/include
     ../../components/esp_rom/include/esp32c3
+    ../../components/esp_rom/include/esp32c3/rom
     ../../components/esp32c3/include
     ../../components/esp_hw_support/port/esp32c3/private_include
     ../../components/esp_hw_support/port/esp32c3
@@ -176,6 +177,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_system/port/soc/esp32c3/clk.c
+    ../../components/esp_system/port/soc/esp32c3/reset_reason.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/hal/systimer_hal.c
