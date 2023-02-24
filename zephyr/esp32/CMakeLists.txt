@@ -21,6 +21,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/esp_common/include
     ../../components/esp_pm/include
     ../../components/esp_rom/include
+    ../../components/esp_rom/include/esp32/rom
     ../../components/esp_rom/esp32/ld
     ../../components/esp32/include
     ../../components/soc/esp32/include
@@ -221,6 +222,7 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/efuse/src/esp_efuse_utility.c
     ../../components/bootloader_support/src/bootloader_flash_config_esp32.c
     ../../components/bootloader_support/src/bootloader_efuse_esp32.c
+    ../../components/esp_system/port/soc/esp32/reset_reason.c
     ../esp_shared/src/common/esp_system_api.c
     src/common/dport_access.c
     src/stubs.c
