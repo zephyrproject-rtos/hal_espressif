@@ -57,6 +57,11 @@ if(CONFIG_ESPTOOLPY_FLASHSIZE_DETECT)
     # Set ESPFLASHSIZE to 'detect' *after* elf2image options are generated,
     # as elf2image can't have 'detect' as an option...
     set(ESPFLASHSIZE detect)
+
+    # Flash size detection updates the image header which would invalidate the appended
+    # SHA256 digest. Therefore, a digest is not appended in that case.
+    # This argument requires esptool>=4.1.
+    list(APPEND esptool_elf2image_args --dont-append-digest)
 endif()
 
 if(CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME)
