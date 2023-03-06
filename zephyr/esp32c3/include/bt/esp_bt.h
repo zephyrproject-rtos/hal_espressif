@@ -148,17 +148,14 @@ enum {
 #define BLE_HW_TARGET_CODE_ESP32C3_CHIP_ECO0                      (0x01010000)
 
 #define BT_TASK_EXTRA_STACK_SIZE 512
-#define BT_CONTROLLER_STACK  (3584 + BT_TASK_EXTRA_STACK_SIZE)
-#define BT_CONTROLLER_PRIO 4
-
-/* BT library heap usage from BT memory map documentation */
-#define ESP_BT_HEAP_SIZE 35840
+#define ESP_TASK_BT_CONTROLLER_STACK  (3584 + BT_TASK_EXTRA_STACK_SIZE)
+#define ESP_TASK_BT_CONTROLLER_PRIO 4
 
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() { \
 	.magic = ESP_BT_CTRL_CONFIG_MAGIC_VAL, \
 	.version = ESP_BT_CTRL_CONFIG_VERSION, \
-	.controller_task_stack_size = BT_CONTROLLER_STACK, \
-	.controller_task_prio = BT_CONTROLLER_PRIO, \
+	.controller_task_stack_size = ESP_TASK_BT_CONTROLLER_STACK, \
+	.controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO, \
 	.controller_task_run_cpu = 0, \
 	.bluetooth_mode = 1, \
 	.ble_max_act = 10, \
