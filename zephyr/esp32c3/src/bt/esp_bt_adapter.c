@@ -332,18 +332,15 @@ static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONT
 static unsigned int global_int_lock;
 static unsigned int global_nested_counter = 0;
 
-K_THREAD_STACK_DEFINE(bt_stack, BT_CONTROLLER_STACK);
+K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
 static struct k_thread bt_task_handle;
-
-static DRAM_ATTR uint8_t bt_heap_pool[ESP_BT_HEAP_SIZE];
-static struct k_heap bt_heap;
 
 static DRAM_ATTR uint8_t btdm_lpclk_sel;
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
 static void esp_bt_free(void *mem)
 {
-	k_heap_free(&bt_heap, mem);
+	k_free(mem);
 }
 
 void IRAM_ATTR btdm_hw_mac_power_down_wrapper(void)
@@ -445,7 +442,7 @@ static bool IRAM_ATTR is_in_isr_wrapper(void)
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *) k_heap_alloc(&bt_heap, sizeof(struct k_sem), K_NO_WAIT);
+	struct k_sem *sem = (struct k_sem *) k_malloc(sizeof(struct k_sem));
 
 	if (sem == NULL) {
 		LOG_ERR("semaphore malloc failed");
@@ -510,7 +507,7 @@ static int32_t semphr_give_wrapper(void *semphr)
 
 static void *mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) k_heap_alloc(&bt_heap, sizeof(struct k_mutex), K_NO_WAIT);
+	struct k_mutex *my_mutex = (struct k_mutex *) k_malloc(sizeof(struct k_mutex));
 
 	if (my_mutex == NULL) {
 		LOG_ERR("mutex malloc failed");
@@ -545,14 +542,14 @@ static int32_t mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-	struct bt_queue_t *queue = k_heap_alloc(&bt_heap, sizeof(struct bt_queue_t), K_NO_WAIT);
+	struct bt_queue_t *queue = k_malloc(sizeof(struct bt_queue_t));
 
 	if (queue == NULL) {
 		LOG_ERR("queue malloc failed");
 		return NULL;
 	}
 
-	queue->pool = (uint8_t *)k_heap_alloc(&bt_heap, queue_len * item_size * sizeof(uint8_t), K_NO_WAIT);
+	queue->pool = (uint8_t *)k_malloc(queue_len * item_size * sizeof(uint8_t));
 
 	if (queue->pool == NULL) {
 		LOG_ERR("queue pool malloc failed");
@@ -656,7 +653,7 @@ static void task_delete_wrapper(void *task_handle)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-	return k_heap_alloc(&bt_heap, sizeof(uint8_t) * size, K_NO_WAIT);
+	return k_malloc(sizeof(uint8_t) * size);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -876,7 +873,6 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
 	esp_err_t err;
 
-	k_heap_init(&bt_heap, &bt_heap_pool, ESP_BT_HEAP_SIZE);
 	btdm_controller_mem_init();
 
 	osi_funcs_p = (struct osi_funcs_t *)malloc_internal_wrapper(sizeof(struct osi_funcs_t));

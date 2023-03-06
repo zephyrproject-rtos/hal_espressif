@@ -14,7 +14,7 @@
 #include <string.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(esp32_bt_adapter, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
 #include "sdkconfig.h"
 #include "xtensa/core-macros.h"
@@ -354,8 +354,6 @@ static unsigned int global_nested_counter = 0;
 K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
 static struct k_thread bt_task_handle;
 
-K_HEAP_DEFINE(bt_heap, ESP_BT_HEAP_SIZE);
-
 /* measured average low power clock period in micro seconds */
 static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
 /* number of fractional bit for btdm_lpcycle_us */
@@ -439,7 +437,7 @@ static void IRAM_ATTR task_yield_from_isr(void)
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *) k_heap_alloc(&bt_heap, sizeof(struct k_sem), K_NO_WAIT);
+	struct k_sem *sem = (struct k_sem *) k_malloc(sizeof(struct k_sem));
 
 	if (sem == NULL) {
 		LOG_ERR("semaphore malloc failed");
@@ -504,7 +502,7 @@ static int32_t semphr_give_wrapper(void *semphr)
 
 static void *mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) k_heap_alloc(&bt_heap, sizeof(struct k_mutex), K_NO_WAIT);
+	struct k_mutex *my_mutex = (struct k_mutex *) k_malloc(sizeof(struct k_mutex));
 
 	if (my_mutex == NULL) {
 		LOG_ERR("mutex malloc failed");
@@ -539,14 +537,14 @@ static int32_t mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-	struct bt_queue_t *queue = k_heap_alloc(&bt_heap, sizeof(struct bt_queue_t), K_NO_WAIT);
+	struct bt_queue_t *queue = k_malloc(sizeof(struct bt_queue_t));
 
 	if (queue == NULL) {
 		LOG_ERR("queue malloc failed");
 		return NULL;
 	}
 
-	queue->pool = (uint8_t *)k_heap_alloc(&bt_heap, queue_len * item_size * sizeof(uint8_t), K_NO_WAIT);
+	queue->pool = (uint8_t *)k_malloc(queue_len * item_size * sizeof(uint8_t));
 
 	if (queue->pool == NULL) {
 		LOG_ERR("queue pool malloc failed");
@@ -664,7 +662,7 @@ static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-	return k_heap_alloc(&bt_heap, sizeof(uint8_t) * size, K_NO_WAIT);
+	return k_malloc(sizeof(uint8_t) * size);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -1131,6 +1129,10 @@ esp_err_t esp_bt_controller_deinit(void)
 
 static void bt_shutdown(void)
 {
+	if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_ENABLED) {
+		return;
+	}
+
 	esp_bt_controller_shutdown();
 	esp_phy_disable();
 	return;
@@ -1310,5 +1312,5 @@ esp_err_t esp_ble_scan_dupilcate_list_flush(void)
 }
 
 static void esp_bt_free(void *mem) {
-	k_heap_free(&bt_heap, mem);
+	k_free(mem);
 }

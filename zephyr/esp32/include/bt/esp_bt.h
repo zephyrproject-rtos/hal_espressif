@@ -146,9 +146,6 @@ the adv packet will be discarded until the memory is restored. */
 #define ESP_TASK_BT_CONTROLLER_STACK  (3584 + BT_TASK_EXTRA_STACK_SIZE)
 #define ESP_TASK_BT_CONTROLLER_PRIO 1
 
-/* BT library heap usage from BT memory map documentation */
-#define ESP_BT_HEAP_SIZE 20*1024
-
 /* SMP is not supported yet */
 #define CONFIG_BTDM_CTRL_PINNED_TO_CORE 0
 
