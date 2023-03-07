@@ -98,7 +98,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
     ../../components/soc/esp32s3/spi_periph.c
-	../../components/hal/gdma_hal.c
+    ../../components/hal/gdma_hal.c
     )
 
   zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
@@ -128,7 +128,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/pcnt_hal.c
     )
 
-	zephyr_sources(
+  zephyr_sources(
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
     ../../components/spi_flash/spi_flash_timing_tuning.c
@@ -167,6 +167,47 @@ if(CONFIG_SOC_ESP32S3)
     src/heap_caps.c
     src/stubs.c
     )
+
+  ## shared WIFI/BT resources
+  if (CONFIG_BT)
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+      )
+
+    zephyr_link_libraries(
+      net80211
+      core
+      pp
+      coexist
+      phy
+      mesh
+      ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s3
+      )
+
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+    zephyr_sources(
+      src/bt/esp_bt_adapter.c
+      )
+
+    zephyr_compile_definitions(
+      CONFIG_BT_ENABLED
+      )
+
+    zephyr_link_libraries(
+      ## ble
+      btbb
+      btdm_app
+      coexist
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s3
+      )
+
+  endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
