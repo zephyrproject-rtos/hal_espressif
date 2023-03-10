@@ -143,7 +143,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 #endif // SOC_SYSTIMER_INT_LEVEL
 
     esp_intr_alloc(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE,
-        ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM | int_type | interrupt_lvl,
+        ESP_INTR_FLAG_IRAM | int_type | interrupt_lvl,
         (ISR_HANDLER)timer_alarm_isr,
         NULL,
         NULL);
