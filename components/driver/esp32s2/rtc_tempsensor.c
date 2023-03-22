@@ -8,8 +8,6 @@
 #include <ctype.h>
 #include <math.h>
 #include "esp_types.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "soc/rtc_cntl_reg.h"
