@@ -23,8 +23,6 @@ we add more types of external RAM memory, this can be made into a more intellige
 #include "esp32/spiram.h"
 #include "spiram_psram.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/xtensa_api.h"
 #include "soc/soc.h"
 #if !defined(__ZEPHYR__)
 #include "esp_heap_caps_init.h"
