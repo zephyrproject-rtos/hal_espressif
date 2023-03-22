@@ -26,6 +26,7 @@
 #include "esp32c3/rom/ets_sys.h"
 #include <rom/efuse.h>
 #include <riscv/interrupt.h>
+#include "phy.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
@@ -872,6 +873,22 @@ void esp_release_wifi_and_coex_mem(void)
 
 }
 
+static inline void esp_bt_power_domain_on(void)
+{
+	// Bluetooth module power up
+	CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_BT_FORCE_PD);
+	CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_BT_FORCE_ISO);
+	esp_wifi_bt_power_domain_on();
+}
+
+static inline void esp_bt_power_domain_off(void)
+{
+	// Bluetooth module power down
+	SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_BT_FORCE_ISO);
+	SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_BT_FORCE_PD);
+	esp_wifi_bt_power_domain_off();
+}
+
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
 	esp_err_t err;
@@ -904,6 +921,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 		err = ESP_ERR_NO_MEM;
 		goto error;
 	}
+
+	esp_bt_power_domain_on();
 
 	btdm_vnd_offload_task_register(BTDM_VND_OL_SIG_WAKEUP_TMR, btdm_sleep_exit_phase0);
 
@@ -993,6 +1012,14 @@ esp_err_t esp_bt_controller_deinit(void)
 
 	btdm_lpcycle_us = 0;
 	btdm_controller_enable_sleep(false);
+
+	/*
+	 * Fix the issue caused by the power off the bt power domain.
+	 * This issue is only on ESP32C3.
+	 */
+	phy_init_flag();
+
+	esp_bt_power_domain_off();
 
 	return ESP_OK;
 }
