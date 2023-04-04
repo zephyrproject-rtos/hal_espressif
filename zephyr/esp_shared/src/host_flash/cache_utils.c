@@ -80,12 +80,12 @@ static void IRAM_ATTR spi_flash_restore_cache(uint32_t cpuid, uint32_t saved_sta
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL1_REG, cache_mask, saved_state, 0);
 	}
 #endif
-#elif CONFIG_IDF_TARGET_ESP32S2
+#elif CONFIG_SOC_ESP32S2
 	Cache_Resume_ICache(saved_state);
-#elif CONFIG_IDF_TARGET_ESP32S3
+#elif CONFIG_SOC_ESP32S3
 	Cache_Resume_DCache(saved_state & 0xffff);
 	Cache_Resume_ICache(saved_state >> 16);
-#elif CONFIG_IDF_TARGET_ESP32C3
+#elif CONFIG_SOC_ESP32C3
 	Cache_Resume_ICache(saved_state >> 16);
 #endif
 }
@@ -135,4 +135,3 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 
 	k_sched_unlock();
 }
-
