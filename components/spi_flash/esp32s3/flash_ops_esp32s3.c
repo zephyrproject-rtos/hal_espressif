@@ -54,7 +54,7 @@ esp_rom_spiflash_result_t IRAM_ATTR spi_flash_write_encrypted_chip(size_t dest_a
             dest_addr += next_block;
             src = ((uint8_t *)src) + next_block;
         }
-        bzero(block, sizeof(block));
+        memset(block, 0, sizeof(block));
 
         return ESP_ROM_SPIFLASH_RESULT_OK;
     } else { // Already in internal memory

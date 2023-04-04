@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <zephyr/kernel.h>
 #include <stdint.h>
 #include "soc/soc_caps.h"
 #include "soc/soc.h"
@@ -32,7 +33,11 @@ extern "C" {
  */
 static inline void intr_cntrl_ll_enable_interrupts(uint32_t mask)
 {
+#ifdef __ZEPHYR__
+    z_xt_ints_on(mask);
+#else
     xt_ints_on(mask);
+#endif
 }
 
 /**
@@ -42,7 +47,11 @@ static inline void intr_cntrl_ll_enable_interrupts(uint32_t mask)
  */
 static inline void intr_cntrl_ll_disable_interrupts(uint32_t mask)
 {
+#ifdef __ZEPHYR__
+    z_xt_ints_off(mask);
+#else
     xt_ints_off(mask);
+#endif
 }
 
 /**

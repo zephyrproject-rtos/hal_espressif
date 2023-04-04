@@ -87,6 +87,20 @@ if(CONFIG_SOC_ESP32S3)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_SOC_FLASH_ESP32
+    ../esp_shared/src/host_flash/cache_utils.c
+    ../../components/spi_flash/flash_mmap.c
+    ../../components/spi_flash/esp32s3/spi_flash_rom_patch.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/esp32s3/flash_ops_esp32s3.c
+    )
+
+  zephyr_compile_definitions(
+    CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+    CONFIG_SPI_FLASH_USE_LEGACY_IMPL
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c

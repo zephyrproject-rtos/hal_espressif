@@ -10,6 +10,9 @@
 #elif defined(CONFIG_SOC_ESP32S2)
 #include "esp_attr.h"
 #include "esp32s2/rom/cache.h"
+#elif defined(CONFIG_SOC_ESP32S3)
+#include "esp_attr.h"
+#include "esp32s3/rom/cache.h"
 #elif defined(CONFIG_SOC_ESP32C3)
 #include "soc/soc.h"
 #include "esp32c3/rom/cache.h"
@@ -20,4 +23,3 @@
 void IRAM_ATTR esp32_spiflash_start(void);
 
 void IRAM_ATTR esp32_spiflash_end(void);
-
