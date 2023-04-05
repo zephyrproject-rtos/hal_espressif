@@ -302,3 +302,17 @@ pcnt3:
   ch1ctrl:
     sigi: pcnt_ctrl_ch1_in3
     gpio: [[0, 21], [26, 48]]
+
+twai:
+  rx:
+    sigi: twai_rx
+    gpio: [[0, 21], [26, 48]]
+  tx:
+    sigo: twai_tx
+    gpio: [[0, 21], [26, 48]]
+  clkout:
+    sigo: twai_clkout
+    gpio: [[0, 21], [26, 48]]
+  bus_off:
+    sigo: twai_bus_off_on
+    gpio: [[0, 21], [26, 48]]
