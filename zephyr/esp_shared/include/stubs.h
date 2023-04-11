@@ -14,7 +14,7 @@
 #define typeof  __typeof__
 #endif
 
-#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
 
 #if defined(CONFIG_SOC_ESP32) || defined(CONFIG_SOC_ESP32_NET)
 #define DT_CPU_COMPAT cdns_tensilica_xtensa_lx6
