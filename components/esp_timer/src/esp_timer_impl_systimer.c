@@ -4,7 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#ifndef __ZEPHYR__
 #include "sys/param.h"
+#include "freertos/FreeRTOS.h"
+#else
+#ifdef CONFIG_SOC_ESP32C3
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#define ISR_HANDLER isr_handler_t
+#else
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#define ISR_HANDLER intr_handler_t
+#endif
+#include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
+#endif /* __ZEPHYR__ */
+
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
@@ -14,21 +28,9 @@
 #include "soc/periph_defs.h"
 #include "soc/soc_caps.h"
 #include "soc/rtc.h"
-#ifndef __ZEPHYR__
-#include "freertos/FreeRTOS.h"
-#endif
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
-#include <zephyr/kernel.h>
-
-#ifdef CONFIG_SOC_ESP32C3
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
-#define ISR_HANDLER isr_handler_t
-#else
-#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
-#define ISR_HANDLER intr_handler_t
-#endif
 
 /**
  * @file esp_timer_systimer.c
