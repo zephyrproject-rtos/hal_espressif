@@ -10,7 +10,6 @@
 #include <sys/time.h>
 #include "sdkconfig.h"
 #endif
-#include <sys/param.h>
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp32s3/clk.h"

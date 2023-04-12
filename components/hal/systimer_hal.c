@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef __ZEPHYR__
 #include <sys/param.h>
+#else
+#include <zephyr/sys/util.h>
+#endif
 #include "soc/soc_caps.h"
 #include "hal/systimer_hal.h"
 #include "hal/systimer_ll.h"

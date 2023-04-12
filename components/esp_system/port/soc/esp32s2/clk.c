@@ -9,7 +9,6 @@
 #if !defined(__ZEPHYR__)
 #include <sys/time.h>
 #endif
-#include <sys/param.h>
 
 #if !defined(__ZEPHYR__)
 #include "sdkconfig.h"

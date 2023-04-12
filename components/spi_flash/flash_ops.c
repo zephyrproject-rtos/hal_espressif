@@ -8,12 +8,17 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/param.h>  // For MIN/MAX(a, b)
 
 #if !defined(__ZEPHYR__)
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#endif
+
+#if !defined(__ZEPHYR__)
+#include <sys/param.h>  // For MIN/MAX(a, b)
+#else
+#include <zephyr/sys/util.h>
 #endif
 
 #include <soc/soc.h>

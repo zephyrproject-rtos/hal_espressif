@@ -9,7 +9,6 @@
 #if !defined(__ZEPHYR__)
 #include <sys/time.h>
 #endif
-#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"

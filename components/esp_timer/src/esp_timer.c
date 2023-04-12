@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <sys/param.h>
 #include <string.h>
 #include "soc/soc.h"
 #include "esp_types.h"

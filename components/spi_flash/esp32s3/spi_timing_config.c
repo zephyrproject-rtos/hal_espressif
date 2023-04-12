@@ -5,7 +5,11 @@
  */
 
 #include <stdlib.h>
+#ifndef __ZEPHYR__
 #include <sys/param.h>
+#else
+#include <zephyr/sys/util.h>
+#endif
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"
