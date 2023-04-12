@@ -83,8 +83,12 @@
 #define BIT32    (0x00000001ULL << 32)
 
 #ifndef __ASSEMBLER__
+#ifndef __ZEPHYR__
 #ifndef BIT
 #define BIT(nr)                 (1UL << (nr))
+#endif
+#else
+#include <zephyr/sys/util.h>
 #endif
 #ifndef BIT64
 #define BIT64(_n)               (1ULL << (_n))
