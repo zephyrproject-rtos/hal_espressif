@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-if(CONFIG_HAS_ESPRESSIF_HAL)
+
+# check for RF libraries in case ESP32 family is used and BT or WIFI are enabled
+if(CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32)
   list(APPEND LIBRARIES "coexist" "core" "net80211" "phy" "pp")
 
   if(CONFIG_SOC_ESP32)
@@ -21,11 +23,10 @@ if(CONFIG_HAS_ESPRESSIF_HAL)
       break()
     endif()
   endforeach()
-
-  add_subdirectory_ifdef(CONFIG_SOC_ESP32 esp32)
-  add_subdirectory_ifdef(CONFIG_SOC_ESP32_NET esp32)
-  add_subdirectory_ifdef(CONFIG_SOC_ESP32C3 esp32c3)
-  add_subdirectory_ifdef(CONFIG_SOC_ESP32S2 esp32s2)
-  add_subdirectory_ifdef(CONFIG_SOC_ESP32S3 esp32s3)
-
 endif()
+
+add_subdirectory_ifdef(CONFIG_SOC_ESP32 esp32)
+add_subdirectory_ifdef(CONFIG_SOC_ESP32_NET esp32)
+add_subdirectory_ifdef(CONFIG_SOC_ESP32C3 esp32c3)
+add_subdirectory_ifdef(CONFIG_SOC_ESP32S2 esp32s2)
+add_subdirectory_ifdef(CONFIG_SOC_ESP32S3 esp32s3)
