@@ -630,11 +630,23 @@ esp_err_t esp_light_sleep_start(void)
     s_config.ccount_ticks_record = cpu_ll_get_cycle_count();
     static int light_sleep_lock;
     light_sleep_lock = irq_lock();
+
+    /* 
+    Note: We are about to stall the other CPU via the esp_ipc_isr_stall_other_cpu(). However, there is a chance of
+    deadlock if after stalling the other CPU, we attempt to take spinlocks already held by the other CPU that is.
+
+    Thus any functions that we call after stalling the other CPU will need to have the locks taken first to avoid
+    deadlock.
+
+    Todo: IDF-5257
+    */
+
     /* We will be calling esp_timer_private_advance inside DPORT access critical
      * section. Make sure the code on the other CPU is not holding esp_timer
      * lock, otherwise there will be deadlock.
      */
     esp_timer_private_lock();
+    esp_clk_private_lock();
 
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
     uint32_t ccount_at_sleep_start = cpu_ll_get_cycle_count();
@@ -772,6 +784,7 @@ esp_err_t esp_light_sleep_start(void)
     esp_set_time_from_rtc();
 #endif
 
+    esp_clk_private_unlock();
     esp_timer_private_unlock();
 
 #if !defined(__ZEPHYR__)
