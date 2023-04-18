@@ -1,0 +1,318 @@
+# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Notes:
+# - I/O GPIO pads are 0-21, 26-48
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 21], [26, 48]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 21], [26, 48]]
+  rts:
+    sigo: u0rts_out
+    gpio: [[0, 21], [26, 48]]
+  cts:
+    sigi: u0cts_in
+    gpio: [[0, 21], [26, 48]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 21], [26, 48]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 21], [26, 48]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 21], [26, 48]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 21], [26, 48]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 21], [26, 48]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 21], [26, 48]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 21], [26, 48]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 21], [26, 48]]
+
+uart2:
+  tx:
+    sigo: u2txd_out
+    gpio: [[0, 21], [26, 48]]
+  rx:
+    sigi: u2rxd_in
+    gpio: [[0, 21], [26, 48]]
+  rts:
+    sigo: u2rts_out
+    gpio: [[0, 21], [26, 48]]
+  cts:
+    sigi: u2cts_in
+    gpio: [[0, 21], [26, 48]]
+
+i2c0:
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 21], [26, 48]]
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 21], [26, 48]]
+
+i2c1:
+  sda:
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    gpio: [[0, 21], [26, 48]]
+  scl:
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    gpio: [[0, 21], [26, 48]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 21], [26, 48]]
+  csel1:
+    sigo: fspics1_out
+    gpio: [[0, 21], [26, 48]]
+  csel2:
+    sigo: fspics2_out
+    gpio: [[0, 21], [26, 48]]
+  csel3:
+    sigo: fspics3_out
+    gpio: [[0, 21], [26, 48]]
+  csel4:
+    sigo: fspics4_out
+    gpio: [[0, 21], [26, 48]]
+  csel5:
+    sigo: fspics5_out
+    gpio: [[0, 21], [26, 48]]
+
+spim3:
+  miso:
+    sigi: spi3_q_in
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigo: spi3_d_out
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigo: spi3_clk_out
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigo: spi3_cs0_out
+    gpio: [[0, 21], [26, 48]]
+  csel1:
+    sigo: spi3_cs1_out
+    gpio: [[0, 21], [26, 48]]
+  csel2:
+    sigo: spi3_cs2_out
+    gpio: [[0, 21], [26, 48]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 21], [26, 48]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 21], [26, 48]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 21], [26, 48]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 21], [26, 48]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 21], [26, 48]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 21], [26, 48]]
+  ch6:
+    sigo: ledc_ls_sig_out6
+    gpio: [[0, 21], [26, 48]]
+  ch7:
+    sigo: ledc_ls_sig_out7
+    gpio: [[0, 21], [26, 48]]
+
+mcpwm0:
+  out0a:
+    sigo: pwm0_out0a
+    gpio: [[0, 21], [26, 48]]
+  out0b:
+    sigo: pwm0_out0b
+    gpio: [[0, 21], [26, 48]]
+  out1a:
+    sigo: pwm0_out1a
+    gpio: [[0, 21], [26, 48]]
+  out1b:
+    sigo: pwm0_out1b
+    gpio: [[0, 21], [26, 48]]
+  out2a:
+    sigo: pwm0_out2a
+    gpio: [[0, 21], [26, 48]]
+  out2b:
+    sigo: pwm0_out2b
+    gpio: [[0, 21], [26, 48]]
+  sync0:
+    sigi: pwm0_sync0_in
+    gpio: [[0, 21], [26, 48]]
+  sync1:
+    sigi: pwm0_sync1_in
+    gpio: [[0, 21], [26, 48]]
+  sync2:
+    sigi: pwm0_sync2_in
+    gpio: [[0, 21], [26, 48]]
+  fault0:
+    sigi: pwm0_f0_in
+    gpio: [[0, 21], [26, 48]]
+  fault1:
+    sigi: pwm0_f1_in
+    gpio: [[0, 21], [26, 48]]
+  fault2:
+    sigi: pwm0_f2_in
+    gpio: [[0, 21], [26, 48]]
+  cap0:
+    sigi: pwm0_cap0_in
+    gpio: [[0, 21], [26, 48]]
+  cap1:
+    sigi: pwm0_cap1_in
+    gpio: [[0, 21], [26, 48]]
+  cap2:
+    sigi: pwm0_cap2_in
+    gpio: [[0, 21], [26, 48]]
+
+mcpwm1:
+  out0a:
+    sigo: pwm1_out0a
+    gpio: [[0, 21], [26, 48]]
+  out0b:
+    sigo: pwm1_out0b
+    gpio: [[0, 21], [26, 48]]
+  out1a:
+    sigo: pwm1_out1a
+    gpio: [[0, 21], [26, 48]]
+  out1b:
+    sigo: pwm1_out1b
+    gpio: [[0, 21], [26, 48]]
+  out2a:
+    sigo: pwm1_out2a
+    gpio: [[0, 21], [26, 48]]
+  out2b:
+    sigo: pwm1_out2b
+    gpio: [[0, 21], [26, 48]]
+  sync0:
+    sigi: pwm1_sync0_in
+    gpio: [[0, 21], [26, 48]]
+  sync1:
+    sigi: pwm1_sync1_in
+    gpio: [[0, 21], [26, 48]]
+  sync2:
+    sigi: pwm1_sync2_in
+    gpio: [[0, 21], [26, 48]]
+  fault0:
+    sigi: pwm1_f0_in
+    gpio: [[0, 21], [26, 48]]
+  fault1:
+    sigi: pwm1_f1_in
+    gpio: [[0, 21], [26, 48]]
+  fault2:
+    sigi: pwm1_f2_in
+    gpio: [[0, 21], [26, 48]]
+  cap0:
+    sigi: pwm1_cap0_in
+    gpio: [[0, 21], [26, 48]]
+  cap1:
+    sigi: pwm1_cap1_in
+    gpio: [[0, 21], [26, 48]]
+  cap2:
+    sigi: pwm1_cap2_in
+    gpio: [[0, 21], [26, 48]]
+
+pcnt0:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in0
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in0
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in0
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in0
+    gpio: [[0, 21], [26, 48]]
+
+pcnt1:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in1
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in1
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in1
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in1
+    gpio: [[0, 21], [26, 48]]
+
+pcnt2:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in2
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in2
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in2
+    gpio: [[0, 21], [26, 48]]
+
+pcnt3:
+  ch0sig:
+    sigi: pcnt_sig_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch0ctrl:
+    sigi: pcnt_ctrl_ch0_in3
+    gpio: [[0, 21], [26, 48]]
+  ch1sig:
+    sigi: pcnt_sig_ch1_in3
+    gpio: [[0, 21], [26, 48]]
+  ch1ctrl:
+    sigi: pcnt_ctrl_ch1_in3
+    gpio: [[0, 21], [26, 48]]
+
+twai:
+  rx:
+    sigi: twai_rx
+    gpio: [[0, 21], [26, 48]]
+  tx:
+    sigo: twai_tx
+    gpio: [[0, 21], [26, 48]]
+  clkout:
+    sigo: twai_clkout
+    gpio: [[0, 21], [26, 48]]
+  bus_off:
+    sigo: twai_bus_off_on
+    gpio: [[0, 21], [26, 48]]
