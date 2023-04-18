@@ -155,6 +155,20 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/esp_hw_support/port/esp32s3/spiram.c
     ../../components/esp_hw_support/port/esp32s3/spiram_psram.c
     ../../components/bootloader_support/src/bootloader_common.c
+  )
+
+  zephyr_sources_ifdef(
+    CONFIG_PM
+    ../esp_shared/components/driver/gpio.c
+    ../esp_shared/components/driver/rtc_io.c
+    ../esp_shared/components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_retention.c
+    ../../components/hal/esp32s3/rtc_cntl_hal.c
+    ../esp_shared/components/esp_pm/pm_impl.c
+    ../../components/esp_system/port/brownout.c
+    ../../components/hal/esp32s3/brownout_hal.c
+    ../../components/hal/esp32s3/touch_sensor_hal.c
+    ../../components/hal/wdt_hal_iram.c
     )
 
   if (CONFIG_MCUBOOT)

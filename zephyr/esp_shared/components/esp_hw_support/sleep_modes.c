@@ -105,7 +105,7 @@
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (147)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (28)
 #elif CONFIG_IDF_TARGET_ESP32S3
-#define DEFAULT_CPU_FREQ_MHZ                CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ
+
 #define DEFAULT_SLEEP_OUT_OVERHEAD_US       (382)
 #define DEFAULT_HARDWARE_OUT_OVERHEAD_US    (133)
 #elif CONFIG_IDF_TARGET_ESP32C3
@@ -378,7 +378,7 @@ static bool s_ultra_low_enabled = false;
 void esp_sleep_periph_use_8m(bool use_or_not)
 {
     s_periph_use_8m_flag = use_or_not;
-    }
+}
 
 static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
 {
@@ -663,7 +663,7 @@ esp_err_t esp_light_sleep_start(void)
     static int light_sleep_lock;
     light_sleep_lock = irq_lock();
 
-    /* 
+    /*
     Note: We are about to stall the other CPU via the esp_ipc_isr_stall_other_cpu(). However, there is a chance of
     deadlock if after stalling the other CPU, we attempt to take spinlocks already held by the other CPU that is.
 
@@ -703,8 +703,8 @@ esp_err_t esp_light_sleep_start(void)
     // Re-calibrate the RTC Timer clock
 #ifdef CONFIG_ESP_SYSTEM_RTC_EXT_XTAL
     if (rtc_clk_slow_freq_get() == RTC_SLOW_FREQ_32K_XTAL) {
-    uint64_t time_per_us = 1000000ULL;
-    s_config.rtc_clk_cal_period = (time_per_us << RTC_CLK_CAL_FRACT) / rtc_clk_slow_freq_get_hz();
+        uint64_t time_per_us = 1000000ULL;
+        s_config.rtc_clk_cal_period = (time_per_us << RTC_CLK_CAL_FRACT) / rtc_clk_slow_freq_get_hz();
     } else {
         // If the external 32 kHz XTAL does not exist, use the internal 150 kHz RC oscillator
         // as the RTC slow clock source.
@@ -800,7 +800,7 @@ esp_err_t esp_light_sleep_start(void)
     if ((s_config.wakeup_triggers & RTC_TIMER_TRIG_EN) && (final_sleep_duration_us <= min_sleep_duration_us)) {
         err = ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION;
     } else {
-    // Enter sleep, then wait for flash to be ready on wakeup
+        // Enter sleep, then wait for flash to be ready on wakeup
         err = esp_light_sleep_inner(pd_flags, flash_enable_time_us, vddsdio_config);
     }
 
@@ -1323,7 +1323,7 @@ static uint32_t get_power_down_flags(void)
             s_config.pd_options[ESP_PD_DOMAIN_RTC_PERIPH] = ESP_PD_OPTION_ON;
         } else {
             s_config.pd_options[ESP_PD_DOMAIN_RTC_PERIPH] = ESP_PD_OPTION_OFF;
-        }
+    }
 #endif // SOC_PM_SUPPORT_TOUCH_SENSOR_WAKEUP
     }
 
