@@ -1,0 +1,6 @@
+west-commands:
+  - file: west/tools.py
+    commands:
+      - name: espressif
+        class: Tools
+        help: Espressif tools for west framework.
