@@ -7,54 +7,57 @@
 
 #include "esp_attr.h"
 #include <stdint.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
+#include <zephyr/kernel.h>
+
 #include "hal/regi2c_ctrl.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_hw_log.h"
 
-static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+static int mux;
+
+#define ENTER_CRITICAL_SECTION()    do { mux = irq_lock(); } while(0)
+#define LEAVE_CRITICAL_SECTION()    irq_unlock(mux);
 
 static DRAM_ATTR __attribute__((unused)) const char *TAG = "REGI2C";
 
 uint8_t IRAM_ATTR regi2c_ctrl_read_reg(uint8_t block, uint8_t host_id, uint8_t reg_add)
 {
-    portENTER_CRITICAL_SAFE(&mux);
+    ENTER_CRITICAL_SECTION();
     uint8_t value = regi2c_read_reg_raw(block, host_id, reg_add);
-    portEXIT_CRITICAL_SAFE(&mux);
+    LEAVE_CRITICAL_SECTION();
     return value;
 }
 
 uint8_t IRAM_ATTR regi2c_ctrl_read_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb)
 {
-    portENTER_CRITICAL_SAFE(&mux);
+    ENTER_CRITICAL_SECTION();
     uint8_t value = regi2c_read_reg_mask_raw(block, host_id, reg_add, msb, lsb);
-    portEXIT_CRITICAL_SAFE(&mux);
+    LEAVE_CRITICAL_SECTION();
     return value;
 }
 
 void IRAM_ATTR regi2c_ctrl_write_reg(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t data)
 {
-    portENTER_CRITICAL_SAFE(&mux);
+    ENTER_CRITICAL_SECTION();
     regi2c_write_reg_raw(block, host_id, reg_add, data);
-    portEXIT_CRITICAL_SAFE(&mux);
+    LEAVE_CRITICAL_SECTION();
 }
 
 void IRAM_ATTR regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb, uint8_t data)
 {
-    portENTER_CRITICAL_SAFE(&mux);
+    ENTER_CRITICAL_SECTION();
     regi2c_write_reg_mask_raw(block, host_id, reg_add, msb, lsb, data);
-    portEXIT_CRITICAL_SAFE(&mux);
+    LEAVE_CRITICAL_SECTION();
 }
 
 void IRAM_ATTR regi2c_enter_critical(void)
 {
-    portENTER_CRITICAL_SAFE(&mux);
+    ENTER_CRITICAL_SECTION();
 }
 
 void IRAM_ATTR regi2c_exit_critical(void)
 {
-    portEXIT_CRITICAL_SAFE(&mux);
+    LEAVE_CRITICAL_SECTION();
 }
 
 /**
