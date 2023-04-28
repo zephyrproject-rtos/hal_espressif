@@ -73,7 +73,6 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.api.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32/ld/esp32.rom.redefined.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32/ld/esp32.peripherals.ld
     )
 
