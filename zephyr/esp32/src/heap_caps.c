@@ -11,10 +11,6 @@
 #include <esp_attr.h>
 
 #if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-void *__real_k_malloc(size_t size);
-void *__real_k_calloc(size_t nmemb, size_t size);
-#endif
 
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
 char __aligned(sizeof(void *)) __NOINIT_ATTR dram0_seg_1_heap[CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE];
@@ -91,7 +87,7 @@ static void *z_esp_alloc_internal(size_t align, size_t size)
 {
     void *ptr = NULL;
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-    ptr = __real_k_malloc(size);
+    ptr = k_aligned_alloc(sizeof(void *), size);
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
     if (ptr == NULL) {
@@ -105,7 +101,13 @@ static void *z_esp_calloc_internal(size_t nmemb, size_t size)
 {
     void *ptr = NULL;
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-    ptr = __real_k_calloc(nmemb, size);
+    size_t bounds;
+    if (!size_mul_overflow(nmemb, size, &bounds)) {
+        ptr = k_aligned_alloc(sizeof(void *), bounds);
+        if (ptr != NULL) {
+            (void)memset(ptr, 0, bounds);
+        }
+    }
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
     if (ptr == NULL) {
@@ -117,9 +119,6 @@ static void *z_esp_calloc_internal(size_t nmemb, size_t size)
 
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
 void *__wrap_k_malloc(size_t size)
-#else
-void *k_malloc(size_t size)
-#endif
 {
     void *ptr = NULL;
 #if defined(CONFIG_ESP_SPIRAM)
@@ -144,11 +143,7 @@ void *k_malloc(size_t size)
     return ptr;
 }
 
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
 void *__wrap_k_calloc(size_t nmemb, size_t size)
-#else
-void *k_calloc(size_t nmemb, size_t size)
-#endif
 {
     void *ptr = NULL;
 #if defined(CONFIG_ESP_SPIRAM)
@@ -172,4 +167,6 @@ void *k_calloc(size_t nmemb, size_t size)
 #endif
     return ptr;
 }
+#endif
+
 #endif
