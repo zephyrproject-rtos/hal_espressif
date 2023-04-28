@@ -7,7 +7,13 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 #include <zephyr/sys/math_extras.h>
+#if CONFIG_SOC_ESP32
 #include <esp32/spiram.h>
+#elif CONFIG_SOC_ESP32S2
+#include <esp32s2/spiram.h>
+#elif CONFIG_SOC_ESP32S3
+#include <esp32s3/spiram.h>
+#endif
 #include <esp_attr.h>
 
 #if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
