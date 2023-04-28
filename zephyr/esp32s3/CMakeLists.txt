@@ -184,7 +184,7 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
     ../../components/efuse/src/esp_efuse_utility.c
     ../esp_shared/src/common/esp_system_api.c
-    src/heap_caps.c
+    ../esp_shared/src/common/heap_caps.c
     src/stubs.c
     )
 

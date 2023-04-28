@@ -223,9 +223,9 @@ if(CONFIG_SOC_ESP32 OR CONFIG_SOC_ESP32_NET)
     ../../components/bootloader_support/src/bootloader_efuse_esp32.c
     ../../components/esp_system/port/soc/esp32/reset_reason.c
     ../esp_shared/src/common/esp_system_api.c
+    ../esp_shared/src/common/heap_caps.c
     src/common/dport_access.c
     src/stubs.c
-    src/heap_caps.c
     )
 
   ## shared WIFI/BT resources
