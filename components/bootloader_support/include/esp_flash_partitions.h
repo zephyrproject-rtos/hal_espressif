@@ -37,6 +37,11 @@ extern "C" {
 /* The md5sum value is found this many bytes after the ESP_PARTITION_MAGIC_MD5 offset */
 #define ESP_PARTITION_MD5_OFFSET 16
 
+#ifdef __ZEPHYR__
+#include <zephyr/storage/flash_map.h>
+#define CONFIG_BOOTLOADER_OFFSET_IN_FLASH FIXED_PARTITION_OFFSET(boot_partition)  /* Offset of bootloader image. */
+#endif /* __ZEPHYR__ */
+
 /* Pre-partition table fixed flash offsets */
 #define ESP_BOOTLOADER_DIGEST_OFFSET 0x0
 #define ESP_BOOTLOADER_OFFSET CONFIG_BOOTLOADER_OFFSET_IN_FLASH  /* Offset of bootloader image. Has matching value in bootloader KConfig.projbuild file. */

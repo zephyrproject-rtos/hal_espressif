@@ -104,7 +104,7 @@ if(CONFIG_SOC_ESP32S3)
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
-  	)
+    )
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
@@ -148,12 +148,39 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/gdma_hal.c
     )
 
+  if (CONFIG_MCUBOOT)
+    zephyr_include_directories(
+      ../../components/esp_rom/esp32s3
+      ../esp_shared/include/boot
+      )
+
+    zephyr_sources(
+      ../../components/bootloader_support/src/esp32s3/bootloader_soc.c
+      ../../components/bootloader_support/src/bootloader_efuse_esp32s3.c
+      ../../components/bootloader_support/src/bootloader_flash.c
+      ../../components/bootloader_support/src/bootloader_flash_config_esp32s3.c
+      ../../components/bootloader_support/src/bootloader_mem.c
+      ../../components/bootloader_support/src/bootloader_clock_init.c
+      ../../components/bootloader_support/src/bootloader_console.c
+      ../../components/bootloader_support/src/bootloader_random.c
+      ../../components/bootloader_support/src/bootloader_random_esp32s3.c
+      ../../components/esp_hw_support/cpu_util.c
+      ../../components/esp_rom/patches/esp_rom_uart.c
+      ../../components/esp_rom/patches/esp_rom_sys.c
+      ../../components/hal/mpu_hal.c
+      ../esp_shared/src/boot/esp_loader.c
+      ../esp_shared/src/boot/bootloader_wdt.c
+      ../esp_shared/src/boot/bootloader_init_common.c
+      src/boot/bootloader_init.c
+      )
+  endif()
+
   zephyr_sources(
+    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
     ../../components/spi_flash/spi_flash_timing_tuning.c
     ../../components/spi_flash/esp32s3/spi_timing_config.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/cpu_util.c
     ../../components/esp_hw_support/port/esp32s3/dport_access.c
     ../../components/esp_hw_support/esp_clk.c
