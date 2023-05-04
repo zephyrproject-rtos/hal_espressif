@@ -7,18 +7,10 @@
 #include <assert.h>
 #include "esp_log_private.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32C3
-#include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
 #ifdef __ZEPHYR__
 #include <zephyr/kernel.h>
 #endif
-#else 
-#ifdef __ZEPHYR__
-#include <zephyr/kernel.h>
-#endif
-#include "hal/cpu_hal.h"  // for cpu_hal_get_cycle_count()
-#endif
-
+#include "hal/cpu_hal.h"
 
 static int s_lock = 0;
 
@@ -43,10 +35,6 @@ void esp_log_impl_unlock(void)
 /* FIXME: define an API for getting the timestamp in soc/hal IDF-2351 */
 uint32_t esp_log_early_timestamp(void)
 {
-#ifdef __ZEPHYR__
-        return k_uptime_get_32();
-#endif
-
     extern uint32_t ets_get_cpu_frequency(void);
     return cpu_hal_get_cycle_count() / (ets_get_cpu_frequency() * 1000);
 }

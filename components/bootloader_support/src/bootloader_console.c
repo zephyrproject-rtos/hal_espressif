@@ -31,6 +31,10 @@
 #include "esp_rom_sys.h"
 #include "esp_rom_caps.h"
 
+#ifdef __ZEPHYR__
+#include "stubs.h"
+#endif
+
 #ifdef CONFIG_ESP_CONSOLE_UART_NONE
 void bootloader_console_init(void)
 {

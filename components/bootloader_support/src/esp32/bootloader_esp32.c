@@ -35,6 +35,10 @@
 #include "esp32/rom/spi_flash.h"
 #include "esp_efuse.h"
 
+#ifdef __ZEPHYR__
+#include "stubs.h"
+#endif
+
 static const char *TAG = "boot.esp32";
 
 #define FLASH_CLK_IO SPI_CLK_GPIO_NUM

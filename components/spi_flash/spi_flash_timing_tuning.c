@@ -20,7 +20,9 @@
 #include "esp32s3/rom/cache.h"
 #endif
 
+#ifndef __ZEPHYR__
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(*(arr)))
+#endif
 
 #if SPI_TIMING_FLASH_NEEDS_TUNING || SPI_TIMING_PSRAM_NEEDS_TUNING
 const static char *TAG = "MSPI Timing";

@@ -25,6 +25,7 @@ extern "C" {
 static inline uint32_t mpu_ll_id_to_addr(unsigned id)
 {
     abort();
+	return 0;
 }
 
 static inline void mpu_ll_set_region_rw(uint32_t addr)
