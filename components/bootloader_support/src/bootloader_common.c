@@ -69,6 +69,9 @@ esp_comm_gpio_hold_t bootloader_common_check_long_hold_gpio_level(uint32_t num_p
     return GPIO_LONG_HOLD;
 }
 
+/* NOTE: Usage of ESP partition is deprecated in Zephyr.
+ */
+#ifndef __ZEPHYR__
 // Search for a label in the list. list = "nvs1, nvs2, otadata, nvs"; label = "nvs".
 bool bootloader_common_label_search(const char *list, char *label)
 {
@@ -187,6 +190,7 @@ esp_err_t bootloader_common_get_sha256_of_partition (uint32_t address, uint32_t 
     // If image is type by data then hash is calculated for entire image.
     return bootloader_sha256_flash_contents(address, size, out_sha_256);
 }
+#endif /* __ZEPHYR__ */
 
 void bootloader_common_vddsdio_configure(void)
 {

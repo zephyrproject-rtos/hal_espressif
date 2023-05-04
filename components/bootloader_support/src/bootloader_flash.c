@@ -189,7 +189,7 @@ const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
         return NULL; /* can't map twice */
     }
     if (size > MMU_SIZE) {
-        ESP_LOGE(TAG, "bootloader_mmap excess size %x", size);
+        ESP_LOGE(TAG, "bootloader_mmap excess size (Bytes) %d", size);
         return NULL;
     }
 
@@ -585,6 +585,7 @@ IRAM_ATTR static uint32_t bootloader_flash_execute_command_common(
     uint32_t old_ctrl_reg = SPIFLASH.ctrl.val;
     uint32_t old_user_reg = SPIFLASH.user.val;
     uint32_t old_user1_reg = SPIFLASH.user1.val;
+    uint32_t old_user2_reg = SPIFLASH.user2.val;
 #if CONFIG_IDF_TARGET_ESP32
     SPIFLASH.ctrl.val = SPI_WP_REG_M; // keep WP high while idle, otherwise leave DIO mode
 #else
@@ -633,6 +634,7 @@ IRAM_ATTR static uint32_t bootloader_flash_execute_command_common(
     SPIFLASH.ctrl.val = old_ctrl_reg;
     SPIFLASH.user.val = old_user_reg;
     SPIFLASH.user1.val = old_user1_reg;
+    SPIFLASH.user2.val = old_user2_reg;
 
     uint32_t ret = SPIFLASH.data_buf[0];
     if (miso_len < 32) {

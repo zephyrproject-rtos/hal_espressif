@@ -120,7 +120,7 @@ typedef enum {
 } UartFlowCtrl;
 
 typedef enum {
-    EMPTY,
+    _EMPTY,
     UNDER_WRITE,
     WRITE_OVER
 } RcvMsgBuffState;

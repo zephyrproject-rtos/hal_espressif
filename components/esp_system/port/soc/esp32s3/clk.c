@@ -31,7 +31,6 @@
 
 #if defined(__ZEPHYR__)
 #include "stubs.h"
-#define CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ ESP_SOC_DEFAULT_CPU_FREQ_MHZ
 #endif /* defined(__ZEPHYR__) */
 
 static const char *TAG = "clk";
