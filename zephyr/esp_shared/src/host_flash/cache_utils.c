@@ -92,7 +92,9 @@ static void IRAM_ATTR spi_flash_restore_cache(uint32_t cpuid, uint32_t saved_sta
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
+#ifdef CONFIG_MULTITHREADING
 	k_sched_lock();
+#endif
 
 	s_intr_saved_state = irq_lock();
 
@@ -133,5 +135,7 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 
 	irq_unlock(s_intr_saved_state);
 
+#ifdef CONFIG_MULTITHREADING
 	k_sched_unlock();
+#endif
 }

@@ -189,7 +189,7 @@ const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
         return NULL; /* can't map twice */
     }
     if (size > MMU_SIZE) {
-        ESP_LOGE(TAG, "bootloader_mmap excess size (Bytes) %d", size);
+        ESP_LOGE(TAG, "bootloader_mmap excess size by %d bytes", size);
         return NULL;
     }
 

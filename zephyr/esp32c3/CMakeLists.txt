@@ -109,11 +109,6 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/i2c_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_WDT_ESP32
-    ../../components/hal/wdt_hal_iram.c
-    )
-
   zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
 
   zephyr_sources_ifdef(
@@ -137,7 +132,6 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_system/esp_err.c
     ../../components/hal/esp32c3/rtc_cntl_hal.c
-    ../../components/hal/wdt_hal_iram.c
     )
 
   zephyr_sources_ifdef(
@@ -150,7 +144,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/adc_hal.c
     ../../components/hal/esp32c3/adc_hal.c
     ../esp_shared/components/driver/adc.c
-	../esp_shared/components/driver/adc_common.c
+    ../esp_shared/components/driver/adc_common.c
     ../esp_shared/components/driver/rtc_io_hal.c
     ../esp_shared/components/driver/rtc_io.c
     ../esp_shared/components/esp_adc_cal/esp_adc_cal_common.c
@@ -163,13 +157,41 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/hal/gdma_hal.c
     )
 
+  if (CONFIG_MCUBOOT)
+    zephyr_include_directories(
+      ../../components/esp_rom/esp32c3
+      ../esp_shared/include/boot
+      )
+
+    zephyr_sources(
+      ../../components/bootloader_support/src/esp32c3/bootloader_soc.c
+      ../../components/bootloader_support/src/bootloader_efuse_esp32c3.c
+      ../../components/bootloader_support/src/bootloader_flash.c
+      ../../components/bootloader_support/src/bootloader_flash_config_esp32c3.c
+      ../../components/bootloader_support/src/bootloader_mem.c
+      ../../components/bootloader_support/src/bootloader_clock_init.c
+      ../../components/bootloader_support/src/bootloader_console.c
+      ../../components/bootloader_support/src/bootloader_random.c
+      ../../components/bootloader_support/src/bootloader_random_esp32c3.c
+      ../../components/esp_hw_support/cpu_util.c
+      ../../components/esp_hw_support/port/esp32c3/cpu_util_esp32c3.c
+      ../../components/hal/mpu_hal.c
+      ../../components/esp_rom/patches/esp_rom_uart.c
+      ../../components/esp_rom/patches/esp_rom_sys.c
+      ../esp_shared/src/boot/esp_loader.c
+      ../esp_shared/src/boot/bootloader_wdt.c
+      ../esp_shared/src/boot/bootloader_init_common.c
+      src/boot/bootloader_init.c
+      )
+  endif()
+
   zephyr_sources(
+    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/soc/esp32c3/adc_periph.c
     ../../components/soc/esp32c3/gpio_periph.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_hw_support/port/esp32c3/rtc_sleep.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
     ../../components/esp_hw_support/port/esp32c3/rtc_init.c
@@ -179,7 +201,7 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/esp_system/port/soc/esp32c3/clk.c
     ../../components/esp_system/port/soc/esp32c3/reset_reason.c
     ../../components/esp_timer/src/esp_timer.c
-    ../../components/esp_timer/src/esp_timer_impl_systimer.c
+    ../../components/hal/wdt_hal_iram.c
     ../../components/hal/systimer_hal.c
     ../../components/driver/periph_ctrl.c
     ../../components/log/log_noos.c

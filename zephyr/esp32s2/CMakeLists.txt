@@ -127,11 +127,6 @@ if(CONFIG_SOC_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_WDT_ESP32
-    ../../components/hal/wdt_hal_iram.c
-    )
-
-  zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
@@ -176,7 +171,6 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_system/port/brownout.c
     ../../components/hal/esp32s2/brownout_hal.c
     ../../components/hal/esp32s2/touch_sensor_hal.c
-    ../../components/hal/wdt_hal_iram.c
     )
 
   zephyr_sources_ifdef(
@@ -184,11 +178,38 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/driver/esp32s2/rtc_tempsensor.c
     )
 
+  if (CONFIG_MCUBOOT)
+    zephyr_include_directories(
+      ../../components/esp_rom/esp32s2
+      ../esp_shared/include/boot
+      )
+
+    zephyr_sources(
+      ../../components/bootloader_support/src/esp32s2/bootloader_soc.c
+      ../../components/bootloader_support/src/bootloader_efuse_esp32s2.c
+      ../../components/bootloader_support/src/bootloader_flash.c
+      ../../components/bootloader_support/src/bootloader_flash_config_esp32s2.c
+      ../../components/bootloader_support/src/bootloader_mem.c
+      ../../components/bootloader_support/src/bootloader_clock_init.c
+      ../../components/bootloader_support/src/bootloader_console.c
+      ../../components/bootloader_support/src/bootloader_random.c
+      ../../components/bootloader_support/src/bootloader_random_esp32s2.c
+      ../../components/esp_hw_support/cpu_util.c
+      ../../components/esp_rom/patches/esp_rom_uart.c
+      ../../components/esp_rom/patches/esp_rom_sys.c
+      ../../components/hal/mpu_hal.c
+      ../esp_shared/src/boot/esp_loader.c
+      ../esp_shared/src/boot/bootloader_wdt.c
+      ../esp_shared/src/boot/bootloader_init_common.c
+      src/boot/bootloader_init.c
+      )
+  endif()
+
   zephyr_sources(
+    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/soc/esp32s2/adc_periph.c
     ../../components/soc/esp32s2/gpio_periph.c
     ../../components/soc/esp32s2/rtc_io_periph.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/cpu_util.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/port/esp32s2/rtc_clk.c
@@ -201,6 +222,7 @@ if(CONFIG_SOC_ESP32S2)
     ../../components/esp_system/port/soc/esp32s2/clk.c
     ../../components/esp_system/port/soc/esp32s2/reset_reason.c
     ../../components/driver/periph_ctrl.c
+    ../../components/hal/wdt_hal_iram.c
     ../../components/hal/interrupt_controller_hal.c
     ../../components/hal/esp32s2/interrupt_descriptor_table.c
     ../../components/esp_timer/src/ets_timer_legacy.c
