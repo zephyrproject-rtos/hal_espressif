@@ -178,7 +178,7 @@ class Tools(WestCommand):
             # detect usb port using esptool
             esp_port = get_esp_serial_port(module_path)
 
-        monitor_path = Path(module_path, "tools/idf_monitor.py")
+        monitor_path = Path(module_path, "tools/idf_monitor/idf_monitor.py")
         cmd_path = Path(os.getcwd())
         if platform.system() == 'Windows':
             cmd_exec(("python.exe", monitor_path, "-p", esp_port,
