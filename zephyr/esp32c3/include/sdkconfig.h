@@ -26,3 +26,9 @@
 #define BTDM_CTRL_HCI_MODE_VHCI 1
 
 #define CONFIG_ESPTOOLPY_FLASHMODE_DIO 1
+
+#undef asm
+#define asm __asm__
+
+#undef typeof
+#define typeof __typeof__
