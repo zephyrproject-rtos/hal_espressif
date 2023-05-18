@@ -7,6 +7,12 @@
 
 #include <string.h>
 
+#undef asm
+#define asm  __asm__
+
+#undef typeof
+#define typeof  __typeof__
+
 #define HAL_SWAP16(d) __builtin_bswap16((d))
 #define HAL_SWAP32(d) __builtin_bswap32((d))
 #define HAL_SWAP64(d) __builtin_bswap64((d))

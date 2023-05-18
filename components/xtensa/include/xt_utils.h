@@ -33,7 +33,7 @@ FORCE_INLINE_ATTR __attribute__((pure)) uint32_t xt_utils_get_core_id(void)
 #if SOC_CPU_CORES_NUM > 1
     // Read and extract bit 13 of special register PRID
     uint32_t id;
-    asm volatile (
+    __asm__ volatile (
         "rsr.prid %0\n"
         "extui %0,%0,13,1"
         :"=r"(id));
@@ -48,7 +48,7 @@ FORCE_INLINE_ATTR __attribute__((pure)) uint32_t xt_utils_get_raw_core_id(void)
 #if XCHAL_HAVE_PRID
     // Read the raw value of special register PRID
     uint32_t id;
-    asm volatile (
+    __asm__ volatile (
         "rsr.prid %0\n"
         :"=r"(id));
     return id;
@@ -60,7 +60,7 @@ FORCE_INLINE_ATTR __attribute__((pure)) uint32_t xt_utils_get_raw_core_id(void)
 FORCE_INLINE_ATTR void *xt_utils_get_sp(void)
 {
     void *sp;
-    asm volatile ("mov %0, sp;" : "=r" (sp));
+    __asm__ volatile ("mov %0, sp;" : "=r" (sp));
     return sp;
 }
 
@@ -78,7 +78,7 @@ static inline void xt_utils_set_cycle_count(uint32_t ccount)
 
 FORCE_INLINE_ATTR void xt_utils_wait_for_intr(void)
 {
-    asm volatile ("waiti 0\n");
+    __asm__ volatile ("waiti 0\n");
 }
 
 /* ------------------------------------------------- CPU Interrupts ----------------------------------------------------
@@ -91,7 +91,7 @@ FORCE_INLINE_ATTR void xt_utils_wait_for_intr(void)
 
 FORCE_INLINE_ATTR void xt_utils_set_vecbase(uint32_t vecbase)
 {
-    asm volatile ("wsr %0, vecbase" :: "r" (vecbase));
+    __asm__ volatile ("wsr %0, vecbase" :: "r" (vecbase));
 }
 
 // ------------------ Interrupt Control --------------------

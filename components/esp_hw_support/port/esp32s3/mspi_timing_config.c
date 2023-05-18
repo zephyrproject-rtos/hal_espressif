@@ -14,7 +14,7 @@
 #include "soc/spi_mem_reg.h"
 #include "hal/mspi_timing_tuning_ll.h"
 #include "../../mspi_timing_config.h"
-#include "bootloader_flash.h"
+// #include "bootloader_flash.h"
 #include "esp32s3/rom/spi_flash.h"
 #include "esp32s3/rom/opi_flash.h"
 

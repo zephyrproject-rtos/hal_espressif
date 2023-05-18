@@ -54,6 +54,8 @@ extern "C" {
   *************************************************************************************
   */
 
+// #define MHZ (1000000)
+
 #define RTC_SLOW_CLK_CAL_REG    RTC_CNTL_STORE1_REG
 #define RTC_BOOT_TIME_LOW_REG   RTC_CNTL_STORE2_REG
 #define RTC_BOOT_TIME_HIGH_REG  RTC_CNTL_STORE3_REG

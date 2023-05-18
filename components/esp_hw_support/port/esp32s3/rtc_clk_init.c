@@ -12,6 +12,7 @@
 #include "esp32s3/rom/rtc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "hal/clk_tree_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_hw_log.h"
 #include "esp_cpu.h"
