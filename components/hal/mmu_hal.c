@@ -13,10 +13,11 @@
 #include "hal/mmu_hal.h"
 #include "hal/mmu_ll.h"
 #include "rom/cache.h"
+#include "esp_rom_caps.h"
 
 void mmu_hal_init(void)
 {
-#if CONFIG_ESP_ROM_RAM_APP_NEEDS_MMU_INIT
+#if ESP_ROM_RAM_APP_NEEDS_MMU_INIT
     ROM_Boot_Cache_Init();
 #endif
     mmu_ll_set_page_size(0, CONFIG_MMU_PAGE_SIZE);

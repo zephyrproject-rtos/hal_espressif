@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-#include <sys/time.h>
+// #include <sys/time.h>
 #include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -24,7 +24,7 @@
 #include "hal/wdt_hal.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-#include "bootloader_clock.h"
+// #include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
 #include "hal/clk_gate_ll.h"
 

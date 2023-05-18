@@ -207,7 +207,7 @@ FORCE_INLINE_ATTR void uart_ll_read_rxfifo(uart_dev_t *hw, uint8_t *buf, uint32_
     for(uint32_t i = 0; i < rd_len; i++) {
         buf[i] = READ_PERI_REG(fifo_addr);
 #ifdef CONFIG_COMPILER_OPTIMIZATION_PERF
-        __asm__ __volatile__("nop");
+        asm volatile("nop");
 #endif
     }
 }
@@ -649,6 +649,18 @@ FORCE_INLINE_ATTR void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
     hw->rs485_conf.rx_busy_tx_en = 1;
     hw->conf0.irda_en = 0;
     hw->rs485_conf.en = 1;
+}
+
+/**
+ * @brief  Get the rs485_half_duplex mode.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return True if RS485 half duplex mode enabled.
+ */
+FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+	return (!hw->rs485_conf.rx_busy_tx_en && hw->rs485_conf.en);
 }
 
 /**

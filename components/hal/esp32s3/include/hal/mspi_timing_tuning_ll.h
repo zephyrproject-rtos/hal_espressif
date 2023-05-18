@@ -25,6 +25,7 @@
 extern "C" {
 #endif
 
+#undef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof((arr))/sizeof(*(arr)))
 #define MSPI_TIMING_LL_FLASH_OCT_MASK                 (SPI_MEM_FCMD_OCT | SPI_MEM_FADDR_OCT | SPI_MEM_FDIN_OCT | SPI_MEM_FDOUT_OCT)
 #define MSPI_TIMING_LL_FLASH_QUAD_MASK                (SPI_MEM_FASTRD_MODE | SPI_MEM_FREAD_DUAL | SPI_MEM_FREAD_DIO | SPI_MEM_FREAD_QUAD | SPI_MEM_FREAD_QIO)

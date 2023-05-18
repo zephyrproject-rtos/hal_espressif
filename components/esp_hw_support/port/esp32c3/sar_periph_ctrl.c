@@ -105,7 +105,7 @@ static void s_sar_adc_power_release(void)
     ENTER_CRITICAL_SECTION();
     s_saradc_power_on_cnt--;
     if (s_saradc_power_on_cnt < 0) {
-        portEXIT_CRITICAL(&rtc_spinlock);
+        LEAVE_CRITICAL();
         ESP_LOGE(TAG, "%s called, but s_saradc_power_on_cnt == 0", __func__);
         abort();
     } else if (s_saradc_power_on_cnt == 0) {
