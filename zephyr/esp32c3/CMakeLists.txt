@@ -12,71 +12,82 @@ if(CONFIG_SOC_ESP32C3)
     ../esp_shared/include
     ../esp_shared/include/wifi
     ../esp_shared/components/include
-    ../../components/esp_common/include
-    ../../components/esp_pm/include
-    ../../components/esp_rom/include
-    ../../components/esp_rom/include/esp32c3
-    ../../components/esp_rom/include/esp32c3/rom
-    ../../components/esp32c3/include
-    ../../components/esp_hw_support/port/esp32c3/private_include
-    ../../components/esp_hw_support/port/esp32c3
-    ../../components/esp_hw_support/include/soc
-    ../../components/esp_hw_support/include
-    ../../components/esp_system/port/include
-    ../../components/esp_system/port/public_compat
-    ../../components/riscv/include
-    ../../components/hal/include
-    ../../components/hal/esp32c3/include
-    ../../components/hal/platform_port/include
-    ../../components/soc/esp32c3/include
-    ../../components/soc/esp32c3/include/soc
-    ../../components/soc/src/esp32c3/include
-    ../../components/soc/include
-    ../../components/driver/include
-    ../../components/driver/esp32c3/include
+
+    ../../components/efuse/${CONFIG_SOC}/include
+    ../../components/efuse/${CONFIG_SOC}/private_include
     ../../components/efuse/include
     ../../components/efuse/private_include
-    ../../components/efuse/esp32c3/include
-    ../../components/efuse/esp32c3/private_include
+
+    ../../components/esp_common/include
+
+    ../../components/esp_hw_support/dma
+    ../../components/esp_hw_support/include
+    ../../components/esp_hw_support/include/esp_private
+    ../../components/esp_hw_support/include/hal
+    ../../components/esp_hw_support/include/soc
+    ../../components/esp_hw_support/include/soc/${CONFIG_SOC}
+    ../../components/esp_hw_support/port/${CONFIG_SOC}
+    ../../components/esp_hw_support/port/include
+
+    ../../components/esp_rom/${CONFIG_SOC}
+    ../../components/esp_rom/${CONFIG_SOC}/ld
+    ../../components/esp_rom/include/
+    ../../components/esp_rom/include/${CONFIG_SOC}
+
     ../../components/esp_system/include
-    ../../components/esp_event/include
-    ../../components/esp_pm/include
+    ../../components/esp_system/include/esp_private
+    ../../components/esp_system/port/include
+
+    ../../components/hal/${CONFIG_SOC}/include
+    ../../components/hal/include
+    ../../components/hal/platform_port/include
+
+    ../../components/log/include
+
+    ../../components/soc/${CONFIG_SOC}/include
+    ../../components/soc/${CONFIG_SOC}/ld
+    ../../components/soc/include
+
+    ../../components/riscv/${CONFIG_SOC}/include
+    ../../components/riscv/include
+    ../../components/riscv/include/esp_private
+    ../../components/riscv/include/xtensa
+
     ../../components/esp_timer/include
     ../../components/esp_timer/private_include
-    ../../components/esp_netif/include
-    ../../components/log/include
-    ../../components/spi_flash/include
-    ../../components/spi_flash/include/spi_flash
-    ../../components/spi_flash/private_include
-    ../../components/bootloader_support/include
-    ../../components/bootloader_support/include_bootloader
-    ../../components/esp_wifi/include/
-    ../../components/esp_wifi/esp32c3/include
-    ../../components/esp_phy/include
-    ../../components/esp_phy/include/esp32c3
-    ../../components/esp_phy/esp32c3/include
-    ../../components/wpa_supplicant/include
-    ../../components/wpa_supplicant/port/include
-    ../../components/wpa_supplicant/src
-    ../../components/wpa_supplicant/include/esp_supplicant
-    ../../components/wpa_supplicant/src/crypto
-    ../../components/wpa_supplicant/esp_supplicant/src
-    ../../components/wpa_supplicant/esp_supplicant/include
-    ../../components/wpa_supplicant/src/utils
-    ../../components/wpa_supplicant/src/eap_peer
-    ../../components/heap/include
-    ../../components/mbedtls/port/include
-    )
+
+    # ../../components/esp_phy/include
+    # ../../components/esp_phy/include
+    # ../../components/esp_phy/esp32s3/include
+    # ../../components/esp_wifi/include
+    # ../../components/esp_event/include
+    # ../../components/wpa_supplicant/esp_supplicant/src
+    # ../../components/wpa_supplicant/esp_supplicant/include
+    # ../../components/wpa_supplicant/include
+    # ../../components/wpa_supplicant/include/esp_supplicant
+    # ../../components/wpa_supplicant/port/include
+    # ../../components/wpa_supplicant/src
+    # ../../components/wpa_supplicant/src/crypto
+    # ../../components/wpa_supplicant/src/utils
+    # ../../components/wpa_supplicant/src/eap_peer
+    # ../../components/spi_flash/include
+    # ../../components/spi_flash/include/spi_flash
+    # ../../components/spi_flash/private_include
+    # ../../components/bootloader_support/include
+    # ../../components/bootloader_support/include_bootloader
+    # ../../components/heap/include
+    # ../../components/mbedtls/port/include
+  )
 
   zephyr_link_libraries(
     gcc
-    -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32c3.rom.alias.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.eco3.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.api.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32c3/ld/esp32c3.rom.libgcc.ld
-    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32c3/ld/esp32c3.peripherals.ld
-    )
+    -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/${CONFIG_SOC}.rom.alias.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC}/ld/${CONFIG_SOC}.rom.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC}/ld/${CONFIG_SOC}.rom.eco3.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC}/ld/${CONFIG_SOC}.rom.api.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC}/ld/${CONFIG_SOC}.rom.libgcc.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/${CONFIG_SOC}/ld/${CONFIG_SOC}.peripherals.ld
+  )
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
@@ -98,10 +109,10 @@ if(CONFIG_SOC_ESP32C3)
     ../../components/spi_flash/esp32c3/flash_ops_esp32c3.c
     )
 
-  zephyr_compile_definitions(
-    CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
-    CONFIG_SPI_FLASH_USE_LEGACY_IMPL
-    )
+  # zephyr_compile_definitions(
+  #   CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+  #   CONFIG_SPI_FLASH_USE_LEGACY_IMPL
+  #   )
 
   zephyr_sources_ifdef(
     CONFIG_I2C_ESP32
@@ -186,35 +197,59 @@ if(CONFIG_SOC_ESP32C3)
   endif()
 
   zephyr_sources(
-    ../../components/esp_hw_support/regi2c_ctrl.c
-    ../../components/soc/esp32c3/adc_periph.c
-    ../../components/soc/esp32c3/gpio_periph.c
-    ../../components/esp_timer/src/esp_timer_impl_systimer.c
-    ../../components/esp_timer/src/ets_timer_legacy.c
-    ../../components/esp_hw_support/port/esp32c3/rtc_sleep.c
+    ../../components/soc/${CONFIG_SOC}/adc_periph.c
+    ../../components/soc/${CONFIG_SOC}/i2s_periph.c
+    ../../components/soc/${CONFIG_SOC}/gpio_periph.c
+
+    ../../components/esp_hw_support/cpu.c
+    ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/esp_clk.c
-    ../../components/esp_hw_support/port/esp32c3/rtc_clk.c
-    ../../components/esp_hw_support/port/esp32c3/rtc_init.c
-    ../../components/esp_hw_support/port/esp32c3/rtc_time.c
-    ../../components/esp_hw_support/port/esp32c3/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
-    ../../components/esp_system/port/soc/esp32c3/clk.c
-    ../../components/esp_system/port/soc/esp32c3/reset_reason.c
+    ../../components/esp_hw_support/periph_ctrl.c
+    ../../components/esp_hw_support/regi2c_ctrl.c
+
+    ../../components/esp_hw_support/port/esp_clk_tree_common.c
+
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/esp_clk_tree.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/rtc_init.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/rtc_clk.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/rtc_clk_init.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/rtc_time.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/rtc_sleep.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/sar_periph_ctrl.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC}/systimer.c
+
+    ../../components/esp_rom/patches/esp_rom_crc.c
+    ../../components/esp_rom/patches/esp_rom_sys.c
+    ../../components/esp_rom/patches/esp_rom_uart.c
+    ../../components/esp_rom/patches/esp_rom_spiflash.c
+    ../../components/esp_rom/patches/esp_rom_efuse.c
+    ../../components/esp_rom/patches/esp_rom_systimer.c
+
+    ../../components/esp_system/port/soc/${CONFIG_SOC}/clk.c
+    ../../components/esp_system/port/soc/${CONFIG_SOC}/system_internal.c
+
+    ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
-    ../../components/hal/wdt_hal_iram.c
+    ../../components/esp_timer/src/esp_timer_impl_systimer.c
+    ../../components/esp_timer/src/system_time.c
+
+    ../../components/hal/efuse_hal.c
     ../../components/hal/systimer_hal.c
-    ../../components/driver/periph_ctrl.c
+    ../../components/hal/wdt_hal_iram.c
+
+    ../../components/hal/${CONFIG_SOC}/clk_tree_hal.c
+    ../../components/hal/${CONFIG_SOC}/efuse_hal.c
+
     ../../components/log/log_noos.c
     ../../components/log/log.c
-    ../../components/efuse/esp32c3/esp_efuse_fields.c
-    ../../components/efuse/esp32c3/esp_efuse_table.c
-    ../../components/efuse/esp32c3/esp_efuse_rtc_calib.c
-    ../../components/efuse/esp32c3/esp_efuse_utility.c
-    ../../components/efuse/esp32c3/esp_efuse_rtc_calib.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
-    ../../components/efuse/src/esp_efuse_utility.c
-    )
+
+    ../esp_shared/src/common/esp_system_api.c
+
+    src/stubs.c
+
+    # src/heap_caps.c
+  )
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
