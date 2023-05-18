@@ -18,6 +18,7 @@
 #include "esp32s2/rom/ets_sys.h"
 #include "esp32s2/rom/rtc.h"
 #include "hal/rtc_cntl_ll.h"
+#include "hal/misc.h"
 
 /**
  * Configure whether certain peripherals are powered down in deep sleep

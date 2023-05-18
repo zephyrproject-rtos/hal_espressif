@@ -41,18 +41,18 @@ extern "C" {
  *
  */
 #define ESP_FAULT_ASSERT(CONDITION) do {                \
-        asm volatile ("" ::: "memory");                 \
+        __asm__ volatile ("" ::: "memory");                 \
         if(!(CONDITION)) _ESP_FAULT_RESET();            \
-        asm volatile ("" ::: "memory");                 \
+        __asm__ volatile ("" ::: "memory");                 \
         if(!(CONDITION)) _ESP_FAULT_RESET();            \
-        asm volatile ("" ::: "memory");                 \
+        __asm__ volatile ("" ::: "memory");                 \
         if(!(CONDITION)) _ESP_FAULT_RESET();            \
 } while(0)
 
 #ifndef CONFIG_IDF_TARGET_ARCH_RISCV
-#define _ESP_FAULT_ILLEGAL_INSTRUCTION asm volatile("ill.n; ill.n; ill.n; ill.n; ill.n; ill.n; ill.n;")
+#define _ESP_FAULT_ILLEGAL_INSTRUCTION __asm__ volatile("ill.n; ill.n; ill.n; ill.n; ill.n; ill.n; ill.n;")
 #else
-#define _ESP_FAULT_ILLEGAL_INSTRUCTION asm volatile("unimp; unimp; unimp; unimp; unimp;")
+#define _ESP_FAULT_ILLEGAL_INSTRUCTION __asm__ volatile("unimp; unimp; unimp; unimp; unimp;")
 #endif
 
 // Uncomment this macro to get debug output if ESP_FAULT_ASSERT() fails

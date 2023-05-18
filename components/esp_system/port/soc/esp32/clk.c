@@ -9,10 +9,10 @@
 #include "soc/i2s_reg.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-#include "bootloader_clock.h"
+// #include "bootloader_clock.h"
 #include "hal/wdt_hal.h"
 
-#include "esp_private/spi_common_internal.h" // [refactor-todo]: for spicommon_periph_in_use
+// #include "esp_private/spi_common_internal.h" // [refactor-todo]: for spicommon_periph_in_use
 
 #include "esp_log.h"
 #include "esp_cpu.h"
@@ -20,7 +20,7 @@
 #include "esp_rom_uart.h"
 #include "esp_rom_sys.h"
 
-#include "sdkconfig.h"
+
 
 static const char* TAG = "clk";
 
@@ -28,7 +28,7 @@ static const char* TAG = "clk";
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_ESP32_RTC_CLK_CAL_CYCLES
 
 #ifdef CONFIG_RTC_XTAL_CAL_RETRY
 #define RTC_XTAL_CAL_RETRY CONFIG_RTC_XTAL_CAL_RETRY

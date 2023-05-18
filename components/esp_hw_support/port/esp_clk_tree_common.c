@@ -36,7 +36,7 @@ struct esp_clk_tree_calibrated_freq_t {
 static esp_clk_tree_calibrated_freq_t s_calibrated_freq = {};
 
 /* Number of cycles for RTC_SLOW_CLK calibration */
-#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_ESP32_RTC_CLK_CAL_CYCLES
 /* Number of cycles for ~32kHz clocks calibration (rc_fast_d256, xtal32k, osc_slow, rc32k) */
 #define DEFAULT_32K_CLK_CAL_CYCLES  100
 /* Number of cycles for RC_FAST calibration */

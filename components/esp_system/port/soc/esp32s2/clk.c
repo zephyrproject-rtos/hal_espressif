@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-#include <sys/time.h>
+// #include <sys/time.h>
 #include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -24,7 +24,7 @@
 #include "hal/wdt_hal.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-#include "bootloader_clock.h"
+// #include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
 #include "hal/clk_gate_ll.h"
 
@@ -34,7 +34,7 @@ static const char *TAG = "clk";
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_ESP32_RTC_CLK_CAL_CYCLES
 
 #ifdef CONFIG_RTC_XTAL_CAL_RETRY
 #define RTC_XTAL_CAL_RETRY CONFIG_RTC_XTAL_CAL_RETRY

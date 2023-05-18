@@ -21,10 +21,8 @@
 #define _ESP_TASK_H_
 
 #include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/FreeRTOSConfig.h"
 
-#define ESP_TASK_PRIO_MAX (configMAX_PRIORITIES)
+#define ESP_TASK_PRIO_MAX (5)
 #define ESP_TASK_PRIO_MIN (0)
 
 /* Bt contoller Task */

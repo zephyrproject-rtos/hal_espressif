@@ -7,7 +7,7 @@
 
 #include "sdkconfig.h"
 #include "esp_assert.h"
-#include "esp_flash_partitions.h"
+// #include "esp_flash_partitions.h"
 
 #define MSPI_TIMING_CONFIG_NUM_DEFAULT               20  //This should be larger than the max available timing config num
 #define MSPI_TIMING_TEST_DATA_LEN                    64

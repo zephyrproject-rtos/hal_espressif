@@ -8,11 +8,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "stubs.h"
 #include "soc/soc.h"
 #include "soc/rtc_periph.h"
 #include "soc/clk_tree_defs.h"
-
-#define MHZ (1000000)
 
 #ifdef __cplusplus
 extern "C" {

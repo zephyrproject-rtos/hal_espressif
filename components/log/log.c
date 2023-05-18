@@ -62,7 +62,7 @@ typedef struct uncached_tag_entry_ {
     char tag[0];    // beginning of a zero-terminated string
 } uncached_tag_entry_t;
 
-esp_log_level_t esp_log_default_level = CONFIG_LOG_DEFAULT_LEVEL;
+esp_log_level_t esp_log_default_level = CONFIG_BOOTLOADER_LOG_LEVEL;
 static SLIST_HEAD(log_tags_head, uncached_tag_entry_) s_log_tags = SLIST_HEAD_INITIALIZER(s_log_tags);
 static cached_tag_entry_t s_log_cache[TAG_CACHE_SIZE];
 static uint32_t s_log_cache_max_generation = 0;

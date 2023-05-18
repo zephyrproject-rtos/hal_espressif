@@ -22,8 +22,8 @@
 #include "soc/syscon_reg.h"
 #include "soc/rtc_periph.h"
 #include "hal/wdt_hal.h"
-#include "freertos/xtensa_api.h"
-#include "soc/soc_memory_layout.h"
+// #include "freertos/xtensa_api.h"
+// #include "soc/soc_memory_layout.h"
 
 #include "esp32s2/rom/rtc.h"
 
