@@ -8,7 +8,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
+#if defined(__ZEPHYR__)
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#endif
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"
@@ -32,7 +35,9 @@
 #include "soc/io_mux_reg.h"
 #include "driver/gpio.h"
 #include "hal/gpio_hal.h"
+#if !defined(__ZEPHYR__)
 #include "driver/spi_common_internal.h"
+#endif
 #include "driver/spi_common.h"
 #include "driver/periph_ctrl.h"
 #include "bootloader_common.h"
