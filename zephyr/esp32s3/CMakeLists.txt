@@ -148,6 +148,15 @@ if(CONFIG_SOC_ESP32S3)
     ../../components/hal/gdma_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESP_SPIRAM
+    ../esp_shared/src/host_flash/cache_utils.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/esp_hw_support/port/esp32s3/spiram.c
+    ../../components/esp_hw_support/port/esp32s3/spiram_psram.c
+    ../../components/bootloader_support/src/bootloader_common.c
+    )
+
   if (CONFIG_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/esp32s3
