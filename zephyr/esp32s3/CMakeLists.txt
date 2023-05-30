@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_SOC_ESP32S3)
+if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
 
