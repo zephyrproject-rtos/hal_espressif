@@ -12,7 +12,6 @@
 #include "esp_timer.h"
 #include "esp_timer_impl.h"
 #include "esp_system.h"
-#include "esp_newlib.h"
 #include "esp_log.h"
 
 #include "esp_private/startup_internal.h"
