@@ -18,7 +18,8 @@
 
 #include <stdint.h>
 #include "esp_err.h"
-#include "esp_intr_alloc.h"
+
+typedef void (*intr_handler_t)(void *arg);
 
 /**
  * @brief Minimal initialization of platform specific layer of esp_timer

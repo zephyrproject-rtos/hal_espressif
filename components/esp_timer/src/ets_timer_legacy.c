@@ -16,9 +16,6 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
 #include "sdkconfig.h"
 #include "esp_timer.h"
 // for ETSTimer type
