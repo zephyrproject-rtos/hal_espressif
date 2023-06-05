@@ -26,7 +26,7 @@ file_out_tail = '''
 #endif /* INC_DT_BINDS_PINCTRL_{SOC}_PINCTRL_HAL_H_ */
 '''
 
-file_out_path = 'include/dt-bindings/pinctrl/'
+file_out_path = 'include/zephyr/dt-bindings/pinctrl/'
 file_out_temp = '{SOC}-pinctrl-temp.h'
 file_out_name = '{SOC}-pinctrl.h'
 file_tmp_abs = ''
@@ -98,13 +98,21 @@ def get_pinmux(dev_name, pin_name, pin_info, io):
 
 
 def main(pcfg_in):
+    zephyr_base = os.getenv('ZEPHYR_BASE')
+
+    if zephyr_base is None:
+        print("Missing ZEPHYR_BASE environment variable")
+        exit()
+
+    print("Zephyr Base: ", zephyr_base)
+
     stream = open(pcfg_in, 'r')
     pcfg_data = yaml.load(stream, Loader=yaml.FullLoader)
     soc = os.path.basename(pcfg_in).replace('.yml', '')
 
-    file_out_abs = Path(Path(__file__).resolve().parents[3], file_out_path + soc + '-pinctrl.h')
+    file_out_abs = Path(zephyr_base, file_out_path + soc + '-pinctrl.h')
     global file_tmp_abs
-    file_tmp_abs = Path(Path(__file__).resolve().parents[3], file_out_path + soc + '-pinctrl-temp.h')
+    file_tmp_abs = Path(zephyr_base, file_out_path + soc + '-pinctrl-temp.h')
 
     # sorts by dev name, which keeps git
     # diffs minimal and easily trackable
@@ -134,6 +142,8 @@ def main(pcfg_in):
         os.remove(file_out_abs)
 
     os.rename(file_tmp_abs, file_out_abs)
+
+    print("Output file: ", file_out_abs)
 
 
 if __name__ == '__main__':
