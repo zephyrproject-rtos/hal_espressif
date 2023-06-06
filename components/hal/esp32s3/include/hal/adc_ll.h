@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "regi2c_ctrl.h"
 
 #include "soc/adc_periph.h"
@@ -418,7 +419,7 @@ static inline void adc_ll_digi_filter_enable(adc_ll_num_t adc_n, bool enable)
  * @param adc_n ADC unit.
  * @return Filtered data.
  */
-static inline uint32_t adc_ll_digi_filter_read_data(adc_ll_num_t adc_n)
+static inline void adc_ll_digi_filter_read_data(adc_ll_num_t adc_n)
 {
     abort();
 }
