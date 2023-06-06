@@ -9,12 +9,24 @@
 #include "esp_log.h"
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
+#include <stdlib.h>
 
 //Don't introduce new dependency of ADC, keep these macro same as ADC related definations
 #define ADC_ATTEN_MAX    4
 #define ADC_NUM_MAX      2
 #define ADC_NUM_1        0
 #define ADC_NUM_2        1
+
+#ifdef ESP_ERROR_CHECK
+#undef ESP_ERROR_CHECK
+#endif
+#define ESP_ERROR_CHECK(x) do { \
+	esp_err_t __err_rc = (x); \
+	if (__err_rc != ESP_OK) { \
+		ESP_LOGW("ERROR ", "%d: %d", __LINE__, __err_rc);\
+		abort();\
+	} \
+} while(0)
 
 
 int esp_efuse_rtc_calib_get_ver(void)

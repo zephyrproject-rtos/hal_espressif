@@ -9,6 +9,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     include/bt
     include/crypto
     ../esp_shared/include
+    ../esp_shared/include/adc
     ../esp_shared/include/wifi
     ../esp_shared/components/include
     ../../components/hal/include
@@ -143,6 +144,16 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_ADC_ESP32
+    ../../components/hal/adc_hal.c
+    ../esp_shared/components/driver/adc_common.c
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    ../esp_shared/components/esp_adc_cal/esp_adc_cal_common.c
+    src/esp_adc_cal/esp_adc_cal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_DMA_ESP32
     ../../components/soc/lldesc.c
     ../../components/hal/gdma_hal.c
@@ -177,6 +188,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
+      ../../components/hal/soc_hal.c
       ../esp_shared/src/boot/esp_loader.c
       ../esp_shared/src/boot/bootloader_wdt.c
       ../esp_shared/src/boot/bootloader_init_common.c
@@ -186,6 +198,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_sources(
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/soc/esp32s3/adc_periph.c
     ../../components/soc/esp32s3/gpio_periph.c
     ../../components/soc/esp32s3/rtc_io_periph.c
     ../../components/spi_flash/spi_flash_timing_tuning.c
@@ -215,7 +228,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/log/log.c
     ../../components/efuse/esp32s3/esp_efuse_fields.c
     ../../components/efuse/esp32s3/esp_efuse_table.c
+    ../../components/efuse/esp32s3/esp_efuse_rtc_calib.c
     ../../components/efuse/esp32s3/esp_efuse_utility.c
+    ../../components/efuse/esp32s3/esp_efuse_rtc_calib.c
     ../../components/efuse/src/esp_efuse_api.c
     ../../components/efuse/src/esp_efuse_api_key_esp32xx.c
     ../../components/efuse/src/esp_efuse_utility.c
