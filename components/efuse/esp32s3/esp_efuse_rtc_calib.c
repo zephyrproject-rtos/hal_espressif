@@ -20,7 +20,7 @@
 int esp_efuse_rtc_calib_get_ver(void)
 {
     uint32_t blk_ver_major = 0;
-    ESP_ERROR_CHECK(esp_efuse_read_field_blob(ESP_EFUSE_BLK_VER_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VER_MAJOR[0]->bit_count));
+    esp_efuse_read_field_blob(ESP_EFUSE_BLK_VER_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VER_MAJOR[0]->bit_count);
 
     uint32_t cali_version_v1 = (blk_ver_major == 1) ? 1 : 0;
     if (!cali_version_v1) {
@@ -45,7 +45,7 @@ uint32_t esp_efuse_rtc_calib_get_init_code(int version, uint32_t adc_unit, int a
 
     for (int diff_index = 0; diff_index < 4; diff_index++) {
         efuse_icode_bits = esp_efuse_get_field_size(desc[desc_index]);
-        ESP_ERROR_CHECK(esp_efuse_read_field_blob(desc[desc_index], &adc_icode_diff[diff_index], efuse_icode_bits));
+        esp_efuse_read_field_blob(desc[desc_index], &adc_icode_diff[diff_index], efuse_icode_bits);
         desc_index++;
     }
 
@@ -79,7 +79,7 @@ esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, uint32_t adc_unit, in
                                         ESP_EFUSE_ADC2_CAL_VOL_ATTEN0, ESP_EFUSE_ADC2_CAL_VOL_ATTEN1, ESP_EFUSE_ADC2_CAL_VOL_ATTEN2, ESP_EFUSE_ADC2_CAL_VOL_ATTEN3};
     for (int i = 0; i < 8; i++) {
         efuse_vol_bits = esp_efuse_get_field_size(desc[i]);
-        ESP_ERROR_CHECK(esp_efuse_read_field_blob(desc[i], &adc_vol_diff[i], efuse_vol_bits));
+        esp_efuse_read_field_blob(desc[i], &adc_vol_diff[i], efuse_vol_bits);
     }
 
     adc1_vol[3] = adc_vol_diff[3] + 900;
