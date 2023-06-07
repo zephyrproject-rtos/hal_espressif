@@ -128,7 +128,7 @@ void esp_cpu_configure_region_protection(void)
 
     if (esp_cpu_dbgr_is_attached()) {
         // Anti-FI check that cpu is really in ocd mode
-        ESP_FAULT_ASSERT(esp_cpu_dbgr_is_attached());
+//        ESP_FAULT_ASSERT(esp_cpu_dbgr_is_attached());
 
         // 5. IRAM and DRAM
         const uint32_t pmpaddr5 = PMPADDR_NAPOT(SOC_IRAM_LOW, SOC_IRAM_HIGH);

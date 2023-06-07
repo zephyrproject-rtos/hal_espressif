@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-#include <sys/time.h>
 #include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -34,14 +33,12 @@
  */
 #define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
 
-#define MHZ (1000000)
-
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
 static const char *TAG = "clk";
 
 
- __attribute__((weak)) void esp_clk_init(void)
+__attribute__((weak)) void esp_clk_init(void)
 {
 #if !CONFIG_IDF_ENV_FPGA
     pmu_init();

@@ -45,6 +45,9 @@
 #include "soc/lp_wdt_reg.h"
 #include "hal/efuse_hal.h"
 #include "modem/modem_lpcon_reg.h"
+#ifdef CONFIG_ESP_SIMPLE_BOOT
+#include "esp_flash_internal.h"
+#endif
 
 static const char *TAG = "boot.esp32c6";
 
@@ -68,7 +71,7 @@ static void bootloader_check_wdt_reset(void)
     soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
     if (rst_reason == RESET_REASON_CORE_RTC_WDT || rst_reason == RESET_REASON_CORE_MWDT0 || rst_reason == RESET_REASON_CORE_MWDT1 ||
         rst_reason == RESET_REASON_CPU0_MWDT0 || rst_reason == RESET_REASON_CPU0_MWDT1 || rst_reason == RESET_REASON_CPU0_RTC_WDT) {
-        ESP_LOGW(TAG, "PRO CPU has been reset by WDT.");
+        ESP_EARLY_LOGW(TAG, "PRO CPU has been reset by WDT.");
         wdt_rst = 1;
     }
     if (wdt_rst) {
@@ -141,6 +144,17 @@ esp_err_t bootloader_init(void)
     bootloader_console_init();
     /* print 2nd bootloader banner */
     bootloader_print_banner();
+
+    /* TODO: fix the flash init for all scenarios */
+#ifdef CONFIG_ESP_SIMPLE_BOOT
+    esp_mspi_pin_init();
+    spi_flash_init_chip_state();
+
+    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
+        ESP_EARLY_LOGE(TAG, "esp_flash_init_default_chip err=%x\n", ret);
+        return ret;
+    }
+#endif
 
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
     //init cache hal
