@@ -13,7 +13,6 @@
 #include "esp_private/system_internal.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
-#include "soc/rtc_cntl_reg.h"
 #include "esp_rom_uart.h"
 
 static unsigned int lock_key;
