@@ -15,14 +15,16 @@
 #include "soc/soc_memory_layout.h"
 #include "esp_log.h"
 
-#ifndef CONFIG_SOC_SERIES_ESP32C3
+#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_ESP32C6)
 #include "soc/dport_reg.h"
 #endif
 
 #include "esp_rom_sys.h"
 #include "soc/gpio_periph.h"
 #include "soc/rtc_periph.h"
+#ifndef CONFIG_SOC_SERIES_ESP32C6
 #include "soc/rtc_cntl_reg.h"
+#endif
 #include "esp_cpu.h"
 
 #if CONFIG_SOC_SERIES_ESP32
@@ -35,6 +37,8 @@
 #include "esp32s3/rom/cache.h"
 #elif CONFIG_SOC_SERIES_ESP32C3
 #include "esp32c3/rom/uart.h"
+#elif CONFIG_SOC_SERIES_ESP32C6
+#include "esp32c6/rom/uart.h"
 #endif
 
 #include "esp_mcuboot_image.h"
