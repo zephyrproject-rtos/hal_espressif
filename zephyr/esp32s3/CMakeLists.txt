@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_SOC_SERIES_ESP32S3)
+if(CONFIG_SOC_SERIES_ESP32S3 OR CONFIG_SOC_SERIES_ESP32S3_NET)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
 
@@ -223,6 +223,12 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       )
   endif()
 
+  if (NOT CONFIG_SOC_SERIES_ESP32S3_NET)
+    zephyr_sources(
+      ../../components/esp_system/port/soc//${CONFIG_SOC_SERIES}/clk.c
+    )
+  endif()
+
   zephyr_sources(
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/i2s_periph.c
@@ -260,7 +266,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
 
-    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
 
@@ -482,11 +487,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       mbedTLS
       )
 
-  endif()
-
-  ## Ethernet MAC/PHY definitions
-  if(CONFIG_ESP32_EMAC)
-    zephyr_sources(../../components/hal/emac_hal.c)
   endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
