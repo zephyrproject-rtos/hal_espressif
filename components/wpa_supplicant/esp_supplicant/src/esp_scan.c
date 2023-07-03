@@ -188,9 +188,9 @@ static int issue_scan(struct wpa_supplicant *wpa_s,
 		} else
 
 		if (scan_params->mode == BEACON_REPORT_MODE_PASSIVE) {
-			params->scan_type = WIFI_SCAN_TYPE_PASSIVE;
+			params->scan_type = ESP_WIFI_SCAN_TYPE_PASSIVE;
 		} else {
-			params->scan_type = WIFI_SCAN_TYPE_ACTIVE;
+			params->scan_type = ESP_WIFI_SCAN_TYPE_ACTIVE;
 		}
 
 		if (scan_params->bssid) {
