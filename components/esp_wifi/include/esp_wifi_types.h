@@ -105,8 +105,8 @@ typedef enum {
 } wifi_second_chan_t;
 
 typedef enum {
-    WIFI_SCAN_TYPE_ACTIVE = 0,  /**< active scan */
-    WIFI_SCAN_TYPE_PASSIVE,     /**< passive scan */
+    ESP_WIFI_SCAN_TYPE_ACTIVE = 0,  /**< active scan */
+    ESP_WIFI_SCAN_TYPE_PASSIVE,     /**< passive scan */
 } wifi_scan_type_t;
 
 /** @brief Range of active scan times per channel */

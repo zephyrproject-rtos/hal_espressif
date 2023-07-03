@@ -920,13 +920,13 @@ esp_err_t wifi_prov_mgr_wifi_scan_start(bool blocking, bool passive,
     }
 
     if (passive) {
-        prov_ctx->scan_cfg.scan_type = WIFI_SCAN_TYPE_PASSIVE;
+        prov_ctx->scan_cfg.scan_type = ESP_WIFI_SCAN_TYPE_PASSIVE;
 /* We do not recommend scan configuration modification in Wi-Fi and BT coexistence mode */
 #if !CONFIG_BT_ENABLED
         prov_ctx->scan_cfg.scan_time.passive = period_ms;
 #endif
     } else {
-        prov_ctx->scan_cfg.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+        prov_ctx->scan_cfg.scan_type = ESP_WIFI_SCAN_TYPE_ACTIVE;
 /* We do not recommend scan configuration modification in Wi-Fi and BT coexistence mode */
 #if !CONFIG_BT_ENABLED
         prov_ctx->scan_cfg.scan_time.active.min = period_ms;
