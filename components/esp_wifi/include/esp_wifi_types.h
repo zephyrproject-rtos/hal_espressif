@@ -8,6 +8,7 @@
 #ifndef __ESP_WIFI_TYPES_H__
 #define __ESP_WIFI_TYPES_H__
 
+#include <zephyr/net/wifi.h>
 #include "esp_private/esp_wifi_types_private.h"
 
 #ifdef __cplusplus
@@ -104,11 +105,6 @@ typedef enum {
     WIFI_SECOND_CHAN_BELOW,     /**< the channel width is HT40 and the secondary channel is below the primary channel */
 } wifi_second_chan_t;
 
-typedef enum {
-    WIFI_SCAN_TYPE_ACTIVE = 0,  /**< active scan */
-    WIFI_SCAN_TYPE_PASSIVE,     /**< passive scan */
-} wifi_scan_type_t;
-
 /** @brief Range of active scan times per channel */
 typedef struct {
     uint32_t min;  /**< minimum active scan time per channel, units: millisecond */
@@ -129,7 +125,7 @@ typedef struct {
     uint8_t *bssid;              /**< MAC address of AP */
     uint8_t channel;             /**< channel, scan the specific channel */
     bool show_hidden;            /**< enable to scan AP whose SSID is hidden */
-    wifi_scan_type_t scan_type;  /**< scan type, active or passive */
+    enum wifi_scan_type scan_type;  /**< scan type, active or passive */
     wifi_scan_time_t scan_time;  /**< scan time per channel */
 } wifi_scan_config_t;
 
