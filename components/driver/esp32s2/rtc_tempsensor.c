@@ -27,9 +27,9 @@
 static const char *TAG = "tsens";
 
 #define TSENS_XPD_WAIT_DEFAULT 0xFF   /* Set wait cycle time(8MHz) from power up to reset enable. */
-#define TSENS_ADC_FACTOR  (0.4386)
-#define TSENS_DAC_FACTOR  (27.88)
-#define TSENS_SYS_OFFSET  (20.52)
+#define TSENS_ADC_FACTOR  (0.4386f)
+#define TSENS_DAC_FACTOR  (27.88f)
+#define TSENS_SYS_OFFSET  (20.52f)
 
 typedef struct {
     int index;
@@ -168,7 +168,7 @@ static void read_delta_t_from_efuse(void)
     uint32_t version = esp_efuse_rtc_table_read_calib_version();
     if (version == 1 || version == 2) {
         // fetch calibration value for temp sensor from eFuse
-        s_deltaT = esp_efuse_rtc_table_get_parsed_efuse_value(RTCCALIB_IDX_TMPSENSOR, false) / 10.0;
+        s_deltaT = esp_efuse_rtc_table_get_parsed_efuse_value(RTCCALIB_IDX_TMPSENSOR, false) / 10.0f;
     } else {
         // no value to fetch, use 0.
         s_deltaT = 0;

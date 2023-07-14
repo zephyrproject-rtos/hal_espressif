@@ -27,9 +27,9 @@
 static const char *TAG = "tsens";
 
 #define TSENS_XPD_WAIT_DEFAULT 0xFF   /* Set wait cycle time(8MHz) from power up to reset enable. */
-#define TSENS_ADC_FACTOR  (0.4386)
-#define TSENS_DAC_FACTOR  (27.88)
-#define TSENS_SYS_OFFSET  (20.52)
+#define TSENS_ADC_FACTOR  (0.4386f)
+#define TSENS_DAC_FACTOR  (27.88f)
+#define TSENS_SYS_OFFSET  (20.52f)
 
 typedef struct {
     int index;
@@ -141,7 +141,7 @@ static float parse_temp_sensor_raw_value(uint32_t tsens_raw, const int dac_offse
     if (isnan(s_deltaT)) { //suggests that the value is not initialized
         read_delta_t_from_efuse();
     }
-    float result = (TSENS_ADC_FACTOR * (float)tsens_raw - TSENS_DAC_FACTOR * dac_offset - TSENS_SYS_OFFSET) - s_deltaT / 10.0;
+    float result = (TSENS_ADC_FACTOR * (float)tsens_raw - TSENS_DAC_FACTOR * dac_offset - TSENS_SYS_OFFSET) - s_deltaT / 10.0f;
     return result;
 }
 
