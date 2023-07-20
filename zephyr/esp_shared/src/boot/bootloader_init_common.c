@@ -43,7 +43,7 @@ esp_err_t bootloader_common_check_chip_validity(
         err = ESP_FAIL;
     }
 
-#ifndef CONFIG_SOC_SERIES_ESP32C3
+#ifndef CONFIG_SOC_ESP32C3
     uint8_t revision = bootloader_common_get_chip_revision();
     if (revision < img_hdr->min_chip_rev) {
         /* To fix this error, please update mininum supported chip revision from configuration,
@@ -58,7 +58,7 @@ esp_err_t bootloader_common_check_chip_validity(
                                img_hdr->min_chip_rev);
 #endif
     }
-#endif /* CONFIG_SOC_SERIES_ESP32C3 */
+#endif /* CONFIG_SOC_ESP32C3 */
 
     return err;
 }
@@ -102,7 +102,7 @@ void bootloader_print_flash_info(const esp_image_header_t *bootloader_hdr)
         break;
     }
 
-#ifdef CONFIG_SOC_SERIES_ESP32
+#ifdef CONFIG_SOC_ESP32
 #undef SPI_MEM_CTRL_REG
 #define SPI_MEM_CTRL_REG(x) SPI_CTRL_REG(x)
 #undef SPI_MEM_FREAD_QIO
@@ -115,7 +115,7 @@ void bootloader_print_flash_info(const esp_image_header_t *bootloader_hdr)
 #define SPI_MEM_FREAD_DUAL SPI_FREAD_DUAL
 #undef SPI_MEM_FASTRD_MODE
 #define SPI_MEM_FASTRD_MODE SPI_FASTRD_MODE
-#endif /* CONFIG_SOC_SERIES_ESP32 */
+#endif /* CONFIG_SOC_ESP32 */
 
     /* SPI mode could have been set to QIO during boot already,
      * so test the SPI registers not the flash header

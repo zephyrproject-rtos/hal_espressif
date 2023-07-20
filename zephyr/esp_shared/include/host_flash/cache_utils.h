@@ -5,15 +5,15 @@
  */
 #pragma once
 
-#if defined(CONFIG_SOC_SERIES_ESP32)
+#if defined(CONFIG_SOC_ESP32)
 #include "soc/dport_reg.h"
-#elif defined(CONFIG_SOC_SERIES_ESP32S2)
+#elif defined(CONFIG_SOC_ESP32S2)
 #include "esp_attr.h"
 #include "esp32s2/rom/cache.h"
-#elif defined(CONFIG_SOC_SERIES_ESP32S3)
+#elif defined(CONFIG_SOC_ESP32S3)
 #include "esp_attr.h"
 #include "esp32s3/rom/cache.h"
-#elif defined(CONFIG_SOC_SERIES_ESP32C3)
+#elif defined(CONFIG_SOC_ESP32C3)
 #include "soc/soc.h"
 #include "esp32c3/rom/cache.h"
 #endif
