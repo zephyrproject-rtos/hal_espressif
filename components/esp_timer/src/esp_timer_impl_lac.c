@@ -24,23 +24,22 @@
 #include "soc/timer_group_reg.h"
 #include "soc/rtc.h"
 
-#ifdef CONFIG_SOC_SERIES_ESP32C3
+#ifdef CONFIG_SOC_ESP32C3
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 #else
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #endif
 
-/* TODO: Remove _ESP32_NET condition when AMP support will be added */
-#if CONFIG_SOC_SERIES_ESP32 || CONFIG_SOC_SERIES_ESP32_NET
+#if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/rtc.h"
 #include "esp32/clk.h"
-#elif CONFIG_SOC_SERIES_ESP32S2
+#elif CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/rtc.h"
 #include "esp32s2/clk.h"
-#elif CONFIG_SOC_SERIES_ESP32S3
+#elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/rtc.h"
 #include "esp32s3/clk.h"
-#elif CONFIG_SOC_SERIES_ESP32C3
+#elif CONFIG_IDF_TARGET_ESP32C3
 #include "esp32c3/rom/rtc.h"
 #include "esp32c3/clk.h"
 #endif

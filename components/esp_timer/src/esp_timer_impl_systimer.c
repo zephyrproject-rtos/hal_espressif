@@ -22,7 +22,7 @@
 #include "hal/systimer_hal.h"
 #include <zephyr/kernel.h>
 
-#ifdef CONFIG_SOC_SERIES_ESP32C3
+#ifdef CONFIG_SOC_ESP32C3
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 #define ISR_HANDLER isr_handler_t
 #else
