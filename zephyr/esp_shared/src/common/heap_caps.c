@@ -7,11 +7,11 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 #include <zephyr/sys/math_extras.h>
-#if CONFIG_SOC_SERIES_ESP32
+#if CONFIG_SOC_ESP32
 #include <esp32/spiram.h>
-#elif CONFIG_SOC_SERIES_ESP32S2
+#elif CONFIG_SOC_ESP32S2
 #include <esp32s2/spiram.h>
-#elif CONFIG_SOC_SERIES_ESP32S3
+#elif CONFIG_SOC_ESP32S3
 #include <esp32s3/spiram.h>
 #endif
 #include <esp_attr.h>
