@@ -528,7 +528,7 @@ struct wpabuf * json_get_member_base64url(struct json_token *json,
 }
 
 
-static const char * json_type_str(enum json_type type)
+static const char * json_type_str(enum esp_json_type type)
 {
 	switch (type) {
 	case JSON_VALUE:
