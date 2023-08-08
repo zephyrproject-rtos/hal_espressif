@@ -88,7 +88,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_SOC_FLASH_ESP32
+    CONFIG_ESP32_HAL_USE_FLASH
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_mmap.c
     ../../components/spi_flash/esp32s2/spi_flash_rom_patch.c
@@ -104,7 +104,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
 
   zephyr_sources_ifdef(
-    CONFIG_ESP32_SPIM
+    CONFIG_ESP32_HAL_USE_SPI
     ../../components/hal/spi_hal.c
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
@@ -112,7 +112,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_ESP_SPIRAM
+    CONFIG_ESP32_HAL_USE_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
     ../../components/esp_hw_support/port/esp32s2/spiram.c
@@ -121,31 +121,31 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_I2C_ESP32
+    CONFIG_ESP32_HAL_USE_I2C
     ../../components/hal/i2c_hal_iram.c
     ../../components/hal/i2c_hal.c
     )
 
   zephyr_sources_ifdef(
-    CONFIG_UART_ESP32
+    CONFIG_ESP32_HAL_USE_UART
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
     )
 
   zephyr_sources_ifdef(
-    CONFIG_PWM_LED_ESP32
+    CONFIG_ESP32_HAL_USE_LED_PWM
     ../../components/soc/esp32s2/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
 
   zephyr_sources_ifdef(
-    CONFIG_PCNT_ESP32
+    CONFIG_ESP32_HAL_USE_PCNT
     ../../components/hal/pcnt_hal.c
     )
 
   zephyr_sources_ifdef(
-    CONFIG_DAC_ESP32
+    CONFIG_ESP32_HAL_USE_DAC
     ../../components/hal/dac_hal.c
     ../../components/soc/esp32s2/dac_periph.c
     ../esp_shared/components/driver/dac_common.c
@@ -154,7 +154,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_ADC_ESP32
+    CONFIG_ESP32_HAL_USE_ADC
     ../../components/hal/adc_hal.c
     ../esp_shared/components/driver/adc_common.c
     ../esp_shared/components/driver/rtc_io_hal.c
@@ -163,7 +163,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_PM
+    CONFIG_ESP32_HAL_USE_PM
     ../esp_shared/components/driver/gpio.c
     ../esp_shared/components/driver/rtc_io.c
     ../esp_shared/components/esp_hw_support/sleep_modes.c
@@ -174,11 +174,11 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_ESP32_TEMP
+    CONFIG_ESP32_HAL_USE_TEMP_SENSOR
     ../../components/driver/esp32s2/rtc_tempsensor.c
     )
 
-  if (CONFIG_MCUBOOT)
+  if (ESP32_HAL_USE_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/esp32s2
       ../esp_shared/include/boot
@@ -243,7 +243,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   ## WIFI definitions
-  if (CONFIG_WIFI_ESP32)
+  if (CONFIG_ESP32_HAL_USE_WIFI)
 
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
     set(WPA_SUPPLICANT_SRCS "src/wpa_supplicant/port/os_xtensa.c"
