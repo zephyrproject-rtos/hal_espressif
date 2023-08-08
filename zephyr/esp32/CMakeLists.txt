@@ -161,15 +161,17 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../esp_shared/components/driver/rtc_io.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_PM
-    ../esp_shared/components/driver/gpio.c
-    ../esp_shared/components/driver/rtc_io.c
-    ../esp_shared/components/esp_hw_support/sleep_modes.c
-    ../esp_shared/components/esp_pm/pm_impl.c
-    ../../components/esp_hw_support/port/esp32/rtc_sleep.c
-    ../../components/hal/rtc_io_hal.c
+  # FIXME: depending on Zephyr Kconfig options here is wrong
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../esp_shared/components/driver/gpio.c
+      ../esp_shared/components/driver/rtc_io.c
+      ../esp_shared/components/esp_hw_support/sleep_modes.c
+      ../esp_shared/components/esp_pm/pm_impl.c
+      ../../components/esp_hw_support/port/esp32/rtc_sleep.c
+      ../../components/hal/rtc_io_hal.c
     )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_ADC_ESP32
