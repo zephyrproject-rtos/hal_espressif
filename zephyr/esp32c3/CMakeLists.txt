@@ -124,15 +124,17 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/ledc_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_PM
-    ../esp_shared/components/driver/gpio.c
-    ../esp_shared/components/esp_hw_support/sleep_modes.c
-    ../esp_shared/components/esp_pm/pm_impl.c
-    ../../components/esp_hw_support/sleep_retention.c
-    ../../components/esp_system/esp_err.c
-    ../../components/hal/esp32c3/rtc_cntl_hal.c
+  # FIXME: depending on Zephyr Kconfig options here is wrong
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../esp_shared/components/driver/gpio.c
+      ../esp_shared/components/esp_hw_support/sleep_modes.c
+      ../esp_shared/components/esp_pm/pm_impl.c
+      ../../components/esp_hw_support/sleep_retention.c
+      ../../components/esp_system/esp_err.c
+      ../../components/hal/esp32c3/rtc_cntl_hal.c
     )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP

@@ -162,16 +162,18 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     src/esp_adc_cal/esp_adc_cal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_PM
-    ../esp_shared/components/driver/gpio.c
-    ../esp_shared/components/driver/rtc_io.c
-    ../esp_shared/components/esp_hw_support/sleep_modes.c
-    ../esp_shared/components/esp_pm/pm_impl.c
-    ../../components/esp_system/port/brownout.c
-    ../../components/hal/esp32s2/brownout_hal.c
-    ../../components/hal/esp32s2/touch_sensor_hal.c
+  # FIXME: depending on Zephyr Kconfig options here is wrong
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../esp_shared/components/driver/gpio.c
+      ../esp_shared/components/driver/rtc_io.c
+      ../esp_shared/components/esp_hw_support/sleep_modes.c
+      ../esp_shared/components/esp_pm/pm_impl.c
+      ../../components/esp_system/port/brownout.c
+      ../../components/hal/esp32s2/brownout_hal.c
+      ../../components/hal/esp32s2/touch_sensor_hal.c
     )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
