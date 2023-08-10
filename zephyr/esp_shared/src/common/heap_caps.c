@@ -29,15 +29,11 @@ STRUCT_SECTION_ITERABLE(k_heap, _internal_heap_1) = {
 #endif
 
 #if defined(CONFIG_ESP_SPIRAM)
-EXT_RAM_ATTR int _spiram_data_start;
+extern char _spiram_heap_start[];
 STRUCT_SECTION_ITERABLE(k_heap, _spiram_heap) = {
     .heap = {
-        .init_mem = &_spiram_data_start,
-#if (CONFIG_ESP_SPIRAM_SIZE <= 0x400000)
-        .init_bytes = CONFIG_ESP_SPIRAM_SIZE,
-#else
-        .init_bytes = 0x400000,
-#endif
+        .init_mem = _spiram_heap_start,
+        .init_bytes = CONFIG_SPIRAM_HEAP_SIZE,
     },
 };
 #endif
