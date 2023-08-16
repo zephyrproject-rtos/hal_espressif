@@ -4,22 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 #include "driver/rtc_io.h"
 #include "hal/rtc_io_hal.h"
 #include "soc/soc_caps.h"
 
 static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
-extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
-#define RTCIO_ENTER_CRITICAL()  portENTER_CRITICAL(&rtc_spinlock)
-#define RTCIO_EXIT_CRITICAL()  portEXIT_CRITICAL(&rtc_spinlock)
+extern int rtc_spinlock;
+
+#define RTCIO_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
+#define RTCIO_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
 
 #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 

@@ -17,6 +17,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "hal/misc.h"
 #include "soc/pcnt_struct.h"
 #include "hal/pcnt_types.h"
 

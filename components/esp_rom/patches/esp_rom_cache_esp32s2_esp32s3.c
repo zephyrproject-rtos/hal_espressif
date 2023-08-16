@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "soc/soc_caps.h"
 #include "soc/extmem_reg.h"
+#include "esp_rom_caps.h"
 #if CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/cache.h"
 #endif
@@ -30,7 +31,7 @@ uint32_t Cache_Count_Flash_Pages(uint32_t bus, uint32_t * page0_mapped)
 }
 extern uint32_t Cache_Count_Flash_Pages(uint32_t bus, uint32_t * page0_mapped);
 
-#if CONFIG_ESP_ROM_HAS_CACHE_SUSPEND_WAITI_BUG
+#if ESP_ROM_HAS_CACHE_SUSPEND_WAITI_BUG
 static inline void Cache_Wait_Idle(int icache)
 {
     if (icache) {

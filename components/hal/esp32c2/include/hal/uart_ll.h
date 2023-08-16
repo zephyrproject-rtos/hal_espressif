@@ -13,6 +13,7 @@
 #include "soc/uart_periph.h"
 #include "hal/clk_tree_ll.h"
 #include "esp_attr.h"
+#include "hal/misc.h"
 
 #ifdef __cplusplus
 extern "C" {

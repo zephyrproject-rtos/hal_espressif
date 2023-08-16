@@ -21,6 +21,8 @@ static int periph_spinlock;
 
 static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 void periph_module_enable(periph_module_t periph)
 {
     assert(periph < PERIPH_MODULE_MAX);
@@ -31,7 +33,10 @@ void periph_module_enable(periph_module_t periph)
     ref_counts[periph]++;
     LEAVE_CRITICAL_SECTION();
 }
+#pragma GCC diagnostic pop
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 void periph_module_disable(periph_module_t periph)
 {
     assert(periph < PERIPH_MODULE_MAX);
@@ -42,6 +47,7 @@ void periph_module_disable(periph_module_t periph)
     }
     LEAVE_CRITICAL_SECTION();
 }
+#pragma GCC diagnostic pop
 
 void periph_module_reset(periph_module_t periph)
 {

@@ -9,7 +9,6 @@
 #include "soc/soc_caps.h"
 #include "soc/clk_tree_defs.h"
 #include "hal/timer_types.h"
-#include "esp_intr_alloc.h"
 #include "esp_attr.h"
 
 #ifdef __cplusplus
@@ -100,25 +99,6 @@ typedef enum {
  * @brief Timer group clock source
  */
 typedef soc_periph_tg_clk_src_legacy_t timer_src_clk_t;
-
-/**
- * @brief Interrupt handler callback function
- *
- * @return
- *     - True Do task yield at the end of ISR
- *     - False Not do task yield at the end of ISR
- *
- * @note If you called FreeRTOS functions in callback, you need to return true or false based on
- *       the retrun value of argument `pxHigherPriorityTaskWoken`.
- *       For example, `xQueueSendFromISR` is called in callback, if the return value `pxHigherPriorityTaskWoken`
- *       of any FreeRTOS calls is pdTRUE, return true; otherwise return false.
- */
-typedef bool (*timer_isr_t)(void *);
-
-/**
- * @brief Interrupt handle, used in order to free the isr after use.
- */
-typedef intr_handle_t timer_isr_handle_t;
 
 /**
  * @brief Timer configurations

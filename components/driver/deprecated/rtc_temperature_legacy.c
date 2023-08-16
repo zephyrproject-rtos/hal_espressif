@@ -11,7 +11,6 @@
 #include "esp_types.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/regi2c_ctrl.h"
 #include "soc/regi2c_saradc.h"
 #include "esp_log.h"
@@ -121,7 +120,6 @@ esp_err_t temp_sensor_read_raw(uint32_t *tsens_out)
 static esp_err_t read_delta_t_from_efuse(void)
 {
     ESP_RETURN_ON_ERROR(esp_efuse_rtc_calib_get_tsens_val(&s_deltaT), TAG, "Calibration error");
-    ESP_LOGD(TAG, "s_deltaT = %f", s_deltaT);
     return ESP_OK;
 }
 
@@ -130,7 +128,7 @@ static float parse_temp_sensor_raw_value(uint32_t tsens_raw)
     if (isnan(s_deltaT)) { //suggests that the value is not initialized
         read_delta_t_from_efuse();
     }
-    float result = tsens_raw - s_deltaT / 10.0;
+    float result = tsens_raw - s_deltaT / 10.0f;
     return result;
 }
 

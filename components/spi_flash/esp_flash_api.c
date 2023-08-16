@@ -9,6 +9,8 @@
 #include <sys/param.h>
 #include <string.h>
 
+#include <zephyr/kernel.h>
+
 #include "esp_memory_utils.h"
 #include "spi_flash_chip_driver.h"
 #include "memspi_host_driver.h"
@@ -183,7 +185,8 @@ extern rom_spiflash_api_func_t *esp_flash_api_funcs;
 #ifndef CONFIG_SPI_FLASH_ROM_IMPL
 static esp_err_t IRAM_ATTR spiflash_start_default(esp_flash_t *chip)
 {
-    if (chip->os_func != NULL && chip->os_func->start != NULL) {
+    if (chip->os_func != NULL && chip->os_func_data != NULL && chip->os_func->start != NULL)
+    {
         esp_err_t err = chip->os_func->start(chip->os_func_data);
         if (err != ESP_OK) {
             return err;
@@ -198,6 +201,7 @@ static esp_err_t IRAM_ATTR spiflash_start_default(esp_flash_t *chip)
 static esp_err_t IRAM_ATTR spiflash_end_default(esp_flash_t *chip, esp_err_t err)
 {
     if (chip->os_func != NULL
+        && chip->os_func_data != NULL
         && chip->os_func->end != NULL) {
         esp_err_t end_err = chip->os_func->end(chip->os_func_data);
         if (err == ESP_OK) {
@@ -1225,13 +1229,11 @@ esp_err_t IRAM_ATTR esp_flash_write_encrypted(esp_flash_t *chip, uint32_t addres
 #endif  //#if CONFIG_SPI_FLASH_WARN_SETTING_ZERO_TO_ONE
 
 #if CONFIG_IDF_TARGET_ESP32S2
-        esp_crypto_dma_lock_acquire();
 #endif //CONFIG_IDF_TARGET_ESP32S2
         err = rom_spiflash_api_funcs->start(chip);
 
         if (err != ESP_OK) {
 #if CONFIG_IDF_TARGET_ESP32S2
-            esp_crypto_dma_lock_release();
 #endif //CONFIG_IDF_TARGET_ESP32S2
             //Error happens, we end flash operation. Re-enable cache and flush it
             goto restore_cache;
@@ -1241,7 +1243,6 @@ esp_err_t IRAM_ATTR esp_flash_write_encrypted(esp_flash_t *chip, uint32_t addres
         err = chip->chip_drv->write_encrypted(chip, (uint32_t *)encrypt_buf, row_addr, encrypt_byte);
         if (err!= ESP_OK) {
 #if CONFIG_IDF_TARGET_ESP32S2
-            esp_crypto_dma_lock_release();
 #endif //CONFIG_IDF_TARGET_ESP32S2
             bus_acquired = false;
             assert(bus_acquired);
@@ -1251,7 +1252,6 @@ esp_err_t IRAM_ATTR esp_flash_write_encrypted(esp_flash_t *chip, uint32_t addres
         err = rom_spiflash_api_funcs->end(chip, ESP_OK);
         COUNTER_ADD_BYTES(write, encrypt_byte);
 #if CONFIG_IDF_TARGET_ESP32S2
-        esp_crypto_dma_lock_release();
 #endif //CONFIG_IDF_TARGET_ESP32S2
         if (err != ESP_OK) {
             bus_acquired = false;

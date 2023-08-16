@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <stdlib.h>
+#include <zephyr/kernel.h>
 
 #include "soc/soc_caps.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_log.h"
 
@@ -14,7 +15,10 @@
 #include "hal/temperature_sensor_ll.h"
 #include "soc/temperature_sensor_periph.h"
 
-extern __attribute__((unused)) portMUX_TYPE rtc_spinlock;
+extern int rtc_spinlock;
+
+#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
+#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
 
 
 /*------------------------------------------------------------------------------------------------------------
@@ -32,27 +36,27 @@ static uint8_t s_tsens_idx = 2; // Index for temperature attribute, set 2(middle
 
 void temperature_sensor_power_acquire(void)
 {
-    portENTER_CRITICAL(&rtc_spinlock);
+    RTC_ENTER_CRITICAL();
     s_temperature_sensor_power_cnt++;
     if (s_temperature_sensor_power_cnt == 1) {
         temperature_sensor_ll_enable(true);
     }
-    portEXIT_CRITICAL(&rtc_spinlock);
+    RTC_EXIT_CRITICAL();
 }
 
 void temperature_sensor_power_release(void)
 {
-    portENTER_CRITICAL(&rtc_spinlock);
+    RTC_ENTER_CRITICAL();
     s_temperature_sensor_power_cnt--;
     /* Sanity check */
     if (s_temperature_sensor_power_cnt < 0) {
-        portEXIT_CRITICAL(&rtc_spinlock);
+        RTC_EXIT_CRITICAL();
         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
         abort();
     } else if (s_temperature_sensor_power_cnt == 0) {
         temperature_sensor_ll_enable(false);
     }
-    portEXIT_CRITICAL(&rtc_spinlock);
+    RTC_EXIT_CRITICAL();
 }
 
 static int temperature_sensor_get_raw_value(void)
@@ -68,7 +72,7 @@ void temp_sensor_sync_tsens_idx(int tsens_idx)
 
 int16_t temp_sensor_get_raw_value(bool *range_changed)
 {
-    portENTER_CRITICAL(&rtc_spinlock);
+    RTC_ENTER_CRITICAL();
 
     int degree = temperature_sensor_get_raw_value();
     uint8_t temperature_dac;
@@ -79,7 +83,7 @@ int16_t temp_sensor_get_raw_value(bool *range_changed)
         if (range_changed != NULL) {
             *range_changed = false;
         }
-        portEXIT_CRITICAL(&rtc_spinlock);
+        RTC_EXIT_CRITICAL();
         return degree;
     }
 
@@ -111,7 +115,7 @@ int16_t temp_sensor_get_raw_value(bool *range_changed)
         *range_changed = true;
     }
 
-    portEXIT_CRITICAL(&rtc_spinlock);
+    RTC_EXIT_CRITICAL();
     return degree;
 }
 

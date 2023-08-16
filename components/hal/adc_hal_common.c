@@ -14,6 +14,8 @@
 /*---------------------------------------------------------------
                     Controller Setting
 ---------------------------------------------------------------*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
 static adc_ll_controller_t get_controller(adc_unit_t unit, adc_hal_work_mode_t work_mode)
 {
     if (unit == ADC_UNIT_1) {
@@ -60,6 +62,7 @@ static adc_ll_controller_t get_controller(adc_unit_t unit, adc_hal_work_mode_t w
         }
     }
 }
+#pragma GCC diagnostic pop
 
 void adc_hal_set_controller(adc_unit_t unit, adc_hal_work_mode_t work_mode)
 {

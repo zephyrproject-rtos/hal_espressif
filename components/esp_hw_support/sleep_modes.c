@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/timer/system_timer.h>
+
 #include <stddef.h>
 #include <string.h>
 #include <sys/lock.h>
@@ -16,11 +19,8 @@
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
 #include "esp_log.h"
-#include "esp_newlib.h"
+#include "esp_cpu.h"
 #include "esp_timer.h"
-#include "esp_ipc_isr.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "soc/soc_caps.h"
 #include "driver/rtc_io.h"
 #include "hal/rtc_io_hal.h"
@@ -190,7 +190,7 @@ typedef struct {
         int16_t     refs;
         uint16_t    reserved;   /* reserved for 4 bytes aligned */
     } domain[ESP_PD_DOMAIN_MAX];
-    portMUX_TYPE lock;
+    int lock;
     uint64_t sleep_duration;
     uint32_t wakeup_triggers : 15;
 #if SOC_PM_SUPPORT_EXT1_WAKEUP
@@ -221,8 +221,7 @@ static sleep_config_t s_config = {
             .refs = 0
         }
     },
-    .lock = portMUX_INITIALIZER_UNLOCKED,
-    .ccount_ticks_record = 0,
+	.ccount_ticks_record = 0,
     .sleep_time_overhead_out = DEFAULT_SLEEP_OUT_OVERHEAD_US,
     .wakeup_triggers = 0
 };
@@ -233,7 +232,9 @@ static bool s_light_sleep_wakeup = false;
 
 /* Updating RTC_MEMORY_CRC_REG register via set_rtc_memory_crc()
    is not thread-safe, so we need to disable interrupts before going to deep sleep. */
-static portMUX_TYPE spinlock_rtc_deep_sleep = portMUX_INITIALIZER_UNLOCKED;
+static int spinlock_rtc_deep_sleep;
+#define RTC_DEEP_SLEEP_ENTER_CRITICAL()    do { spinlock_rtc_deep_sleep = irq_lock(); } while(0)
+#define RTC_DEEP_SLEEP_EXIT_CRITICAL()    irq_unlock(spinlock_rtc_deep_sleep);
 
 static const char *TAG = "sleep";
 static RTC_FAST_ATTR bool s_adc_tsen_enabled = false;
@@ -378,28 +379,28 @@ void esp_deep_sleep(uint64_t time_in_us)
 
 esp_err_t esp_deep_sleep_register_hook(esp_deep_sleep_cb_t new_dslp_cb)
 {
-    portENTER_CRITICAL(&spinlock_rtc_deep_sleep);
+    RTC_DEEP_SLEEP_ENTER_CRITICAL();
     for(int n = 0; n < MAX_DSLP_HOOKS; n++){
         if (s_dslp_cb[n]==NULL || s_dslp_cb[n]==new_dslp_cb) {
             s_dslp_cb[n]=new_dslp_cb;
-            portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+            RTC_DEEP_SLEEP_EXIT_CRITICAL();
             return ESP_OK;
         }
     }
-    portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+    RTC_DEEP_SLEEP_EXIT_CRITICAL();
     ESP_LOGE(TAG, "Registered deepsleep callbacks exceeds MAX_DSLP_HOOKS");
     return ESP_ERR_NO_MEM;
 }
 
 void esp_deep_sleep_deregister_hook(esp_deep_sleep_cb_t old_dslp_cb)
 {
-    portENTER_CRITICAL(&spinlock_rtc_deep_sleep);
+    RTC_DEEP_SLEEP_ENTER_CRITICAL();
     for(int n = 0; n < MAX_DSLP_HOOKS; n++){
         if(s_dslp_cb[n] == old_dslp_cb) {
             s_dslp_cb[n] = NULL;
         }
     }
-    portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+    RTC_DEEP_SLEEP_EXIT_CRITICAL();
 }
 
 // [refactor-todo] provide target logic for body of uart functions below
@@ -822,13 +823,10 @@ void IRAM_ATTR esp_deep_sleep_start(void)
     esp_brownout_disable();
 #endif //CONFIG_IDF_TARGET_ESP32S2
 
-    esp_sync_timekeeping_timers();
-
     /* Disable interrupts and stall another core in case another task writes
      * to RTC memory while we calculate RTC memory CRC.
      */
-    portENTER_CRITICAL(&spinlock_rtc_deep_sleep);
-    esp_ipc_isr_stall_other_cpu();
+    RTC_DEEP_SLEEP_ENTER_CRITICAL();
 
     // record current RTC time
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
@@ -882,8 +880,7 @@ void IRAM_ATTR esp_deep_sleep_start(void)
         ;
     }
     // Never returns here
-    esp_ipc_isr_release_other_cpu();
-    portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+    RTC_DEEP_SLEEP_EXIT_CRITICAL();
 }
 
 /**
@@ -943,7 +940,7 @@ esp_err_t esp_light_sleep_start(void)
     timerret = esp_task_wdt_stop();
 #endif // CONFIG_ESP_TASK_WDT_USE_ESP_TIMER
 
-    portENTER_CRITICAL(&s_config.lock);
+	s_config.lock = irq_lock();
     /*
     Note: We are about to stall the other CPU via the esp_ipc_isr_stall_other_cpu(). However, there is a chance of
     deadlock if after stalling the other CPU, we attempt to take spinlocks already held by the other CPU that is.
@@ -975,8 +972,6 @@ esp_err_t esp_light_sleep_start(void)
     uint32_t ccount_at_sleep_start = esp_cpu_get_cycle_count();
     uint64_t high_res_time_at_start = esp_timer_get_time();
     uint32_t sleep_time_overhead_in = (ccount_at_sleep_start - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
-
-    esp_ipc_isr_stall_other_cpu();
 
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
@@ -1116,17 +1111,16 @@ esp_err_t esp_light_sleep_start(void)
     if (rtc_time_diff > 0) {
         esp_timer_private_set(high_res_time_at_start + rtc_time_diff);
     }
-    esp_set_time_from_rtc();
 
     esp_clk_private_unlock();
     esp_timer_private_unlock();
-    esp_ipc_isr_release_other_cpu();
+
     if (!wdt_was_enabled) {
         wdt_hal_write_protect_disable(&rtc_wdt_ctx);
         wdt_hal_disable(&rtc_wdt_ctx);
         wdt_hal_write_protect_enable(&rtc_wdt_ctx);
     }
-    portEXIT_CRITICAL(&s_config.lock);
+	irq_unlock(s_config.lock);
 
 #if CONFIG_ESP_TASK_WDT_USE_ESP_TIMER
     /* Restart the Task Watchdog timer as it was stopped before sleeping. */
@@ -1637,7 +1631,7 @@ esp_err_t esp_sleep_pd_config(esp_sleep_pd_domain_t domain, esp_sleep_pd_option_
     if (domain >= ESP_PD_DOMAIN_MAX || option > ESP_PD_OPTION_AUTO) {
         return ESP_ERR_INVALID_ARG;
     }
-    portENTER_CRITICAL_SAFE(&s_config.lock);
+    s_config.lock = irq_lock();
 
     int refs = (option == ESP_PD_OPTION_ON)  ? s_config.domain[domain].refs++ \
              : (option == ESP_PD_OPTION_OFF) ? --s_config.domain[domain].refs \
@@ -1645,7 +1639,7 @@ esp_err_t esp_sleep_pd_config(esp_sleep_pd_domain_t domain, esp_sleep_pd_option_
     if (refs == 0) {
         s_config.domain[domain].pd_option = option;
     }
-    portEXIT_CRITICAL_SAFE(&s_config.lock);
+    irq_unlock(s_config.lock);
     assert(refs >= 0);
     return ESP_OK;
 }
@@ -1677,7 +1671,8 @@ static uint32_t get_power_down_flags(void)
 
 #if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD && SOC_ULP_SUPPORTED
     // Labels are defined in the linker script
-    extern int _rtc_slow_length, _rtc_reserved_length;
+    extern int _rtc_slow_length;
+    int _rtc_reserved_length = 0;
     /**
      * Compiler considers "(size_t) &_rtc_slow_length > 0" to always be true.
      * So use a volatile variable to prevent compiler from doing this optimization.

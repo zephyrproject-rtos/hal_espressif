@@ -209,6 +209,8 @@ static esp_err_t esp_sleep_tagmem_pd_low_deinit(void)
 
 #if SOC_PM_SUPPORT_CPU_PD && SOC_PM_CPU_RETENTION_BY_RTCCNTL
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-arith"
 esp_err_t esp_sleep_cpu_pd_low_init(void)
 {
     if (s_cpu_retention.retent.cpu_pd_mem == NULL) {
@@ -233,6 +235,7 @@ esp_err_t esp_sleep_cpu_pd_low_init(void)
 #endif
     return ESP_OK;
 }
+#pragma GCC diagnostic pop
 
 esp_err_t esp_sleep_cpu_pd_low_deinit(void)
 {
