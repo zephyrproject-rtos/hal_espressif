@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+
 #include <string.h>
 #include "sdkconfig.h"
 #include "esp_system.h"
@@ -22,8 +24,6 @@
 #include "soc/syscon_reg.h"
 #include "soc/rtc_periph.h"
 #include "hal/wdt_hal.h"
-// #include "freertos/xtensa_api.h"
-// #include "soc/soc_memory_layout.h"
 
 #include "esp32s2/rom/rtc.h"
 
@@ -58,7 +58,7 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
 void IRAM_ATTR esp_restart_noos(void)
 {
     // Disable interrupts
-    xt_ints_off(0xFFFFFFFF);
+    z_xt_ints_off(0xFFFFFFFF);
 
     // Enable RTC watchdog for 1 second
     wdt_hal_context_t rtc_wdt_ctx;

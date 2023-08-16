@@ -9,6 +9,8 @@
  */
 
 
+#include <zephyr/kernel.h>
+
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"

@@ -11,7 +11,6 @@
 #include "esp_types.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/regi2c_ctrl.h"
 #include "soc/regi2c_saradc.h"
 #include "esp_log.h"

@@ -4,14 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/logging/log.h>
 #include <esp_types.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include "sdkconfig.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_pm.h"
@@ -44,10 +43,13 @@ static const char *ADC_TAG = "ADC";
 #define ADC_GET_IO_NUM(periph, channel) (adc_channel_io_map[periph][channel])
 
 //////////////////////// Locks ///////////////////////////////////////////
-extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
+LOG_MODULE_REGISTER(adc_legacy, CONFIG_ADC_LOG_LEVEL);
 
-#define RTC_ENTER_CRITICAL()    portENTER_CRITICAL(&rtc_spinlock)
-#define RTC_EXIT_CRITICAL()     portEXIT_CRITICAL(&rtc_spinlock)
+extern int rtc_spinlock;
+
+#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
+#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
+
 #define DIGI_ENTER_CRITICAL()
 #define DIGI_EXIT_CRITICAL()
 
@@ -72,12 +74,10 @@ extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate posi
 
 #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
 //prevent ADC1 being used by I2S dma and other tasks at the same time.
-static _lock_t adc1_dma_lock;
-#define SARADC1_ACQUIRE() _lock_acquire( &adc1_dma_lock )
-#define SARADC1_RELEASE() _lock_release( &adc1_dma_lock )
+K_MUTEX_DEFINE(adc1_dma_lock);
+#define SARADC1_ACQUIRE() do { k_mutex_lock(&adc1_dma_lock, K_FOREVER); } while(0)
+#define SARADC1_RELEASE() do { k_mutex_unlock(&adc1_dma_lock); } while(0)
 #endif
-
-
 /*
 In ADC2, there're two locks used for different cases:
 1. lock shared with app and Wi-Fi:
@@ -370,7 +370,8 @@ esp_err_t adc1_rtc_mode_acquire(void)
 
 esp_err_t adc1_lock_release(void)
 {
-    ESP_RETURN_ON_FALSE((uint32_t *)adc1_dma_lock != NULL, ESP_ERR_INVALID_STATE, ADC_TAG, "adc1 lock release called before acquire");
+    ESP_RETURN_ON_FALSE(adc1_dma_lock.lock_count != 0, ESP_ERR_INVALID_STATE, ADC_TAG, "adc1 lock release called before acquire");
+
     /* Use locks to avoid digtal and RTC controller conflicts. for adc1, block until acquire the lock. */
 
     sar_periph_ctrl_adc_oneshot_power_release();
@@ -657,9 +658,9 @@ esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
 ---------------------------------------------------------------*/
 #include "esp_check.h"
 
-portMUX_TYPE adc_reg_lock = portMUX_INITIALIZER_UNLOCKED;
-#define ADC_REG_LOCK_ENTER()       portENTER_CRITICAL(&adc_reg_lock)
-#define ADC_REG_LOCK_EXIT()        portEXIT_CRITICAL(&adc_reg_lock)
+int adc_reg_lock;
+#define ADC_REG_LOCK_ENTER()    do { adc_reg_lock = irq_lock(); } while(0)
+#define ADC_REG_LOCK_EXIT()    irq_unlock(adc_reg_lock);
 
 static adc_atten_t s_atten1_single[ADC1_CHANNEL_MAX];    //Array saving attenuate of each channel of ADC1, used by single read API
 #if (SOC_ADC_PERIPH_NUM >= 2)
@@ -680,6 +681,14 @@ static esp_err_t adc_digi_gpio_init(adc_unit_t adc_unit, uint16_t channel_mask)
     uint64_t gpio_mask = 0;
     uint32_t n = 0;
     int8_t io = 0;
+    struct gpio_dt_spec gpio;
+
+    gpio.port = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+    gpio.dt_flags = 0;
+    if (!device_is_ready(gpio.port)) {
+        LOG_ERR("gpio0 port not ready");
+        return ESP_FAIL;
+    }
 
     while (channel_mask) {
         if (channel_mask & 0x1) {
@@ -688,16 +697,12 @@ static esp_err_t adc_digi_gpio_init(adc_unit_t adc_unit, uint16_t channel_mask)
                 return ESP_ERR_INVALID_ARG;
             }
             gpio_mask |= BIT64(io);
+            gpio.pin = io;
+            gpio_pin_configure_dt(&gpio, GPIO_DISCONNECTED);
         }
         channel_mask = channel_mask >> 1;
         n++;
     }
-
-    gpio_config_t cfg = {
-        .pin_bit_mask = gpio_mask,
-        .mode = GPIO_MODE_DISABLE,
-    };
-    ret = gpio_config(&cfg);
 
     return ret;
 }

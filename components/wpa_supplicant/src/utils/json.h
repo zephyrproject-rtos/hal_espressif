@@ -10,7 +10,7 @@
 #define JSON_H
 
 struct json_token {
-	enum json_type {
+	enum esp_json_type {
 		JSON_VALUE,
 		JSON_OBJECT,
 		JSON_ARRAY,

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+
 #include "esp_types.h"
 #include "esp_bit_defs.h"
 #include "soc/soc_caps.h"

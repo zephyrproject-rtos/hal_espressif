@@ -6,31 +6,7 @@
 
 #pragma once
 
-#include "sdkconfig.h"
-
-/*
- * The likely and unlikely macro pairs:
- * These macros are useful to place when application
- * knows the majority ocurrence of a decision paths,
- * placing one of these macros can hint the compiler
- * to reorder instructions producing more optimized
- * code.
- */
-#if (CONFIG_COMPILER_OPTIMIZATION_PERF)
-#ifndef likely
-#define likely(x)      __builtin_expect(!!(x), 1)
-#endif
-#ifndef unlikely
-#define unlikely(x)    __builtin_expect(!!(x), 0)
-#endif
-#else
-#ifndef likely
-#define likely(x)      (x)
-#endif
-#ifndef unlikely
-#define unlikely(x)    (x)
-#endif
-#endif
+#include <zephyr/toolchain/gcc.h>
 
 /*
  * Utility macros used for designated initializers, which work differently

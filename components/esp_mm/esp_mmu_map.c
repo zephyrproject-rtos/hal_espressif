@@ -624,7 +624,8 @@ esp_err_t esp_mmu_unmap(void *ptr)
     return ESP_OK;
 }
 
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
 esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
 {
     char line[100];
@@ -668,6 +669,7 @@ esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
 
     return ESP_OK;
 }
+#pragma GCC diagnostic pop
 
 
 /*---------------------------------------------------------------

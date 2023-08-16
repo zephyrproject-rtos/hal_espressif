@@ -11,8 +11,10 @@
 #include "esp_err.h"
 #include "driver/temp_sensor_types_legacy.h"
 
+#if !defined(__ZEPHYR__)
 #if !CONFIG_TEMP_SENSOR_SUPPRESS_DEPRECATE_WARN
 #warning "legacy temperature sensor driver is deprecated, please migrate to driver/temperature_sensor.h"
+#endif
 #endif
 
 #ifdef __cplusplus

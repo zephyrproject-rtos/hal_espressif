@@ -17,12 +17,14 @@
  * - adc locks, to prevent concurrently using adc hw
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "sys/lock.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
 #include "hal/adc_types.h"
 #include "hal/adc_hal.h"
 #include "hal/adc_hal_common.h"
@@ -37,8 +39,11 @@
 
 
 static const char *TAG = "adc_share_hw_ctrl";
-extern portMUX_TYPE rtc_spinlock;
 
+extern int rtc_spinlock;
+
+#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
+#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
 
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
 /*---------------------------------------------------------------
@@ -77,11 +82,11 @@ void adc_calc_hw_calibration_code(adc_unit_t adc_n, adc_atten_t atten)
     else {
         ESP_EARLY_LOGD(TAG, "Calibration eFuse is not configured, use self-calibration for ICode");
         sar_periph_ctrl_adc_oneshot_power_acquire();
-        portENTER_CRITICAL(&rtc_spinlock);
+        RTC_ENTER_CRITICAL();
         adc_ll_pwdet_set_cct(ADC_LL_PWDET_CCT_DEFAULT);
         const bool internal_gnd = true;
         init_code = adc_hal_self_calibration(adc_n, atten, internal_gnd);
-        portEXIT_CRITICAL(&rtc_spinlock);
+        RTC_EXIT_CRITICAL();
         sar_periph_ctrl_adc_oneshot_power_release();
     }
 #else
@@ -119,21 +124,24 @@ int IRAM_ATTR adc_get_hw_calibration_chan_compens(adc_unit_t adc_n, adc_channel_
 #endif  // SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED
 #endif //#if SOC_ADC_CALIBRATION_V1_SUPPORTED
 
-
 /*---------------------------------------------------------------
             ADC Hardware Locks
 ---------------------------------------------------------------*/
-static _lock_t adc1_lock;
-static _lock_t adc2_lock;
+K_MUTEX_DEFINE(adc1_lock);
+K_MUTEX_DEFINE(adc2_lock);
+
+#define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
+#define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
+#define ADC_LOCK_TRY_ACQUIRE(lock) k_mutex_lock(lock, K_NO_WAIT)
 
 esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        _lock_acquire(&adc1_lock);
+        ADC_LOCK_ACQUIRE(&adc1_lock);
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        _lock_acquire(&adc2_lock);
+        ADC_LOCK_ACQUIRE(&adc2_lock);
     }
 
     return ESP_OK;
@@ -142,13 +150,13 @@ esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 esp_err_t adc_lock_release(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_2) {
-        ESP_RETURN_ON_FALSE(((uint32_t *)adc2_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
-        _lock_release(&adc2_lock);
+        ESP_RETURN_ON_FALSE((adc2_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+        ADC_LOCK_RELEASE(&adc2_lock);
     }
 
     if (adc_unit == ADC_UNIT_1) {
-        ESP_RETURN_ON_FALSE(((uint32_t *)adc1_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
-        _lock_release(&adc1_lock);
+        ESP_RETURN_ON_FALSE((adc1_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+        ADC_LOCK_RELEASE(&adc1_lock);
     }
 
     return ESP_OK;
@@ -157,13 +165,13 @@ esp_err_t adc_lock_release(adc_unit_t adc_unit)
 esp_err_t adc_lock_try_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        if (_lock_try_acquire(&adc1_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(&adc1_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        if (_lock_try_acquire(&adc2_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(&adc2_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }

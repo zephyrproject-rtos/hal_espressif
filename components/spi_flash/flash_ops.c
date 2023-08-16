@@ -10,9 +10,7 @@
 #include <stdio.h>
 #include <sys/param.h>  // For MIN/MAX(a, b)
 
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <freertos/semphr.h>
+#include <zephyr/kernel.h>
 #include <soc/soc.h>
 #include <soc/soc_memory_layout.h>
 #include "soc/io_mux_reg.h"

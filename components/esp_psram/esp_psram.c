@@ -16,8 +16,6 @@
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/xtensa_api.h"
 #include "esp_heap_caps_init.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_ll.h"
