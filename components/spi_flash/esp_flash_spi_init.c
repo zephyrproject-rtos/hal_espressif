@@ -24,6 +24,7 @@
 #include "esp_spi_flash_counters.h"
 #include "esp_rom_spiflash.h"
 #include "bootloader_flash.h"
+#include "esp_rom_caps.h"
 
 __attribute__((unused)) static const char TAG[] = "spi_flash";
 
@@ -381,6 +382,7 @@ esp_err_t esp_flash_init_default_chip(void)
 
     // ROM TODO: account for non-standard default pins in efuse
     // ROM TODO: to account for chips which are slow to power on, maybe keep probing in a loop here
+
     err = esp_flash_init_main(&default_chip);
     if (err != ESP_OK) {
         return err;

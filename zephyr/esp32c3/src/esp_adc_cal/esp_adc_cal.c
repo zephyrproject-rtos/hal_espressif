@@ -84,7 +84,7 @@ static esp_err_t prepare_calib_data_for(int version_num, adc_unit_t adc_num, adc
     parsed_data_storage->atten_level = atten;
     // V1 we don't have calibration data for ADC2, using the efuse data of ADC1
     uint32_t voltage, digi;
-    ret = esp_efuse_rtc_calib_get_cal_voltage(version_num, atten, &digi, &voltage);
+    ret = esp_efuse_rtc_calib_get_cal_voltage(version_num, adc_num, atten, &digi, &voltage);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -139,7 +139,7 @@ esp_adc_cal_value_t esp_adc_cal_characterize(adc_unit_t adc_num,
     if (bit_width != ADC_WIDTH_BIT_12) {
         return ESP_ADC_CAL_VAL_NOT_SUPPORTED;
 	}
-    if (atten >= ADC_ATTEN_MAX) {
+    if (atten >= SOC_ADC_ATTEN_NUM) {
         return ESP_ADC_CAL_VAL_NOT_SUPPORTED;
 	}
 

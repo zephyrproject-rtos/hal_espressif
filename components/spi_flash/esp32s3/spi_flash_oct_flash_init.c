@@ -221,7 +221,7 @@ static void s_flash_init_mxic(esp_rom_spiflash_read_mode_t mode)
 }
 #endif   // #if CONFIG_SPI_FLASH_SUPPORT_MXIC_OPI_CHIP
 
-static void s_mxic_set_required_regs(uint32_t chip_id)
+__attribute__((unused)) static void s_mxic_set_required_regs(uint32_t chip_id)
 {
     bool is_swap = false;
 #if CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR

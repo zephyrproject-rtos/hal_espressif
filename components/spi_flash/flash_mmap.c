@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <freertos/FreeRTOS.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -31,6 +32,7 @@
 
 #include "esp_private/cache_utils.h"
 #include "spi_flash_mmap.h"
+#include "esp_heap_caps.h"
 
 #if CONFIG_SPIRAM_FETCH_INSTRUCTIONS
 extern int _instruction_reserved_start;
@@ -103,10 +105,10 @@ esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t m
 
 err:
     if (vaddr_list) {
-        free(vaddr_list);
+        k_free(vaddr_list);
     }
     if (block) {
-        free(block);
+        k_free(block);
     }
     return ret;
 }
@@ -221,10 +223,10 @@ err:
         esp_mmu_unmap((void *)vaddr_list[i]);
     }
     if (vaddr_list) {
-        free(vaddr_list);
+        k_free(vaddr_list);
     }
     if (block) {
-        free(block);
+        k_free(block);
     }
     return ret;
 }
@@ -242,8 +244,8 @@ void spi_flash_munmap(spi_flash_mmap_handle_t handle)
         }
     }
 
-    free(block->vaddr_list);
-    free(block);
+    k_free(block->vaddr_list);
+    k_free(block);
 }
 
 

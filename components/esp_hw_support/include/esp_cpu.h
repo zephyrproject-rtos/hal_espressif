@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <zephyr/kernel.h>
+
 #include "sdkconfig.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -371,7 +373,7 @@ FORCE_INLINE_ATTR void *esp_cpu_intr_get_handler_arg(int intr_num)
 FORCE_INLINE_ATTR void esp_cpu_intr_enable(uint32_t intr_mask)
 {
 #ifdef __XTENSA__
-    xt_ints_on(intr_mask);
+    z_xt_ints_on(intr_mask);
 #else
     rv_utils_intr_enable(intr_mask);
 #endif
@@ -385,7 +387,7 @@ FORCE_INLINE_ATTR void esp_cpu_intr_enable(uint32_t intr_mask)
 FORCE_INLINE_ATTR void esp_cpu_intr_disable(uint32_t intr_mask)
 {
 #ifdef __XTENSA__
-    xt_ints_off(intr_mask);
+    z_xt_ints_off(intr_mask);
 #else
     rv_utils_intr_disable(intr_mask);
 #endif

@@ -15,9 +15,11 @@
 #include "driver/adc_types_legacy.h"
 #include "hal/adc_types.h"
 
+#if !defined(__ZEPHYR__)
 #if !CONFIG_ADC_SUPPRESS_DEPRECATE_WARN
 #warning "legacy adc driver is deprecated, please migrate to use esp_adc/adc_oneshot.h and esp_adc/adc_continuous.h for oneshot mode and continuous mode drivers respectively"
 #endif
+#endif // !defined(__ZEPHYR__)
 
 #ifdef __cplusplus
 extern "C" {

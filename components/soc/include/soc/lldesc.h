@@ -5,6 +5,7 @@
  */
 
 #pragma once
+#include <stddef.h>
 #include <stdbool.h>
 #include "sdkconfig.h"
 #include "esp_rom_lldesc.h"

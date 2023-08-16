@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <esp_heap_caps.h>
+
 #include <stdlib.h>
 #include <ctype.h>
 #include "sdkconfig.h"
@@ -13,9 +16,6 @@
 #include "soc/syscon_periph.h"
 #include "soc/rtc.h"
 #include "soc/periph_defs.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 #include "esp_intr_alloc.h"
 #include "sys/lock.h"
 #include "esp_private/rtc_ctrl.h"
@@ -35,7 +35,11 @@ static const char *TAG = "rtc_module";
 
 #define NOT_REGISTERED      (-1)
 
-portMUX_TYPE rtc_spinlock = portMUX_INITIALIZER_UNLOCKED;
+int rtc_spinlock;
+static DRAM_ATTR int s_rtc_isr_handler_list_lock;
+#define RTC_ISR_HANDLER_ENTER_CRITICAL()    do { s_rtc_isr_handler_list_lock = irq_lock(); } while(0)
+#define RTC_ISR_HANDLER_EXIT_CRITICAL()    irq_unlock(s_rtc_isr_handler_list_lock);
+
 // Disable the interrupt which cannot work without cache.
 static DRAM_ATTR uint32_t rtc_intr_cache;
 static DRAM_ATTR uint32_t rtc_intr_enabled;
@@ -58,29 +62,28 @@ typedef struct rtc_isr_handler_ {
 
 static DRAM_ATTR SLIST_HEAD(rtc_isr_handler_list_, rtc_isr_handler_) s_rtc_isr_handler_list =
         SLIST_HEAD_INITIALIZER(s_rtc_isr_handler_list);
-static DRAM_ATTR portMUX_TYPE s_rtc_isr_handler_list_lock = portMUX_INITIALIZER_UNLOCKED;
 static intr_handle_t s_rtc_isr_handle;
 
 IRAM_ATTR static void rtc_isr(void* arg)
 {
     uint32_t status = REG_READ(RTC_CNTL_INT_ST_REG);
     rtc_isr_handler_t* it;
-    portENTER_CRITICAL_ISR(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_ENTER_CRITICAL();
     SLIST_FOREACH(it, &s_rtc_isr_handler_list, next) {
         if (it->mask & status) {
-            portEXIT_CRITICAL_ISR(&s_rtc_isr_handler_list_lock);
+            RTC_ISR_HANDLER_EXIT_CRITICAL();
             (*it->handler)(it->handler_arg);
-            portENTER_CRITICAL_ISR(&s_rtc_isr_handler_list_lock);
+            RTC_ISR_HANDLER_ENTER_CRITICAL();
         }
     }
-    portEXIT_CRITICAL_ISR(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_EXIT_CRITICAL();
     REG_WRITE(RTC_CNTL_INT_CLR_REG, status);
 }
 
 static esp_err_t rtc_isr_ensure_installed(void)
 {
     esp_err_t err = ESP_OK;
-    portENTER_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_ENTER_CRITICAL();
     if (s_rtc_isr_handle) {
         goto out;
     }
@@ -93,7 +96,7 @@ static esp_err_t rtc_isr_ensure_installed(void)
     }
     rtc_isr_cpu = esp_intr_get_cpu(s_rtc_isr_handle);
 out:
-    portEXIT_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_EXIT_CRITICAL();
     return err;
 }
 #endif // !CONFIG_IDF_TARGET_ESP32C6 TODO: IDF-5645
@@ -117,14 +120,14 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t r
     item->handler_arg = handler_arg;
     item->mask = rtc_intr_mask;
     item->flags = flags;
-    portENTER_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_ENTER_CRITICAL();
     if (flags & RTC_INTR_FLAG_IRAM) {
         s_rtc_isr_noniram_hook(rtc_intr_mask);
     } else {
         s_rtc_isr_noniram_hook_relieve(rtc_intr_mask);
     }
     SLIST_INSERT_HEAD(&s_rtc_isr_handler_list, item, next);
-    portEXIT_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_EXIT_CRITICAL();
     return ESP_OK;
 #endif
 }
@@ -138,7 +141,7 @@ esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
     rtc_isr_handler_t* it;
     rtc_isr_handler_t* prev = NULL;
     bool found = false;
-    portENTER_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_ENTER_CRITICAL();
     SLIST_FOREACH(it, &s_rtc_isr_handler_list, next) {
         if (it->handler == handler && it->handler_arg == handler_arg) {
             if (it == SLIST_FIRST(&s_rtc_isr_handler_list)) {
@@ -155,7 +158,7 @@ esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
         }
         prev = it;
     }
-    portEXIT_CRITICAL(&s_rtc_isr_handler_list_lock);
+    RTC_ISR_HANDLER_EXIT_CRITICAL();
     return found ? ESP_OK : ESP_ERR_INVALID_STATE;
 #endif
 }

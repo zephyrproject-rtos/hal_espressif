@@ -7,6 +7,7 @@
 // HAL for SPI Flash (non-IRAM part)
 // The IRAM part is in spi_flash_hal_iram.c, spi_flash_hal_gpspi.c, spi_flash_hal_common.inc.
 
+#include <zephyr/sys/util.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -39,9 +40,9 @@ static uint32_t get_flash_clock_divider(const spi_flash_hal_config_t *cfg)
     } else
 #endif
     {
-        best_div = (int)ceil((double)clk_source / (double)cfg->freq_mhz);
+        best_div = (int)DIV_ROUND_UP((double)clk_source, (double)cfg->freq_mhz);
         if ((cfg->clock_src_freq % cfg->freq_mhz) != 0) {
-            HAL_LOGW(TAG, "Flash clock frequency round down to %d", (int)floor((double)clk_source / (double)best_div));
+            HAL_LOGW(TAG, "Flash clock frequency round down to %d", (int)((double)clk_source / (double)best_div));
         }
     }
 

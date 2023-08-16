@@ -11,8 +11,10 @@
 #include "esp_err.h"
 #include "driver/mcpwm_types_legacy.h"
 
+#ifndef __ZEPHYR__
 #if !CONFIG_MCPWM_SUPPRESS_DEPRECATE_WARN
 #warning "legacy MCPWM driver is deprecated, please migrate to the new driver (include driver/mcpwm_prelude.h)"
+#endif
 #endif
 
 #ifdef __cplusplus
