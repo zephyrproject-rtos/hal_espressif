@@ -33,7 +33,7 @@ extern char _spiram_heap_start[];
 STRUCT_SECTION_ITERABLE(k_heap, _spiram_heap) = {
     .heap = {
         .init_mem = _spiram_heap_start,
-        .init_bytes = CONFIG_SPIRAM_HEAP_SIZE,
+        .init_bytes = CONFIG_ESP_SPIRAM_HEAP_SIZE,
     },
 };
 #endif
