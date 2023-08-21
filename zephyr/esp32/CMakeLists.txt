@@ -120,6 +120,11 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_I2S_ESP32
+    ../../components/hal/i2s_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c

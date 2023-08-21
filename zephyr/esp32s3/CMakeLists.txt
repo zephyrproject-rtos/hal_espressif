@@ -124,6 +124,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/i2c_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_I2S_ESP32
+    ../../components/hal/i2s_hal.c
+    )
+
   zephyr_library_sources_ifdef(CONFIG_WDT_ESP32 ../../components/hal/wdt_hal_iram.c)
 
   zephyr_sources_ifdef(
