@@ -13,6 +13,7 @@
 #include "soc/gpio_sig_map.h"
 #include "soc/rtc.h"
 #include "hal/clk_gate_ll.h"
+#include "hal/clk_tree_ll.h" // MHZ definition
 #include "hal/gpio_hal.h"
 #if CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/usb/cdc_acm.h"

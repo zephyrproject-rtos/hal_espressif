@@ -15,13 +15,25 @@
 #include "soc/soc_memory_layout.h"
 #include "esp_log.h"
 
-#if CONFIG_IDF_TARGET_ESP32
+#ifndef CONFIG_SOC_SERIES_ESP32C3
+#include "soc/dport_reg.h"
+#endif
+
+#include "esp_rom_sys.h"
+#include "soc/gpio_periph.h"
+#include "soc/rtc_periph.h"
+#include "soc/rtc_cntl_reg.h"
+#include "esp_cpu.h"
+
+#if CONFIG_SOC_SERIES_ESP32
 #include "esp32/rom/uart.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32/rom/cache.h"
+#elif CONFIG_SOC_SERIES_ESP32S2
 #include "esp32s2/rom/uart.h"
-#elif CONFIG_IDF_TARGET_ESP32S3
+#elif CONFIG_SOC_SERIES_ESP32S3
 #include "esp32s3/rom/uart.h"
-#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32s3/rom/cache.h"
+#elif CONFIG_SOC_SERIES_ESP32C3
 #include "esp32c3/rom/uart.h"
 #endif
 
@@ -119,6 +131,41 @@ void start_cpu0_image(int image_index, int slot, unsigned int hdr_offset)
 }
 
 #ifdef CONFIG_ESP_MULTI_PROCESSOR_BOOT
+
+void appcpu_start(uint32_t entry_addr)
+{
+    ESP_LOGI(TAG, "Starting APPCPU");
+
+#if defined(CONFIG_SOC_SERIES_ESP32)
+    Cache_Flush(1);
+    Cache_Read_Enable(1);
+#endif
+
+    esp_cpu_unstall(1);
+
+#if defined(CONFIG_SOC_SERIES_ESP32)
+    DPORT_SET_PERI_REG_MASK(DPORT_APPCPU_CTRL_B_REG, DPORT_APPCPU_CLKGATE_EN);
+    DPORT_CLEAR_PERI_REG_MASK(DPORT_APPCPU_CTRL_C_REG, DPORT_APPCPU_RUNSTALL);
+    DPORT_SET_PERI_REG_MASK(DPORT_APPCPU_CTRL_A_REG, DPORT_APPCPU_RESETTING);
+    DPORT_CLEAR_PERI_REG_MASK(DPORT_APPCPU_CTRL_A_REG, DPORT_APPCPU_RESETTING);
+#elif defined(CONFIG_SOC_SERIES_ESP32S3)
+    // Enable clock and reset APP CPU. Note that OpenOCD may have already
+    // enabled clock and taken APP CPU out of reset. In this case don't reset
+    // APP CPU again, as that will clear the breakpoints which may have already
+    // been set.
+    if (!REG_GET_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_CLKGATE_EN)) {
+        REG_SET_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_CLKGATE_EN);
+        REG_CLR_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_RUNSTALL);
+        REG_SET_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_RESETTING);
+        REG_CLR_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_RESETTING);
+    }
+#endif
+    ets_set_appcpu_boot_addr(entry_addr);
+    ets_delay_us(10000);
+    uart_tx_wait_idle(0);
+    ESP_LOGI(TAG, "APPCPU start sequence complete");
+}
+
 void start_cpu1_image(int image_index, int slot, unsigned int hdr_offset)
 {
     unsigned int entry_addr;

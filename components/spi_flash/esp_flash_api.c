@@ -185,7 +185,9 @@ extern rom_spiflash_api_func_t *esp_flash_api_funcs;
 #ifndef CONFIG_SPI_FLASH_ROM_IMPL
 static esp_err_t IRAM_ATTR spiflash_start_default(esp_flash_t *chip)
 {
-    if (chip->os_func != NULL && chip->os_func_data != NULL && chip->os_func->start != NULL)
+    if (chip->os_func != NULL
+        && chip->os_func_data != NULL
+        && chip->os_func->start != NULL)
     {
         esp_err_t err = chip->os_func->start(chip->os_func_data);
         if (err != ESP_OK) {
