@@ -8,6 +8,7 @@
 #include "esp_err.h"
 #include "esp_types.h"
 #include "sdkconfig.h"
+#include <zephyr/storage/flash_map.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,6 +37,8 @@ extern "C" {
 
 /* The md5sum value is found this many bytes after the ESP_PARTITION_MAGIC_MD5 offset */
 #define ESP_PARTITION_MD5_OFFSET 16
+
+#define CONFIG_BOOTLOADER_OFFSET_IN_FLASH FIXED_PARTITION_OFFSET(boot_partition)  /* Offset of bootloader image. */
 
 /* Pre-partition table fixed flash offsets */
 #define ESP_BOOTLOADER_DIGEST_OFFSET 0x0

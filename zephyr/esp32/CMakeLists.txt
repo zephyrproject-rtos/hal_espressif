@@ -135,7 +135,6 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/spi_flash/flash_mmap.c
-    ../../components/esp_mm/esp_mmu_map.c
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/hal/mmu_hal.c
     ../../components/spi_flash/esp_flash_spi_init.c
@@ -177,13 +176,12 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/esp_psram/esp_psram.c
     ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_common.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/bootloader_support/src/bootloader_efuse.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cache_sram_mmu.c
     ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
-    ../../components/esp_mm/esp_mmu_map.c
     ../../components/esp_mm/cache_esp32.c
     ../../components/spi_flash/flash_ops.c
     ../esp_shared/src/host_flash/cache_utils.c
@@ -244,28 +242,24 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
 
   if (CONFIG_MCUBOOT)
     zephyr_include_directories(
-      ../../components/esp_rom/esp32
-      ../esp_shared/include/boot
+      ../../components/esp_rom/${CONFIG_SOC_SERIES}
+      ../port/include/boot
       )
 
     zephyr_sources(
       ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
-      ../../components/bootloader_support/src/bootloader_efuse_esp32.c
-      ../../components/bootloader_support/src/bootloader_flash.c
-      ../../components/bootloader_support/src/bootloader_flash_config_esp32.c
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
       ../../components/bootloader_support/src/bootloader_random.c
-      ../../components/bootloader_support/src/bootloader_random_esp32.c
-      ../../components/esp_hw_support/cpu_util.c
-      ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
-      ../esp_shared/src/boot/esp_loader.c
-      ../esp_shared/src/boot/bootloader_wdt.c
-      ../esp_shared/src/boot/bootloader_init_common.c
-      src/boot/bootloader_init.c
+      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
+      ../../components/bootloader_support/src/bootloader_init.c
+      ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
+      ../../components/bootloader_support/src/bootloader_common.c
+      ../../components/bootloader_support/src/bootloader_common_loader.c
+      ../port/boot/esp_loader.c
       )
   endif()
 
@@ -320,6 +314,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/log/log.c
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
+    ../../components/esp_mm/esp_mmu_map.c
 
     ../esp_shared/src/common/esp_system_api.c
 
