@@ -72,6 +72,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_pm/include
 
     ../../components/bootloader_support/include
+    ../../components/bootloader_support/private_include
     ../../components/bootloader_support/bootloader_flash/include
 
     ../../components/heap/include
@@ -213,29 +214,26 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   if (CONFIG_MCUBOOT)
     zephyr_include_directories(
-      ../../components/esp_rom/esp32c3
-      ../esp_shared/include/boot
+      ../../components/esp_rom/${CONFIG_SOC_SERIES}
+      ../port/include/boot
       )
 
     zephyr_sources(
-      ../../components/bootloader_support/src/esp32c3/bootloader_soc.c
-      ../../components/bootloader_support/src/bootloader_efuse_esp32c3.c
-      ../../components/bootloader_support/src/bootloader_flash.c
-      ../../components/bootloader_support/src/bootloader_flash_config_esp32c3.c
+      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
       ../../components/bootloader_support/src/bootloader_random.c
-      ../../components/bootloader_support/src/bootloader_random_esp32c3.c
-      ../../components/esp_hw_support/cpu_util.c
-      ../../components/esp_hw_support/port/esp32c3/cpu_util_esp32c3.c
-      ../../components/hal/mpu_hal.c
-      ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
-      ../esp_shared/src/boot/esp_loader.c
-      ../esp_shared/src/boot/bootloader_wdt.c
-      ../esp_shared/src/boot/bootloader_init_common.c
-      src/boot/bootloader_init.c
+      ../../components/hal/mpu_hal.c
+      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
+      ../../components/bootloader_support/src/bootloader_init.c
+      ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
+      ../../components/bootloader_support/src/bootloader_common.c
+      ../../components/bootloader_support/src/bootloader_common_loader.c
+      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
+      ../port/boot/esp_loader.c
       )
   endif()
 
