@@ -37,7 +37,7 @@
 #elif CONFIG_SOC_SERIES_ESP32S2
 #include "esp32s2/rom/rtc.h"
 #include "esp32s2/clk.h"
-#elif CONFIG_SOC_SERIES_ESP32S3 || CONFIG_SOC_SERIES_ESP32S3_NET
+#elif CONFIG_SOC_SERIES_ESP32S3
 #include "esp32s3/rom/rtc.h"
 #include "esp32s3/clk.h"
 #elif CONFIG_SOC_SERIES_ESP32C3
