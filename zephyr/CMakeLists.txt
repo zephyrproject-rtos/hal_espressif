@@ -8,7 +8,7 @@ if(CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32)
     list(APPEND LIBRARIES "btdm_app" "rtc")
   endif()
 
-  if(CONFIG_SOC_ESP32C3 OR CONFIG_SOC_ESP32S3 OR CONFIG_SOC_SERIES_ESP32S3_NET)
+  if(CONFIG_SOC_ESP32C3 OR CONFIG_SOC_ESP32S3)
     list(APPEND LIBRARIES "btbb" "btdm_app" "testmode" "rftest" "smartconfig")
   endif()
 
@@ -31,4 +31,3 @@ add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32_NET esp32)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C3 esp32c3)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S2 esp32s2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S3 esp32s3)
-add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S3_NET esp32s3)
