@@ -223,10 +223,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       )
   endif()
 
-  zephyr_sources_ifdef(CONFIG_SOC_ESP32S3
-    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
-    )
-
   zephyr_sources(
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/i2s_periph.c
@@ -265,6 +261,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
 
+    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
 
