@@ -125,7 +125,7 @@ static skip_light_sleep_cb_t s_periph_skip_light_sleep_cb[PERIPH_SKIP_LIGHT_SLEE
  * This in turn gets used in IDLE hook to decide if `waiti` needs
  * to be invoked or not.
  */
-static bool s_skipped_light_sleep[CONFIG_MP_NUM_CPUS];
+static bool s_skipped_light_sleep[CONFIG_MP_MAX_NUM_CPUS];
 
 #if CONFIG_NUM_CPUS == 2
 /* When light sleep is finished on one CPU, it is possible that the other CPU
@@ -133,19 +133,19 @@ static bool s_skipped_light_sleep[CONFIG_MP_NUM_CPUS];
  * get a chance to run. To avoid such situation, set a flag for the other CPU to
  * skip light sleep attempt.
  */
-static bool s_skip_light_sleep[CONFIG_MP_NUM_CPUS];
+static bool s_skip_light_sleep[CONFIG_MP_MAX_NUM_CPUS];
 #endif // CONFIG_NUM_CPUS == 2
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE
 
 /* A flag indicating that Idle hook has run on a given CPU;
  * Next interrupt on the same CPU will take s_rtos_lock_handle.
  */
-static bool s_core_idle[CONFIG_MP_NUM_CPUS];
+static bool s_core_idle[CONFIG_MP_MAX_NUM_CPUS];
 
 /* When no RTOS tasks are active, these locks are released to allow going into
  * a lower power mode. Used by ISR hook and idle hook.
  */
-static esp_pm_lock_handle_t s_rtos_lock_handle[CONFIG_MP_NUM_CPUS];
+static esp_pm_lock_handle_t s_rtos_lock_handle[CONFIG_MP_MAX_NUM_CPUS];
 
 /* Lookup table of CPU frequency configs to be used in each mode.
  * Initialized by esp_pm_impl_init and modified by esp_pm_configure.
