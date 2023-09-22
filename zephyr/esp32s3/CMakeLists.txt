@@ -75,6 +75,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s3/ld/esp32s3.rom.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s3/ld/esp32s3.rom.api.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s3/ld/esp32s3.rom.libgcc.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s3/ld/esp32s3.rom.newlib.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s3/ld/esp32s3.rom.version.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32s3/ld/esp32s3.peripherals.ld
     )
 
