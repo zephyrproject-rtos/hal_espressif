@@ -14,9 +14,9 @@
 
 abs = 0x40056340;
 __ascii_wctomb = 0x40058ef0;
-atoi = 0x400566c4;
+PROVIDE ( atoi = 0x400566c4 ); /* Zephyr: Keep as PROVIDE symbol */
 _atoi_r = 0x400566d4;
-atol = 0x400566ec;
+PROVIDE ( atol = 0x400566ec ); /* Zephyr: Keep as PROVIDE symbol */
 _atol_r = 0x400566fc;
 bzero = 0x4000c1f4;
 _cleanup = 0x40001df8;
@@ -109,9 +109,9 @@ strspn = 0x4000c648;
 strstr = 0x4000c674;
 __strtok_r = 0x4000c6a8;
 strtok_r = 0x4000c70c;
-strtol = 0x4005681c;
+PROVIDE ( strtol = 0x4005681c ); /* Zephyr: Keep as PROVIDE symbol */
 _strtol_r = 0x40056714;
-strtoul = 0x4005692c;
+PROVIDE ( strtoul = 0x4005692c ); /* Zephyr: Keep as PROVIDE symbol */
 _strtoul_r = 0x40056834;
 strupr = 0x4000174c;
 __submore = 0x40058f3c;
