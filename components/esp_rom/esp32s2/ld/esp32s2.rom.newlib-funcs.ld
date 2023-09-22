@@ -85,7 +85,9 @@ strlcat = 0x40007db8;
 strlcpy = 0x4001adf8;
 strlen = 0x40007e08;
 strlwr = 0x40007e68;
-strncasecmp = 0x40007e94;
+/* ZEPHYR: Keep PROVIDE for this symbol: */
+PROVIDE ( strncasecmp = 0x40007e94 );
+/*****************************************/
 strncat = 0x4001ae34;
 strncmp = 0x4001ae64;
 strncpy = 0x40007f20;

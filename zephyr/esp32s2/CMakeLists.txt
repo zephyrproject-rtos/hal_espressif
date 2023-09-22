@@ -74,8 +74,10 @@ if(CONFIG_SOC_SERIES_ESP32S2)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.api.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.libgcc.ld
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32s2/ld/esp32s2.peripherals.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-funcs.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-data.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/esp32s2/ld/esp32s2.peripherals.ld
       )
 
   zephyr_compile_definitions(ESP_PLATFORM)
