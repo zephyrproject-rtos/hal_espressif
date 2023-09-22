@@ -75,10 +75,14 @@ rand = 0x4000043c;
 srand = 0x40000440;
 utoa = 0x40000444;
 itoa = 0x40000448;
-atoi = 0x4000044c;
-atol = 0x40000450;
-strtol = 0x40000454;
-strtoul = 0x40000458;
+
+/* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE( atoi = 0x4000044c );
+PROVIDE( atol = 0x40000450 );
+PROVIDE( strtol = 0x40000454 );
+PROVIDE( strtoul = 0x40000458 );
+/*******************************************/
+
 PROVIDE( fflush = 0x4000045c );
 PROVIDE( _fflush_r = 0x40000460 );
 PROVIDE( _fwalk = 0x40000464 );
