@@ -111,11 +111,12 @@ class ImageSegment(object):
     """Wrapper class for a segment in an ESP image
     (very similar to a section in an ELFImage also)"""
 
-    def __init__(self, addr, data, file_offs=None):
+    def __init__(self, addr, data, file_offs=None, align=4):
         self.addr = addr
         self.data = data
         self.file_offs = file_offs
         self.include_in_checksum = True
+        self.align = align
         if self.addr != 0:
             self.pad_to_alignment(
                 4
@@ -158,13 +159,25 @@ class ImageSegment(object):
     def pad_to_alignment(self, alignment):
         self.data = pad_to(self.data, alignment, b"\x00")
 
+    def addr_align(self, alignment):
+        end_addr = self.addr + len(self.data)
+        addr_mod = end_addr % alignment
+        if addr_mod != 0:
+            end_addr += (alignment - addr_mod)
+        return end_addr
+
+    def pad_to_addr(self, addr):
+        pad = addr - (self.addr + len(self.data))
+        if pad > 0:
+            self.data += b"\x00" * pad
+
 
 class ELFSection(ImageSegment):
     """Wrapper class for a section in an ELF image, has a section
     name as well as the common properties of an ImageSegment."""
 
-    def __init__(self, name, addr, data):
-        super(ELFSection, self).__init__(addr, data)
+    def __init__(self, name, addr, data, align=4):
+        super(ELFSection, self).__init__(addr, data, align=align)
         self.name = name.decode("utf-8")
 
     def __repr__(self):
@@ -359,6 +372,15 @@ class BaseFirmwareImage(object):
             # merged in
             elem = self.segments[i - 1]
             next_elem = self.segments[i]
+            elem_pad_addr = elem.addr_align(next_elem.align)
+            if (elem_pad_addr != elem.addr + len(elem.data) and
+                elem_pad_addr == next_elem.addr):
+                print(
+                    'Info: inserting %d bytes padding between %s and %s' %
+                    (next_elem.addr - (elem.addr + len(elem.data)),
+                     elem.name, next_elem.name)
+                )
+                elem.pad_to_addr(elem_pad_addr)
             if all(
                 (
                     elem.get_memory_type(self) == next_elem.get_memory_type(self),
@@ -1242,10 +1264,10 @@ class ELFFile(object):
         section_header_offsets = range(0, len(section_header), self.LEN_SEC_HEADER)
 
         def read_section_header(offs):
-            name_offs, sec_type, _flags, lma, sec_offs, size = struct.unpack_from(
-                "<LLLLLL", section_header[offs:]
+            name_offs, sec_type, _flags, lma, sec_offs, size, link, info, align = struct.unpack_from(
+                "<LLLLLLLLL", section_header[offs:]
             )
-            return (name_offs, sec_type, lma, size, sec_offs)
+            return (name_offs, sec_type, lma, size, sec_offs, align)
 
         all_sections = [read_section_header(offs) for offs in section_header_offsets]
         prog_sections = [s for s in all_sections if s[1] in ELFFile.PROG_SEC_TYPES]
@@ -1254,7 +1276,7 @@ class ELFFile(object):
         # search for the string table section
         if (shstrndx * self.LEN_SEC_HEADER) not in section_header_offsets:
             raise FatalError("ELF file has no STRTAB section at shstrndx %d" % shstrndx)
-        _, sec_type, _, sec_size, sec_offs = read_section_header(
+        _, sec_type, _, sec_size, sec_offs, _ = read_section_header(
             shstrndx * self.LEN_SEC_HEADER
         )
         if sec_type != ELFFile.SEC_TYPE_STRTAB:
@@ -1276,14 +1298,14 @@ class ELFFile(object):
             return f.read(size)
 
         prog_sections = [
-            ELFSection(lookup_string(n_offs), lma, read_data(offs, size))
-            for (n_offs, _type, lma, size, offs) in prog_sections
+            ELFSection(lookup_string(n_offs), lma, read_data(offs, size), align=align)
+            for (n_offs, _type, lma, size, offs, align) in prog_sections
             if lma != 0 and size > 0
         ]
         self.sections = prog_sections
         self.nobits_sections = [
             ELFSection(lookup_string(n_offs), lma, b"")
-            for (n_offs, _type, lma, size, offs) in nobits_secitons
+            for (n_offs, _type, lma, size, offs, align) in nobits_secitons
             if lma != 0 and size > 0
         ]
 
