@@ -36,6 +36,8 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "soc/dport_reg.h"
 #include "driver/adc2_wifi_private.h"
 
+#define WIFI_PKT_SIZE	1700
+K_HEAP_DEFINE(wifi_heap, WIFI_PKT_SIZE*MAX(CONFIG_NET_BUF_RX_COUNT, CONFIG_NET_BUF_TX_COUNT));
 K_THREAD_STACK_DEFINE(wifi_stack, 8192);
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
@@ -51,7 +53,7 @@ uint64_t g_wifi_feature_caps = CONFIG_FEATURE_WPA3_SAE_BIT;
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
-	void *ptr = k_malloc(size);
+	void *ptr = k_heap_alloc(&wifi_heap, size, K_NO_WAIT);
 
 	if (ptr == NULL) {
 		LOG_ERR("memory allocation failed");
@@ -68,7 +70,11 @@ IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
 
 IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
 {
-	void *ptr = k_calloc(n, size);
+	void *ptr = k_heap_alloc(&wifi_heap, n * size, K_NO_WAIT);
+
+	if (ptr) {
+		memset(ptr, 0, n * size);
+	}
 
 	if (ptr == NULL) {
 		LOG_ERR("memory allocation failed");
@@ -92,19 +98,20 @@ wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
 {
 	wifi_static_queue_t *queue = NULL;
 
-	queue = (wifi_static_queue_t *) wifi_malloc(sizeof(wifi_static_queue_t));
+	queue = (wifi_static_queue_t *)k_heap_alloc(&wifi_heap,
+				sizeof(wifi_static_queue_t), K_NO_WAIT);
 	if (!queue) {
 		LOG_ERR("msg buffer allocation failed");
 		return NULL;
 	}
 
-	wifi_msgq_buffer = wifi_malloc(queue_len * item_size);
+	wifi_msgq_buffer = k_heap_alloc(&wifi_heap, queue_len * item_size, K_NO_WAIT);
 	if (wifi_msgq_buffer == NULL) {
 		LOG_ERR("msg buffer allocation failed");
 		return NULL;
 	}
 
-	queue->handle = wifi_malloc(sizeof(struct k_msgq));
+	queue->handle = k_heap_alloc(&wifi_heap, sizeof(struct k_msgq), K_NO_WAIT);
 	if (queue->handle == NULL) {
 		esp_wifi_free(wifi_msgq_buffer);
 		LOG_ERR("queue handle allocation failed");
@@ -171,7 +178,8 @@ static void intr_off(unsigned int mask)
 
 static void *spin_lock_create_wrapper(void)
 {
-	unsigned int *wifi_spin_lock = (unsigned int *) wifi_malloc(sizeof(unsigned int));
+	unsigned int *wifi_spin_lock = (unsigned int *)k_heap_alloc(&wifi_heap,
+					sizeof(unsigned int), K_NO_WAIT);
 	if (wifi_spin_lock == NULL) {
 		LOG_ERR("spin_lock_create_wrapper allocation failed");
 	}
@@ -201,7 +209,8 @@ static void IRAM_ATTR task_yield_from_isr_wrapper(void)
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *) wifi_malloc(sizeof(struct k_sem));
+	struct k_sem *sem = (struct k_sem *)k_heap_alloc(&wifi_heap,
+					sizeof(struct k_sem), K_NO_WAIT);
 
 	if (sem == NULL) {
 		LOG_ERR("semphr_create_wrapper allocation failed");
@@ -222,7 +231,8 @@ static void *wifi_thread_semphr_get_wrapper(void)
 
 	sem = k_thread_custom_data_get();
 	if (!sem) {
-		sem = (struct k_sem *) wifi_malloc(sizeof(struct k_sem));
+		sem = (struct k_sem *)k_heap_alloc(&wifi_heap,
+					sizeof(struct k_sem), K_NO_WAIT);
 		if (sem == NULL) {
 			LOG_ERR("wifi_thread_semphr_get_wrapper allocation failed");
 		}
@@ -259,7 +269,8 @@ static int32_t semphr_give_wrapper(void *semphr)
 
 static void *recursive_mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) wifi_malloc(sizeof(struct k_mutex));
+	struct k_mutex *my_mutex = (struct k_mutex *)k_heap_alloc(&wifi_heap,
+					sizeof(struct k_mutex), K_NO_WAIT);
 
 	if (my_mutex == NULL) {
 		LOG_ERR("recursive_mutex_create_wrapper allocation failed");
@@ -272,7 +283,8 @@ static void *recursive_mutex_create_wrapper(void)
 
 static void *mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) wifi_malloc(sizeof(struct k_mutex));
+	struct k_mutex *my_mutex = (struct k_mutex *)k_heap_alloc(&wifi_heap,
+					sizeof(struct k_mutex), K_NO_WAIT);
 
 	if (my_mutex == NULL) {
 		LOG_ERR("recursive_mutex_create_wrapper allocation failed");
@@ -306,7 +318,8 @@ static int32_t IRAM_ATTR mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-	struct k_queue *queue = (struct k_queue *) wifi_malloc(sizeof(struct k_queue));
+	struct k_queue *queue = (struct k_queue *)k_heap_alloc(&wifi_heap,
+					sizeof(struct k_queue), K_NO_WAIT);
 
 	if (queue == NULL) {
 		LOG_ERR("queue malloc failed");
@@ -981,5 +994,5 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 
 static void esp_wifi_free(void *mem)
 {
-	k_free(mem);
+	k_heap_free(&wifi_heap, mem);
 }
