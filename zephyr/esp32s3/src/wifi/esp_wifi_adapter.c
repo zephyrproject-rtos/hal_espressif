@@ -5,6 +5,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/__assert.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/rand32.h>
 
@@ -38,7 +39,9 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 #define WIFI_PKT_SIZE	1700
 K_HEAP_DEFINE(wifi_heap, WIFI_PKT_SIZE*MAX(CONFIG_NET_BUF_RX_COUNT, CONFIG_NET_BUF_TX_COUNT));
-K_THREAD_STACK_DEFINE(wifi_stack, 8192);
+
+#define WIFI_STACK_SIZE	8192
+K_THREAD_STACK_DEFINE(wifi_stack, WIFI_STACK_SIZE);
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
@@ -385,6 +388,8 @@ static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
+	__ASSERT_NO_MSG(stack_depth <= WIFI_STACK_SIZE);
+
 	k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
@@ -397,6 +402,8 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
+	__ASSERT_NO_MSG(stack_depth <= WIFI_STACK_SIZE);
+
 	k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
