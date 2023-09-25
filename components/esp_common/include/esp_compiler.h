@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <zephyr/toolchain/gcc.h>
+#include <zephyr/toolchain.h>
 
 /*
  * Utility macros used for designated initializers, which work differently

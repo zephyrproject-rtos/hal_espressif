@@ -460,9 +460,26 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
 
   ## Ethernet MAC/PHY definitions
   if(CONFIG_ESP32_EMAC)
-    zephyr_sources(../../components/hal/emac_hal.c)
-  endif()
+    if(CONFIG_SOC_EFUSE_KEY_PURPOSE_FIELD)
+      set(efuse_key_type "with_key_purposes")
+    else()
+      if(CONFIG_SOC_EFUSE_CONSISTS_OF_ONE_KEY_BLOCK)
+          set(efuse_key_type "without_key_purposes/one_key_block")
+      else()
+          set(efuse_key_type "without_key_purposes/three_key_blocks")
+      endif()
+    endif()
+    
+    zephyr_sources(
+      ../../components/hal/emac_hal.c
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/src/efuse_controller/keys/${efuse_key_type}/esp_efuse_api_key.c
 
+      )
+  endif()
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
