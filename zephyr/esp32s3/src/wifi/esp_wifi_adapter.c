@@ -126,6 +126,9 @@ wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
 void wifi_delete_queue(wifi_static_queue_t *queue)
 {
 	if (queue) {
+		struct k_msgq *msgq = (struct k_msgq *)queue->handle;
+
+		esp_wifi_free(msgq->buffer_start);
 		esp_wifi_free(queue->handle);
 		esp_wifi_free(queue);
 	}
