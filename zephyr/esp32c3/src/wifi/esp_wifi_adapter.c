@@ -14,27 +14,31 @@
 #include "soc/wdev_reg.h"
 #include "soc/soc_caps.h"
 #include "soc/rtc.h"
+#include "soc/system_reg.h"
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_private/wifi_os_adapter.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "os.h"
-#include "esp_event.h"
 #include "esp_wpa.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_phy_init.h"
 #include <soc/syscon_reg.h>
 #include <rom/efuse.h>
 #include <rom/rtc.h>
 #include <rom/ets_sys.h>
 #include <riscv/interrupt.h>
+#include "esp32c3/rom/ets_sys.h"
+#include "esp_mac.h"
+#include "wifi/wifi_event.h"
 
 #include <soc.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/rand32.h>
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#include "zephyr_compat.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
@@ -48,10 +52,6 @@ static void esp_wifi_free(void *mem);
 static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
-
-#if CONFIG_IDF_TARGET_ESP32
-extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
-#endif
 
 uint64_t g_wifi_feature_caps =
 #if CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
@@ -408,13 +408,7 @@ static int32_t task_get_max_priority_wrapper(void)
 
 static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
 {
-	ARG_UNUSED(event_base);
-	ARG_UNUSED(event_id);
-	ARG_UNUSED(event_data);
-	ARG_UNUSED(event_data_size);
-	ARG_UNUSED(ticks_to_wait);
-
-	LOG_ERR("%s not yet supported", __func__);
+	esp_wifi_event_handler(event_base, event_id, event_data, event_data_size, ticks_to_wait);
 	return 0;
 }
 
@@ -460,6 +454,20 @@ static void IRAM_ATTR timer_arm_us_wrapper(void *ptimer, uint32_t us, bool repea
 static int get_time_wrapper(void *t)
 {
 	return os_get_time(t);
+}
+
+uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
+{
+    /* The bit width of WiFi light sleep clock calibration is 12 while the one of
+     * system is 19. It should shift 19 - 12 = 7.
+    */
+    if (GET_PERI_REG_MASK(SYSTEM_BT_LPCK_DIV_FRAC_REG, SYSTEM_LPCLK_SEL_XTAL)) {
+        uint64_t time_per_us = 1000000ULL;
+        return (((time_per_us << RTC_CLK_CAL_FRACT) / (MHZ(1))) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
+    }
+
+	return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
+
 }
 
 static void *IRAM_ATTR malloc_internal_wrapper(size_t size)
@@ -534,9 +542,9 @@ static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr
 {
 	ARG_UNUSED(cpu_no);
 
-    REG_WRITE(DR_REG_INTERRUPT_BASE + 4 * intr_source, intr_num);
-    esprv_intc_int_set_priority(intr_num, intr_prio);
-    esprv_intc_int_set_type(intr_num, INTR_TYPE_LEVEL);
+	intr_matrix_route(intr_source, intr_num);
+	esprv_intc_int_set_priority(intr_num, intr_prio);
+	esprv_intc_int_set_type(intr_num, INTR_TYPE_LEVEL);
 }
 
 static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
@@ -554,12 +562,12 @@ static void set_isr_wrapper(int32_t n, void *f, void *arg)
 	esp_intr_alloc(2, 0, (isr_handler_t)f, arg,	NULL);
 }
 
-static void intr_on(unsigned int mask)
+static void enable_intr_wrapper(unsigned int mask)
 {
 	esp_intr_enable(mask);
 }
 
-static void intr_off(unsigned int mask)
+static void disable_intr_wrapper(unsigned int mask)
 {
 	esp_intr_disable(mask);
 }
@@ -569,11 +577,6 @@ uint32_t esp_get_free_heap_size(void)
 	/* FIXME: API to get free heap size is not available in Zephyr. */
 	/* It is only used by ESP-MESH feature (not supported yet) */
 	return 10000;
-}
-
-static unsigned long random(void)
-{
-	return sys_rand32_get();
 }
 
 static void wifi_clock_enable_wrapper(void)
@@ -588,8 +591,7 @@ static void wifi_clock_disable_wrapper(void)
 
 static void wifi_reset_mac_wrapper(void)
 {
-	SET_PERI_REG_MASK(SYSCON_WIFI_RST_EN_REG, SYSTEM_MAC_RST);
-	CLEAR_PERI_REG_MASK(SYSCON_WIFI_RST_EN_REG, SYSTEM_MAC_RST);
+    periph_module_reset(PERIPH_WIFI_MODULE);
 }
 
 int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
@@ -646,7 +648,7 @@ int32_t nvs_get_u16(uint32_t handle, const char *key, uint16_t *out_value)
 	return 0;
 }
 
-int32_t nvs_open(const char *name, uint32_t open_mode, uint32_t *out_handle)
+int32_t nvs_open_wrapper(const char *name, uint32_t open_mode, uint32_t *out_handle)
 {
 	ARG_UNUSED(name);
 	ARG_UNUSED(open_mode);
@@ -737,13 +739,6 @@ static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 	return coex_status_get();
 #else
 	return 0;
-#endif
-}
-
-static void coex_condition_set_wrapper(uint32_t type, bool dissatisfy)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	coex_condition_set(type, dissatisfy);
 #endif
 }
 
@@ -841,24 +836,6 @@ static void * coex_schm_curr_phase_get_wrapper(void)
 #endif
 }
 
-static int coex_schm_curr_phase_idx_set_wrapper(int idx)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_set(idx);
-#else
-	return 0;
-#endif
-}
-
-static int coex_schm_curr_phase_idx_get_wrapper(void)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_get();
-#else
-	return 0;
-#endif
-}
-
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
 
@@ -867,14 +844,6 @@ static void IRAM_ATTR esp_empty_wrapper(void)
 int32_t IRAM_ATTR coex_is_in_isr_wrapper(void)
 {
 	return !k_is_in_isr();
-}
-
-static uint32_t esp_clk_slowclk_cal_get_wrapper(void)
-{
-	/* The bit width of WiFi light sleep clock calibration is 12 while the one of
-	 * system is 19. It should shift 19 - 12 = 7.
-	 */
-	return (REG_READ(RTC_SLOW_CLK_CAL_REG) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
 }
 
 static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
@@ -894,14 +863,41 @@ static void esp_log_write_wrapper(uint32_t level,const char *tag,const char *for
 #endif
 }
 
+static int coex_register_start_cb_wrapper(int (* cb)(void))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_register_start_cb(cb);
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_process_restart_wrapper(void)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_process_restart();
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_register_callback(type, cb);
+#else
+    return 0;
+#endif
+}
+
 wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._version = ESP_WIFI_OS_ADAPTER_VERSION,
 	._env_is_chip = env_is_chip_wrapper,
 	._set_intr = set_intr_wrapper,
 	._clear_intr = clear_intr_wrapper,
 	._set_isr = set_isr_wrapper,
-	._ints_on = intr_on,
-	._ints_off = intr_off,
+	._ints_on = enable_intr_wrapper,
+	._ints_off = disable_intr_wrapper,
 	._is_from_isr = k_is_in_isr,
 	._spin_lock_create = spin_lock_create_wrapper,
 	._spin_lock_delete = esp_wifi_free,
@@ -925,11 +921,11 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._queue_send_to_back = queue_send_to_back_wrapper,
 	._queue_send_to_front = queue_send_to_front_wrapper,
 	._queue_recv = queue_recv_wrapper,
-	._queue_msg_waiting = uxQueueMessagesWaiting,
+	._queue_msg_waiting = (uint32_t(*)(void *))uxQueueMessagesWaiting,
 	._event_group_create = (void *(*)(void))xEventGroupCreate,
-	._event_group_delete = (void (*)(void *))vEventGroupDelete,
-	._event_group_set_bits = xEventGroupSetBits,
-	._event_group_clear_bits = xEventGroupClearBits,
+	._event_group_delete = (void(*)(void *))vEventGroupDelete,
+	._event_group_set_bits = (uint32_t(*)(void *,uint32_t))xEventGroupSetBits,
+	._event_group_clear_bits = (uint32_t(*)(void *,uint32_t))xEventGroupClearBits,
 	._event_group_wait_bits = event_group_wait_bits_wrapper,
 	._task_create_pinned_to_core = task_create_pinned_to_core_wrapper,
 	._task_create = task_create_wrapper,
@@ -968,7 +964,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._nvs_get_u8 = nvs_get_u8,
 	._nvs_set_u16 = nvs_set_u16,
 	._nvs_get_u16 = nvs_get_u16,
-	._nvs_open = nvs_open,
+	._nvs_open = nvs_open_wrapper,
 	._nvs_close = nvs_close,
 	._nvs_commit = nvs_commit,
 	._nvs_set_blob = nvs_set_blob,
@@ -976,8 +972,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._nvs_erase_key = nvs_erase_key,
 	._get_random = os_get_random,
 	._get_time = get_time_wrapper,
-	._random = random,
-	._slowclk_cal_get = esp_clk_slowclk_cal_get_wrapper,
+	._random = os_random,
+	._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
 	._log_write = esp_log_write_wrapper,
 	._log_writev = esp_log_writev_wrapper,
 	._log_timestamp = k_uptime_get_32,
@@ -996,7 +992,6 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_enable = coex_enable_wrapper,
 	._coex_disable = coex_disable_wrapper,
 	._coex_status_get = coex_status_get_wrapper,
-	._coex_condition_set = coex_condition_set_wrapper,
 	._coex_wifi_request = coex_wifi_request_wrapper,
 	._coex_wifi_release = coex_wifi_release_wrapper,
 	._coex_wifi_channel_set = coex_wifi_channel_set_wrapper,
@@ -1008,8 +1003,9 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_schm_interval_get = coex_schm_interval_get_wrapper,
 	._coex_schm_curr_period_get = coex_schm_curr_period_get_wrapper,
 	._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
-	._coex_schm_curr_phase_idx_set = coex_schm_curr_phase_idx_set_wrapper,
-	._coex_schm_curr_phase_idx_get = coex_schm_curr_phase_idx_get_wrapper,
+	._coex_register_start_cb = coex_register_start_cb_wrapper,
+	._coex_schm_process_restart = coex_schm_process_restart_wrapper,
+	._coex_schm_register_cb = coex_schm_register_cb_wrapper,
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
 

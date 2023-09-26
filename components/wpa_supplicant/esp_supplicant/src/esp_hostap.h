@@ -12,6 +12,8 @@ extern "C" {
 #endif
 
 #include "sdkconfig.h"
+#include "zephyr_compat.h"
+
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
 void *hostap_init(void);
 bool hostap_deinit(void *data);
