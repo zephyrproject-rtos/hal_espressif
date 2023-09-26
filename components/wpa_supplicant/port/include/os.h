@@ -14,6 +14,9 @@
 
 #ifndef OS_H
 #define OS_H
+#include <zephyr/kernel.h>
+#include <zephyr/sys/timeutil.h>
+#include <strings.h>
 #include "esp_types.h"
 #include <string.h>
 #include <stdio.h>
@@ -21,6 +24,9 @@
 #include "esp_err.h"
 #include "supplicant_opt.h"
 #include "esp_wifi.h"
+
+// Declare strlcpy here to avoid warnings
+size_t strlcpy(char *dst, const char *src, size_t dsize);
 
 typedef time_t os_time_t;
 
@@ -209,24 +215,24 @@ static inline char *os_readfile(const char *name, size_t *len)
  */
 
 #ifndef os_malloc
-#define os_malloc(s) malloc((s))
+#define os_malloc(s) k_malloc((s))
 #endif
 #ifndef os_realloc
 #define os_realloc(p, s) realloc((p), (s))
 #endif
 #ifndef os_zalloc
-#define os_zalloc(s) calloc(1, (s))
+#define os_zalloc(s) k_calloc(1, (s))
 #endif
 #ifndef os_calloc
 #define os_calloc(p, s) calloc((p), (s))
 #endif
 
 #ifndef os_free
-#define os_free(p) free((p))
+#define os_free(p) k_free((p))
 #endif
 
 #ifndef os_bzero
-#define os_bzero(s, n) bzero(s, n)
+#define os_bzero(s, n) memset(s, 0, n)
 #endif
 
 

@@ -32,7 +32,13 @@
 #include "mbedtls/esp_debug.h"
 #include "mbedtls/esp_config.h"
 #else
+#if defined(CONFIG_MBEDTLS)
+#if !defined(CONFIG_MBEDTLS_CFG_FILE)
 #include "mbedtls/config.h"
+#else
+#include CONFIG_MBEDTLS_CFG_FILE
+#endif /* CONFIG_MBEDTLS_CFG_FILE */
+#endif
 #endif
 #include "eap_peer/eap.h"
 

@@ -7,8 +7,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "host_flash/cache_utils.h"
+#include <host_flash/cache_utils.h>
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#if CONFIG_SOC_SERIES_ESP32S2
+#include "esp32s2/rom/cache.h"
+#include <soc/extmem_reg.h>
+#include "soc/ext_mem_defs.h"
+#elif CONFIG_SOC_SERIES_ESP32S3
+#include "esp32s3/rom/cache.h"
+#include "soc/extmem_reg.h"
+#include "soc/ext_mem_defs.h"
+#elif CONFIG_SOC_SERIES_ESP32C3
+#include "esp32c3/rom/cache.h"
+#include "soc/extmem_reg.h"
+#include "soc/ext_mem_defs.h"
+#endif
 
 #define DPORT_CACHE_BIT(cpuid, regid) DPORT_ ## cpuid ## regid
 
@@ -159,4 +172,21 @@ void spi_flash_op_lock(void)
 void spi_flash_op_unlock(void)
 {
    k_mutex_unlock(&s_flash_op_mutex);
+}
+
+IRAM_ATTR bool spi_flash_cache_enabled(void)
+{
+#if CONFIG_SOC_SERIES_ESP32
+    bool result = (DPORT_REG_GET_BIT(DPORT_PRO_CACHE_CTRL_REG, DPORT_PRO_CACHE_ENABLE) != 0);
+#if portNUM_PROCESSORS == 2
+    result = result && (DPORT_REG_GET_BIT(DPORT_APP_CACHE_CTRL_REG, DPORT_APP_CACHE_ENABLE) != 0);
+#endif
+#elif CONFIG_SOC_SERIES_ESP32S2
+    bool result = (REG_GET_BIT(EXTMEM_PRO_ICACHE_CTRL_REG, EXTMEM_PRO_ICACHE_ENABLE) != 0);
+#elif CONFIG_SOC_SERIES_ESP32S3 || CONFIG_SOC_SERIES_ESP32C3 || CONFIG_SOC_SERIES_ESP32C2
+    bool result = (REG_GET_BIT(EXTMEM_ICACHE_CTRL_REG, EXTMEM_ICACHE_ENABLE) != 0);
+#elif CONFIG_SOC_SERIES_ESP32C6 || CONFIG_SOC_SERIES_ESP32H2
+    bool result = s_cache_enabled;
+#endif
+    return result;
 }

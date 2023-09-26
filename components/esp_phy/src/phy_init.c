@@ -16,15 +16,12 @@
 #include "esp_phy_init.h"
 #include "esp_mac.h"
 #include "esp_log.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 #include "esp_efuse.h"
 #include "esp_timer.h"
 #include "esp_sleep.h"
 #include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "endian.h"
+#include <zephyr/kernel.h>
+#include <esp_heap_caps.h>
 #include "esp_private/phy.h"
 #include "phy_init_data.h"
 #include "esp_private/periph_ctrl.h"
@@ -50,18 +47,18 @@
 #endif
 
 #if CONFIG_IDF_TARGET_ESP32
-extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
+wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
 #endif
 
 static const char* TAG = "phy_init";
 
-static _lock_t s_phy_access_lock;
+K_MUTEX_DEFINE(s_phy_access_lock);
 
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if !SOC_PMU_SUPPORTED
 static DRAM_ATTR struct {
     int     count;  /* power on count of wifi and bt power domain */
-    _lock_t lock;
+    struct k_mutex lock;
 } s_wifi_bt_pd_controller = { .count = 0 };
 #endif // !SOC_PMU_SUPPORTED
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
@@ -75,7 +72,7 @@ static int64_t s_phy_rf_en_ts = 0;
 #endif
 
 /* PHY spinlock for libphy.a */
-static DRAM_ATTR portMUX_TYPE s_phy_int_mux = portMUX_INITIALIZER_UNLOCKED;
+static DRAM_ATTR int s_phy_int_mux;
 
 /* Indicate PHY is calibrated or not */
 static bool s_is_phy_calibrated = false;
@@ -159,12 +156,8 @@ static phy_country_to_bin_type_t s_country_code_map_type_table[] = {
 #endif
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    if (xPortInIsrContext()) {
-        portENTER_CRITICAL_ISR(&s_phy_int_mux);
+    s_phy_int_mux = irq_lock();
 
-    } else {
-        portENTER_CRITICAL(&s_phy_int_mux);
-    }
     // Interrupt level will be stored in current tcb, so always return zero.
     return 0;
 }
@@ -172,11 +165,7 @@ uint32_t IRAM_ATTR phy_enter_critical(void)
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
     // Param level don't need any more, ignore it.
-    if (xPortInIsrContext()) {
-        portEXIT_CRITICAL_ISR(&s_phy_int_mux);
-    } else {
-        portEXIT_CRITICAL(&s_phy_int_mux);
-    }
+    irq_unlock(s_phy_int_mux);
 }
 
 #if CONFIG_IDF_TARGET_ESP32
@@ -233,7 +222,7 @@ static inline void phy_digital_regs_load(void)
 
 void esp_phy_enable(void)
 {
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 
     if (s_phy_access_ref == 0) {
 #if CONFIG_IDF_TARGET_ESP32
@@ -276,12 +265,12 @@ void esp_phy_enable(void)
     }
     s_phy_access_ref++;
 
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 }
 
 void esp_phy_disable(void)
 {
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 
     s_phy_access_ref--;
     if (s_phy_access_ref == 0) {
@@ -309,14 +298,14 @@ void esp_phy_disable(void)
         esp_phy_common_clock_disable();
     }
 
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 }
 
 void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if !SOC_PMU_SUPPORTED
-    _lock_acquire(&s_wifi_bt_pd_controller.lock);
+    k_mutex_lock(&s_wifi_bt_pd_controller.lock, K_FOREVER);
     if (s_wifi_bt_pd_controller.count++ == 0) {
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
 
@@ -328,7 +317,7 @@ void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
 
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
     }
-    _lock_release(&s_wifi_bt_pd_controller.lock);
+    k_mutex_unlock(&s_wifi_bt_pd_controller.lock);
 #endif // !SOC_PMU_SUPPORTED
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
@@ -337,12 +326,12 @@ void esp_wifi_bt_power_domain_off(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if !SOC_PMU_SUPPORTED
-    _lock_acquire(&s_wifi_bt_pd_controller.lock);
+    k_mutex_lock(&s_wifi_bt_pd_controller.lock, K_FOREVER);
     if (--s_wifi_bt_pd_controller.count == 0) {
         SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
         SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
     }
-    _lock_release(&s_wifi_bt_pd_controller.lock);
+    k_mutex_unlock(&s_wifi_bt_pd_controller.lock);
 #endif // !SOC_PMU_SUPPORTED
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
@@ -350,19 +339,19 @@ void esp_wifi_bt_power_domain_off(void)
 void esp_phy_modem_init(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     s_phy_modem_init_ref++;
     if (s_phy_digital_regs_mem == NULL) {
         s_phy_digital_regs_mem = (uint32_t *)heap_caps_malloc(SOC_PHY_DIG_REGS_MEM_SIZE, MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     }
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
 }
 
 void esp_phy_modem_deinit(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 
     s_phy_modem_init_ref--;
     if (s_phy_modem_init_ref == 0) {
@@ -377,7 +366,7 @@ void esp_phy_modem_deinit(void)
 #endif
     }
 
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
 }
 
@@ -393,12 +382,12 @@ static bool s_mac_bb_pu = true;
 void esp_mac_bb_pd_mem_init(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     s_macbb_backup_mem_ref++;
     if (s_mac_bb_pd_mem == NULL) {
         s_mac_bb_pd_mem = (uint32_t *)heap_caps_malloc(SOC_MAC_BB_PD_MEM_SIZE, MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     }
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     const static sleep_retention_entries_config_t bb_regs_retention[] = {
         [0] = { .config = REGDMA_LINK_CONTINUOUS_INIT(0x0b00, 0x600a7000, 0x600a7000, 121, 0, 0), .owner = BIT(0) | BIT(1) }, /* AGC */
@@ -417,13 +406,13 @@ void esp_mac_bb_pd_mem_init(void)
 void esp_mac_bb_pd_mem_deinit(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     s_macbb_backup_mem_ref--;
     if (s_macbb_backup_mem_ref == 0) {
         free(s_mac_bb_pd_mem);
         s_mac_bb_pd_mem = NULL;
     }
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     sleep_retention_entries_destroy(SLEEP_RETENTION_MODULE_WIFI_BB);
 #endif
@@ -572,160 +561,6 @@ void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
     // no-op
 }
 #endif // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
-
-
-// PHY calibration data handling functions
-static const char* PHY_NAMESPACE = "phy";
-static const char* PHY_CAL_VERSION_KEY = "cal_version";
-static const char* PHY_CAL_MAC_KEY = "cal_mac";
-static const char* PHY_CAL_DATA_KEY = "cal_data";
-
-static esp_err_t load_cal_data_from_nvs_handle(nvs_handle_t handle,
-        esp_phy_calibration_data_t* out_cal_data);
-
-static esp_err_t store_cal_data_to_nvs_handle(nvs_handle_t handle,
-        const esp_phy_calibration_data_t* cal_data);
-
-esp_err_t esp_phy_load_cal_data_from_nvs(esp_phy_calibration_data_t* out_cal_data)
-{
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open(PHY_NAMESPACE, NVS_READONLY, &handle);
-    if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
-        ESP_LOGE(TAG, "%s: NVS has not been initialized. "
-                "Call nvs_flash_init before starting WiFi/BT.", __func__);
-        return err;
-    } else if (err != ESP_OK) {
-        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return err;
-    }
-    err = load_cal_data_from_nvs_handle(handle, out_cal_data);
-    nvs_close(handle);
-    return err;
-}
-
-esp_err_t esp_phy_store_cal_data_to_nvs(const esp_phy_calibration_data_t* cal_data)
-{
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open(PHY_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "%s: failed to open NVS namespace (0x%x)", __func__, err);
-        return err;
-    }
-    else {
-        err = store_cal_data_to_nvs_handle(handle, cal_data);
-        nvs_close(handle);
-        return err;
-    }
-}
-
-esp_err_t esp_phy_erase_cal_data_in_nvs(void)
-{
-    nvs_handle_t handle;
-    esp_err_t err = nvs_open(PHY_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: failed to open NVS phy namespace (0x%x)", __func__, err);
-        return err;
-    }
-    else {
-        err = nvs_erase_all(handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: failed to erase NVS phy namespace (0x%x)", __func__, err);
-        }
-        else {
-            err = nvs_commit(handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: failed to commit NVS phy namespace (0x%x)", __func__, err);
-            }
-        }
-    }
-    nvs_close(handle);
-    return err;
-}
-
-static esp_err_t load_cal_data_from_nvs_handle(nvs_handle_t handle,
-        esp_phy_calibration_data_t* out_cal_data)
-{
-    esp_err_t err;
-    uint32_t cal_data_version;
-
-    err = nvs_get_u32(handle, PHY_CAL_VERSION_KEY, &cal_data_version);
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "%s: failed to get cal_version (0x%x)", __func__, err);
-        return err;
-    }
-    uint32_t cal_format_version = phy_get_rf_cal_version() & (~BIT(16));
-    ESP_LOGV(TAG, "phy_get_rf_cal_version: %" PRId32 "\n", cal_format_version);
-    if (cal_data_version != cal_format_version) {
-        ESP_LOGD(TAG, "%s: expected calibration data format %" PRId32 ", found %" PRId32 "",
-                __func__, cal_format_version, cal_data_version);
-        return ESP_FAIL;
-    }
-    uint8_t cal_data_mac[6];
-    size_t length = sizeof(cal_data_mac);
-    err = nvs_get_blob(handle, PHY_CAL_MAC_KEY, cal_data_mac, &length);
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "%s: failed to get cal_mac (0x%x)", __func__, err);
-        return err;
-    }
-    if (length != sizeof(cal_data_mac)) {
-        ESP_LOGD(TAG, "%s: invalid length of cal_mac (%d)", __func__, length);
-        return ESP_ERR_INVALID_SIZE;
-    }
-    uint8_t sta_mac[6];
-    ESP_ERROR_CHECK(esp_efuse_mac_get_default(sta_mac));
-    if (memcmp(sta_mac, cal_data_mac, sizeof(sta_mac)) != 0) {
-        ESP_LOGE(TAG, "%s: calibration data MAC check failed: expected " \
-                MACSTR ", found " MACSTR,
-                __func__, MAC2STR(sta_mac), MAC2STR(cal_data_mac));
-        return ESP_FAIL;
-    }
-    length = sizeof(*out_cal_data);
-    err = nvs_get_blob(handle, PHY_CAL_DATA_KEY, out_cal_data, &length);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: failed to get cal_data(0x%x)", __func__, err);
-        return err;
-    }
-    if (length != sizeof(*out_cal_data)) {
-        ESP_LOGD(TAG, "%s: invalid length of cal_data (%d)", __func__, length);
-        return ESP_ERR_INVALID_SIZE;
-    }
-    return ESP_OK;
-}
-
-static esp_err_t store_cal_data_to_nvs_handle(nvs_handle_t handle,
-        const esp_phy_calibration_data_t* cal_data)
-{
-    esp_err_t err;
-
-    err = nvs_set_blob(handle, PHY_CAL_DATA_KEY, cal_data, sizeof(*cal_data));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration data failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    uint8_t sta_mac[6];
-    ESP_ERROR_CHECK(esp_efuse_mac_get_default(sta_mac));
-    err = nvs_set_blob(handle, PHY_CAL_MAC_KEY, sta_mac, sizeof(sta_mac));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration mac failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    uint32_t cal_format_version = phy_get_rf_cal_version() & (~BIT(16));
-    ESP_LOGV(TAG, "phy_get_rf_cal_version: %" PRId32 "\n", cal_format_version);
-    err = nvs_set_u32(handle, PHY_CAL_VERSION_KEY, cal_format_version);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration version failed(0x%x)\n", __func__, err);
-        return err;
-    }
-
-    err = nvs_commit(handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: store calibration nvs commit failed(0x%x)\n", __func__, err);
-    }
-
-    return err;
-}
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER
 static void __attribute((unused)) esp_phy_reduce_tx_power(esp_phy_init_data_t* init_data)

@@ -18,12 +18,12 @@ extern "C" {
 #endif
 
 typedef enum {
-    WIFI_MODE_NULL = 0,  /**< null mode */
-    WIFI_MODE_STA,       /**< WiFi station mode */
-    WIFI_MODE_AP,        /**< WiFi soft-AP mode */
-    WIFI_MODE_APSTA,     /**< WiFi station + soft-AP mode */
-    WIFI_MODE_NAN,       /**< WiFi NAN mode */
-    WIFI_MODE_MAX
+    ESP32_WIFI_MODE_NULL = 0,  /**< null mode */
+    ESP32_WIFI_MODE_STA,       /**< WiFi station mode */
+    ESP32_WIFI_MODE_AP,        /**< WiFi soft-AP mode */
+    ESP32_WIFI_MODE_APSTA,     /**< WiFi station + soft-AP mode */
+    ESP32_WIFI_MODE_NAN,       /**< WiFi NAN mode */
+    ESP32_WIFI_MODE_MAX
 } wifi_mode_t;
 
 typedef enum {
@@ -139,8 +139,8 @@ typedef enum {
 } wifi_second_chan_t;
 
 typedef enum {
-    WIFI_SCAN_TYPE_ACTIVE = 0,  /**< active scan */
-    WIFI_SCAN_TYPE_PASSIVE,     /**< passive scan */
+    ESP32_WIFI_SCAN_TYPE_ACTIVE = 0,  /**< active scan */
+    ESP32_WIFI_SCAN_TYPE_PASSIVE,     /**< passive scan */
 } wifi_scan_type_t;
 
 /** @brief Range of active scan times per channel */

@@ -13,6 +13,8 @@
 #include "common/ieee802_11_defs.h"
 #include "common.h"
 
+// -Wimplicit-function-declaration
+extern time_t mktime(struct tm*);
 
 static int hex2num(char c)
 {

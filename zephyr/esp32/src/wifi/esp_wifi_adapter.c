@@ -24,11 +24,16 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "os.h"
-#include "esp_event.h"
 #include "esp_wpa.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_phy_init.h"
 #include "soc/dport_reg.h"
+#include "esp32/rom/ets_sys.h"
+#include "esp_mac.h"
+#include "esp_modem_wrapper.h"
+#include "wifi/wifi_event.h"
+#include "esp_private/adc_share_hw_ctrl.h"
+
 
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);
 
@@ -290,7 +295,7 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 	}
 
 	k_msgq_init((struct k_msgq *)queue, wifi_msgq_buffer, item_size, queue_len);
-	
+
 	return (void *)queue;
 }
 
@@ -379,7 +384,7 @@ static int32_t task_get_max_priority_wrapper(void)
 
 static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
 {
-	LOG_ERR("%s not yet supported", __func__);
+	esp_wifi_event_handler(event_base, event_id, event_data, event_data_size, ticks_to_wait);
 	return 0;
 }
 
@@ -528,8 +533,7 @@ static void wifi_clock_disable_wrapper(void)
 
 static void wifi_reset_mac_wrapper(void)
 {
-	DPORT_SET_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, DPORT_MAC_RST);
-	DPORT_CLEAR_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, DPORT_MAC_RST);
+    periph_module_reset(PERIPH_WIFI_MODULE);
 }
 
 int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
@@ -733,32 +737,9 @@ static void * coex_schm_curr_phase_get_wrapper(void)
 #endif
 }
 
-static int coex_schm_curr_phase_idx_set_wrapper(int idx)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_set(idx);
-#else
-	return 0;
-#endif
-}
-
-static int coex_schm_curr_phase_idx_get_wrapper(void)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_get();
-#else
-	return 0;
-#endif
-}
-
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
 
-}
-
-int32_t IRAM_ATTR coex_is_in_isr_wrapper(void)
-{
-	return !k_is_in_isr();
 }
 
 static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
@@ -777,6 +758,34 @@ static void esp_log_write_wrapper(uint32_t level,const char *tag,const char *for
 	va_end(list);
 #endif
 }
+
+static int coex_register_start_cb_wrapper(int (* cb)(void))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_register_start_cb(cb);
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_process_restart_wrapper(void)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_process_restart();
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_register_callback(type, cb);
+#else
+    return 0;
+#endif
+}
+
 
 wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._version = ESP_WIFI_OS_ADAPTER_VERSION,
@@ -809,11 +818,11 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._queue_send_to_back = queue_send_to_back_wrapper,
 	._queue_send_to_front = queue_send_to_front_wrapper,
 	._queue_recv = queue_recv_wrapper,
-	._queue_msg_waiting = uxQueueMessagesWaiting,
+	._queue_msg_waiting = (uint32_t(*)(void *))uxQueueMessagesWaiting,
 	._event_group_create = (void *(*)(void))xEventGroupCreate,
 	._event_group_delete = (void (*)(void *))vEventGroupDelete,
-	._event_group_set_bits = xEventGroupSetBits,
-	._event_group_clear_bits = xEventGroupClearBits,
+	._event_group_set_bits = (uint32_t(*)(void *,uint32_t))xEventGroupSetBits,
+	._event_group_clear_bits = (uint32_t(*)(void *,uint32_t))xEventGroupClearBits,
 	._event_group_wait_bits = event_group_wait_bits_wrapper,
 	._task_create_pinned_to_core = task_create_pinned_to_core_wrapper,
 	._task_create = task_create_wrapper,
@@ -893,8 +902,9 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_schm_interval_get = coex_schm_interval_get_wrapper,
 	._coex_schm_curr_period_get = coex_schm_curr_period_get_wrapper,
 	._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
-	._coex_schm_curr_phase_idx_set = coex_schm_curr_phase_idx_set_wrapper,
-	._coex_schm_curr_phase_idx_get = coex_schm_curr_phase_idx_get_wrapper,
+	._coex_register_start_cb = coex_register_start_cb_wrapper,
+	._coex_schm_process_restart = coex_schm_process_restart_wrapper,
+	._coex_schm_register_cb = coex_schm_register_cb_wrapper,
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
 
@@ -922,12 +932,14 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 
 	esp_err_t result = esp_wifi_init_internal(config);
 	if (result == ESP_OK) {
+		esp_phy_modem_init();
 		result = esp_supplicant_init();
 		if (result != ESP_OK) {
 		LOG_ERR("Failed to init supplicant (0x%x)", result);
 			esp_wifi_deinit();
 		}
 	}
+    adc2_cal_include(); //This enables the ADC2 calibration constructor at start up.
 
 	return result;
 }
