@@ -2,14 +2,14 @@
 
 # check for RF libraries in case ESP32 family is used and BT or WIFI are enabled
 if(CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32)
-  list(APPEND LIBRARIES "coexist" "core" "net80211" "phy" "pp")
+  list(APPEND LIBRARIES "core" "net80211" "phy" "pp" "espnow" "mesh" "wapi")
 
   if(CONFIG_SOC_SERIES_ESP32)
     list(APPEND LIBRARIES "btdm_app" "rtc")
   endif()
 
-  if(CONFIG_SOC_SERIES_ESP32C3 OR CONFIG_SOC_SERIES_ESP32S3)
-    list(APPEND LIBRARIES "btbb" "btdm_app")
+  if(CONFIG_SOC_ESP32C3 OR CONFIG_SOC_ESP32S3)
+    list(APPEND LIBRARIES "btbb" "btdm_app" "testmode" "rftest" "smartconfig")
   endif()
 
   foreach(lib ${LIBRARIES})

@@ -56,6 +56,7 @@
 #include "esp_event.h"
 #include "esp_private/esp_wifi_private.h"
 #include "esp_wifi_default.h"
+#include "zephyr_compat.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -231,7 +232,7 @@ extern uint64_t g_wifi_feature_caps;
     .mgmt_sbuf_num = WIFI_MGMT_SBUF_NUM, \
     .feature_caps = g_wifi_feature_caps, \
     .sta_disconnected_pm = WIFI_STA_DISCONNECTED_PM_ENABLED,  \
-    .espnow_max_encrypt_num = CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM, \
+    .espnow_max_encrypt_num = 2, \
     .magic = WIFI_INIT_CONFIG_MAGIC\
 }
 

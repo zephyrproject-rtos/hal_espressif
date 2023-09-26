@@ -39,6 +39,8 @@
 #include "ap/sta_info.h"
 #include "wps/wps_defs.h"
 
+#include "zephyr_compat.h"
+
 const wifi_osi_funcs_t *wifi_funcs;
 struct wpa_funcs *wpa_cb;
 
