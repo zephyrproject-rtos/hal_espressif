@@ -21,12 +21,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+
+#include <zephyr/kernel.h>
+
 #include "sys/queue.h"
 #include "esp_err.h"
 #include "esp_wifi_types.h"
-#include "esp_event.h"
+// #include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_smartconfig.h"
 #include "wifi_types.h"
@@ -36,7 +37,7 @@ extern "C" {
 #endif
 
 typedef struct {
-    QueueHandle_t handle; /**< FreeRTOS queue handler */
+    void *handle; /**< FreeRTOS queue handler */
     void *storage;        /**< storage for FreeRTOS queue */
 } wifi_static_queue_t;
 

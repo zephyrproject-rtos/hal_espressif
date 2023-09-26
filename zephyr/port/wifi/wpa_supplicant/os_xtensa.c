@@ -27,6 +27,7 @@
 #include "esp_system.h"
 #include "utils/common.h"
 #include <zephyr/random/rand32.h>
+#include "mbedtls/platform_util.h"
 
 int os_get_time(struct os_time *t)
 {
@@ -51,3 +52,10 @@ int os_get_random(unsigned char *buf, size_t len)
 	sys_rand_get((void *)buf, len);
 	return 0;
 }
+
+#ifdef CONFIG_CRYPTO_MBEDTLS
+void forced_memzero(void *ptr, size_t len)
+{
+    mbedtls_platform_zeroize(ptr, len);
+}
+#endif

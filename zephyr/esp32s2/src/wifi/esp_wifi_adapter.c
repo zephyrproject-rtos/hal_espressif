@@ -30,11 +30,13 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_event.h"
 #include "soc/rtc.h"
 #include "soc/syscon_reg.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_phy_init.h"
-#include "esp32s2/clk.h"
 #include "esp32s2/rom/rtc.h"
 #include "os.h"
+#include "esp32s2/rom/ets_sys.h"
+#include "esp_mac.h"
+#include "wifi/wifi_event.h"
 
 K_THREAD_STACK_DEFINE(wifi_stack, 4096);
 
@@ -377,7 +379,7 @@ static int32_t task_get_max_priority_wrapper(void)
 
 static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
 {
-	LOG_ERR("%s not yet supported", __func__);
+	esp_wifi_event_handler(event_base, event_id, event_data, event_data_size, ticks_to_wait);
 	return 0;
 }
 
@@ -423,15 +425,6 @@ static void IRAM_ATTR timer_arm_us_wrapper(void *ptimer, uint32_t us, bool repea
 static int get_time_wrapper(void *t)
 {
 	return os_get_time(t);
-}
-
-static uint32_t esp_clk_slowclk_cal_get_wrapper(void)
-{
-	/*
-	 * The bit width of WiFi light sleep clock calibration is 12 while the one of
-	 * system is 19. It should shift 19 - 12 = 7.
-	 */
-	return (REG_READ(RTC_SLOW_CLK_CAL_REG) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
 }
 
 static void *IRAM_ATTR malloc_internal_wrapper(size_t size)
@@ -535,8 +528,7 @@ static void wifi_clock_disable_wrapper(void)
 
 static void wifi_reset_mac_wrapper(void)
 {
-	DPORT_SET_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, DPORT_MAC_RST);
-	DPORT_CLEAR_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, DPORT_MAC_RST);
+	periph_module_reset(PERIPH_WIFI_MODULE);
 }
 
 int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
@@ -642,12 +634,6 @@ static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 #endif
 }
 
-static void coex_condition_set_wrapper(uint32_t type, bool dissatisfy)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	coex_condition_set(type, dissatisfy);
-#endif
-}
 
 static int coex_wifi_request_wrapper(uint32_t event, uint32_t latency, uint32_t duration)
 {
@@ -740,24 +726,6 @@ static void * coex_schm_curr_phase_get_wrapper(void)
 #endif
 }
 
-static int coex_schm_curr_phase_idx_set_wrapper(int idx)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_set(idx);
-#else
-	return 0;
-#endif
-}
-
-static int coex_schm_curr_phase_idx_get_wrapper(void)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	return coex_schm_curr_phase_idx_get();
-#else
-	return 0;
-#endif
-}
-
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
 
@@ -775,6 +743,14 @@ static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *
 #endif
 }
 
+uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
+{
+    /* The bit width of WiFi light sleep clock calibration is 12 while the one of
+     * system is 19. It should shift 19 - 12 = 7.
+    */
+    return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
+}
+
 static void esp_log_write_wrapper(uint32_t level,const char *tag,const char *format, ...)
 {
 #if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
@@ -782,6 +758,33 @@ static void esp_log_write_wrapper(uint32_t level,const char *tag,const char *for
 	va_start(list, format);
 	esp_log_writev((esp_log_level_t)level, tag, format, list);
 	va_end(list);
+#endif
+}
+
+static int coex_register_start_cb_wrapper(int (* cb)(void))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_register_start_cb(cb);
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_process_restart_wrapper(void)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_process_restart();
+#else
+    return 0;
+#endif
+}
+
+static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
+{
+#if CONFIG_SW_COEXIST_ENABLE
+    return coex_schm_register_callback(type, cb);
+#else
+    return 0;
 #endif
 }
 
@@ -840,6 +843,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._wifi_apb80m_release = wifi_apb80m_release_wrapper,
 	._phy_disable = esp_phy_disable,
 	._phy_enable = esp_phy_enable,
+	._phy_common_clock_enable = esp_phy_common_clock_enable,
+	._phy_common_clock_disable = esp_phy_common_clock_disable,
 	._phy_update_country_info = esp_phy_update_country_info,
 	._read_mac = esp_read_mac,
 	._timer_arm = timer_arm_wrapper,
@@ -868,7 +873,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._get_random = os_get_random,
 	._get_time = get_time_wrapper,
 	._random = random,
-	._slowclk_cal_get = esp_clk_slowclk_cal_get_wrapper,
+	._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
 	._log_write = esp_log_write_wrapper,
 	._log_writev = esp_log_writev_wrapper,
 	._log_timestamp = k_uptime_get_32,
@@ -887,7 +892,6 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_enable = coex_enable_wrapper,
 	._coex_disable = coex_disable_wrapper,
 	._coex_status_get = coex_status_get_wrapper,
-	._coex_condition_set = coex_condition_set_wrapper,
 	._coex_wifi_request = coex_wifi_request_wrapper,
 	._coex_wifi_release = coex_wifi_release_wrapper,
 	._coex_wifi_channel_set = coex_wifi_channel_set_wrapper,
@@ -899,8 +903,9 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_schm_interval_get = coex_schm_interval_get_wrapper,
 	._coex_schm_curr_period_get = coex_schm_curr_period_get_wrapper,
 	._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
-	._coex_schm_curr_phase_idx_set = coex_schm_curr_phase_idx_set_wrapper,
-	._coex_schm_curr_phase_idx_get = coex_schm_curr_phase_idx_get_wrapper,
+	._coex_register_start_cb = coex_register_start_cb_wrapper,
+	._coex_schm_process_restart = coex_schm_process_restart_wrapper,
+	._coex_schm_register_cb = coex_schm_register_cb_wrapper,
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
 
