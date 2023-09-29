@@ -384,6 +384,15 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_enrollee.c"
       )
 
+    if(CONFIG_ESP_WIFI_ENABLE_SAE_PK)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/sae_pk.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/bss.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/scan.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_scan.c"
+        )
+    endif()
+    
     set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa_main.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpas_glue.c"
@@ -413,33 +422,65 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_ocsp.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/x509v3.c")
 
-    set(CRYPTO_SRCS
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ctr.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-cbc.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ccm.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-dec.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-enc.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-unwrap.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-wrap.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-cipher.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-modexp.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-rsa.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md4-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-pbkdf2.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha384-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha512-internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c")
+      if(CONFIG_ESP_WIFI_MBEDTLS_CRYPTO)
+      set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
+         # Add internal RC4 as RC4 has been removed from mbedtls
+         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
+        )
+        if(NOT CONFIG_MBEDTLS_CIPHER_DES_ENABLED)
+          set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c")
+        endif()
+        # Enabling this only for WiFi is probably not a good idea since MbedTLS
+        # uses generic crypto init/update functions for this. That causes
+        # binary size increment since all the other enabled module
+        # functions will also linked in. Even after not using direct MbedTLS APIs
+        # for these, these API are still faster since these all will be using
+        # AES APIs which is using hardware AES blocks.
+        if(NOT CONFIG_MBEDTLS_MAC_CMAC_ENABLED)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c")
+        endif()
+        if(NOT CONFIG_MBEDTLS_NIST_KW_C)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS}
+            "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-wrap.c"
+            "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-unwrap.c")
+        endif()
+        if(NOT CONFIG_MBEDTLS_NIST_KW_C OR NOT CONFIG_MBEDTLS_CMAC_C OR NOT CONFIG_MBEDTLS_CCM_C)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ccm.c")
+        endif()
+    else()
+      set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ctr.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-cbc.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ccm.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-dec.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-enc.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-unwrap.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-wrap.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-cipher.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-modexp.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-rsa.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md4-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-pbkdf2.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha384-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha512-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
+        )
+    endif()
 
     zephyr_sources(
       ../../components/esp_system/esp_err.c
@@ -476,7 +517,14 @@ if(CONFIG_SOC_SERIES_ESP32S2)
         CONFIG_SHA256
         CONFIG_NO_RADIUS
         CONFIG_CRYPTO_INTERNAL
-      )
+        )
+
+      zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
+      zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
+      zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
+      zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
+      zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
+
     zephyr_link_libraries(
       net80211
       core

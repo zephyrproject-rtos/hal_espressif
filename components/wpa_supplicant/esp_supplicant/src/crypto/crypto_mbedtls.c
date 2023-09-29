@@ -34,7 +34,17 @@
 #include "sha384.h"
 #include "aes_wrap.h"
 #include "crypto.h"
+#ifdef ESPRESSIF_USE
 #include "mbedtls/esp_config.h"
+#else
+#if defined(CONFIG_MBEDTLS)
+#if !defined(CONFIG_MBEDTLS_CFG_FILE)
+#include "mbedtls/config.h"
+#else
+#include CONFIG_MBEDTLS_CFG_FILE
+#endif /* CONFIG_MBEDTLS_CFG_FILE */
+#endif
+#endif
 
 static int digest_vector(mbedtls_md_type_t md_type, size_t num_elem,
 			 const u8 *addr[], const size_t *len, u8 *mac)

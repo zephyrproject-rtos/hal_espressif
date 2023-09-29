@@ -16,7 +16,7 @@
 #include "endian.h"
 #include "esp_hostap.h"
 #include <inttypes.h>
-
+#include <zephyr/kernel.h>
 #ifdef CONFIG_SAE_PK
 #include "common/bss.h"
 extern struct wpa_supplicant g_wpa_supp;
@@ -336,9 +336,9 @@ void esp_wifi_unregister_wpa3_cb(void)
 
 #ifdef CONFIG_SAE
 
-static TaskHandle_t g_wpa3_hostap_task_hdl = NULL;
-static QueueHandle_t g_wpa3_hostap_evt_queue = NULL;
-SemaphoreHandle_t g_wpa3_hostap_auth_api_lock = NULL;
+static void *g_wpa3_hostap_task_hdl = NULL;
+static void *g_wpa3_hostap_evt_queue = NULL;
+struct k_sem * g_wpa3_hostap_auth_api_lock = NULL;
 
 int wpa3_hostap_post_evt(uint32_t evt_id, uint32_t data)
 {
@@ -479,7 +479,7 @@ static void esp_wpa3_hostap_task(void *pvParameters)
     bool task_del = false;
 
     while (1) {
-        if (os_queue_recv(g_wpa3_hostap_evt_queue, &evt, portMAX_DELAY) == pdTRUE) {
+        if (os_queue_recv(g_wpa3_hostap_evt_queue, &evt, portMAX_DELAY) == 1) {
             switch (evt->id) {
             case SIG_WPA3_RX_COMMIT: {
                 wpa3_process_rx_commit(evt);
