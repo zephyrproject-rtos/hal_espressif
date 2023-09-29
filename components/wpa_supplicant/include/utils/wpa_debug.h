@@ -18,10 +18,10 @@
 #include "wpabuf.h"
 #include "esp_log.h"
 #include "supplicant_opt.h"
+#define TAG "wpa"
 
 #ifdef ESPRESSIF_USE
 
-#define TAG "wpa"
 
 #define MSG_ERROR ESP_LOG_ERROR
 #define MSG_WARNING ESP_LOG_WARN
@@ -32,6 +32,7 @@
 
 #else
 enum { MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR };
+#define MSG_EXCESSIVE MSG_DEBUG
 #endif
 
 /** EAP authentication completed successfully */

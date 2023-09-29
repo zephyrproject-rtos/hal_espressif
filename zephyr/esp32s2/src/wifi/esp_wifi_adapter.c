@@ -39,7 +39,7 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_mac.h"
 #include "wifi/wifi_event.h"
 
-K_THREAD_STACK_DEFINE(wifi_stack, 4096);
+K_THREAD_STACK_DEFINE(wifi_stack, CONFIG_ESP_WIFI_STACK_SIZE);
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
@@ -49,7 +49,17 @@ static struct k_thread wifi_task_handle;
 
 static void esp_wifi_free(void *mem);
 
-uint64_t g_wifi_feature_caps;
+uint64_t g_wifi_feature_caps =
+#if CONFIG_ESP_WIFI_ENABLE_WPA3_SAE
+    CONFIG_FEATURE_WPA3_SAE_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
+    CONFIG_FEATURE_FTM_INITIATOR_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_RESPONDER_SUPPORT
+    CONFIG_FEATURE_FTM_RESPONDER_BIT |
+#endif
+0;
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
