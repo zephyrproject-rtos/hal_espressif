@@ -25,7 +25,7 @@
 struct hostapd_data *global_hapd;
 
 #ifdef CONFIG_SAE
-extern SemaphoreHandle_t g_wpa3_hostap_auth_api_lock;
+extern struct k_sem * g_wpa3_hostap_auth_api_lock;
 #endif /* CONFIG_SAE */
 
 struct hostapd_data *hostapd_get_hapd_data(void)

@@ -84,6 +84,7 @@ typedef	__uint64_t	uint64_t;
  * endian to host byte order functions as detailed in byteorder(9).
  */
 #if BYTE_ORDER == _LITTLE_ENDIAN
+#ifndef CONFIG_PICOLIBC
 #define	htobe16(x)	bswap16((x))
 #define	htobe32(x)	bswap32((x))
 #define	htobe64(x)	bswap64((x))
@@ -97,7 +98,7 @@ typedef	__uint64_t	uint64_t;
 #define	le16toh(x)	((uint16_t)(x))
 #define	le32toh(x)	((uint32_t)(x))
 #define	le64toh(x)	((uint64_t)(x))
-
+#endif /* CONFIG_PICOLIBC */
 #else /* _BYTE_ORDER != _LITTLE_ENDIAN */
 #define	htobe16(x)	((uint16_t)(x))
 #define	htobe32(x)	((uint32_t)(x))

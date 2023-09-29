@@ -83,7 +83,9 @@ def generate_blob_list():
 
             for s in socs:
                 folder = Path(path, "temp", git_dir, s)
-                pathlist = Path(folder).glob('**/*.a')
+                pathlist = []
+                pathlist.extend(Path(folder).glob('**/*.a'))
+                pathlist.extend(Path(folder).glob('**/*.bin'))
                 for item in pathlist:
                     path_in_str = str(item)
                     filename = path_leaf(path_in_str)

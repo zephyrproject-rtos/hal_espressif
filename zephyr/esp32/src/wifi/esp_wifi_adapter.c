@@ -35,7 +35,7 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_private/adc_share_hw_ctrl.h"
 
 
-K_THREAD_STACK_DEFINE(wifi_stack, 4096);
+K_THREAD_STACK_DEFINE(wifi_stack, CONFIG_ESP_WIFI_STACK_SIZE);
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
@@ -49,7 +49,21 @@ extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
 
 static void esp_wifi_free(void *mem);
 
-uint64_t g_wifi_feature_caps;
+// uint64_t g_wifi_feature_caps;
+uint64_t g_wifi_feature_caps =
+#if CONFIG_ESP_WIFI_ENABLE_WPA3_SAE
+    CONFIG_FEATURE_WPA3_SAE_BIT |
+#endif
+#if CONFIG_SPIRAM
+    CONFIG_FEATURE_CACHE_TX_BUF_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
+    CONFIG_FEATURE_FTM_INITIATOR_BIT |
+#endif
+#if CONFIG_ESP_WIFI_FTM_RESPONDER_SUPPORT
+    CONFIG_FEATURE_FTM_RESPONDER_BIT |
+#endif
+0;
 
 static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_start(void)
 {
@@ -639,13 +653,6 @@ static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 #endif
 }
 
-static void coex_condition_set_wrapper(uint32_t type, bool dissatisfy)
-{
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	coex_condition_set(type, dissatisfy);
-#endif
-}
-
 static int coex_wifi_request_wrapper(uint32_t event, uint32_t latency, uint32_t duration)
 {
 #if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
@@ -890,7 +897,6 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_enable = coex_enable_wrapper,
 	._coex_disable = coex_disable_wrapper,
 	._coex_status_get = coex_status_get_wrapper,
-	._coex_condition_set = coex_condition_set_wrapper,
 	._coex_wifi_request = coex_wifi_request_wrapper,
 	._coex_wifi_release = coex_wifi_release_wrapper,
 	._coex_wifi_channel_set = coex_wifi_channel_set_wrapper,
@@ -929,6 +935,8 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #if CONFIG_IDF_TARGET_ESP32
 	s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
 #endif
+
+    esp_wifi_internal_set_log_level(CONFIG_WIFI_LOG_LEVEL);
 
 	esp_err_t result = esp_wifi_init_internal(config);
 	if (result == ESP_OK) {
