@@ -9,7 +9,6 @@
 #include "esp_log.h"
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
-#include <stdlib.h>
 
 //Don't introduce new dependency of ADC, keep these macro same as ADC related definations
 #define ADC_ATTEN_MAX    4
@@ -17,22 +16,11 @@
 #define ADC_NUM_1        0
 #define ADC_NUM_2        1
 
-#ifdef ESP_ERROR_CHECK
-#undef ESP_ERROR_CHECK
-#endif
-#define ESP_ERROR_CHECK(x) do { \
-	esp_err_t __err_rc = (x); \
-	if (__err_rc != ESP_OK) { \
-		ESP_LOGW("ERROR ", "%d: %d", __LINE__, __err_rc);\
-		abort();\
-	} \
-} while(0)
-
 
 int esp_efuse_rtc_calib_get_ver(void)
 {
     uint32_t blk_ver_major = 0;
-    ESP_ERROR_CHECK(esp_efuse_read_field_blob(ESP_EFUSE_BLK_VER_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VER_MAJOR[0]->bit_count));
+    esp_efuse_read_field_blob(ESP_EFUSE_BLK_VERSION_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VERSION_MAJOR[0]->bit_count); // IDF-5366
 
     uint32_t cali_version_v1 = (blk_ver_major == 1) ? 1 : 0;
     if (!cali_version_v1) {
@@ -57,7 +45,7 @@ uint32_t esp_efuse_rtc_calib_get_init_code(int version, uint32_t adc_unit, int a
 
     for (int diff_index = 0; diff_index < 4; diff_index++) {
         efuse_icode_bits = esp_efuse_get_field_size(desc[desc_index]);
-        ESP_ERROR_CHECK(esp_efuse_read_field_blob(desc[desc_index], &adc_icode_diff[diff_index], efuse_icode_bits));
+        esp_efuse_read_field_blob(desc[desc_index], &adc_icode_diff[diff_index], efuse_icode_bits);
         desc_index++;
     }
 
@@ -91,7 +79,7 @@ esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, uint32_t adc_unit, in
                                         ESP_EFUSE_ADC2_CAL_VOL_ATTEN0, ESP_EFUSE_ADC2_CAL_VOL_ATTEN1, ESP_EFUSE_ADC2_CAL_VOL_ATTEN2, ESP_EFUSE_ADC2_CAL_VOL_ATTEN3};
     for (int i = 0; i < 8; i++) {
         efuse_vol_bits = esp_efuse_get_field_size(desc[i]);
-        ESP_ERROR_CHECK(esp_efuse_read_field_blob(desc[i], &adc_vol_diff[i], efuse_vol_bits));
+        esp_efuse_read_field_blob(desc[i], &adc_vol_diff[i], efuse_vol_bits);
     }
 
     adc1_vol[3] = adc_vol_diff[3] + 900;
@@ -107,4 +95,20 @@ esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, uint32_t adc_unit, in
     *out_vol_mv = 850;
 
     return ESP_OK;
+}
+
+float esp_efuse_rtc_calib_get_cal_temp(int version)
+{
+    assert(version == 1);
+    const esp_efuse_desc_t** cal_temp_efuse;
+    cal_temp_efuse = ESP_EFUSE_TEMP_CALIB;
+    int cal_temp_size = esp_efuse_get_field_size(cal_temp_efuse);
+    assert(cal_temp_size == 9);
+
+    uint32_t cal_temp = 0;
+    esp_err_t err = esp_efuse_read_field_blob(cal_temp_efuse, &cal_temp, cal_temp_size);
+    assert(err == ESP_OK);
+    (void)err;
+    // BIT(8) stands for sign: 1: negtive, 0: positive
+    return ((cal_temp & BIT(8)) != 0)? -(uint8_t)cal_temp: (uint8_t)cal_temp;
 }
