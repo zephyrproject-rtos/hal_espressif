@@ -83,6 +83,11 @@ typedef enum {
 /* Leave this type define for compatibility */
 typedef esp_sleep_source_t esp_sleep_wakeup_cause_t;
 
+enum {
+    ESP_ERR_SLEEP_REJECT = ESP_ERR_INVALID_STATE,
+    ESP_ERR_SLEEP_TOO_SHORT_SLEEP_DURATION = ESP_ERR_INVALID_ARG,
+};
+
 /**
  * @brief Disable wakeup source
  *

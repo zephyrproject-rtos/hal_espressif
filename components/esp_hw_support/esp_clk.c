@@ -152,3 +152,13 @@ uint64_t esp_clk_rtc_time(void)
     return 0;
 #endif
 }
+
+void esp_clk_private_lock(void)
+{
+    s_esp_rtc_time_lock = irq_lock();
+}
+
+void esp_clk_private_unlock(void)
+{
+    irq_unlock(s_esp_rtc_time_lock);
+}

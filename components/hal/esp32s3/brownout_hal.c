@@ -19,6 +19,9 @@
 #include "regi2c_ctrl.h"
 #include "regi2c_brownout.h"
 
+#if defined(__ZEPHYR__)
+#include "stubs.h"
+#endif
 
 void brownout_hal_config(const brownout_hal_config_t *cfg)
 {
