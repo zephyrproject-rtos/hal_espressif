@@ -43,8 +43,6 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
-K_THREAD_STACK_DEFINE(wifi_stack, CONFIG_ESP_WIFI_STACK_SIZE);
-
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
 static void esp_wifi_free(void *mem);
@@ -374,6 +372,9 @@ static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
+	k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
+									IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+
 	k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
@@ -386,6 +387,9 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
+	k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
+									IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+
 	k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, K_INHERIT_PERMS, K_NO_WAIT);
@@ -1026,6 +1030,8 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
 	coex_init();
 #endif
+
+    esp_wifi_internal_set_log_level(CONFIG_WIFI_LOG_LEVEL);
 
 	esp_err_t result = esp_wifi_init_internal(config);
 	if (result == ESP_OK) {
