@@ -6,7 +6,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
-#include <zephyr/random/rand32.h>
+#include <zephyr/random/random.h>
 
 #define CONFIG_POSIX_FS
 
@@ -290,7 +290,7 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 	}
 
 	k_msgq_init((struct k_msgq *)queue, wifi_msgq_buffer, item_size, queue_len);
-	
+
 	return (void *)queue;
 }
 
