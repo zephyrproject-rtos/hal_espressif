@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include "esp_system.h"
 #include "utils/common.h"
-#include <zephyr/random/rand32.h>
+#include <zephyr/random/random.h>
 #include "mbedtls/platform_util.h"
 
 int os_get_time(struct os_time *t)
