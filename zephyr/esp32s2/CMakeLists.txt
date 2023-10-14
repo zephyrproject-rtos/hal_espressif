@@ -11,8 +11,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../esp_shared/include
     ../esp_shared/include/wifi
     ../esp_shared/components/include
-    ../../components/hal/include
     ../../components/hal/esp32s2/include
+    ../../components/hal/include
     ../../components/hal/platform_port/include
     ../../components/esp_hw_support/port/esp32s2
     ../../components/esp_hw_support/port/esp32s2/private_include
@@ -180,6 +180,15 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
     ../../components/driver/esp32s2/rtc_tempsensor.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_INPUT_ESP32_TOUCH_SENSOR
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    ../../components/soc/esp32s2/touch_sensor_periph.c
+    ../../components/hal/esp32s2/touch_sensor_hal.c
+    ../../components/hal/touch_sensor_hal.c
     )
 
   if (CONFIG_MCUBOOT)
