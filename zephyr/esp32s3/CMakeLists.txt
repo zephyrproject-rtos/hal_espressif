@@ -12,8 +12,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../esp_shared/include/adc
     ../esp_shared/include/wifi
     ../esp_shared/components/include
-    ../../components/hal/include
     ../../components/hal/esp32s3/include
+    ../../components/hal/include
     ../../components/hal/platform_port/include
     ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/port/esp32s3
@@ -164,6 +164,15 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     CONFIG_DMA_ESP32
     ../../components/soc/lldesc.c
     ../../components/hal/gdma_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_INPUT_ESP32_TOUCH_SENSOR
+    ../esp_shared/components/driver/rtc_io_hal.c
+    ../esp_shared/components/driver/rtc_io.c
+    ../../components/soc/esp32s3/touch_sensor_periph.c
+    ../../components/hal/esp32s3/touch_sensor_hal.c
+    ../../components/hal/touch_sensor_hal.c
     )
 
   zephyr_sources_ifdef(
