@@ -14,7 +14,7 @@
 
 #if defined(__ZEPHYR__)
 #include <zephyr/kernel.h>
-#endif 
+#endif
 
 #include <stdlib.h>
 #include <assert.h>
@@ -159,8 +159,12 @@ esp_err_t IRAM_ATTR spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_
         pages[i] = (phys_page+i);
     }
     ret = spi_flash_mmap_pages(pages, page_count, memory, out_ptr, out_handle);
-    free(pages);
-    return ret;
+#if defined(__ZEPHYR__)
+    k_free(pages);
+#else
+	free(pages);
+#endif
+	return ret;
 }
 
 esp_err_t IRAM_ATTR spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mmap_memory_t memory,
@@ -294,7 +298,11 @@ esp_err_t IRAM_ATTR spi_flash_mmap_pages(const int *pages, size_t page_count, sp
 
     spi_flash_enable_interrupts_caches_and_other_cpu();
     if (temp_ptr == NULL) {
+#if defined(__ZEPHYR__)
+        k_free(new_entry);
+#else
         free(new_entry);
+#endif
     }
     *out_ptr = temp_ptr;
     *out_handle = temp_handle;
@@ -328,7 +336,11 @@ void IRAM_ATTR spi_flash_munmap(spi_flash_mmap_handle_t handle)
     if (it == NULL) {
         assert(0 && "invalid handle, or handle already unmapped");
     }
+#if defined(__ZEPHYR__)
+    k_free(it);
+#else
     free(it);
+#endif
 }
 
 static void IRAM_ATTR NOINLINE_ATTR spi_flash_protected_mmap_init(void)
