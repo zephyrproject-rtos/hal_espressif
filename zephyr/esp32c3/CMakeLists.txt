@@ -78,8 +78,9 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
     ../../components/esp_netif/include
 
+    ../../components/esp_coex/include
     ../../components/esp_phy/include
-    ../../components/esp_phy/include
+    ../../components/esp_phy/include/esp_private
     ../../components/esp_phy/esp32s3/include
     ../../components/esp_wifi/include
     ../../components/esp_event/include
@@ -122,7 +123,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     CONFIG_SOC_FLASH_ESP32
     ../../components/spi_flash/flash_ops.c
     ../../components/spi_flash/esp_flash_api.c
-    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_mmap.c
     ../../components/esp_mm/esp_mmu_map.c
     ../../components/bootloader_support/src/flash_encrypt.c
@@ -241,13 +241,14 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
+    ../../components/esp_hw_support/sleep_modes.c
 
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
@@ -289,6 +290,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
 
     ../esp_shared/src/common/esp_system_api.c
+    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/riscv/interrupt.c
 
     src/stubs.c
@@ -304,6 +306,14 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/esp_phy/src/lib_printf.c
       )
 
+    zephyr_sources(
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
+      )
+
     zephyr_link_libraries(
       net80211
       core
@@ -314,27 +324,19 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32c3
       )
-
   endif()
 
   ## BT definitions
   if (CONFIG_BT)
-    zephyr_sources(
-      src/bt/esp_bt_adapter.c
-      )
-
-    zephyr_compile_definitions(
-      CONFIG_BT_ENABLED
-      )
+    zephyr_sources(src/bt/esp_bt_adapter.c)
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
     zephyr_link_libraries(
       ## ble
       btbb
       btdm_app
-      coexist
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32c3
       )
-
   endif()
 
   ## WIFI definitions
@@ -416,7 +418,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
     endif()
 
-
     set(TLS_SRCS
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/bignum.c"
@@ -496,12 +497,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     endif()
 
     zephyr_sources(
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/esp_system/esp_err.c
-      ../../components/esp_hw_support/sleep_modes.c
       src/wifi/esp_wifi_adapter.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
@@ -534,10 +529,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
 
-    zephyr_link_libraries(
-      ## wifi
-      mbedTLS
-      )
+    zephyr_link_libraries(mbedTLS)
 
   endif()
 
