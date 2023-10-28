@@ -44,7 +44,7 @@ extern "C" {
 
 #define SOC_MEM_BT_EM_BREDR_REAL_END        (SOC_MEM_BT_EM_BREDR_NO_SYNC_END + CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF * SOC_MEM_BT_EM_PER_SYNC_SIZE)
 
-#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20200622
+#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20221207
 
 /**
  * @brief Bluetooth mode for controller enable/disable
@@ -76,6 +76,18 @@ the adv packet will be discarded until the memory is restored. */
 #define SCAN_SEND_ADV_RESERVED_SIZE        1000
 /* enable controller log debug when adv lost */
 #define CONTROLLER_ADV_LOST_DEBUG_BIT      (0<<0)
+
+#ifdef CONFIG_BTDM_CTRL_HCI_UART_NO
+#define BT_HCI_UART_NO_DEFAULT                      CONFIG_BTDM_CTRL_HCI_UART_NO
+#else
+#define BT_HCI_UART_NO_DEFAULT                      1
+#endif /* BT_HCI_UART_NO_DEFAULT */
+
+#ifdef CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE
+#define BT_HCI_UART_BAUDRATE_DEFAULT                CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE
+#else
+#define BT_HCI_UART_BAUDRATE_DEFAULT                921600
+#endif /* BT_HCI_UART_BAUDRATE_DEFAULT */
 
 #ifdef CONFIG_BTDM_SCAN_DUPL_TYPE
 #define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BTDM_SCAN_DUPL_TYPE
@@ -109,8 +121,16 @@ the adv packet will be discarded until the memory is restored. */
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
 #endif
 
-#if defined(CONFIG_BT_BREDR)
-#define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
+#ifdef CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#define SCAN_DUPL_CACHE_REFRESH_PERIOD CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#else
+#define SCAN_DUPL_CACHE_REFRESH_PERIOD              0
+#endif
+
+#if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
+#define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
+#elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
+#define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_CLASSIC_BT
 #else
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
 #endif
@@ -119,6 +139,12 @@ the adv packet will be discarded until the memory is restored. */
 #define BTDM_CTRL_AUTO_LATENCY_EFF CONFIG_BTDM_CTRL_AUTO_LATENCY_EFF
 #else
 #define BTDM_CTRL_AUTO_LATENCY_EFF false
+#endif
+
+#ifdef CONFIG_BTDM_CTRL_HLI
+#define BTDM_CTRL_HLI CONFIG_BTDM_CTRL_HLI
+#else
+#define BTDM_CTRL_HLI false
 #endif
 
 #ifdef CONFIG_BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
@@ -186,6 +212,8 @@ the adv packet will be discarded until the memory is restored. */
     .ble_sca = CONFIG_BTDM_BLE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,             \
     .pcm_role = CONFIG_BTDM_CTRL_PCM_ROLE_EFF,                             \
     .pcm_polar = CONFIG_BTDM_CTRL_PCM_POLAR_EFF,                           \
+    .hli = BTDM_CTRL_HLI,                                                  \
+    .dup_list_refresh_period = SCAN_DUPL_CACHE_REFRESH_PERIOD,             \
     .magic = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL,                           \
 };
 
@@ -227,6 +255,8 @@ typedef struct {
     uint8_t ble_sca;                        /*!< BLE low power crystal accuracy index */
     uint8_t pcm_role;                       /*!< PCM role (master & slave)*/
     uint8_t pcm_polar;                      /*!< PCM polar trig (falling clk edge & rising clk edge) */
+    bool hli;                               /*!< Using high level interrupt or not */
+    uint16_t dup_list_refresh_period;       /*!< Duplicate scan list refresh period */
     uint32_t magic;                         /*!< Magic number */
 } esp_bt_controller_config_t;
 
