@@ -80,7 +80,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     ../../components/esp_netif/include
 
+    ../../components/esp_coex/include
     ../../components/esp_phy/include
+    ../../components/esp_phy/include/esp_private
     ../../components/esp_phy/${CONFIG_SOC_SERIES}/include
     ../../components/esp_wifi/include
     ../../components/esp_event/include
@@ -122,7 +124,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/spi_flash/flash_mmap.c
-    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/hal/mmu_hal.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/hal/cache_hal.c
@@ -246,6 +247,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
 
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+
     ../../components/esp_mm/esp_mmu_map.c
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
 
@@ -256,6 +259,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/mspi_timing_tuning.c
     ../../components/esp_hw_support/rtc_module.c
+    ../../components/esp_hw_support/hw_random.c
+    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
@@ -277,6 +282,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
 
+    ../../components/esp_system/esp_err.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
@@ -299,6 +305,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/log/log.c
 
     ../esp_shared/src/common/esp_system_api.c
+    ../esp_shared/src/host_flash/cache_utils.c
 
     src/stubs.c
 
@@ -312,6 +319,14 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_phy/src/lib_printf.c
       )
 
+    zephyr_sources(
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
+      )
+
     zephyr_link_libraries(
       net80211
       core
@@ -321,18 +336,12 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s3
       )
-
   endif()
 
   ## BT definitions
   if (CONFIG_BT)
-    zephyr_sources(
-      src/bt/esp_bt_adapter.c
-      )
-
-    zephyr_compile_definitions(
-      CONFIG_BT_ENABLED
-      )
+    zephyr_sources(src/bt/esp_bt_adapter.c)
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
     zephyr_link_libraries(
       ## ble
@@ -340,7 +349,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       btdm_app
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s3
       )
-
   endif()
 
     ## WIFI definitions
@@ -409,10 +417,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa3.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_owe.c"
       )
+
     if(CONFIG_ESP_WIFI_SOFTAP_SUPPORT)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
     endif()
-
 
     set(TLS_SRCS
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
@@ -461,14 +469,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
       )
 
-
     zephyr_sources(
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/esp_system/esp_err.c
-      ../../components/esp_hw_support/sleep_modes.c
       src/wifi/esp_wifi_adapter.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
@@ -495,9 +496,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       CONFIG_CRYPTO_INTERNAL
       )
 
-    zephyr_link_libraries(
-      mbedTLS
-      )
+    zephyr_link_libraries(mbedTLS)
 
   endif()
 
