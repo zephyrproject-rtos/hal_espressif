@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #define ESP_BT_CTRL_CONFIG_MAGIC_VAL    0x5A5AA5A5
-#define ESP_BT_CTRL_CONFIG_VERSION      0x02112280
+#define ESP_BT_CTRL_CONFIG_VERSION      0x02302140
 
 #define ESP_BT_HCI_TL_MAGIC_VALUE   0xfadebead
 #define ESP_BT_HCI_TL_VERSION       0x00010000
@@ -92,6 +92,13 @@ enum {
     ESP_BT_COEX_PHY_CODED_TX_RX_TIME_LIMIT_FORCE_ENABLE,         /*!< Always Enable the limit */
 };
 
+#define ESP_BT_HCI_TL_STATUS_OK            (0)   /*!< HCI_TL Tx/Rx operation status OK */
+
+/**
+ * @brief callback function for HCI Transport Layer send/receive operations
+ */
+typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
+
 #define BT_CTRL_BLE_MAX_ACT_LIMIT           10  //Maximum BLE activity limitation
 #define SLAVE_CE_LEN_MIN_DEFAULT             5
 
@@ -127,6 +134,18 @@ enum {
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
 #endif
 
+#ifndef CONFIG_BT_CTRL_DUPL_SCAN_CACHE_REFRESH_PERIOD
+#define DUPL_SCAN_CACHE_REFRESH_PERIOD 0
+#else
+#define DUPL_SCAN_CACHE_REFRESH_PERIOD CONFIG_BT_CTRL_DUPL_SCAN_CACHE_REFRESH_PERIOD
+#endif
+
+#ifdef CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+#else
+#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX  0
+#endif
+
 #ifdef CONFIG_BT_CTRL_AGC_RECORRECT_EN
 #define BT_CTRL_AGC_RECORRECT_EN  CONFIG_BT_CTRL_AGC_RECORRECT_EN
 #else
@@ -151,7 +170,7 @@ enum {
 #define ESP_TASK_BT_CONTROLLER_STACK  (3584 + BT_TASK_EXTRA_STACK_SIZE)
 #define ESP_TASK_BT_CONTROLLER_PRIO 4
 
-#define BLE_HW_TARGET_CODE_ESP32S3_CHIP_ECO0                      (0x02010000)
+#define BLE_HW_TARGET_CODE_CHIP_ECO0                      (0x02010000)
 
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() { \
 	.magic = ESP_BT_CTRL_CONFIG_MAGIC_VAL, \
@@ -166,7 +185,9 @@ enum {
 	.ble_st_acl_tx_buf_nb = 0, \
 	.ble_hw_cca_check = 0, \
 	.ble_adv_dup_filt_max = 30, \
+	.coex_param_en = false, \
 	.ce_len_type = 0, \
+	.coex_use_hooks = false, \
 	.hci_tl_type = 1, \
 	.hci_tl_funcs = NULL, \
 	.txant_dft = 0, \
@@ -178,10 +199,13 @@ enum {
 	.normal_adv_size = 20, \
 	.mesh_adv_size = 0, \
 	.coex_phy_coded_tx_rx_time_limit = 0, \
-	.hw_target_code = BLE_HW_TARGET_CODE_ESP32S3_CHIP_ECO0, \
+	.hw_target_code = BLE_HW_TARGET_CODE_CHIP_ECO0, \
 	.slave_ce_len_min = SLAVE_CE_LEN_MIN_DEFAULT, \
 	.hw_recorrect_en = AGC_RECORRECT_EN, \
 	.cca_thresh = 30, \
+	.scan_backoff_upperlimitmax = BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,      \
+	.dup_list_refresh_period = DUPL_SCAN_CACHE_REFRESH_PERIOD,             \
+	.ble_50_feat_supp = 1, \
 };
 
 /**
@@ -201,22 +225,17 @@ typedef struct {
 	void (* _flow_on)(void); /* hci tl flow on */
 } esp_bt_hci_tl_t;
 
-/**
- * @brief Controller config options, depend on config mask.
- *        Config mask indicate which functions enabled, this means
- *        some options or parameters of some functions enabled by config mask.
- */
 typedef struct {
 	/*
-		* Following parameters can not be configured runtime when call esp_bt_controller_init()
-		* They will be overwritten by constant values from menuconfig options or from macros.
-		* So, do not modify the value when esp_bt_controller_init()
-		*/
-	uint32_t magic;                         /*!< Magic number */
-	uint32_t version;                       /*!< version number of the defined structure */
+	 * Following parameters can not be configured runtime when call esp_bt_controller_init()
+	 * They will be overwritten by constant values from menuconfig options or from macros.
+	 * So, do not modify the value when esp_bt_controller_init()
+	 */
+	 uint32_t magic;                         /*!< Magic number */
+	 uint32_t version;                       /*!< version number of the defined structure */
 	/*
-		* Following parameters can be configured runtime, when call esp_bt_controller_init()
-		*/
+	 * Following parameters can be configured runtime, when call esp_bt_controller_init()
+	 */
 	uint16_t controller_task_stack_size;    /*!< Bluetooth controller task stack size */
 	uint8_t controller_task_prio;           /*!< Bluetooth controller task priority */
 	uint8_t controller_task_run_cpu;        /*!< CPU num that Bluetooth controller task runs on */
@@ -242,9 +261,12 @@ typedef struct {
 	uint16_t mesh_adv_size;                 /*!< Mesh adv size for scan duplicate */
 	uint8_t coex_phy_coded_tx_rx_time_limit;  /*!< limit on max tx/rx time in case of connection using CODED-PHY with Wi-Fi coexistence */
 	uint32_t hw_target_code;                /*!< hardware target */
-	uint8_t slave_ce_len_min;
+	uint8_t slave_ce_len_min;               /*!< slave minimum ce length*/
 	uint8_t hw_recorrect_en;
 	uint8_t cca_thresh;                     /*!< cca threshold*/
+	uint16_t scan_backoff_upperlimitmax;    /*!< scan backoff upperlimitmax value */
+	uint16_t dup_list_refresh_period;       /*!< duplicate scan list refresh time */
+	bool ble_50_feat_supp;                  /*!< BLE 5.0 feature support */
 } esp_bt_controller_config_t;
 
 /**
