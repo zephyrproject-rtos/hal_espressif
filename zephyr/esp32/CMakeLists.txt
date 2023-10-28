@@ -113,9 +113,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
-  zephyr_library_sources(
-    src/hal/windowspill_asm.S
-    )
+  zephyr_library_sources(src/hal/windowspill_asm.S)
 
   zephyr_link_libraries_ifdef(
     CONFIG_ESP_SPIRAM
@@ -130,7 +128,6 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/spi_flash/flash_mmap.c
-    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/hal/mmu_hal.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/esp_mm/cache_esp32.c
@@ -179,7 +176,6 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
     ../../components/esp_mm/cache_esp32.c
     ../../components/spi_flash/flash_ops.c
-    ../esp_shared/src/host_flash/cache_utils.c
     )
 
   zephyr_sources_ifdef(
@@ -218,7 +214,6 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
       ../../components/driver/gpio/gpio.c
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/driver/gpio/rtc_io.c
-      ../../components/esp_hw_support/sleep_modes.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
       ../../components/esp_hw_support/sleep_modem.c
       ../../components/hal/rtc_io_hal.c
@@ -229,7 +224,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     CONFIG_ADC_ESP32
     ../../components/hal/adc_hal.c
     ../../components/driver/deprecated/adc_legacy.c
-	../../components/esp_hw_support/adc_share_hw_ctrl.c
+    ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/hal/rtc_io_hal.c
     ../../components/driver/gpio/rtc_io.c
     src/esp_adc_cal/esp_adc_cal.c
@@ -274,7 +269,8 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/rtc_module.c
-
+    ../../components/esp_hw_support/hw_random.c
+    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
 
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
@@ -294,6 +290,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
+    ../../components/esp_system/esp_err.c
 
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
@@ -314,11 +311,24 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     ../../components/esp_mm/esp_mmu_map.c
 
     ../esp_shared/src/common/esp_system_api.c
+    ../esp_shared/src/host_flash/cache_utils.c
 
     src/stubs.c
 
     ../port/heap/heap_caps_zephyr.c
   )
+
+  ## shared WIFI/BT/ETH resources
+  if (CONFIG_BT OR CONFIG_WIFI_ESP32 OR CONFIG_ESP32_EMAC)
+    set(efuse_key_type "without_key_purposes/three_key_blocks")
+    zephyr_sources(
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/src/efuse_controller/keys/${efuse_key_type}/esp_efuse_api_key.c
+      )
+  endif()
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
@@ -340,24 +350,18 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
 
   endif()
 
-#   ## BT definitions
-#   if (CONFIG_BT)
-#     zephyr_sources(
-#       src/bt/esp_bt_adapter.c
-#       )
+  ## BT definitions
+  if (CONFIG_BT)
+    zephyr_sources(src/bt/esp_bt_adapter.c)
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
-#     zephyr_compile_definitions(
-#       CONFIG_BT_ENABLED
-#       )
+    zephyr_link_libraries(
+      ## ble
+      btdm_app
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
+      )
 
-#     zephyr_link_libraries(
-#       ## ble
-#       btdm_app
-#       coexist
-#         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
-#       )
-
-#   endif()
+  endif()
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
@@ -438,7 +442,6 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
     endif()
 
-
     set(TLS_SRCS
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/bignum.c"
@@ -516,26 +519,9 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
         )
     endif()
-    if(CONFIG_SOC_EFUSE_KEY_PURPOSE_FIELD)
-        set(efuse_key_type "with_key_purposes")
-    else()
-        if(CONFIG_SOC_EFUSE_CONSISTS_OF_ONE_KEY_BLOCK)
-            set(efuse_key_type "without_key_purposes/one_key_block")
-        else()
-            set(efuse_key_type "without_key_purposes/three_key_blocks")
-        endif()
-    endif()
 
     zephyr_sources(
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
       src/wifi/esp_wifi_adapter.c
-      ../../components/efuse/src/efuse_controller/keys/${efuse_key_type}/esp_efuse_api_key.c
-      ../../components/esp_system/esp_err.c
-      ../../components/esp_hw_support/sleep_modes.c
-      ../esp_shared/src/host_flash/cache_utils.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
       ${TLS_SRCS}
@@ -567,35 +553,13 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
 
-    zephyr_link_libraries(
-      ## wifi
-      mbedTLS
-      )
+    zephyr_link_libraries(mbedTLS)
 
   endif()
 
   ## Ethernet MAC/PHY definitions
-  if(CONFIG_ESP32_EMAC)
-    if(CONFIG_SOC_EFUSE_KEY_PURPOSE_FIELD)
-      set(efuse_key_type "with_key_purposes")
-    else()
-      if(CONFIG_SOC_EFUSE_CONSISTS_OF_ONE_KEY_BLOCK)
-          set(efuse_key_type "without_key_purposes/one_key_block")
-      else()
-          set(efuse_key_type "without_key_purposes/three_key_blocks")
-      endif()
-    endif()
+  zephyr_sources_ifdef(CONFIG_ESP32_EMAC ../../components/hal/emac_hal.c)
 
-    zephyr_sources(
-      ../../components/hal/emac_hal.c
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/src/efuse_controller/keys/${efuse_key_type}/esp_efuse_api_key.c
-
-      )
-  endif()
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
