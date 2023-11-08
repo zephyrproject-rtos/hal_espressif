@@ -176,6 +176,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_ESP32_TEMP
+    ../../components/driver/esp32s3/rtc_tempsensor.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ESP_SPIRAM
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_ops.c
