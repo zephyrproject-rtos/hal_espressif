@@ -709,7 +709,6 @@ static esp_err_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags, esp_sleep_mode_t m
 
 #if !CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-6268
 #if SOC_PM_SUPPORT_DEEPSLEEP_CHECK_STUB_ONLY
-            esp_set_deep_sleep_wake_stub_default_entry();
             // Enter Deep Sleep
 #if SOC_PMU_SUPPORTED
             result = call_rtc_sleep_start(reject_triggers, config.power.hp_sys.dig_power.mem_dslp, deep_sleep);
