@@ -161,18 +161,19 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/ledc_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_PM
-    ../../components/esp_hw_support/sleep_gpio.c
-    ../../components/driver/gpio/rtc_io.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
-    ../../components/esp_hw_support/sleep_modem.c
-    ../../components/hal/rtc_io_hal.c
-    ../../components/driver/gpio/gpio.c
-    ../../components/esp_hw_support/sleep_cpu.c
-    ../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
-    )
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/driver/gpio/rtc_io.c
+      ../../components/esp_hw_support/sleep_modes.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
+      ../../components/esp_hw_support/sleep_modem.c
+      ../../components/hal/rtc_io_hal.c
+      ../../components/driver/gpio/gpio.c
+      ../../components/esp_hw_support/sleep_cpu.c
+      ../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
+      )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
