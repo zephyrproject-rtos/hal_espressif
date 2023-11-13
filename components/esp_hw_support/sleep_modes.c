@@ -831,13 +831,6 @@ void IRAM_ATTR esp_deep_sleep_start(void)
     // record current RTC time
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
 
-#if SOC_RTC_FAST_MEM_SUPPORTED
-    // Configure wake stub
-    if (esp_get_deep_sleep_wake_stub() == NULL) {
-        esp_set_deep_sleep_wake_stub(esp_wake_deep_sleep);
-    }
-#endif // SOC_RTC_FAST_MEM_SUPPORTED
-
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
 
@@ -976,7 +969,8 @@ esp_err_t esp_light_sleep_start(void)
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
 
-#ifdef CONFIG_ESP_SLEEP_RTC_BUS_ISO_WORKAROUND
+
+#if CONFIG_SOC_SERIES_ESP32 || CONFIG_SOC_SERIES_ESP32S2 || CONFIG_SOC_SERIES_ESP32S3
     pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
 #endif
 
@@ -1110,6 +1104,7 @@ esp_err_t esp_light_sleep_start(void)
      */
     if (rtc_time_diff > 0) {
         esp_timer_private_set(high_res_time_at_start + rtc_time_diff);
+        sys_clock_announce((rtc_time_diff * CONFIG_SYS_CLOCK_TICKS_PER_SEC) / USEC_PER_SEC);
     }
 
     esp_clk_private_unlock();
