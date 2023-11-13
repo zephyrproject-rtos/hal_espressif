@@ -209,18 +209,20 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_PM
-    ../../components/esp_hw_support/sleep_gpio.c
-    ../../components/driver/gpio/rtc_io.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
-    ../../components/esp_hw_support/sleep_modem.c
-    ../../components/hal/rtc_io_hal.c
-    ../../components/esp_system/port/brownout.c
-    ../../components/hal/brownout_hal.c
-    ../../components/hal/esp32s3/touch_sensor_hal.c
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../../components/driver/gpio/gpio.c
+      ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/driver/gpio/rtc_io.c
+      ../../components/esp_hw_support/sleep_modes.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
+      ../../components/esp_hw_support/sleep_modem.c
+      ../../components/hal/rtc_io_hal.c
+      ../../components/esp_system/port/brownout.c
+      ../../components/hal/brownout_hal.c
+      ../../components/hal/esp32s3/touch_sensor_hal.c
     )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
@@ -392,7 +394,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_scan.c"
         )
     endif()
-    
+
     set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa_main.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpas_glue.c"
