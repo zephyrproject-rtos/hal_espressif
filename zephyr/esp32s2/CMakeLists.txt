@@ -191,7 +191,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/hal/touch_sensor_hal.c
     )
 
-  if (CONFIG_MCUBOOT)
+  if (CONFIG_MCUBOOT OR CONFIG_SIMPLE_BOOT)
     zephyr_include_directories(
       ../../components/esp_rom/esp32s2
       ../esp_shared/include/boot
@@ -211,10 +211,20 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
-      ../esp_shared/src/boot/esp_loader.c
+      ../../components/hal/soc_hal.c
       ../esp_shared/src/boot/bootloader_wdt.c
       ../esp_shared/src/boot/bootloader_init_common.c
       src/boot/bootloader_init.c
+      # TODO: check for duplicity / conflict
+    ../esp_shared/src/host_flash/cache_utils.c
+    ../../components/spi_flash/flash_mmap.c
+    ../../components/spi_flash/esp32s2/spi_flash_rom_patch.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/esp32s2/flash_ops_esp32s2.c
+      )
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
+      ../esp_shared/src/boot/esp_loader.c
       )
   endif()
 
