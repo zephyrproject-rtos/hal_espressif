@@ -122,7 +122,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/spi_flash/flash_mmap.c
-    ../esp_shared/src/host_flash/cache_utils.c
     ../../components/hal/mmu_hal.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/hal/cache_hal.c
@@ -158,7 +157,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/hal/mmu_hal.c
     ../../components/spi_flash/flash_ops.c
-    ../esp_shared/src/host_flash/cache_utils.c
     )
 
   zephyr_sources_ifdef(
@@ -256,9 +254,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
-
       ../port/boot/esp_loader.c
-
       )
   endif()
 
@@ -275,8 +271,9 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/rtc_module.c
+    ../../components/esp_hw_support/hw_random.c
+    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
-
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
 
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
@@ -297,10 +294,10 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_rom/patches/esp_rom_regi2c_esp32s2.c
     ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
 
-
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
+    ../../components/esp_system/esp_err.c
 
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
@@ -321,6 +318,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
     ../../components/esp_mm/esp_mmu_map.c
 
+    ../esp_shared/src/host_flash/cache_utils.c
     ../esp_shared/src/common/esp_system_api.c
 
     src/stubs.c
@@ -330,6 +328,21 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
+
+    zephyr_sources(
+      src/wifi/esp_wifi_adapter.c
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+      )
+
+    zephyr_sources(
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
+      )
+
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
     set(WPA_SUPPLICANT_SRCS "../port/wifi/wpa_supplicant/os_xtensa.c"
@@ -406,7 +419,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     if(CONFIG_ESP32_WIFI_SOFTAP_SUPPORT)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
     endif()
-
 
     set(TLS_SRCS
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
@@ -486,17 +498,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     endif()
 
     zephyr_sources(
-      ../../components/esp_system/esp_err.c
-      ../esp_shared/src/host_flash/cache_utils.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/esp_hw_support/sleep_modes.c
-
-      src/wifi/esp_wifi_adapter.c
-      ../../components/esp_phy/src/phy_init.c
-      ../../components/esp_phy/src/lib_printf.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
       ${TLS_SRCS}
