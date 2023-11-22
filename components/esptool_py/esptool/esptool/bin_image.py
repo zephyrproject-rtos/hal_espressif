@@ -10,6 +10,10 @@ import io
 import os
 import re
 import struct
+import tempfile
+from typing import BinaryIO, Optional
+
+from intelhex import IntelHex
 
 from .loader import ESPLoader
 from .targets import (
@@ -20,6 +24,7 @@ from .targets import (
     ESP32H2BETA1ROM,
     ESP32H2BETA2ROM,
     ESP32H2ROM,
+    ESP32P4ROM,
     ESP32ROM,
     ESP32S2ROM,
     ESP32S3BETA2ROM,
@@ -33,6 +38,23 @@ def align_file_position(f, size):
     """Align the position in the file to the next block of specified size"""
     align = (size - 1) - (f.tell() % size)
     f.seek(align, 1)
+
+
+def intel_hex_to_bin(file: BinaryIO, start_addr: Optional[int] = None) -> BinaryIO:
+    """Convert IntelHex file to temp binary file with padding from start_addr
+    If hex file was detected return temp bin file object; input file otherwise"""
+    INTEL_HEX_MAGIC = b":"
+    magic = file.read(1)
+    file.seek(0)
+    if magic == INTEL_HEX_MAGIC:
+        ih = IntelHex()
+        ih.loadhex(file.name)
+        file.close()
+        bin = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+        ih.tobinfile(bin, start=start_addr)
+        return bin
+    else:
+        return file
 
 
 def LoadFirmwareImage(chip, image_file):
@@ -61,6 +83,7 @@ def LoadFirmwareImage(chip, image_file):
                 "esp32c2": ESP32C2FirmwareImage,
                 "esp32c6": ESP32C6FirmwareImage,
                 "esp32h2": ESP32H2FirmwareImage,
+                "esp32p4": ESP32P4FirmwareImage,
             }[chip](f)
         else:  # Otherwise, ESP8266 so look at magic to determine the image type
             magic = ord(f.read(1))
@@ -82,12 +105,11 @@ class ImageSegment(object):
     """Wrapper class for a segment in an ESP image
     (very similar to a section in an ELFImage also)"""
 
-    def __init__(self, addr, data, file_offs=None, align=4):
+    def __init__(self, addr, data, file_offs=None):
         self.addr = addr
         self.data = data
         self.file_offs = file_offs
         self.include_in_checksum = True
-        self.align = align
         if self.addr != 0:
             self.pad_to_alignment(
                 4
@@ -130,25 +152,13 @@ class ImageSegment(object):
     def pad_to_alignment(self, alignment):
         self.data = pad_to(self.data, alignment, b"\x00")
 
-    def addr_align(self, alignment):
-        end_addr = self.addr + len(self.data)
-        addr_mod = end_addr % alignment
-        if addr_mod != 0:
-            end_addr += (alignment - addr_mod)
-        return end_addr
-
-    def pad_to_addr(self, addr):
-        pad = addr - (self.addr + len(self.data))
-        if pad > 0:
-            self.data += b"\x00" * pad
-
 
 class ELFSection(ImageSegment):
     """Wrapper class for a section in an ELF image, has a section
     name as well as the common properties of an ImageSegment."""
 
-    def __init__(self, name, addr, data, align=4):
-        super(ELFSection, self).__init__(addr, data, align=align)
+    def __init__(self, name, addr, data):
+        super(ELFSection, self).__init__(addr, data)
         self.name = name.decode("utf-8")
 
     def __repr__(self):
@@ -261,6 +271,20 @@ class BaseFirmwareImage(object):
         if checksum is not None:
             return ESPLoader.checksum(segment_data, checksum)
 
+    def save_flash_segment(self, f, segment, checksum=None):
+        """
+        Save the next segment to the image file, return next checksum value if provided
+        """
+        if self.ROM_LOADER.CHIP_NAME == "ESP32":
+            # Work around a bug in ESP-IDF 2nd stage bootloader, that it didn't map the
+            # last MMU page, if an IROM/DROM segment was < 0x24 bytes
+            # over the page boundary.
+            segment_end_pos = f.tell() + len(segment.data) + self.SEG_HEADER_LEN
+            segment_len_remainder = segment_end_pos % self.IROM_ALIGN
+            if segment_len_remainder < 0x24:
+                segment.data += b"\x00" * (0x24 - segment_len_remainder)
+        return self.save_segment(f, segment, checksum)
+
     def read_checksum(self, f):
         """Return ESPLoader checksum from end of just-read image"""
         # Skip the padding. The checksum is stored in the last byte so that the
@@ -329,15 +353,6 @@ class BaseFirmwareImage(object):
             # merged in
             elem = self.segments[i - 1]
             next_elem = self.segments[i]
-            elem_pad_addr = elem.addr_align(next_elem.align)
-            if (elem_pad_addr != elem.addr + len(elem.data) and
-                elem_pad_addr == next_elem.addr):
-                print(
-                    'Info: inserting %d bytes padding between %s and %s' %
-                    (next_elem.addr - (elem.addr + len(elem.data)),
-                     elem.name, next_elem.name)
-                )
-                elem.pad_to_addr(elem_pad_addr)
             if all(
                 (
                     elem.get_memory_type(self) == next_elem.get_memory_type(self),
@@ -577,7 +592,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
 
     IROM_ALIGN = 65536
 
-    def __init__(self, load_file=None, append_digest=True):
+    def __init__(self, load_file=None, append_digest=True, ram_only_header=False):
         super(ESP32FirmwareImage, self).__init__()
         self.secure_pad = None
         self.flash_mode = 0
@@ -595,6 +610,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
         self.min_rev = 0
         self.min_rev_full = 0
         self.max_rev_full = 0
+        self.ram_only_header = ram_only_header
 
         self.append_digest = append_digest
 
@@ -654,12 +670,22 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                 if not self.is_flash_addr(s.addr)
             ]
 
-            # Patch to support 761 union bus memmap     // TODO: ESPTOOL-512
+            # Patch to support ESP32-C6 union bus memmap
             # move ".flash.appdesc" segment to the top of the flash segment
             for segment in flash_segments:
-                if segment.name == ".flash.appdesc":
+                if isinstance(segment, ELFSection) and segment.name == ".flash.appdesc":
                     flash_segments.remove(segment)
                     flash_segments.insert(0, segment)
+                    break
+
+            # For the bootloader image
+            # move ".dram0.bootdesc" segment to the top of the ram segment
+            # So bootdesc will be at the very top of the binary at 0x20 offset
+            # (in the first segment).
+            for segment in ram_segments:
+                if segment.name == ".dram0.bootdesc":
+                    ram_segments.remove(segment)
+                    ram_segments.insert(0, segment)
                     break
 
             # check for multiple ELF sections that are mapped in the same
@@ -697,33 +723,61 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                     pad_len += self.IROM_ALIGN
                 return pad_len
 
-            # try to fit each flash segment on a 64kB aligned boundary
-            # by padding with parts of the non-flash segments...
-            while len(flash_segments) > 0:
-                segment = flash_segments[0]
-                pad_len = get_alignment_data_needed(segment)
-                if pad_len > 0:  # need to pad
-                    if len(ram_segments) > 0 and pad_len > self.SEG_HEADER_LEN:
-                        pad_segment = ram_segments[0].split_image(pad_len)
-                        if len(ram_segments[0].data) == 0:
-                            ram_segments.pop(0)
-                    else:
-                        pad_segment = ImageSegment(0, b"\x00" * pad_len, f.tell())
-                    checksum = self.save_segment(f, pad_segment, checksum)
+            if self.ram_only_header:
+                # write RAM segments first in order to get only RAM segments quantity
+                # and checksum (ROM bootloader will only care for RAM segments and its
+                # correct checksums)
+                for segment in ram_segments:
+                    checksum = self.save_segment(f, segment, checksum)
                     total_segments += 1
-                else:
+                self.append_checksum(f, checksum)
+
+                # reversing to match the same section order from linker script
+                flash_segments.reverse()
+                for segment in flash_segments:
+                    pad_len = get_alignment_data_needed(segment)
+                    while pad_len > 0:
+                        pad_segment = ImageSegment(0, b"\x00" * pad_len, f.tell())
+                        self.save_segment(f, pad_segment)
+                        total_segments += 1
+                        pad_len = get_alignment_data_needed(segment)
                     # write the flash segment
                     assert (
                         f.tell() + 8
                     ) % self.IROM_ALIGN == segment.addr % self.IROM_ALIGN
-                    checksum = self.save_flash_segment(f, segment, checksum)
-                    flash_segments.pop(0)
+                    # save the flash segment but not saving its checksum neither
+                    # saving the number of flash segments, since ROM bootloader
+                    # should "not see" them
+                    self.save_flash_segment(f, segment)
                     total_segments += 1
+            else:  # not self.ram_only_header
+                # try to fit each flash segment on a 64kB aligned boundary
+                # by padding with parts of the non-flash segments...
+                while len(flash_segments) > 0:
+                    segment = flash_segments[0]
+                    pad_len = get_alignment_data_needed(segment)
+                    if pad_len > 0:  # need to pad
+                        if len(ram_segments) > 0 and pad_len > self.SEG_HEADER_LEN:
+                            pad_segment = ram_segments[0].split_image(pad_len)
+                            if len(ram_segments[0].data) == 0:
+                                ram_segments.pop(0)
+                        else:
+                            pad_segment = ImageSegment(0, b"\x00" * pad_len, f.tell())
+                        checksum = self.save_segment(f, pad_segment, checksum)
+                        total_segments += 1
+                    else:
+                        # write the flash segment
+                        assert (
+                            f.tell() + 8
+                        ) % self.IROM_ALIGN == segment.addr % self.IROM_ALIGN
+                        checksum = self.save_flash_segment(f, segment, checksum)
+                        flash_segments.pop(0)
+                        total_segments += 1
 
-            # flash segments all written, so write any remaining RAM segments
-            for segment in ram_segments:
-                checksum = self.save_segment(f, segment, checksum)
-                total_segments += 1
+                # flash segments all written, so write any remaining RAM segments
+                for segment in ram_segments:
+                    checksum = self.save_segment(f, segment, checksum)
+                    total_segments += 1
 
             if self.secure_pad:
                 # pad the image so that after signing it will end on a a 64KB boundary.
@@ -755,8 +809,9 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                 checksum = self.save_segment(f, pad_segment, checksum)
                 total_segments += 1
 
-            # done writing segments
-            self.append_checksum(f, checksum)
+            if not self.ram_only_header:
+                # done writing segments
+                self.append_checksum(f, checksum)
             image_length = f.tell()
 
             if self.secure_pad:
@@ -765,7 +820,12 @@ class ESP32FirmwareImage(BaseFirmwareImage):
             # kinda hacky: go back to the initial header and write the new segment count
             # that includes padding segments. This header is not checksummed
             f.seek(1)
-            f.write(bytes([total_segments]))
+            if self.ram_only_header:
+                # Update the header with the RAM segments quantity as it should be
+                # visible by the ROM bootloader
+                f.write(bytes([len(ram_segments)]))
+            else:
+                f.write(bytes([total_segments]))
 
             if self.append_digest:
                 # calculate the SHA256 of the whole file and append it
@@ -782,19 +842,6 @@ class ESP32FirmwareImage(BaseFirmwareImage):
 
             with open(filename, "wb") as real_file:
                 real_file.write(f.getvalue())
-
-    def save_flash_segment(self, f, segment, checksum=None):
-        """
-        Save the next segment to the image file, return next checksum value if provided
-        """
-        segment_end_pos = f.tell() + len(segment.data) + self.SEG_HEADER_LEN
-        segment_len_remainder = segment_end_pos % self.IROM_ALIGN
-        if segment_len_remainder < 0x24:
-            # Work around a bug in ESP-IDF 2nd stage bootloader, that it didn't map the
-            # last MMU page, if an IROM/DROM segment was < 0x24 bytes
-            # over the page boundary.
-            segment.data += b"\x00" * (0x24 - segment_len_remainder)
-        return self.save_segment(f, segment, checksum)
 
     def load_extended_header(self, load_file):
         def split_byte(n):
@@ -824,13 +871,6 @@ class ESP32FirmwareImage(BaseFirmwareImage):
         self.min_rev = fields[5]
         self.min_rev_full = fields[6]
         self.max_rev_full = fields[7]
-
-        # reserved fields in the middle should all be zero
-        if any(f for f in fields[8:-1] if f != 0):
-            print(
-                "Warning: some reserved header fields have non-zero values. "
-                "This image may be from a newer esptool.py?"
-            )
 
         append_digest = fields[-1]  # last byte is append_digest
         if append_digest in [0, 1]:
@@ -1074,6 +1114,15 @@ class ESP32C6FirmwareImage(ESP32FirmwareImage):
 ESP32C6ROM.BOOTLOADER_IMAGE = ESP32C6FirmwareImage
 
 
+class ESP32P4FirmwareImage(ESP32FirmwareImage):
+    """ESP32P4 Firmware Image almost exactly the same as ESP32FirmwareImage"""
+
+    ROM_LOADER = ESP32P4ROM
+
+
+ESP32P4ROM.BOOTLOADER_IMAGE = ESP32P4FirmwareImage
+
+
 class ESP32H2FirmwareImage(ESP32C6FirmwareImage):
     """ESP32H2 Firmware Image almost exactly the same as ESP32FirmwareImage"""
 
@@ -1169,10 +1218,10 @@ class ELFFile(object):
         section_header_offsets = range(0, len(section_header), self.LEN_SEC_HEADER)
 
         def read_section_header(offs):
-            name_offs, sec_type, _flags, lma, sec_offs, size, link, info, align = struct.unpack_from(
-                "<LLLLLLLLL", section_header[offs:]
+            name_offs, sec_type, _flags, lma, sec_offs, size = struct.unpack_from(
+                "<LLLLLL", section_header[offs:]
             )
-            return (name_offs, sec_type, lma, size, sec_offs, align)
+            return (name_offs, sec_type, lma, size, sec_offs)
 
         all_sections = [read_section_header(offs) for offs in section_header_offsets]
         prog_sections = [s for s in all_sections if s[1] in ELFFile.PROG_SEC_TYPES]
@@ -1180,7 +1229,7 @@ class ELFFile(object):
         # search for the string table section
         if not (shstrndx * self.LEN_SEC_HEADER) in section_header_offsets:
             raise FatalError("ELF file has no STRTAB section at shstrndx %d" % shstrndx)
-        _, sec_type, _, sec_size, sec_offs, _ = read_section_header(
+        _, sec_type, _, sec_size, sec_offs = read_section_header(
             shstrndx * self.LEN_SEC_HEADER
         )
         if sec_type != ELFFile.SEC_TYPE_STRTAB:
@@ -1202,8 +1251,8 @@ class ELFFile(object):
             return f.read(size)
 
         prog_sections = [
-            ELFSection(lookup_string(n_offs), lma, read_data(offs, size), align=align)
-            for (n_offs, _type, lma, size, offs, align) in prog_sections
+            ELFSection(lookup_string(n_offs), lma, read_data(offs, size))
+            for (n_offs, _type, lma, size, offs) in prog_sections
             if lma != 0 and size > 0
         ]
         self.sections = prog_sections

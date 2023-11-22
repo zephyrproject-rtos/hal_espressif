@@ -13,6 +13,15 @@ class ESP32H2ROM(ESP32C6ROM):
     # Magic value for ESP32H2
     CHIP_DETECT_MAGIC_VALUE = [0xD7B73E80]
 
+    DR_REG_LP_WDT_BASE = 0x600B1C00
+    RTC_CNTL_WDTCONFIG0_REG = DR_REG_LP_WDT_BASE + 0x0  # LP_WDT_RWDT_CONFIG0_REG
+    RTC_CNTL_WDTWPROTECT_REG = DR_REG_LP_WDT_BASE + 0x001C  # LP_WDT_RWDT_WPROTECT_REG
+
+    RTC_CNTL_SWD_CONF_REG = DR_REG_LP_WDT_BASE + 0x0020  # LP_WDT_SWD_CONFIG_REG
+    RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18
+    RTC_CNTL_SWD_WPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0024  # LP_WDT_SWD_WPROTECT_REG
+    RTC_CNTL_SWD_WKEY = 0x50D83AA1  # LP_WDT_SWD_WKEY, same as WDT key in this case
+
     FLASH_FREQUENCY = {
         "48m": 0xF,
         "24m": 0x0,
@@ -20,12 +29,19 @@ class ESP32H2ROM(ESP32C6ROM):
         "12m": 0x2,
     }
 
+    UF2_FAMILY_ID = 0x332726F6
+
     def get_pkg_version(self):
+        num_word = 4
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 0) & 0x07
+
+    def get_minor_chip_version(self):
         num_word = 3
-        block1_addr = self.EFUSE_BASE + 0x044
-        word3 = self.read_reg(block1_addr + (4 * num_word))
-        pkg_version = (word3 >> 21) & 0x0F
-        return pkg_version
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 18) & 0x07
+
+    def get_major_chip_version(self):
+        num_word = 3
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 21) & 0x03
 
     def get_chip_description(self):
         chip_name = {
@@ -36,7 +52,7 @@ class ESP32H2ROM(ESP32C6ROM):
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["BLE"]
+        return ["BLE", "IEEE802.15.4"]
 
     def get_crystal_freq(self):
         # ESP32H2 XTAL is fixed to 32MHz

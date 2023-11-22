@@ -16,8 +16,6 @@ class ESP32S2ROM(ESP32ROM):
     CHIP_NAME = "ESP32-S2"
     IMAGE_CHIP_ID = 2
 
-    FPGA_SLOW_BOOT = False
-
     IROM_MAP_START = 0x40080000
     IROM_MAP_END = 0x40B80000
     DROM_MAP_START = 0x3F000000
@@ -101,6 +99,8 @@ class ESP32S2ROM(ESP32ROM):
         [0x50000000, 0x50002000, "RTC_DATA"],
     ]
 
+    UF2_FAMILY_ID = 0xBFDD4EEE
+
     def get_pkg_version(self):
         num_word = 4
         return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 0) & 0x0F
@@ -120,9 +120,15 @@ class ESP32S2ROM(ESP32ROM):
         num_word = 3
         return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 21) & 0x0F
 
+    def get_flash_cap(self):
+        return self.get_flash_version()
+
     def get_psram_version(self):
         num_word = 3
         return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 28) & 0x0F
+
+    def get_psram_cap(self):
+        return self.get_psram_version()
 
     def get_block2_version(self):
         # BLK_VERSION_MINOR
@@ -137,7 +143,7 @@ class ESP32S2ROM(ESP32ROM):
             102: "ESP32-S2FNR2",
             100: "ESP32-S2R2",
         }.get(
-            self.get_flash_version() + self.get_psram_version() * 100,
+            self.get_flash_cap() + self.get_psram_cap() * 100,
             "unknown ESP32-S2",
         )
         major_rev = self.get_major_chip_version()
@@ -154,14 +160,14 @@ class ESP32S2ROM(ESP32ROM):
             0: "No Embedded Flash",
             1: "Embedded Flash 2MB",
             2: "Embedded Flash 4MB",
-        }.get(self.get_flash_version(), "Unknown Embedded Flash")
+        }.get(self.get_flash_cap(), "Unknown Embedded Flash")
         features += [flash_version]
 
         psram_version = {
             0: "No Embedded PSRAM",
             1: "Embedded PSRAM 2MB",
             2: "Embedded PSRAM 4MB",
-        }.get(self.get_psram_version(), "Unknown Embedded PSRAM")
+        }.get(self.get_psram_cap(), "Unknown Embedded PSRAM")
         features += [psram_version]
 
         block2_version = {
@@ -182,7 +188,10 @@ class ESP32S2ROM(ESP32ROM):
             "VDD_SDIO overrides are not supported for ESP32-S2"
         )
 
-    def read_mac(self):
+    def read_mac(self, mac_type="BASE_MAC"):
+        """Read MAC from EFUSE region"""
+        if mac_type != "BASE_MAC":
+            return None
         mac0 = self.read_reg(self.MAC_EFUSE_REG)
         mac1 = self.read_reg(self.MAC_EFUSE_REG + 4)  # only bottom 16 bits are MAC
         bitstring = struct.pack(">II", mac1, mac0)[2:]

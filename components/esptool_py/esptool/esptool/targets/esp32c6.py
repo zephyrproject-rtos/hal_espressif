@@ -13,8 +13,6 @@ class ESP32C6ROM(ESP32C3ROM):
     CHIP_NAME = "ESP32-C6"
     IMAGE_CHIP_ID = 13
 
-    FPGA_SLOW_BOOT = False
-
     IROM_MAP_START = 0x42000000
     IROM_MAP_END = 0x42800000
     DROM_MAP_START = 0x42800000
@@ -76,6 +74,11 @@ class ESP32C6ROM(ESP32C3ROM):
     RTC_CNTL_WDTCONFIG0_REG = DR_REG_LP_WDT_BASE + 0x0  # LP_WDT_RWDT_CONFIG0_REG
     RTC_CNTL_WDTWPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0018  # LP_WDT_RWDT_WPROTECT_REG
 
+    RTC_CNTL_SWD_CONF_REG = DR_REG_LP_WDT_BASE + 0x001C  # LP_WDT_SWD_CONFIG_REG
+    RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18
+    RTC_CNTL_SWD_WPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0020  # LP_WDT_SWD_WPROTECT_REG
+    RTC_CNTL_SWD_WKEY = 0x50D83AA1  # LP_WDT_SWD_WKEY, same as WDT key in this case
+
     FLASH_FREQUENCY = {
         "80m": 0x0,  # workaround for wrong mspi HS div value in ROM
         "40m": 0x0,
@@ -96,24 +99,24 @@ class ESP32C6ROM(ESP32C3ROM):
         [0x600FE000, 0x60100000, "MEM_INTERNAL2"],
     ]
 
+    UF2_FAMILY_ID = 0x540DDF62
+
     def get_pkg_version(self):
         num_word = 3
-        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 21) & 0x07
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 24) & 0x07
 
     def get_minor_chip_version(self):
-        hi_num_word = 5
-        hi = (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * hi_num_word)) >> 23) & 0x01
-        low_num_word = 3
-        low = (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * low_num_word)) >> 18) & 0x07
-        return (hi << 3) + low
+        num_word = 3
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 18) & 0x0F
 
     def get_major_chip_version(self):
-        num_word = 5
-        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 24) & 0x03
+        num_word = 3
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 22) & 0x03
 
     def get_chip_description(self):
         chip_name = {
-            0: "ESP32-C6",
+            0: "ESP32-C6 (QFN40)",
+            1: "ESP32-C6FH4 (QFN32)",
         }.get(self.get_pkg_version(), "unknown ESP32-C6")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
@@ -131,11 +134,22 @@ class ESP32C6ROM(ESP32C3ROM):
             "VDD_SDIO overrides are not supported for ESP32-C6"
         )
 
-    def read_mac(self):
+    def read_mac(self, mac_type="BASE_MAC"):
+        """Read MAC from EFUSE region"""
         mac0 = self.read_reg(self.MAC_EFUSE_REG)
         mac1 = self.read_reg(self.MAC_EFUSE_REG + 4)  # only bottom 16 bits are MAC
-        bitstring = struct.pack(">II", mac1, mac0)[2:]
-        return tuple(bitstring)
+        base_mac = struct.pack(">II", mac1, mac0)[2:]
+        ext_mac = struct.pack(">H", (mac1 >> 16) & 0xFFFF)
+        eui64 = base_mac[0:3] + ext_mac + base_mac[3:6]
+        # BASE MAC: 60:55:f9:f7:2c:a2
+        # EUI64 MAC: 60:55:f9:ff:fe:f7:2c:a2
+        # EXT_MAC: ff:fe
+        macs = {
+            "BASE_MAC": tuple(base_mac),
+            "EUI64": tuple(eui64),
+            "MAC_EXT": tuple(ext_mac),
+        }
+        return macs.get(mac_type, None)
 
     def get_flash_crypt_config(self):
         return None  # doesn't exist on ESP32-C6

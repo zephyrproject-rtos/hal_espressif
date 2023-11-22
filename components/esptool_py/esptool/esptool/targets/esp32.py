@@ -17,8 +17,6 @@ class ESP32ROM(ESPLoader):
     IMAGE_CHIP_ID = 0
     IS_STUB = False
 
-    FPGA_SLOW_BOOT = True
-
     CHIP_DETECT_MAGIC_VALUE = [0x00F01D83]
 
     IROM_MAP_START = 0x400D0000
@@ -104,6 +102,8 @@ class ESP32ROM(ESPLoader):
     ]
 
     FLASH_ENCRYPTED_WRITE_ALIGN = 32
+
+    UF2_FAMILY_ID = 0x1C5F21B0
 
     """ Try to read the BLOCK1 (encryption key) and check if it is valid """
 
@@ -283,8 +283,10 @@ class ESP32ROM(ESPLoader):
     def chip_id(self):
         raise NotSupportedError(self, "chip_id")
 
-    def read_mac(self):
+    def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
+        if mac_type != "BASE_MAC":
+            return None
         words = [self.read_efuse(2), self.read_efuse(1)]
         bitstring = struct.pack(">II", *words)
         bitstring = bitstring[2:8]  # trim the 2 byte CRC
@@ -359,6 +361,7 @@ class ESP32ROM(ESPLoader):
         return rom_calculated_freq
 
     def change_baud(self, baud):
+        assert self.CHIP_NAME == "ESP32", "This workaround should only apply to ESP32"
         # It's a workaround to avoid esp32 CK_8M frequency drift.
         rom_calculated_freq = self.get_rom_cal_crystal_freq()
         valid_freq = 40000000 if rom_calculated_freq > 33000000 else 26000000

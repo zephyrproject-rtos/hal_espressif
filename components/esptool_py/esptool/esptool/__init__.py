@@ -28,7 +28,7 @@ __all__ = [
     "write_mem",
 ]
 
-__version__ = "4.5"
+__version__ = "4.7-dev"
 
 import argparse
 import inspect
@@ -38,7 +38,9 @@ import sys
 import time
 import traceback
 
+from esptool.bin_image import intel_hex_to_bin
 from esptool.cmds import (
+    DETECTED_FLASH_SIZES,
     chip_id,
     detect_chip,
     detect_flash_size,
@@ -70,6 +72,7 @@ from esptool.util import (
     FatalError,
     NotImplementedInROMError,
     flash_size_bytes,
+    strip_chip_name,
 )
 
 import serial
@@ -100,7 +103,7 @@ def main(argv=None, esp=None):
         "--chip",
         "-c",
         help="Target chip type",
-        type=lambda c: c.lower().replace("-", ""),  # support ESP32-S2, etc.
+        type=strip_chip_name,
         choices=["auto"] + CHIP_LIST,
         default=os.environ.get("ESPTOOL_CHIP", "auto"),
     )
@@ -183,7 +186,9 @@ def main(argv=None, esp=None):
     parser_load_ram = subparsers.add_parser(
         "load_ram", help="Download an image to RAM and execute"
     )
-    parser_load_ram.add_argument("filename", help="Firmware image")
+    parser_load_ram.add_argument(
+        "filename", help="Firmware image", action=AutoHex2BinAction
+    )
 
     parser_dump_mem = subparsers.add_parser(
         "dump_mem", help="Dump arbitrary memory to disk"
@@ -353,9 +358,11 @@ def main(argv=None, esp=None):
     subparsers.add_parser("run", help="Run application code in flash")
 
     parser_image_info = subparsers.add_parser(
-        "image_info", help="Dump headers from an application image"
+        "image_info", help="Dump headers from a binary file (bootloader or application)"
     )
-    parser_image_info.add_argument("filename", help="Image file to parse")
+    parser_image_info.add_argument(
+        "filename", help="Image file to parse", action=AutoHex2BinAction
+    )
     parser_image_info.add_argument(
         "--version",
         "-v",
@@ -475,6 +482,17 @@ def main(argv=None, esp=None):
         "must be aligned to. Value 0xFF is used for padding, similar to erase_flash",
         default=None,
     )
+    parser_elf2image.add_argument(
+        "--ram-only-header",
+        help="Order segments of the output so IRAM and DRAM are placed at the "
+        "beginning and force the main header segment number to RAM segments "
+        "quantity. This will make the other segments invisible to the ROM "
+        "loader. Use this argument with care because the ROM loader will load "
+        "only the RAM segments although the other segments being present in "
+        "the output.",
+        action="store_true",
+        default=None,
+    )
 
     add_spi_flash_subparsers(parser_elf2image, allow_keep=False, auto_detect=False)
 
@@ -525,7 +543,9 @@ def main(argv=None, esp=None):
     add_spi_connection_arg(parser_read_flash)
     parser_read_flash.add_argument("address", help="Start address", type=arg_auto_int)
     parser_read_flash.add_argument(
-        "size", help="Size of region to dump", type=arg_auto_int
+        "size",
+        help="Size of region to dump. Use `ALL` to read to the end of flash.",
+        type=arg_auto_size,
     )
     parser_read_flash.add_argument("filename", help="Name of binary dump")
     parser_read_flash.add_argument(
@@ -569,8 +589,9 @@ def main(argv=None, esp=None):
     )
     parser_erase_region.add_argument(
         "size",
-        help="Size of region to erase (must be multiple of 4096)",
-        type=arg_auto_int,
+        help="Size of region to erase (must be multiple of 4096). "
+        "Use `ALL` to erase to the end of flash.",
+        type=arg_auto_size,
     )
 
     parser_merge_bin = subparsers.add_parser(
@@ -582,18 +603,36 @@ def main(argv=None, esp=None):
         "--output", "-o", help="Output filename", type=str, required=True
     )
     parser_merge_bin.add_argument(
-        "--format", "-f", help="Format of the output file", choices="raw", default="raw"
-    )  # for future expansion
+        "--format",
+        "-f",
+        help="Format of the output file",
+        choices=["raw", "uf2", "hex"],
+        default="raw",
+    )
+    uf2_group = parser_merge_bin.add_argument_group("UF2 format")
+    uf2_group.add_argument(
+        "--chunk-size",
+        help="Specify the used data part of the 512 byte UF2 block. "
+        "A common value is 256. By default the largest possible value will be used.",
+        default=None,
+        type=arg_auto_chunk_size,
+    )
+    uf2_group.add_argument(
+        "--md5-disable",
+        help="Disable MD5 checksum in UF2 output",
+        action="store_true",
+    )
     add_spi_flash_subparsers(parser_merge_bin, allow_keep=True, auto_detect=False)
 
-    parser_merge_bin.add_argument(
+    raw_group = parser_merge_bin.add_argument_group("RAW format")
+    raw_group.add_argument(
         "--target-offset",
         "-t",
         help="Target offset where the output file will be flashed",
         type=arg_auto_int,
         default=0,
     )
-    parser_merge_bin.add_argument(
+    raw_group.add_argument(
         "--fill-flash-size",
         help="If set, the final binary file will be padded with FF "
         "bytes up to this flash size.",
@@ -708,7 +747,16 @@ def main(argv=None, esp=None):
                 )
                 args.no_stub = True
             else:
-                esp = esp.run_stub()
+                try:
+                    esp = esp.run_stub()
+                except Exception:
+                    # The CH9102 bridge (PID: 0x55D4) can have issues on MacOS
+                    if sys.platform == "darwin" and esp._get_pid() == 0x55D4:
+                        print(
+                            "\nNote: If issues persist, "
+                            "try installing the WCH USB-to-Serial MacOS driver."
+                        )
+                    raise
 
         if args.override_vddsdio:
             esp.override_vddsdio(args.override_vddsdio)
@@ -810,18 +858,45 @@ def main(argv=None, esp=None):
 
         if hasattr(args, "flash_size"):
             print("Configuring flash size...")
-            detect_flash_size(esp, args)
-            if args.flash_size != "keep":  # TODO: should set this even with 'keep'
-                esp.flash_set_parameters(flash_size_bytes(args.flash_size))
+            if args.flash_size == "detect":
+                flash_size = detect_flash_size(esp, args)
+            elif args.flash_size == "keep":
+                flash_size = detect_flash_size(esp, args=None)
+            else:
+                flash_size = args.flash_size
+
+            if flash_size is not None:  # Secure download mode
+                esp.flash_set_parameters(flash_size_bytes(flash_size))
                 # Check if stub supports chosen flash size
-                if esp.IS_STUB and args.flash_size in ("32MB", "64MB", "128MB"):
+                if (
+                    esp.IS_STUB
+                    and esp.CHIP_NAME != "ESP32-S3"
+                    and flash_size_bytes(flash_size) > 16 * 1024 * 1024
+                ):
                     print(
                         "WARNING: Flasher stub doesn't fully support flash size larger "
                         "than 16MB, in case of failure use --no-stub."
                     )
 
+        if getattr(args, "size", "") == "all":
+            if esp.secure_download_mode:
+                raise FatalError(
+                    "Detecting flash size is not supported in secure download mode. "
+                    "Set an exact size value."
+                )
+            # detect flash size
+            flash_id = esp.flash_id()
+            size_id = flash_id >> 16
+            size_str = DETECTED_FLASH_SIZES.get(size_id)
+            if size_str is None:
+                raise FatalError(
+                    "Detecting flash size failed. Set an exact size value."
+                )
+            print(f"Detected flash size: {size_str}")
+            args.size = flash_size_bytes(size_str)
+
         if esp.IS_STUB and hasattr(args, "address") and hasattr(args, "size"):
-            if args.address + args.size > 0x1000000:
+            if esp.CHIP_NAME != "ESP32-S3" and args.address + args.size > 0x1000000:
                 print(
                     "WARNING: Flasher stub doesn't fully support flash size larger "
                     "than 16MB, in case of failure use --no-stub."
@@ -864,6 +939,18 @@ def arg_auto_int(x):
     return int(x, 0)
 
 
+def arg_auto_size(x):
+    x = x.lower()
+    return x if x == "all" else arg_auto_int(x)
+
+
+def arg_auto_chunk_size(string: str) -> int:
+    num = int(string, 0)
+    if num & 3 != 0:
+        raise argparse.ArgumentTypeError("Chunk size should be a 4-byte aligned number")
+    return num
+
+
 def get_port_list():
     if list_ports is None:
         raise FatalError(
@@ -892,7 +979,7 @@ def expand_file_arguments(argv):
         else:
             new_args.append(arg)
     if expanded:
-        print("esptool %s" % (" ".join(new_args[1:])))
+        print(f"esptool.py {' '.join(new_args)}")
         return new_args
     return argv
 
@@ -975,6 +1062,20 @@ class SpiConnectionAction(argparse.Action):
         setattr(namespace, self.dest, value)
 
 
+class AutoHex2BinAction(argparse.Action):
+    """Custom parser class for auto conversion of input files from hex to bin"""
+
+    def __call__(self, parser, namespace, value, option_string=None):
+        try:
+            with open(value, "rb") as f:
+                # if hex file was detected replace hex file with converted temp bin
+                # otherwise keep the original file
+                value = intel_hex_to_bin(f).name
+        except IOError as e:
+            raise argparse.ArgumentError(self, e)
+        setattr(namespace, self.dest, value)
+
+
 class AddrFilenamePairAction(argparse.Action):
     """Custom parser class for the address/filename pairs passed as arguments"""
 
@@ -1003,6 +1104,8 @@ class AddrFilenamePairAction(argparse.Action):
                     "Must be pairs of an address "
                     "and the binary filename to write there",
                 )
+            # check for intel hex files and convert them to bin
+            argfile = intel_hex_to_bin(argfile, address)
             pairs.append((address, argfile))
 
         # Sort the addresses and check for overlapping
