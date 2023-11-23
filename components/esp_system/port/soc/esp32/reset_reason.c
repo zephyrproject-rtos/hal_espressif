@@ -64,7 +64,7 @@ static esp_reset_reason_t get_reset_reason(uint32_t rtc_reset_reason, esp_reset_
     }
 }
 
-static void __attribute__((constructor)) esp_reset_reason_init(void)
+void esp_reset_reason_init(void)
 {
     esp_reset_reason_t hint = esp_reset_reason_get_hint();
     s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
