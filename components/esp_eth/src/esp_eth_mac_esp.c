@@ -552,7 +552,7 @@ static esp_err_t esp_emac_config_data_interface(const eth_mac_config_t *config, 
                               emac->clock_config.rmii.clock_gpio == EMAC_CLK_OUT_GPIO ||
                               emac->clock_config.rmii.clock_gpio == EMAC_CLK_OUT_180_GPIO,
                               ESP_ERR_INVALID_ARG, err, TAG, "invalid EMAC clock output GPIO");
-            emac_hal_iomux_rmii_clk_ouput(emac->clock_config.rmii.clock_gpio);
+            emac_hal_iomux_rmii_clk_output(emac->clock_config.rmii.clock_gpio);
             if (emac->clock_config.rmii.clock_gpio == EMAC_APPL_CLK_OUT_GPIO) {
                 REG_SET_FIELD(PIN_CTRL, CLK_OUT1, 6);
             }
