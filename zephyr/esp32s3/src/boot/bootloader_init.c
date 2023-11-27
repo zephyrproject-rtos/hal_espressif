@@ -47,9 +47,9 @@
 
 #include <bootutil/bootutil_log.h>
 
-static const char *TAG = "boot.esp32s3";
+static const char *TAG = "esp32s3";
 
-extern esp_image_header_t WORD_ALIGNED_ATTR bootloader_image_hdr;
+extern esp_image_header_t WORD_ALIGNED_ATTR image_hdr;
 
 static void bootloader_reset_mmu(void)
 {
@@ -123,7 +123,7 @@ void IRAM_ATTR bootloader_configure_spi_pins(int drv)
 
 static void IRAM_ATTR bootloader_init_flash_configure(void)
 {
-    bootloader_flash_dummy_config(&bootloader_image_hdr);
+    bootloader_flash_dummy_config(&image_hdr);
     bootloader_flash_cs_timing_config();
 }
 
@@ -140,11 +140,11 @@ static esp_err_t bootloader_init_spi_flash(void)
 #endif
 
     bootloader_flash_unlock();
-    update_flash_config(&bootloader_image_hdr);
+    update_flash_config(&image_hdr);
     /* ensure the flash is write-protected */
     bootloader_enable_wp();
 
-    bootloader_print_flash_info(&bootloader_image_hdr);
+    bootloader_print_flash_info(&image_hdr);
 
     return ESP_OK;
 }
@@ -251,7 +251,6 @@ esp_err_t bootloader_init(void)
         assert(&_data_start <= &_data_end);
     }
 #endif
-    /* bss section cleared in __esp_platform_start */
     /* reset MMU */
     bootloader_reset_mmu();
     /* config clock */

@@ -45,7 +45,7 @@
 #include "bootloader_wdt.h"
 #include "hal/wdt_hal.h"
 
-extern esp_image_header_t WORD_ALIGNED_ATTR bootloader_image_hdr;
+extern esp_image_header_t WORD_ALIGNED_ATTR image_hdr;
 
 #if CONFIG_ESP_CONSOLE_UART_CUSTOM
 static uart_dev_t *alt_console_uart_dev = (CONFIG_ESP_CONSOLE_UART_NUM == 0) ?
@@ -123,7 +123,7 @@ static void update_flash_config(const esp_image_header_t *bootloader_hdr)
 
 static void IRAM_ATTR bootloader_init_flash_configure(void)
 {
-    bootloader_flash_dummy_config(&bootloader_image_hdr);
+    bootloader_flash_dummy_config(&image_hdr);
     bootloader_flash_cs_timing_config();
 }
 
@@ -138,8 +138,8 @@ static esp_err_t bootloader_init_spi_flash(void)
     bootloader_init_flash_configure();
     bootloader_spi_flash_resume();
     esp_rom_spiflash_unlock();
-    update_flash_config(&bootloader_image_hdr);
-    bootloader_print_flash_info(&bootloader_image_hdr);
+    update_flash_config(&image_hdr);
+    bootloader_print_flash_info(&image_hdr);
 
     return ESP_OK;
 }

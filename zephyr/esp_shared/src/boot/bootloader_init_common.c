@@ -18,12 +18,12 @@
 #include "bootloader_flash.h"
 #include "bootloader_flash_priv.h"
 
-esp_image_header_t WORD_ALIGNED_ATTR bootloader_image_hdr;
+esp_image_header_t WORD_ALIGNED_ATTR image_hdr;
 
 esp_err_t bootloader_read_bootloader_header(void)
 {
     /* load bootloader image header */
-    if (bootloader_flash_read(ESP_BOOTLOADER_OFFSET, &bootloader_image_hdr,
+    if (bootloader_flash_read(ESP_BOOTLOADER_OFFSET, &image_hdr,
                               sizeof(esp_image_header_t), true) != ESP_OK) {
         BOOT_LOG_ERR("Failed to load bootloader image header!");
         return ESP_FAIL;
@@ -69,7 +69,7 @@ esp_err_t bootloader_check_bootloader_validity(void)
     uint8_t revision = bootloader_common_get_chip_revision();
     BOOT_LOG_INF("Chip revision: %d", revision);
     /* compare with the one set in bootloader image header */
-    if (bootloader_common_check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != ESP_OK) {
+    if (bootloader_common_check_chip_validity(&image_hdr, ESP_IMAGE_BOOTLOADER) != ESP_OK) {
         return ESP_FAIL;
     }
     return ESP_OK;
@@ -165,5 +165,8 @@ void bootloader_print_banner(void)
 #ifdef CONFIG_MCUBOOT
     BOOT_LOG_INF("MCUboot 2nd stage bootloader");
 #endif
-    BOOT_LOG_INF("compiled at " __DATE__ " " __TIME__);
+#ifdef CONFIG_SIMPLE_BOOT
+    BOOT_LOG_INF("ESP Simple Loader");
+#endif
+    BOOT_LOG_INF("compiled on " __DATE__ " " __TIME__);
 }
