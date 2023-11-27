@@ -184,7 +184,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/bootloader_support/src/bootloader_common.c
     )
 
-  if (CONFIG_MCUBOOT)
+  if (CONFIG_MCUBOOT OR CONFIG_SIMPLE_BOOT)
     zephyr_include_directories(
       ../../components/esp_rom/esp32s3
       ../esp_shared/include/boot
@@ -198,17 +198,20 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
+      ../../components/bootloader_support/src/bootloader_console.c
       ../../components/bootloader_support/src/bootloader_random.c
       ../../components/bootloader_support/src/bootloader_random_esp32s3.c
-      ../../components/esp_hw_support/cpu_util.c
       ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
       ../../components/hal/soc_hal.c
-      ../esp_shared/src/boot/esp_loader.c
       ../esp_shared/src/boot/bootloader_wdt.c
       ../esp_shared/src/boot/bootloader_init_common.c
       src/boot/bootloader_init.c
+      )
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
+      ../esp_shared/src/boot/esp_loader.c
       )
   endif()
 
