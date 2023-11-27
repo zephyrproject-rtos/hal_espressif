@@ -44,6 +44,7 @@
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
 #include "hal/efuse_hal.h"
+#include "esp_flash_internal.h"
 
 static const char *TAG = "boot.esp32c3";
 
@@ -158,6 +159,13 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
+    esp_rom_spiflash_attach(esp_rom_efuse_get_flash_gpio_info(), false);
+    esp_mspi_pin_init();
+    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
+        ESP_LOGE(TAG, "esp_flash_init_default_chip err=%x\n", ret);
+        return ret;
+    }
+
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
     //init cache hal
     cache_hal_init();
@@ -170,20 +178,25 @@ esp_err_t bootloader_init(void)
         ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
+
+    // initialize spi flash
+    if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
+        ESP_LOGE(TAG, "failed to init spi flash!");
+        return ret;
+    }
+
 #if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
+        ESP_LOGE(TAG, "failed to read flash!");
         return ret;
     }
     // read chip revision and check if it's compatible to bootloader
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
+        ESP_LOGE(TAG, "failed to vallidate!");
         return ret;
     }
 #endif  //#if !CONFIG_APP_BUILD_TYPE_RAM
-    // initialize spi flash
-    if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
-        return ret;
-    }
 #endif // !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
 
     // check whether a WDT reset happend

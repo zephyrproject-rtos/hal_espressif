@@ -4,6 +4,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
+#zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized -fstrict-volatile-bitfields)
 
   zephyr_include_directories(
     include
@@ -120,8 +121,12 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/gdma_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_SOC_FLASH_ESP32
+    if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
+    zephyr_sources(
+    ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/esp_flash_api.c
+    ../../components/spi_flash/flash_mmap.c
+    ../../components/esp_mm/esp_mmu_map.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/hal/cache_hal.c
@@ -145,6 +150,13 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/spi_flash/spi_flash_chip_th.c
     ../../components/spi_flash/spi_flash_chip_winbond.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
+    )
+  endif()
+
+  # TODO: is it needed?
+  zephyr_compile_definitions(
+    CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+    CONFIG_SPI_FLASH_USE_LEGACY_IMPL
     )
 
   zephyr_sources_ifdef(
@@ -219,7 +231,9 @@ if(CONFIG_SOC_SERIES_ESP32C3)
   if (CONFIG_MCUBOOT)
     zephyr_compile_definitions(BOOTLOADER_BUILD)
     zephyr_compile_definitions(NDEBUG)
+  endif()
 
+  if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
       ../port/include/boot
@@ -238,6 +252,10 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+	  )
+
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
       ../port/boot/esp_loader.c
       )
   endif()
@@ -270,6 +288,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
 
     ../../components/esp_mm/esp_mmu_map.c
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
