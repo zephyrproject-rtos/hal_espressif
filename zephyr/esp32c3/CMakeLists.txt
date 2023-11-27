@@ -91,13 +91,20 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/gdma_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_SOC_FLASH_ESP32
+  if(CONFIG_SOC_FLASH_ESP32 OR CONFIG_SIMPLE_BOOT)
+    zephyr_sources(
     ../esp_shared/src/host_flash/cache_utils.c
     ../../components/spi_flash/flash_mmap.c
     ../../components/spi_flash/esp32c3/spi_flash_rom_patch.c
     ../../components/spi_flash/flash_ops.c
     ../../components/spi_flash/esp32c3/flash_ops_esp32c3.c
+    )
+  endif()
+
+  zephyr_sources_ifdef(
+    CONFIG_SIMPLE_BOOT
+    #  ../../components/spi_flash/esp_flash_api.c
+    #    ../../components/hal/spi_flash_hal_iram.c
     )
 
   zephyr_compile_definitions(
@@ -166,7 +173,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/gdma_hal.c
     )
 
-  if (CONFIG_MCUBOOT)
+  if (CONFIG_MCUBOOT OR CONFIG_SIMPLE_BOOT)
     zephyr_include_directories(
       ../../components/esp_rom/esp32c3
       ../esp_shared/include/boot
@@ -187,10 +194,13 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/hal/mpu_hal.c
       ../../components/esp_rom/patches/esp_rom_uart.c
       ../../components/esp_rom/patches/esp_rom_sys.c
-      ../esp_shared/src/boot/esp_loader.c
       ../esp_shared/src/boot/bootloader_wdt.c
       ../esp_shared/src/boot/bootloader_init_common.c
       src/boot/bootloader_init.c
+      )
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
+      ../esp_shared/src/boot/esp_loader.c
       )
   endif()
 
