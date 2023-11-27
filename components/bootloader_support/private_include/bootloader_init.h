@@ -13,10 +13,10 @@
  * @brief labels from bootloader linker script: bootloader.ld
  *
  */
-extern int _bss_start;
-extern int _bss_end;
-extern int _data_start;
-extern int _data_end;
+extern int _bss_start[];
+extern int _bss_end[];
+extern int _data_start[];
+extern int _data_end[];
 /**@}*/
 
 /**

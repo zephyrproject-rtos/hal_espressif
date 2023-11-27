@@ -105,13 +105,13 @@ void esp_app_image_load(int image_index, int slot,
 
     BOOT_LOG_INF("Application start=%Xh", load_header.entry_addr);
     BOOT_LOG_INF("DRAM segment: paddr=%08Xh, vaddr=%08Xh, size=%05Xh (%6d) load",
-    load_header.dram_flash_offset, load_header.dram_dest_addr,
+    (fap->fa_off + load_header.dram_flash_offset), load_header.dram_dest_addr,
     load_header.dram_size, load_header.dram_size);
     load_segment(fap, load_header.dram_flash_offset,
     load_header.dram_size, load_header.dram_dest_addr);
 
     BOOT_LOG_INF("IRAM segment: paddr=%08Xh, vaddr=%08Xh, size=%05Xh (%6d) load",
-    load_header.iram_flash_offset, load_header.iram_dest_addr,
+    (fap->fa_off + load_header.iram_flash_offset), load_header.iram_dest_addr,
     load_header.iram_size, load_header.iram_size);
     load_segment(fap, load_header.iram_flash_offset,
     load_header.iram_size, load_header.iram_dest_addr);

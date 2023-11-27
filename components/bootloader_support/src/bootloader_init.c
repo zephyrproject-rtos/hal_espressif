@@ -26,7 +26,7 @@ esp_image_header_t WORD_ALIGNED_ATTR bootloader_image_hdr;
 
 void bootloader_clear_bss_section(void)
 {
-    memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
+    memset(&_bss_start, 0, ((unsigned*)&_bss_end - (unsigned*)&_bss_start) * sizeof(&_bss_start));
 }
 
 esp_err_t bootloader_read_bootloader_header(void)
@@ -94,8 +94,11 @@ void bootloader_print_banner(void)
 {
 #ifdef CONFIG_MCUBOOT
     ESP_EARLY_LOGI(TAG, "MCUboot 2nd stage bootloader");
-#else
-    ESP_EARLY_LOGI(TAG, "ESP-IDF %s 2nd stage bootloader", IDF_VER);
+#endif
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
+    ESP_EARLY_LOGI(TAG, "ESP Simple boot");
+#endif
+
 #ifndef CONFIG_APP_REPRODUCIBLE_BUILD
     ESP_EARLY_LOGI(TAG, "compile time " __DATE__ " " __TIME__);
 #endif
@@ -107,5 +110,4 @@ void bootloader_print_banner(void)
 #else
     ESP_EARLY_LOGI(TAG, "Multicore bootloader");
 #endif
-#endif /*CONFIG_MCUBOOT*/
 }

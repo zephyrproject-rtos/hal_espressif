@@ -92,7 +92,11 @@ void IRAM_ATTR spi_flash_guard_set(const spi_flash_guard_funcs_t *funcs)
 
 const spi_flash_guard_funcs_t *IRAM_ATTR spi_flash_guard_get(void)
 {
+#ifndef __ZEPHYR__
     return s_flash_guard_ops;
+#else
+    return &g_flash_guard_default_ops;
+#endif /* __ZEPHYR__ */
 }
 
 
