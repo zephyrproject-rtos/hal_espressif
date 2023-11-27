@@ -10,7 +10,9 @@
 
 #include <esp_intr_alloc.h>
 #include "driver/spi_common.h"
+#ifndef __ZEPHYR__
 #include "freertos/FreeRTOS.h"
+#endif
 #include "hal/spi_types.h"
 #include "esp_pm.h"
 
@@ -579,6 +581,7 @@ int spi_bus_lock_get_dev_id(spi_bus_lock_dev_handle_t dev_handle);
  */
 bool spi_bus_lock_touch(spi_bus_lock_dev_handle_t dev_handle);
 
+#ifndef __ZEPHYR__
 /************* Acquiring service *********************/
 /**
  * Acquiring the SPI bus for exclusive use. Will also wait for the BG to finish all requests of
@@ -776,6 +779,7 @@ extern const spi_bus_lock_dev_handle_t g_spi_lock_main_flash_dev;
  */
 esp_err_t spi_bus_lock_init_main_dev(void);
 
+#endif /* __ZEPHYR__ */
 
 #ifdef __cplusplus
 }
