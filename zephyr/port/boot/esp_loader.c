@@ -98,20 +98,20 @@ void esp_app_image_load(int image_index, int slot,
     }
 
     if (!esp_ptr_in_iram((void *)load_header.entry_addr)) {
-        BOOT_LOG_ERR("Application entry point (%Xh) is not in IRAM. Aborting",
+        BOOT_LOG_ERR("Application entry point (%xh) is not in IRAM. Aborting",
         load_header.entry_addr);
         FIH_PANIC;
     }
 
-    BOOT_LOG_INF("Application start=%Xh", load_header.entry_addr);
-    BOOT_LOG_INF("DRAM segment: paddr=%08Xh, vaddr=%08Xh, size=%05Xh (%6d) load",
-    load_header.dram_flash_offset, load_header.dram_dest_addr,
+    BOOT_LOG_INF("Application start=%xh", load_header.entry_addr);
+    BOOT_LOG_INF("DRAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load",
+    (fap->fa_off + load_header.dram_flash_offset), load_header.dram_dest_addr,
     load_header.dram_size, load_header.dram_size);
     load_segment(fap, load_header.dram_flash_offset,
     load_header.dram_size, load_header.dram_dest_addr);
 
-    BOOT_LOG_INF("IRAM segment: paddr=%08Xh, vaddr=%08Xh, size=%05Xh (%6d) load",
-    load_header.iram_flash_offset, load_header.iram_dest_addr,
+    BOOT_LOG_INF("IRAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load",
+    (fap->fa_off + load_header.iram_flash_offset), load_header.iram_dest_addr,
     load_header.iram_size, load_header.iram_size);
     load_segment(fap, load_header.iram_flash_offset,
     load_header.iram_size, load_header.iram_dest_addr);
