@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+set(BOOTLOADER_BLOB "")
+set(PARTITION_TABLE_BLOB "")
 set(LIBS_BLOBS "")
 
 # Function to check the status of the blobs
@@ -61,13 +63,26 @@ if(CMD_RESULT EQUAL 0)
 
     list(GET item 2 blob_path)
 
-    # Check if the file is a library
-    if(blob_path MATCHES "lib/${CONFIG_SOC_SERIES}")
-      list(APPEND LIBS_BLOBS ${blob_status})
+    # Check if the file is a bootloader, a partition table or a library
+    if(blob_path MATCHES "bootloader-${CONFIG_SOC_SERIES}.bin")
+      list(APPEND BOOTLOADER_BLOB ${blob_status})
+    elseif(blob_path MATCHES "partition-table-${CONFIG_SOC_SERIES}.bin")
+      list(APPEND PARTITION_TABLE_BLOB ${blob_status})
+    else()
+      if(blob_path MATCHES "lib/${CONFIG_SOC_SERIES}")
+        list(APPEND LIBS_BLOBS ${blob_status})
+      endif()
     endif()
   endforeach()
 else()
   message(FATAL_ERROR "Failed to run command: west blobs list hal_espressif")
+endif()
+
+# Check bootloader binaries for ESP32 family
+if(CONFIG_BOOTLOADER_ESP_IDF)
+  list(APPEND BOOTLOADER_BLOBS ${BOOTLOADER_BLOB} ${PARTITION_TABLE_BLOB})
+
+  check_status("${BOOTLOADER_BLOBS}")
 endif()
 
 # check for RF libraries in case ESP32 family is used and BT or WIFI are enabled
