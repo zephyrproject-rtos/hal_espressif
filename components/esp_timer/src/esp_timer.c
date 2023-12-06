@@ -471,7 +471,6 @@ esp_err_t esp_timer_init(void)
 
 out:
 	LOG_ERR("could not start esp timer");
-	k_free(&s_timer_task);
 	init_status = false;
 
     return ESP_ERR_NO_MEM;
@@ -503,7 +502,6 @@ esp_err_t esp_timer_deinit(void)
 
     esp_timer_impl_deinit();
 
-    k_free(&s_timer_task);
     init_status = false;
     return ESP_OK;
 }
