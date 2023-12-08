@@ -16,7 +16,7 @@
 #endif
 #include <esp_attr.h>
 
-#if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
+#if (CONFIG_ESP_SPIRAM || (K_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
 
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
 char __aligned(sizeof(void *)) __NOINIT_ATTR dram0_seg_1_heap[CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE];
@@ -88,7 +88,7 @@ static void *z_esp_aligned_calloc(struct k_heap *heap, size_t nmemb, size_t size
 static void *z_esp_alloc_internal(size_t align, size_t size)
 {
     void *ptr = NULL;
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
     ptr = k_aligned_alloc(sizeof(void *), size);
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
@@ -102,7 +102,7 @@ static void *z_esp_alloc_internal(size_t align, size_t size)
 static void *z_esp_calloc_internal(size_t nmemb, size_t size)
 {
     void *ptr = NULL;
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
     size_t bounds;
     if (!size_mul_overflow(nmemb, size, &bounds)) {
         ptr = k_aligned_alloc(sizeof(void *), bounds);
@@ -119,7 +119,7 @@ static void *z_esp_calloc_internal(size_t nmemb, size_t size)
     return ptr;
 }
 
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
 void *__wrap_k_malloc(size_t size)
 {
     void *ptr = NULL;
