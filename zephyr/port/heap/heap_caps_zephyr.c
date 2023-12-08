@@ -12,8 +12,8 @@
 #include <esp_attr.h>
 #include <esp_heap_caps.h>
 
-#if (CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (CONFIG_ESP_SPIRAM || (K_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))
+#if (K_HEAP_MEM_POOL_SIZE > 0)
 void *__real_k_malloc(size_t size);
 void *__real_k_calloc(size_t nmemb, size_t size);
 #endif
@@ -36,8 +36,8 @@ STRUCT_SECTION_ITERABLE(k_heap, _spiram_heap) = {
         .init_bytes = CONFIG_ESP_SPIRAM_HEAP_SIZE,
     },
 };
-#endif /*CONFIG_HEAP_MEM_POOL_SIZE*/
-#endif /*(CONFIG_ESP_SPIRAM || (CONFIG_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))*/
+#endif /*K_HEAP_MEM_POOL_SIZE*/
+#endif /*(CONFIG_ESP_SPIRAM || (K_HEAP_MEM_POOL_SIZE > 0) || (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0))*/
 
 static esp_alloc_failed_hook_t alloc_failed_callback;
 
@@ -163,7 +163,7 @@ void *heap_caps_calloc_prefer( size_t n, size_t size, size_t num, ... )
 
 size_t heap_caps_get_total_size(uint32_t caps)
 {
-    return CONFIG_HEAP_MEM_POOL_SIZE;
+    return K_HEAP_MEM_POOL_SIZE;
 }
 
 size_t heap_caps_get_free_size( uint32_t caps )
@@ -305,7 +305,7 @@ static void *z_esp_aligned_calloc(struct k_heap *heap, size_t nmemb, size_t size
 static void *z_esp_alloc_internal(size_t align, size_t size)
 {
     void *ptr = NULL;
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
     ptr = __real_k_malloc(size);
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
@@ -319,7 +319,7 @@ static void *z_esp_alloc_internal(size_t align, size_t size)
 static void *z_esp_calloc_internal(size_t nmemb, size_t size)
 {
     void *ptr = NULL;
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
     ptr = __real_k_calloc(nmemb, size);
 #endif
 #if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
@@ -330,7 +330,7 @@ static void *z_esp_calloc_internal(size_t nmemb, size_t size)
     return ptr;
 }
 
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
 void *__wrap_k_malloc(size_t size)
 #else
 void *k_malloc(size_t size)
@@ -359,7 +359,7 @@ void *k_malloc(size_t size)
     return ptr;
 }
 
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+#if (K_HEAP_MEM_POOL_SIZE > 0)
 void *__wrap_k_calloc(size_t nmemb, size_t size)
 #else
 void *k_calloc(size_t nmemb, size_t size)
