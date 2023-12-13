@@ -94,9 +94,12 @@ void bootloader_print_banner(void)
 {
 #ifdef CONFIG_MCUBOOT
     ESP_EARLY_LOGI(TAG, "MCUboot 2nd stage bootloader");
-#endif
-#ifndef CONFIG_BOOTLOADER_MCUBOOT
+#else
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+    ESP_EARLY_LOGI(TAG, "MCUboot Application image");
+#else /* ifdef CONFIG_ESP_SIMPLE_BOOT */
     ESP_EARLY_LOGI(TAG, "ESP Simple boot");
+#endif
 #endif
 
 #ifndef CONFIG_APP_REPRODUCIBLE_BUILD

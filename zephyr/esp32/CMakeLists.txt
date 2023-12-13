@@ -5,6 +5,9 @@ if(CONFIG_SOC_SERIES_ESP32)
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
 
+  # TODO: joining bank1 and bank2 DRAM
+  #zephyr_compile_options(-Wl,--enable-non-contiguous-regions)
+
   zephyr_include_directories(
     include
     include/bt
@@ -123,8 +126,10 @@ if(CONFIG_SOC_SERIES_ESP32)
     "-Wl,--wrap=k_malloc"
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_SOC_FLASH_ESP32
+  if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
+    zephyr_sources(
+    ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/esp_mm/cache_esp32.c
@@ -148,6 +153,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/spi_flash/spi_flash_chip_winbond.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
     )
+  endif()
 
   zephyr_library_sources_ifdef(
     CONFIG_COUNTER_TMR_ESP32
@@ -238,13 +244,14 @@ if(CONFIG_SOC_SERIES_ESP32)
     zephyr_sources(
       ../../components/esp_system/port/soc/esp32/clk.c
     )
-
   endif()
 
   if (CONFIG_MCUBOOT)
     zephyr_compile_definitions(BOOTLOADER_BUILD)
     zephyr_compile_definitions(NDEBUG)
+  endif()
 
+  if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
       ../port/include/boot
@@ -263,6 +270,10 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+      )
+
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
       ../port/boot/esp_loader.c
       )
   endif()
@@ -296,6 +307,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
     ../../components/esp_mm/esp_mmu_map.c
@@ -320,6 +332,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/efuse_hal.c
     ../../components/hal/mmu_hal.c
     ../../components/hal/wdt_hal_iram.c
+    ../../components/hal/mpu_hal.c  # TODO: maybe cache issue related
 
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
