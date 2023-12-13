@@ -121,8 +121,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     "-Wl,--wrap=k_malloc"
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_SOC_FLASH_ESP32
+  if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
+    zephyr_sources(
+    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/hal/cache_hal.c
@@ -150,6 +152,13 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/spi_flash/spi_flash_os_func_noos.c
     # todo: ../../components/spi_flash/spi_flash_wrap.c
     )
+  endif()
+
+  # TODO: is it needed?
+  # zephyr_compile_definitions(
+  #   CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+  #   CONFIG_SPI_FLASH_USE_LEGACY_IMPL
+  #   )
 
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
@@ -267,7 +276,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   if (CONFIG_MCUBOOT)
     zephyr_compile_definitions(BOOTLOADER_BUILD)
     zephyr_compile_definitions(NDEBUG)
+  endif()
 
+  if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
       ../port/include/boot
@@ -286,7 +297,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+      )
 
+    zephyr_sources_ifdef(
+      CONFIG_MCUBOOT
       ../port/boot/esp_loader.c
       )
   endif()
@@ -299,7 +313,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+	../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
 
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
