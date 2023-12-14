@@ -24,6 +24,7 @@
 extern "C" {
 #endif
 
+#undef MHZ
 #define MHZ                 (1000000)
 
 #define CLK_LL_PLL_80M_FREQ_MHZ    (80)

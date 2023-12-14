@@ -22,7 +22,7 @@
 #include "hal/wdt_hal.h"
 #include "hal/modem_syscon_ll.h"
 #include "hal/modem_lpcon_ll.h"
-#include "esp_private/cache_err_int.h"
+#include "cache_err_int.h"
 
 #include "esp32c6/rom/cache.h"
 #include "esp32c6/rom/rtc.h"

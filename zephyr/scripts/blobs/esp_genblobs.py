@@ -14,7 +14,7 @@ from pathlib import Path
 MODULE_PATH = Path(Path(__file__).resolve().parents[2], "module.yml")
 SUBMODULES = Path(Path(__file__).resolve().parents[1], "submodules.txt")
 
-socs = ["esp32", "esp32s2", "esp32c3", "esp32s3"]
+socs = ["esp32", "esp32s2", "esp32c3", "esp32s3", "esp32c6"]
 
 module_yaml = """\
 name: hal_espressif

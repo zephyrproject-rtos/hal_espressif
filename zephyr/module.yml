@@ -29,12 +29,12 @@ blobs:
     url: https://github.com/espressif/esp32-bt-lib/raw/e1b3a29c58a452a6c017113686262094afd87042/esp32/libbtdm_app.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-bt-lib
-  - path: lib/esp32/libcore.a
-    sha256: 4e6a4cbedf7712c86d03cbc7bf6180eca35bdc3ef97ab909ec3f1605920a7f7e
+  - path: lib/esp32/libsmartconfig.a
+    sha256: 9441a88e84dac4de39295d1be8ec1dedb151f0c53cecb7ed1398a4802b2483de
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libcore.a
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libsmartconfig.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32/libmesh.a
@@ -43,14 +43,6 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libmesh.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32/libsmartconfig.a
-    sha256: 9441a88e84dac4de39295d1be8ec1dedb151f0c53cecb7ed1398a4802b2483de
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libsmartconfig.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32/libnet80211.a
@@ -85,20 +77,12 @@ blobs:
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libwapi.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32s2/libcore.a
-    sha256: 935929c367ec0033814ae6792c99dc391dec61d6cf6261b7fc6c885690c64e98
+  - path: lib/esp32/libcore.a
+    sha256: 4e6a4cbedf7712c86d03cbc7bf6180eca35bdc3ef97ab909ec3f1605920a7f7e
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libcore.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32s2/libmesh.a
-    sha256: a9c29fa11c862ad80a1191852b5da49a2a3613a1fe6dfd0427e449fddb25ac48
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libmesh.a
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32/libcore.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32s2/libsmartconfig.a
@@ -107,6 +91,14 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libsmartconfig.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32s2/libmesh.a
+    sha256: a9c29fa11c862ad80a1191852b5da49a2a3613a1fe6dfd0427e449fddb25ac48
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libmesh.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32s2/libnet80211.a
@@ -141,20 +133,12 @@ blobs:
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libwapi.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32c3/libcore.a
-    sha256: e78daf5dd9132cbb2c220b5ebf9a75e4c2bf2feace61054f16d8cfb1939cd205
+  - path: lib/esp32s2/libcore.a
+    sha256: 935929c367ec0033814ae6792c99dc391dec61d6cf6261b7fc6c885690c64e98
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libcore.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32c3/libmesh.a
-    sha256: 5cc6f04a99f60ec091961ae66f97d7e1c64d79debaca733ee3adc78f312de96c
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libmesh.a
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s2/libcore.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32c3/libsmartconfig.a
@@ -163,6 +147,14 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libsmartconfig.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c3/libmesh.a
+    sha256: 5cc6f04a99f60ec091961ae66f97d7e1c64d79debaca733ee3adc78f312de96c
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libmesh.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32c3/libnet80211.a
@@ -197,20 +189,12 @@ blobs:
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libwapi.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32s3/libcore.a
-    sha256: 2b47b7bd4924c9f86a029cdff6825c90c488a8d5b84a9f698a411cd7690adab2
+  - path: lib/esp32c3/libcore.a
+    sha256: e78daf5dd9132cbb2c220b5ebf9a75e4c2bf2feace61054f16d8cfb1939cd205
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libcore.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32s3/libmesh.a
-    sha256: b9a31f954d3dc1dca01cc64e270d12241ba88740212627bfe2903ba04f41d88f
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libmesh.a
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c3/libcore.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32s3/libsmartconfig.a
@@ -219,6 +203,14 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libsmartconfig.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32s3/libmesh.a
+    sha256: b9a31f954d3dc1dca01cc64e270d12241ba88740212627bfe2903ba04f41d88f
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libmesh.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32s3/libnet80211.a
@@ -253,14 +245,70 @@ blobs:
     url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libwapi.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32-wifi-lib
-  - path: lib/esp32/libphy.a
-    sha256: b08ecb9c374ef07a3915c4321ab238cd3318453583c0431e729d77bb0f224d91
+  - path: lib/esp32s3/libcore.a
+    sha256: 2b47b7bd4924c9f86a029cdff6825c90c488a8d5b84a9f698a411cd7690adab2
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32/libphy.a
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32s3/libcore.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp-phy-lib
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libsmartconfig.a
+    sha256: 5f38d57055d1f5009331c45b6b63f39192c6a41626dfedd732d68be7f37721a5
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libsmartconfig.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libmesh.a
+    sha256: 60a5458302fa36e5fdbb0f8299247c7f8d13ebb607bead960b69923d151718b5
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libmesh.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libnet80211.a
+    sha256: efcfb1457d22d5f5e20d171c8fd93464dd6fde529d56249075ee7e86469437c2
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libnet80211.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libpp.a
+    sha256: 5d603983c28cfb2f59819fb9c3fa35c6c459664bd43d64a2116539a3f06bcf6e
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libpp.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libespnow.a
+    sha256: 16a9fc5779b80b0e59d39f36e7824c0adea1f9df2f9ed9affe7d6ce48ac966f0
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libespnow.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libwapi.a
+    sha256: d074ed783f6f882aa1746c4a9246370abe9f584e359328c6cd7970a10ccfeff6
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libwapi.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
+  - path: lib/esp32c6/libcore.a
+    sha256: e78daf5dd9132cbb2c220b5ebf9a75e4c2bf2feace61054f16d8cfb1939cd205
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32-wifi-lib/raw/e3e15870cb5d199a59867f66dd236e0d9ff5a127/esp32c6/libcore.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32-wifi-lib
   - path: lib/esp32/librtc.a
     sha256: 544b27be485381ededfbd689f783e4fa591d185c7d5d5435dc9abee1ecd6a79a
     type: lib
@@ -269,28 +317,20 @@ blobs:
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32/librtc.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32/libphy.a
+    sha256: b08ecb9c374ef07a3915c4321ab238cd3318453583c0431e729d77bb0f224d91
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32/libphy.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32s2/libphy.a
     sha256: 7331b660e4def4bb40b46bdd71f42ff38864f425bea3952a80f711001286dd54
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s2/libphy.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp-phy-lib
-  - path: lib/esp32c3/libphy.a
-    sha256: 4ab6f491b57c1b3589d5db9360020bd51938bc3988dd6957e7898617bc97ad07
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/libphy.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp-phy-lib
-  - path: lib/esp32c3/libbttestmode.a
-    sha256: dff9051f9c85c3612378770663b61017e9dac894097c0f4b94eb09f924c50f4d
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/libbttestmode.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32c3/librftest.a
@@ -309,6 +349,14 @@ blobs:
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/librfate.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32c3/libphy.a
+    sha256: 4ab6f491b57c1b3589d5db9360020bd51938bc3988dd6957e7898617bc97ad07
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/libphy.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32c3/libbtbb.a
     sha256: 9ecda2865e208fbdd216b00b1ca7afca32b7a0e89792b94b433e95e2f4c9b825
     type: lib
@@ -317,20 +365,12 @@ blobs:
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/libbtbb.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
-  - path: lib/esp32s3/libphy.a
-    sha256: a0367a536d2917535db35fedaa4592aecaf3f76c892f9f623c7f2c534ce096ee
+  - path: lib/esp32c3/libbttestmode.a
+    sha256: dff9051f9c85c3612378770663b61017e9dac894097c0f4b94eb09f924c50f4d
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/libphy.a
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/esp-phy-lib
-  - path: lib/esp32s3/libbttestmode.a
-    sha256: bfb3ba1d88722e341e0bd551ee90a84397a3150116a48855a548b2aa31c66410
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/libbttestmode.a
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c3/libbttestmode.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32s3/librftest.a
@@ -349,12 +389,44 @@ blobs:
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/librfate.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32s3/libphy.a
+    sha256: a0367a536d2917535db35fedaa4592aecaf3f76c892f9f623c7f2c534ce096ee
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/libphy.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32s3/libbtbb.a
     sha256: bc390cb946d8e44e443b33174153c3f0cfae22c61ffd9e3cf06c08177745b626
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/libbtbb.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32s3/libbttestmode.a
+    sha256: bfb3ba1d88722e341e0bd551ee90a84397a3150116a48855a548b2aa31c66410
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32s3/libbttestmode.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32c6/libphy.a
+    sha256: d1493dc9568f52103cb73ab3331a947846ad8c9ef4838fdc065f6cd3b492afa8
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c6/libphy.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32c6/libbtbb.a
+    sha256: dad16e93ec451f0269851ebdf8058b7923757a10119152a3dcfb79a36a8ae79c
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/998e05636344949ba219e8ac56feb733e27bf5d2/esp32c6/libbtbb.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32/bootloader-esp32.bin
@@ -389,20 +461,20 @@ blobs:
     url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32s2/partition-table-esp32s2.bin
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/zephyr-toolchain
-  - path: lib/esp32c3/bootloader-esp32c3.bin
-    sha256: acc59862c26a1e6de9ffba3825146e96e8bcaf95464a08b389694ff567c6b758
-    type: lib
-    version: '1.0'
-    license-path: zephyr/blobs/license.txt
-    url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32c3/bootloader-esp32c3.bin
-    description: "Binary libraries supporting the ESP32 series RF subsystems"
-    doc-url: https://github.com/espressif/zephyr-toolchain
   - path: lib/esp32c3/partition-table-esp32c3.bin
     sha256: a482eb8745d8b140f15662bcfd64abf5c9c666b00d586d985a28b1a960c5c1fc
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32c3/partition-table-esp32c3.bin
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/zephyr-toolchain
+  - path: lib/esp32c3/bootloader-esp32c3.bin
+    sha256: acc59862c26a1e6de9ffba3825146e96e8bcaf95464a08b389694ff567c6b758
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32c3/bootloader-esp32c3.bin
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/zephyr-toolchain
   - path: lib/esp32s3/partition-table-esp32s3.bin
@@ -419,5 +491,21 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32s3/bootloader-esp32s3.bin
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/zephyr-toolchain
+  - path: lib/esp32c6/bootloader-esp32c6.bin
+    sha256: 9e34ee689ad3d8338ae61eda2de7394377c3742efc8daa4807bd87a700e0052e
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32c6/bootloader-esp32c6.bin
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/zephyr-toolchain
+  - path: lib/esp32c6/partition-table-esp32c6.bin
+    sha256: a482eb8745d8b140f15662bcfd64abf5c9c666b00d586d985a28b1a960c5c1fc
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/zephyr-toolchain/raw/413d96a8f6ea6a3488d2c7bb834e6bcd738e2920/esp32c6/partition-table-esp32c6.bin
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/zephyr-toolchain
