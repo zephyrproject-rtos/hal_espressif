@@ -504,30 +504,32 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ${CRYPTO_SRCS}
       )
 
-      zephyr_compile_definitions(
-        __ets__
-        ESP_SUPPLICANT
-        IEEE8021X_EAPOL
-        EAP_PEER_METHOD
-        EAP_MSCHAPv2
-        EAP_TTLS
-        EAP_TLS
-        EAP_PEAP
-        USE_WPA2_TASK
-        CONFIG_WPS
-        USE_WPS_TASK
-        CONFIG_ECC
-        CONFIG_IEEE80211W
-        CONFIG_SHA256
-        CONFIG_NO_RADIUS
-        CONFIG_CRYPTO_INTERNAL
-        )
+    zephyr_compile_definitions(
+      __ets__
+      ESP_SUPPLICANT
+      IEEE8021X_EAPOL
+      EAP_PEER_METHOD
+      EAP_MSCHAPv2
+      EAP_TTLS
+      EAP_TLS
+      EAP_PEAP
+      USE_WPA2_TASK
+      CONFIG_WPS
+      USE_WPS_TASK
+      CONFIG_ECC
+      CONFIG_IEEE80211W
+      CONFIG_SHA256
+      CONFIG_NO_RADIUS
+      CONFIG_CRYPTO_INTERNAL
+      )
 
-      zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
-      zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
-      zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
-      zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
-      zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
+    zephyr_compile_definitions(CONFIG_ESP_WIFI_ENABLED)
+    zephyr_compile_definitions(CONFIG_SOC_WIFI_SUPPORTED)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
 
     zephyr_link_libraries(
       net80211

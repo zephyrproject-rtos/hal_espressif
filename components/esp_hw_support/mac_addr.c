@@ -39,7 +39,7 @@ typedef struct {
 } mac_t;
 
 static mac_t s_mac_table[] = {
-#if CONFIG_SOC_WIFI_SUPPORTED
+#if CONFIG_WIFI_ESP32
     {ESP_MAC_WIFI_STA,      STATE_INIT, 6, {0}},
     {ESP_MAC_WIFI_SOFTAP,   STATE_INIT, 6, {0}},
 #endif
@@ -379,10 +379,10 @@ static esp_err_t generate_mac(uint8_t *mac, uint8_t *base_mac_addr, esp_mac_type
     case ESP_MAC_BT:
 #if CONFIG_ESP_MAC_ADDR_UNIVERSE_BT
         memcpy(mac, base_mac_addr, 6);
-#if SOC_WIFI_SUPPORTED
+#if CONFIG_WIFI_ESP32
         // If the chips do not have wifi module, the mac address do not need to add the BT offset
         mac[5] += MAC_ADDR_UNIVERSE_BT_OFFSET;
-#endif //SOC_WIFI_SUPPORTED
+#endif //CONFIG_WIFI_ESP32
 #else
         return ESP_ERR_NOT_SUPPORTED;
 #endif // CONFIG_ESP_MAC_ADDR_UNIVERSE_BT
