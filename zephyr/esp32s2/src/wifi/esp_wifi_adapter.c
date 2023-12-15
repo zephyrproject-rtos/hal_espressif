@@ -47,15 +47,18 @@ static struct k_thread wifi_task_handle;
 
 static void esp_wifi_free(void *mem);
 
-uint64_t g_wifi_feature_caps =
+ uint64_t g_wifi_feature_caps =
 #if CONFIG_ESP_WIFI_ENABLE_WPA3_SAE
-    CONFIG_FEATURE_WPA3_SAE_BIT |
+	CONFIG_FEATURE_WPA3_SAE_BIT |
+#endif
+#if CONFIG_SPIRAM
+	CONFIG_FEATURE_CACHE_TX_BUF_BIT |
 #endif
 #if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
-    CONFIG_FEATURE_FTM_INITIATOR_BIT |
+	CONFIG_FEATURE_FTM_INITIATOR_BIT |
 #endif
 #if CONFIG_ESP_WIFI_FTM_RESPONDER_SUPPORT
-    CONFIG_FEATURE_FTM_RESPONDER_BIT |
+	CONFIG_FEATURE_FTM_RESPONDER_BIT |
 #endif
 0;
 

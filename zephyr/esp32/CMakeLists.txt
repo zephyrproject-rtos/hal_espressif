@@ -547,6 +547,8 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
       CONFIG_CRYPTO_INTERNAL
       )
 
+    zephyr_compile_definitions(CONFIG_ESP_WIFI_ENABLED)
+    zephyr_compile_definitions(CONFIG_SOC_WIFI_SUPPORTED)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)

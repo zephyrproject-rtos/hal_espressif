@@ -87,7 +87,7 @@ IRAM_ATTR void wifi_bt_common_module_disable(void)
 }
 #endif
 
-#if CONFIG_ESP_WIFI_ENABLED
+#if CONFIG_WIFI_ESP32
 void wifi_module_enable(void)
 {
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
@@ -109,4 +109,4 @@ void wifi_module_disable(void)
     LEAVE_CRITICAL_SECTION();
 #endif
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_WIFI_ESP32
