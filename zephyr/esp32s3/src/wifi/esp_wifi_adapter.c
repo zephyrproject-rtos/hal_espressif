@@ -333,9 +333,20 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 	return (void *)queue;
 }
 
-static void delete_wrapper(void *handle)
+static void queue_delete_wrapper(void *handle)
 {
-	esp_wifi_free(handle);
+	if (handle != NULL) {
+		esp_wifi_free(handle);
+	}
+}
+
+static void task_delete_wrapper(void *handle)
+{
+	if (handle != NULL) {
+		k_thread_abort((k_tid_t) handle);
+	}
+
+	k_object_release(&wifi_task_handle);
 }
 
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
@@ -850,7 +861,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._mutex_lock = mutex_lock_wrapper,
 	._mutex_unlock = mutex_unlock_wrapper,
 	._queue_create = queue_create_wrapper,
-	._queue_delete = delete_wrapper,
+	._queue_delete = queue_delete_wrapper,
 	._queue_send = queue_send_wrapper,
 	._queue_send_from_isr = queue_send_from_isr_wrapper,
 	._queue_send_to_back = queue_send_to_back_wrapper,
@@ -864,7 +875,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._event_group_wait_bits = event_group_wait_bits_wrapper,
 	._task_create_pinned_to_core = task_create_pinned_to_core_wrapper,
 	._task_create = task_create_wrapper,
-	._task_delete = delete_wrapper,
+	._task_delete = task_delete_wrapper,
 	._task_delay = task_delay,
 	._task_ms_to_tick = task_ms_to_tick_wrapper,
 	._task_get_current_task = (void *(*)(void))k_current_get,
