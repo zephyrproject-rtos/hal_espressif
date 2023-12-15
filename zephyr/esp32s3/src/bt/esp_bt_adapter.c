@@ -667,7 +667,11 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 
 static void task_delete_wrapper(void *task_handle)
 {
-	esp_bt_free(task_handle);
+	if (task_handle != NULL) {
+		k_thread_abort((k_tid_t)task_handle);
+	}
+
+	k_object_release(&bt_task_handle);
 }
 
 static void *malloc_internal_wrapper(size_t size)
