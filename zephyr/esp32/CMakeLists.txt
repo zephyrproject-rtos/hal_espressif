@@ -185,7 +185,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
       ../esp_shared/components/esp_hw_support/sleep_modes.c
       ../esp_shared/components/esp_pm/pm_impl.c
       ../../components/esp_hw_support/port/esp32/rtc_sleep.c
-      ../../components/hal/rtc_io_hal.c
+      ../esp_shared/components/driver/rtc_io_hal.c
     )
   endif()
 
