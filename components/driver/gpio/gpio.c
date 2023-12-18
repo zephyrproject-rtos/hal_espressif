@@ -643,6 +643,11 @@ esp_err_t gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
     return ret;
 }
 
+esp_err_t esp_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
+{
+    return gpio_wakeup_enable(gpio_num, intr_type);
+}
+
 esp_err_t gpio_wakeup_disable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
