@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+
 #include <stdlib.h>
 #include <ctype.h>
 #include "sdkconfig.h"
@@ -11,9 +13,6 @@
 #include "esp_log.h"
 #include "sys/lock.h"
 #include "soc/soc_pins.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 #include "esp_intr_alloc.h"
 #include "driver/rtc_io.h"
 #include "driver/touch_pad.h"
@@ -44,9 +43,10 @@ static const char *TOUCH_TAG = "TOUCH_SENSOR";
 
 _Static_assert(TOUCH_PAD_MAX == SOC_TOUCH_SENSOR_NUM, "Touch sensor channel number not equal to chip capabilities");
 
-extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
-#define TOUCH_ENTER_CRITICAL()  portENTER_CRITICAL(&rtc_spinlock)
-#define TOUCH_EXIT_CRITICAL()  portEXIT_CRITICAL(&rtc_spinlock)
+extern int rtc_spinlock;
+
+#define TOUCH_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
+#define TOUCH_EXIT_CRITICAL()     irq_unlock(rtc_spinlock)
 
 esp_err_t touch_pad_isr_deregister(intr_handler_t fn, void *arg)
 {
