@@ -232,6 +232,16 @@ if(CONFIG_SOC_SERIES_ESP32)
   endif()
 
   zephyr_sources_ifdef(
+    CONFIG_INPUT_ESP32_TOUCH_SENSOR
+    ../../components/soc/esp32/touch_sensor_periph.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/driver/touch_sensor/touch_sensor_common.c
+    ../../components/hal/rtc_io_hal.c
+    ../../components/hal/touch_sensor_hal.c
+    ../../components/hal/esp32/touch_sensor_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ADC_ESP32
     ../../components/hal/adc_hal.c
     ../../components/driver/deprecated/adc_legacy.c
