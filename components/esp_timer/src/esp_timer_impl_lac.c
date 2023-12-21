@@ -30,8 +30,7 @@
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #endif
 
-/* TODO: Remove _ESP32_NET condition when AMP support will be added */
-#if CONFIG_SOC_SERIES_ESP32 || CONFIG_SOC_SERIES_ESP32_NET
+#if CONFIG_SOC_SERIES_ESP32
 #include "esp32/rom/rtc.h"
 #include "esp32/clk.h"
 #elif CONFIG_SOC_SERIES_ESP32S2
