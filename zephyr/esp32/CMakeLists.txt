@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
+if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
 
@@ -198,7 +198,7 @@ if(CONFIG_SOC_SERIES_ESP32 OR CONFIG_SOC_SERIES_ESP32_NET)
     src/esp_adc_cal/esp_adc_cal.c
     )
 
-  if (NOT CONFIG_SOC_SERIES_ESP32_NET)
+  if (NOT CONFIG_SOC_ESP32_PROCPU)
     zephyr_sources(
       ../../components/esp_system/port/soc/esp32/clk.c
     )
