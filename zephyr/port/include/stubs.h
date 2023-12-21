@@ -16,7 +16,7 @@
 
 #include <zephyr/devicetree.h>
 
-#if defined(CONFIG_SOC_SERIES_ESP32) || defined(CONFIG_SOC_SERIES_ESP32_NET)
+#if defined(CONFIG_SOC_SERIES_ESP32)
 #define DT_CPU_COMPAT cdns_tensilica_xtensa_lx6
 #elif defined(CONFIG_SOC_SERIES_ESP32S2) || defined(CONFIG_SOC_SERIES_ESP32S3)
 #define DT_CPU_COMPAT cdns_tensilica_xtensa_lx7
