@@ -47,7 +47,6 @@ memrchr = 0x40001350;
 strcasecmp = 0x4000135c;
 strcasestr = 0x40001368;
 strcat = 0x40001374;
-strdup = 0x40001380;
 strchr = 0x4000138c;
 strcspn = 0x40001398;
 strcoll = 0x400013a4;
@@ -56,7 +55,6 @@ strlcpy = 0x400013bc;
 strlwr = 0x400013c8;
 strncasecmp = 0x400013d4;
 strncat = 0x400013e0;
-strndup = 0x400013ec;
 strnlen = 0x400013f8;
 strrchr = 0x40001404;
 strsep = 0x40001410;
@@ -70,17 +68,19 @@ div = 0x40001464;
 labs = 0x40001470;
 ldiv = 0x4000147c;
 qsort = 0x40001488;
-rand_r = 0x40001494;
-rand = 0x400014a0;
-srand = 0x400014ac;
 utoa = 0x400014b8;
 itoa = 0x400014c4;
 
 /* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE( atoi = 0x400014d0 );
-PROVIDE( atol = 0x400014dc );
-PROVIDE( strtol = 0x400014e8 );
-PROVIDE( strtoul = 0x400014f4 );
+PROVIDE ( atoi = 0x400014d0 );
+PROVIDE ( atol = 0x400014dc );
+PROVIDE ( strdup = 0x40001380 );
+PROVIDE ( strndup = 0x400013ec );
+PROVIDE ( rand_r = 0x40001494 );
+PROVIDE ( rand = 0x400014a0 );
+PROVIDE ( srand = 0x400014ac );
+PROVIDE ( strtol = 0x400014e8 );
+PROVIDE ( strtoul = 0x400014f4 );
 /*******************************************/
 
 PROVIDE( fflush = 0x40001500 );
