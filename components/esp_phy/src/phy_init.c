@@ -674,7 +674,7 @@ void esp_phy_load_cal_and_init(void)
     }
 #endif
 
-#if CONFIG_SERIAL_ESP32_USB
+#if CONFIG_SOC_SERIES_ESP32S3 || CONFIG_SOC_SERIES_ESP32C3
     phy_bbpll_en_usb(true);
 #endif
 
