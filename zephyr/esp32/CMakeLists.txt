@@ -124,24 +124,28 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources_ifdef(
     CONFIG_SOC_FLASH_ESP32
-    ../../components/spi_flash/flash_ops.c
-    ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
-    ../../components/spi_flash/flash_mmap.c
-    ../../components/hal/mmu_hal.c
-    ../../components/spi_flash/esp_flash_spi_init.c
+    ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/esp_mm/cache_esp32.c
-    ../../components/spi_flash/spi_flash_os_func_noos.c
-    ../../components/spi_flash/memspi_host_driver.c
+    ../../components/hal/mmu_hal.c
+    ../../components/hal/spi_flash_encrypt_hal_iram.c
     ../../components/hal/spi_flash_hal.c
     ../../components/hal/spi_flash_hal_iram.c
+    ../../components/spi_flash/esp_flash_api.c
+    ../../components/spi_flash/esp_flash_spi_init.c
+    ../../components/spi_flash/flash_mmap.c
+    ../../components/spi_flash/flash_ops.c
+    ../../components/spi_flash/memspi_host_driver.c
+    ../../components/spi_flash/spi_flash_chip_boya.c
     ../../components/spi_flash/spi_flash_chip_drivers.c
+    ../../components/spi_flash/spi_flash_chip_gd.c
     ../../components/spi_flash/spi_flash_chip_generic.c
-    ../../components/hal/spi_flash_encrypt_hal_iram.c
-    ../../components/esp_hw_support/esp_gpio_reserve.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
-    ../../components/bootloader_support/src/bootloader_efuse.c
+    ../../components/spi_flash/spi_flash_chip_issi.c
+    ../../components/spi_flash/spi_flash_chip_mxic.c
+    ../../components/spi_flash/spi_flash_chip_mxic_opi.c
+    ../../components/spi_flash/spi_flash_chip_th.c
+    ../../components/spi_flash/spi_flash_chip_winbond.c
+    ../../components/spi_flash/spi_flash_os_func_noos.c
     )
 
   zephyr_library_sources_ifdef(
@@ -168,14 +172,9 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_psram/esp_psram.c
     ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_common.c
-    ../../components/esp_hw_support/esp_gpio_reserve.c
-    ../../components/bootloader_support/src/bootloader_efuse.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cache_sram_mmu.c
     ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
-    ../../components/esp_mm/cache_esp32.c
-    ../../components/spi_flash/flash_ops.c
     )
 
   zephyr_sources_ifdef(
@@ -240,6 +239,9 @@ if(CONFIG_SOC_SERIES_ESP32)
   endif()
 
   if (CONFIG_MCUBOOT)
+    zephyr_compile_definitions(BOOTLOADER_BUILD)
+    zephyr_compile_definitions(NDEBUG)
+
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
       ../port/include/boot
@@ -269,6 +271,11 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/dport_access.c
 
+    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+    ../../components/bootloader_support/src/bootloader_efuse.c
+
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/esp_clk.c
@@ -279,13 +286,16 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
+
+    ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
+    ../../components/esp_mm/esp_mmu_map.c
 
     ../../components/esp_rom/patches/esp_rom_crc.c
     ../../components/esp_rom/patches/esp_rom_sys.c
@@ -313,9 +323,6 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     ../../components/log/log_noos.c
     ../../components/log/log.c
-
-    ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
-    ../../components/esp_mm/esp_mmu_map.c
 
     ../esp_shared/src/common/esp_system_api.c
     ../esp_shared/src/host_flash/cache_utils.c
