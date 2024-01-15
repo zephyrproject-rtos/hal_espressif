@@ -183,7 +183,8 @@ esp_err_t bootloader_init(void)
     //init mmu
     mmu_hal_init();
     // update flash ID
-    bootloader_flash_update_id();
+    /* disabled it to enable octal support */
+    // bootloader_flash_update_id();
     // Check and run XMC startup flow
     if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
         ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
