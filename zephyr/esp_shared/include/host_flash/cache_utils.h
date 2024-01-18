@@ -19,6 +19,7 @@
 #endif
 
 #include <zephyr/kernel.h>
+#include <soc.h>
 
 void IRAM_ATTR esp32_spiflash_start(void);
 
