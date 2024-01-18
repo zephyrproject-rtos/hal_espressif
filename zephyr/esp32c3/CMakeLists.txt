@@ -315,6 +315,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
+    zephyr_compile_definitions(CONFIG_ESP_PHY_ENABLE_USB)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
@@ -355,6 +356,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
+
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
     set(WPA_SUPPLICANT_SRCS "../port/wifi/wpa_supplicant/os_xtensa.c"
