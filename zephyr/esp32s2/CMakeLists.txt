@@ -154,15 +154,17 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/soc/${CONFIG_SOC_SERIES}/spi_periph.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_ESP_SPIRAM
-    ../../components/esp_psram/esp_psram.c
-    ../../components/esp_hw_support/esp_memory_utils.c
-    ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
-    ../../components/esp_hw_support/esp_gpio_reserve.c
-    ../../components/hal/mmu_hal.c
-    ../../components/spi_flash/flash_ops.c
-    )
+  if (CONFIG_ESP_SPIRAM)
+    zephyr_compile_definitions(CONFIG_SPIRAM)
+    zephyr_sources(
+      ../../components/esp_psram/esp_psram.c
+      ../../components/esp_hw_support/esp_memory_utils.c
+      ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
+      ../../components/esp_hw_support/esp_gpio_reserve.c
+      ../../components/hal/mmu_hal.c
+      ../../components/spi_flash/flash_ops.c
+      )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_I2C_ESP32
