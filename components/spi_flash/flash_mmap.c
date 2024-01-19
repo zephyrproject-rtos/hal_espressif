@@ -167,8 +167,14 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     uint32_t *vaddr_list = NULL;
     int successful_cnt = 0;
 
-    int block_num = s_find_non_contiguous_block_nums(pages, page_count);
-    int paddr_blocks[block_num][2];
+    const int block_num = s_find_non_contiguous_block_nums(pages, page_count);
+    int (*paddr_blocks)[2] = k_malloc(block_num * 2 * sizeof(int));
+
+    if (paddr_blocks == NULL) {
+        ret = ESP_ERR_NO_MEM;
+        goto err;
+    }
+
     s_merge_contiguous_pages(pages, page_count, block_num, paddr_blocks);
     s_pages_to_bytes(paddr_blocks, block_num);
 
@@ -216,6 +222,7 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     *out_ptr = (void *)vaddr_list[0];
     *out_handle = (uint32_t)block;
 
+    free(paddr_blocks);
     return ESP_OK;
 
 err:
@@ -227,6 +234,9 @@ err:
     }
     if (block) {
         k_free(block);
+    }
+    if (paddr_blocks) {
+        k_free(paddr_blocks);
     }
     return ret;
 }
