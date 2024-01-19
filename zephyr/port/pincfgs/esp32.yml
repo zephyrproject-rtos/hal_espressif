@@ -406,3 +406,12 @@ dac:
   ch2:
     sigo: dac2_out
     gpio: [26]
+
+sdhc0:
+  cd:
+    sigi: host_card_detect_n_2
+    gpio: [[5, 11], [16, 23], [25, 27], [32, 39]]
+  wp:
+    sigi: host_card_write_prt_2
+    gpio: [[5, 11], [16, 23], [25, 27], [32, 39]]
+
