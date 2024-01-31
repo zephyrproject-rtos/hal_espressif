@@ -38,6 +38,7 @@
 #include "esp_efuse.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
+#include "esp_flash_internal.h"
 
 static const char *TAG = "boot.esp32s2";
 
@@ -120,8 +121,10 @@ esp_err_t bootloader_init(void)
         assert(&_data_start <= &_data_end);
     }
 #endif
+#ifndef __ZEPHYR__
     // clear bss section
     bootloader_clear_bss_section();
+#endif /* __ZEPHYR__ */
 #endif // !CONFIG_APP_BUILD_TYPE_RAM
 
     // init eFuse virtual mode (read eFuses to RAM)
@@ -138,6 +141,13 @@ esp_err_t bootloader_init(void)
     bootloader_console_init();
     /* print 2nd bootloader banner */
     bootloader_print_banner();
+
+    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
+        return ret;
+    }
+    if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
+        return ret;
+    }
 
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
     // init cache hal
