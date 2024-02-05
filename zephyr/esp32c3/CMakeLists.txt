@@ -304,13 +304,11 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
 
-    ../esp_shared/src/common/esp_system_api.c
-    ../esp_shared/src/host_flash/cache_utils.c
+    ../port/heap/heap_caps_zephyr.c
+    ../port/host_flash/cache_utils.c
     ../../components/riscv/interrupt.c
 
     src/stubs.c
-
-    ../port/heap/heap_caps_zephyr.c
   )
 
   ## shared WIFI/BT resources
