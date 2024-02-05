@@ -334,12 +334,10 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/log/log_noos.c
     ../../components/log/log.c
 
-    ../esp_shared/src/host_flash/cache_utils.c
-    ../esp_shared/src/common/esp_system_api.c
+    ../port/heap/heap_caps_zephyr.c
+    ../port/host_flash/cache_utils.c
 
     src/stubs.c
-
-    ../port/heap/heap_caps_zephyr.c
   )
 
   ## WIFI definitions
