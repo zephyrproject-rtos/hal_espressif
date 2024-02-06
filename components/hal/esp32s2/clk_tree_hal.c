@@ -106,7 +106,7 @@ uint32_t clk_hal_apll_get_freq_hz(void)
     uint32_t sdm1 = 0;
     uint32_t sdm2 = 0;
     clk_ll_apll_get_config(&o_div, &sdm0, &sdm1, &sdm2);
-    uint32_t apll_freq_hz = (uint32_t)(xtal_freq_mhz * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) /
+    uint32_t apll_freq_hz = (uint32_t)(xtal_freq_mhz * MHZ * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) /
                             (((float)o_div + 2) * 2));
     return apll_freq_hz;
 }
