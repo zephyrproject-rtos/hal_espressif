@@ -60,6 +60,52 @@ void os_sleep(os_time_t sec, os_time_t usec)
     }
 }
 
+char *z_strdup(const char *s) {
+    size_t size = strlen(s) + 1;
+    char *p = k_malloc(size);
+    if (p) {
+        memcpy(p, s, size);
+    }
+    return p;
+}
+
+int tolower(unsigned char ch) {
+    if (ch >= 'A' && ch <= 'Z')
+        ch = 'a' + (ch - 'A');
+
+    return ch;
+}
+
+int z_strcasecmp(const char * str1, const char * str2)
+{
+    const unsigned char *u1 = (const u_char *)s1,
+    const unsigned char *u2 = (const u_char *)s2;
+
+    while (tolower(*u1) == tolower(*u2++)) {
+        if (*u1++ == '\0') {
+            return 0;
+        }
+    }
+
+    return (tolower(*u1) - tolower(*--u2));
+}
+
+int z_strcasecmp(const char * str1, const char * str2, size_t num)
+{
+    const unsigned char *u1 = (const u_char *)s1,
+    const unsigned char *u2 = (const u_char *)s2;
+    const size_t ch_compared = 0;
+
+    while ((ch_compared < num) && (tolower(*u1) == tolower(*u2++))) {
+        if (*u1++ == '\0') {
+            return 0;
+        }
+        ch_compared++;
+    }
+
+    return (tolower(*u1) - tolower(*--u2));
+}
+
 #ifdef CONFIG_CRYPTO_MBEDTLS
 void forced_memzero(void *ptr, size_t len)
 {

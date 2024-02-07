@@ -28,6 +28,10 @@
 // Declare strlcpy here to avoid warnings
 size_t strlcpy(char *dst, const char *src, size_t dsize);
 
+char *z_strdup(const char *s);
+int z_strcasecmp(const char *string1, const char *string2);
+int z_strncasecmp(const char *string1, const char *string2, size_t num);
+
 typedef time_t os_time_t;
 
 /**
@@ -240,7 +244,7 @@ static inline char *os_readfile(const char *name, size_t *len)
 #ifdef _MSC_VER
 #define os_strdup(s) _strdup(s)
 #else
-#define os_strdup(s) strdup(s)
+#define os_strdup(s) z_strdup(s)
 #endif
 #endif
 char * ets_strdup(const char *s);
@@ -268,14 +272,14 @@ char * ets_strdup(const char *s);
 #ifdef _MSC_VER
 #define os_strcasecmp(s1, s2) _stricmp((s1), (s2))
 #else
-#define os_strcasecmp(s1, s2) strcasecmp((s1), (s2))
+#define os_strcasecmp(s1, s2) z_strcasecmp((s1), (s2))
 #endif
 #endif
 #ifndef os_strncasecmp
 #ifdef _MSC_VER
 #define os_strncasecmp(s1, s2, n) _strnicmp((s1), (s2), (n))
 #else
-#define os_strncasecmp(s1, s2, n) strncasecmp((s1), (s2), (n))
+#define os_strncasecmp(s1, s2, n) z_strncasecmp((s1), (s2), (n))
 #endif
 #endif
 #ifndef os_strchr
