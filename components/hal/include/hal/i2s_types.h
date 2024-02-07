@@ -30,8 +30,8 @@ typedef enum {
  * @brief I2S channel direction
  */
 typedef enum {
-    I2S_DIR_RX = BIT(0),            /*!< I2S channel direction RX */
-    I2S_DIR_TX = BIT(1),            /*!< I2S channel direction TX */
+    I2S_DIR_RX_ = BIT(0),            /*!< I2S channel direction RX */
+    I2S_DIR_TX_ = BIT(1),            /*!< I2S channel direction TX */
 } i2s_dir_t;
 
 /**

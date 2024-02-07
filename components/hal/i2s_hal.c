@@ -46,7 +46,7 @@ void i2s_hal_calc_mclk_precise_division(uint32_t sclk, uint32_t mclk, i2s_ll_mcl
     if (freq_diff) {
         float decimal = freq_diff / (float)mclk;
         // Carry bit if the decimal is greater than 1.0 - 1.0 / (I2S_LL_MCLK_DIVIDER_MAX * 2)
-        if (decimal <= 1.0 - 1.0 / (float)(I2S_LL_MCLK_DIVIDER_MAX * 2)) {
+        if (decimal <= 1.0f - 1.0f / (float)(I2S_LL_MCLK_DIVIDER_MAX * 2)) {
             for (int a = 2; a <= I2S_LL_MCLK_DIVIDER_MAX; a++) {
                 int b = (int)(a * (freq_diff / (double)mclk) + 0.5);
                 ma = freq_diff * a;

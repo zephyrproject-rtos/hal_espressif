@@ -78,6 +78,60 @@ i2c1:
     sigo: i2cext1_scl_out
     gpio: [[0, 21], [26, 48]]
 
+i2s0:
+  mclk:
+    sigo: i2s0_mclk_out
+    gpio: [[0, 21], [26, 48]]
+  i_bck:
+    sigi: i2s0i_bck_in
+    sigo: i2s0i_bck_out
+    gpio: [[0, 21], [26, 48]]
+  i_ws:
+    sigi: i2s0i_ws_in
+    sigo: i2s0i_ws_out
+    gpio: [[0, 21], [26, 48]]
+  i_sd:
+    sigi: i2s0i_sd_in
+    gpio: [[0, 21], [26, 48]]
+  o_bck:
+    sigi: i2s0o_bck_in
+    sigo: i2s0o_bck_out
+    gpio: [[0, 21], [26, 48]]
+  o_ws:
+    sigi: i2s0o_ws_in
+    sigo: i2s0o_ws_out
+    gpio: [[0, 21], [26, 48]]
+  o_sd:
+    sigo: i2s0o_sd_out
+    gpio: [[0, 21], [26, 48]]
+
+i2s1:
+  mclk:
+    sigo: i2s1_mclk_out
+    gpio: [[0, 21], [26, 48]]
+  i_bck:
+    sigi: i2s1i_bck_in
+    sigo: i2s1i_bck_out
+    gpio: [[0, 21], [26, 48]]
+  i_ws:
+    sigi: i2s1i_ws_in
+    sigo: i2s1i_ws_out
+    gpio: [[0, 21], [26, 48]]
+  i_sd:
+    sigi: i2s1i_sd_in
+    gpio: [[0, 21], [26, 48]]
+  o_bck:
+    sigi: i2s1o_bck_in
+    sigo: i2s1o_bck_out
+    gpio: [[0, 21], [26, 48]]
+  o_ws:
+    sigi: i2s1o_ws_in
+    sigo: i2s1o_ws_out
+    gpio: [[0, 21], [26, 48]]
+  o_sd:
+    sigo: i2s1o_sd_out
+    gpio: [[0, 21], [26, 48]]
+
 spim2:
   miso:
     sigi: fspiq_in

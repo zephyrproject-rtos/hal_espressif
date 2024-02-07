@@ -183,6 +183,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_I2S_ESP32
+    ../../components/hal/i2s_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
     ../../components/soc/esp32s3/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
