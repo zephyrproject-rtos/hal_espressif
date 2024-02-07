@@ -327,7 +327,7 @@ static esp_err_t i2s_dma_intr_init(i2s_port_t i2s_num, int intr_flag)
 
     /* Set GDMA config */
     gdma_channel_alloc_config_t dma_cfg = {};
-    if ( p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if ( p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         dma_cfg.direction = GDMA_CHANNEL_DIRECTION_TX;
         /* Register a new GDMA tx channel */
         ESP_RETURN_ON_ERROR(gdma_new_channel(&dma_cfg, &p_i2s[i2s_num]->tx_dma_chan), TAG, "Register tx dma channel error");
@@ -336,7 +336,7 @@ static esp_err_t i2s_dma_intr_init(i2s_port_t i2s_num, int intr_flag)
         /* Set callback function for GDMA, the interrupt is triggered by GDMA, then the GDMA ISR will call the  callback function */
         gdma_register_tx_event_callbacks(p_i2s[i2s_num]->tx_dma_chan, &cb, p_i2s[i2s_num]);
     }
-    if ( p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if ( p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         dma_cfg.direction = GDMA_CHANNEL_DIRECTION_RX;
         /* Register a new GDMA rx channel */
         ESP_RETURN_ON_ERROR(gdma_new_channel(&dma_cfg, &p_i2s[i2s_num]->rx_dma_chan), TAG, "Register rx dma channel error");
@@ -437,11 +437,11 @@ esp_err_t i2s_start(i2s_port_t i2s_num)
     //start DMA link
     I2S_ENTER_CRITICAL(i2s_num);
 
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         i2s_tx_reset(i2s_num);
         i2s_tx_start(i2s_num);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_rx_reset(i2s_num);
         i2s_rx_start(i2s_num);
     }
@@ -459,10 +459,10 @@ esp_err_t i2s_stop(i2s_port_t i2s_num)
 #if !SOC_GDMA_SUPPORTED
     esp_intr_disable(p_i2s[i2s_num]->i2s_isr_handle);
 #endif
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         i2s_tx_stop(i2s_num);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_rx_stop(i2s_num);
     }
 #if !SOC_GDMA_SUPPORTED
@@ -535,7 +535,7 @@ static esp_err_t i2s_alloc_dma_buffer(i2s_port_t i2s_num, i2s_dma_t *dma_obj)
         /* Link to the next descriptor */
         dma_obj->desc[cnt]->empty = (uint32_t)((cnt < (buf_cnt - 1)) ? (dma_obj->desc[cnt + 1]) : dma_obj->desc[0]);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_ll_rx_set_eof_num(p_i2s[i2s_num]->hal.dev, dma_obj->buf_size);
     }
     ESP_LOGD(TAG, "DMA Malloc info, datalen=blocksize=%d, dma_desc_num=%"PRIu32, dma_obj->buf_size, buf_cnt);
@@ -793,12 +793,12 @@ static esp_err_t i2s_calculate_clock(i2s_port_t i2s_num, i2s_hal_clock_info_t *c
 #if SOC_I2S_SUPPORTS_PDM
     if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_PDM) {
 #if SOC_I2S_SUPPORTS_PDM_TX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             ESP_RETURN_ON_ERROR(i2s_calculate_pdm_tx_clock(i2s_num, clk_info), TAG, "PDM TX clock calculate failed");
         }
 #endif // SOC_I2S_SUPPORTS_PDM_TX
 #if SOC_I2S_SUPPORTS_PDM_RX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             ESP_RETURN_ON_ERROR(i2s_calculate_pdm_rx_clock(i2s_num, clk_info), TAG, "PDM RX clock calculate failed");
         }
 #endif // SOC_I2S_SUPPORTS_PDM_RX
@@ -896,7 +896,7 @@ esp_err_t i2s_adc_enable(i2s_port_t i2s_num)
 {
     ESP_RETURN_ON_FALSE((i2s_num < SOC_I2S_NUM), ESP_ERR_INVALID_ARG, TAG, "i2s_num error");
     ESP_RETURN_ON_FALSE((p_i2s[i2s_num] != NULL), ESP_ERR_INVALID_STATE, TAG, "Not initialized yet");
-    ESP_RETURN_ON_FALSE(((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) && (p_i2s[i2s_num]->dir & I2S_DIR_RX),
+    ESP_RETURN_ON_FALSE(((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) && (p_i2s[i2s_num]->dir & I2S_DIR_RX_),
                         ESP_ERR_INVALID_STATE, TAG, "i2s built-in adc not enabled");
 
     adc1_dma_mode_acquire();
@@ -909,7 +909,7 @@ esp_err_t i2s_adc_disable(i2s_port_t i2s_num)
 {
     ESP_RETURN_ON_FALSE((i2s_num < SOC_I2S_NUM), ESP_ERR_INVALID_ARG, TAG, "i2s_num error");
     ESP_RETURN_ON_FALSE((p_i2s[i2s_num] != NULL), ESP_ERR_INVALID_STATE, TAG, "Not initialized yet");
-    ESP_RETURN_ON_FALSE(((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) && (p_i2s[i2s_num]->dir & I2S_DIR_RX),
+    ESP_RETURN_ON_FALSE(((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) && (p_i2s[i2s_num]->dir & I2S_DIR_RX_),
                         ESP_ERR_INVALID_STATE, TAG, "i2s built-in adc not enabled");
 
     i2s_hal_rx_stop(&(p_i2s[i2s_num]->hal));
@@ -964,7 +964,7 @@ static void i2s_set_slot_legacy(i2s_port_t i2s_num)
 {
     bool is_tx_slave = p_i2s[i2s_num]->role == I2S_ROLE_SLAVE;
     bool is_rx_slave = is_tx_slave;
-    if (p_i2s[i2s_num]->dir == (I2S_DIR_TX | I2S_DIR_RX)) {
+    if (p_i2s[i2s_num]->dir == (I2S_DIR_TX_ | I2S_DIR_RX_)) {
         i2s_ll_share_bck_ws(p_i2s[i2s_num]->hal.dev, true);
         /* Since bck and ws are shared, only tx or rx can be master
            Force to set rx as slave to avoid conflict of clock signal */
@@ -973,22 +973,22 @@ static void i2s_set_slot_legacy(i2s_port_t i2s_num)
         i2s_ll_share_bck_ws(p_i2s[i2s_num]->hal.dev, false);
     }
     if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_STD) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_std_set_tx_slot(&(p_i2s[i2s_num]->hal), is_tx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_std_set_rx_slot(&(p_i2s[i2s_num]->hal), is_rx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
     }
 #if SOC_I2S_SUPPORTS_PDM
     else if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_PDM) {
 #if SOC_I2S_SUPPORTS_PDM_TX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_pdm_set_tx_slot(&(p_i2s[i2s_num]->hal), is_tx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
 #endif
 #if SOC_I2S_SUPPORTS_PDM_RX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_pdm_set_rx_slot(&(p_i2s[i2s_num]->hal), is_rx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
 #endif
@@ -996,20 +996,20 @@ static void i2s_set_slot_legacy(i2s_port_t i2s_num)
 #endif
 #if SOC_I2S_SUPPORTS_TDM
     else if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_TDM) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_tdm_set_tx_slot(&(p_i2s[i2s_num]->hal), is_tx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_tdm_set_rx_slot(&(p_i2s[i2s_num]->hal), is_rx_slave, (i2s_hal_slot_config_t *)(&p_i2s[i2s_num]->slot_cfg) );
         }
     }
 #endif
 #if SOC_I2S_SUPPORTS_ADC_DAC
     else if ((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_dac_set_slot_legacy();
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_adc_set_slot_legacy();
         }
     }
@@ -1021,10 +1021,10 @@ static void i2s_set_clock_legacy(i2s_port_t i2s_num)
     i2s_clk_config_t *clk_cfg = &p_i2s[i2s_num]->clk_cfg;
     i2s_hal_clock_info_t clk_info;
     i2s_calculate_clock(i2s_num, &clk_info);
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         i2s_hal_set_tx_clock(&(p_i2s[i2s_num]->hal), &clk_info, clk_cfg->clk_src);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_hal_set_rx_clock(&(p_i2s[i2s_num]->hal), &clk_info, clk_cfg->clk_src);
     }
 }
@@ -1099,13 +1099,13 @@ esp_err_t i2s_set_clk(i2s_port_t i2s_num, uint32_t rate, uint32_t bits_cfg, i2s_
 
     if (need_realloc) {
         esp_err_t ret = ESP_OK;
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             p_i2s[i2s_num]->tx->buf_size = buf_size;
             ret = i2s_realloc_dma_buffer(i2s_num, p_i2s[i2s_num]->tx);
             xQueueReset(p_i2s[i2s_num]->tx->queue);
             ESP_RETURN_ON_ERROR(ret, TAG, "I2S%d tx DMA buffer malloc failed", i2s_num);
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             p_i2s[i2s_num]->rx->buf_size = buf_size;
             ret = i2s_realloc_dma_buffer(i2s_num, p_i2s[i2s_num]->rx);
             xQueueReset(p_i2s[i2s_num]->rx->queue);
@@ -1156,10 +1156,10 @@ esp_err_t i2s_pcm_config(i2s_port_t i2s_num, const i2s_pcm_cfg_t *pcm_cfg)
 
     i2s_stop(i2s_num);
     I2S_ENTER_CRITICAL(i2s_num);
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         i2s_ll_tx_set_pcm_type(p_i2s[i2s_num]->hal.dev, pcm_cfg->pcm_type);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_ll_rx_set_pcm_type(p_i2s[i2s_num]->hal.dev, pcm_cfg->pcm_type);
     }
     I2S_EXIT_CRITICAL(i2s_num);
@@ -1195,7 +1195,7 @@ esp_err_t i2s_set_pdm_rx_down_sample(i2s_port_t i2s_num, i2s_pdm_dsr_t downsampl
 esp_err_t i2s_set_pdm_tx_up_sample(i2s_port_t i2s_num, const i2s_pdm_tx_upsample_cfg_t *upsample_cfg)
 {
     ESP_RETURN_ON_FALSE(p_i2s[i2s_num], ESP_FAIL, TAG, "i2s has not installed yet");
-    ESP_RETURN_ON_FALSE((p_i2s[i2s_num]->mode == I2S_COMM_MODE_PDM) && (p_i2s[i2s_num]->dir & I2S_DIR_TX),
+    ESP_RETURN_ON_FALSE((p_i2s[i2s_num]->mode == I2S_COMM_MODE_PDM) && (p_i2s[i2s_num]->dir & I2S_DIR_TX_),
                         ESP_ERR_INVALID_ARG, TAG, "i2s mode is not PDM mode");
     xSemaphoreTake(p_i2s[i2s_num]->tx->mux, portMAX_DELAY);
     i2s_stop(i2s_num);
@@ -1214,11 +1214,11 @@ static esp_err_t i2s_dma_object_init(i2s_port_t i2s_num)
     uint32_t buf_size = i2s_get_buf_size(i2s_num);
     p_i2s[i2s_num]->last_buf_size = buf_size;
     /* Create DMA object */
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         ESP_RETURN_ON_ERROR(i2s_create_dma_object(i2s_num, &p_i2s[i2s_num]->tx), TAG, "I2S TX DMA object create failed");
         p_i2s[i2s_num]->tx->buf_size = buf_size;
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         ESP_RETURN_ON_ERROR(i2s_create_dma_object(i2s_num, &p_i2s[i2s_num]->rx), TAG, "I2S RX DMA object create failed");
         p_i2s[i2s_num]->rx->buf_size = buf_size;
     }
@@ -1236,10 +1236,10 @@ static void i2s_mode_identify(i2s_port_t i2s_num, const i2s_config_t *i2s_config
         p_i2s[i2s_num]->role = I2S_ROLE_SLAVE;
     }
     if (i2s_config->mode & I2S_MODE_TX) {
-        p_i2s[i2s_num]->dir |= I2S_DIR_TX;
+        p_i2s[i2s_num]->dir |= I2S_DIR_TX_;
     }
     if (i2s_config->mode & I2S_MODE_RX) {
-        p_i2s[i2s_num]->dir |= I2S_DIR_RX;
+        p_i2s[i2s_num]->dir |= I2S_DIR_RX_;
     }
 #if SOC_I2S_SUPPORTS_PDM
     if (i2s_config->mode & I2S_MODE_PDM) {
@@ -1385,9 +1385,9 @@ static esp_err_t i2s_config_transfer(i2s_port_t i2s_num, const i2s_config_t *i2s
 
 #if SOC_I2S_SUPPORTS_ADC_DAC
     if ((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) {
-        p_i2s[i2s_num]->slot_cfg.slot_mode = (p_i2s[i2s_num]->dir & I2S_DIR_TX) ?
+        p_i2s[i2s_num]->slot_cfg.slot_mode = (p_i2s[i2s_num]->dir & I2S_DIR_TX_) ?
                                              I2S_SLOT_MODE_STEREO : I2S_SLOT_MODE_MONO;
-        p_i2s[i2s_num]->active_slot = (p_i2s[i2s_num]->dir & I2S_DIR_TX) ? 2 : 1;
+        p_i2s[i2s_num]->active_slot = (p_i2s[i2s_num]->dir & I2S_DIR_TX_) ? 2 : 1;
         p_i2s[i2s_num]->total_slot = 2;
     }
 #endif // SOC_I2S_SUPPORTS_ADC_DAC
@@ -1420,22 +1420,22 @@ static esp_err_t i2s_init_legacy(i2s_port_t i2s_num, int intr_alloc_flag)
 
     /* Enable communicaiton mode */
     if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_STD) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_std_enable_tx_channel(&(p_i2s[i2s_num]->hal));
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_std_enable_rx_channel(&(p_i2s[i2s_num]->hal));
         }
     }
 #if SOC_I2S_SUPPORTS_PDM
     else if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_PDM) {
 #if SOC_I2S_SUPPORTS_PDM_TX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_pdm_enable_tx_channel(&(p_i2s[i2s_num]->hal));
         }
 #endif
 #if SOC_I2S_SUPPORTS_PDM_RX
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_pdm_enable_rx_channel(&(p_i2s[i2s_num]->hal));
         }
 #endif
@@ -1443,22 +1443,22 @@ static esp_err_t i2s_init_legacy(i2s_port_t i2s_num, int intr_alloc_flag)
 #endif
 #if SOC_I2S_SUPPORTS_TDM
     else if (p_i2s[i2s_num]->mode == I2S_COMM_MODE_TDM) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_hal_tdm_enable_tx_channel(&(p_i2s[i2s_num]->hal));
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             i2s_hal_tdm_enable_rx_channel(&(p_i2s[i2s_num]->hal));
         }
     }
 #endif
 #if SOC_I2S_SUPPORTS_ADC_DAC
     if ((int)p_i2s[i2s_num]->mode == I2S_COMM_MODE_ADC_DAC) {
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             sar_periph_ctrl_adc_continuous_power_acquire();
             adc_set_i2s_data_source(ADC_I2S_DATA_SRC_ADC);
             i2s_ll_enable_builtin_adc(p_i2s[i2s_num]->hal.dev, true);
         }
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             i2s_ll_enable_builtin_dac(p_i2s[i2s_num]->hal.dev, true);
         }
     } else {
@@ -1472,20 +1472,20 @@ static esp_err_t i2s_init_legacy(i2s_port_t i2s_num, int intr_alloc_flag)
     i2s_set_clock_legacy(i2s_num);
     ESP_RETURN_ON_ERROR(i2s_dma_intr_init(i2s_num, intr_alloc_flag), TAG, "I2S interrupt initailze failed");
     ESP_RETURN_ON_ERROR(i2s_dma_object_init(i2s_num), TAG, "I2S dma object create failed");
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         ESP_RETURN_ON_ERROR(i2s_realloc_dma_buffer(i2s_num, p_i2s[i2s_num]->tx), TAG, "Allocate I2S dma tx buffer failed");
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         ESP_RETURN_ON_ERROR(i2s_realloc_dma_buffer(i2s_num, p_i2s[i2s_num]->rx), TAG, "Allocate I2S dma rx buffer failed");
     }
 
     /* Initialize I2S DMA object */
 #if SOC_I2S_HW_VERSION_2
     /* Enable tx/rx submodule clock */
-    if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
         i2s_ll_tx_enable_clock(p_i2s[i2s_num]->hal.dev);
     }
-    if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+    if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
         i2s_ll_rx_enable_clock(p_i2s[i2s_num]->hal.dev);
     }
 #endif
@@ -1502,11 +1502,11 @@ esp_err_t i2s_driver_uninstall(i2s_port_t i2s_num)
 
 #if SOC_I2S_SUPPORTS_ADC_DAC
     if ((int)(obj->mode) == I2S_COMM_MODE_ADC_DAC) {
-        if (obj->dir & I2S_DIR_TX) {
+        if (obj->dir & I2S_DIR_TX_) {
             // Deinit DAC
             i2s_set_dac_mode(I2S_DAC_CHANNEL_DISABLE);
         }
-        if (obj->dir & I2S_DIR_RX) {
+        if (obj->dir & I2S_DIR_RX_) {
             // Deinit ADC
             adc_set_i2s_data_source(ADC_I2S_DATA_SRC_IO_SIG);
             sar_periph_ctrl_adc_continuous_power_release();
@@ -1539,10 +1539,10 @@ esp_err_t i2s_driver_uninstall(i2s_port_t i2s_num)
 #if SOC_I2S_SUPPORTS_APLL
     if (obj->use_apll) {
         // switch back to PLL clock source
-        if (obj->dir & I2S_DIR_TX) {
+        if (obj->dir & I2S_DIR_TX_) {
             i2s_ll_tx_clk_set_src(obj->hal.dev, I2S_CLK_SRC_DEFAULT);
         }
-        if (obj->dir & I2S_DIR_RX) {
+        if (obj->dir & I2S_DIR_RX_) {
             i2s_ll_rx_clk_set_src(obj->hal.dev, I2S_CLK_SRC_DEFAULT);
         }
         periph_rtc_apll_release();
@@ -1556,10 +1556,10 @@ esp_err_t i2s_driver_uninstall(i2s_port_t i2s_num)
     }
 #endif
 #if SOC_I2S_HW_VERSION_2
-    if (obj->dir & I2S_DIR_TX) {
+    if (obj->dir & I2S_DIR_TX_) {
         i2s_ll_tx_disable_clock(obj->hal.dev);
     }
-    if (obj->dir & I2S_DIR_RX) {
+    if (obj->dir & I2S_DIR_RX_) {
         i2s_ll_rx_disable_clock(obj->hal.dev);
     }
 #endif
@@ -1868,7 +1868,7 @@ esp_err_t i2s_set_pin(i2s_port_t i2s_num, const i2s_pin_config_t *pin)
 
     if (p_i2s[i2s_num]->role == I2S_ROLE_SLAVE) {
         /* For "tx + rx + slave" or "rx + slave" mode, we should select RX signal index for ws and bck */
-        if (p_i2s[i2s_num]->dir & I2S_DIR_RX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_RX_) {
             gpio_matrix_in_check_and_set(pin->ws_io_num, i2s_periph_signal[i2s_num].s_rx_ws_sig, 0);
             gpio_matrix_in_check_and_set(pin->bck_io_num, i2s_periph_signal[i2s_num].s_rx_bck_sig, 0);
             /* For "tx + slave" mode, we should select TX signal index for ws and bck */
@@ -1880,7 +1880,7 @@ esp_err_t i2s_set_pin(i2s_port_t i2s_num, const i2s_pin_config_t *pin)
         /* mclk only available in master mode */
         ESP_RETURN_ON_ERROR(i2s_check_set_mclk(i2s_num, pin->mck_io_num), TAG, "mclk config failed");
         /* For "tx + rx + master" or "tx + master" mode, we should select TX signal index for ws and bck */
-        if (p_i2s[i2s_num]->dir & I2S_DIR_TX) {
+        if (p_i2s[i2s_num]->dir & I2S_DIR_TX_) {
             gpio_matrix_out_check_and_set(pin->ws_io_num, i2s_periph_signal[i2s_num].m_tx_ws_sig, 0, 0);
             gpio_matrix_out_check_and_set(pin->bck_io_num, i2s_periph_signal[i2s_num].m_tx_bck_sig, 0, 0);
             /* For "rx + master" mode, we should select RX signal index for ws and bck */
