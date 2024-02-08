@@ -3,6 +3,7 @@
 if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
+  zephyr_link_libraries(gcc "-Wl,--wrap=longjmp")
 
   zephyr_include_directories(
     include
@@ -234,6 +235,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/port/esp32s3/rtc_sleep.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_rom/patches/esp_rom_uart.c
+    ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_system/port/soc/esp32s3/clk.c
     ../../components/esp_system/port/soc/esp32s3/reset_reason.c
     ../../components/driver/periph_ctrl.c
