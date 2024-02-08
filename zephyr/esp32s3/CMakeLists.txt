@@ -17,6 +17,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/efuse/${CONFIG_SOC_SERIES}/include
     ../../components/efuse/${CONFIG_SOC_SERIES}/private_include
 
+    ../../components/esp_adc/deprecated/include
+
     ../../components/esp_common/include
     ../../components/esp_hw_support/dma
     ../../components/esp_hw_support/include
@@ -187,6 +189,23 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   zephyr_sources_ifdef(
     CONFIG_PCNT_ESP32
     ../../components/hal/pcnt_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_ADC_ESP32
+    ../../components/hal/adc_hal.c
+    ../../components/hal/adc_hal_common.c
+    ../../components/driver/deprecated/adc_legacy.c
+    ../../components/esp_hw_support/adc_share_hw_ctrl.c
+    ../../components/esp_adc/deprecated/${CONFIG_SOC_SERIES}/esp_adc_cal_legacy.c
+    ../../components/esp_adc/deprecated/esp_adc_cal_common_legacy.c
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
 
   zephyr_sources_ifdef(
