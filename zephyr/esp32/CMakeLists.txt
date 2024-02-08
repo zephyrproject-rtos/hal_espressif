@@ -3,6 +3,7 @@
 if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
+  zephyr_link_libraries(gcc "-Wl,--wrap=longjmp")
 
   zephyr_include_directories(
     include
@@ -244,6 +245,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/port/esp32/rtc_clk_init.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
