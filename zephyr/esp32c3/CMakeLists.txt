@@ -4,7 +4,10 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
-#zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized -fstrict-volatile-bitfields)
+
+  if(CONFIG_MCUBOOT)
+    zephyr_compile_options(-fdump-rtl-expand)
+  endif()
 
   zephyr_include_directories(
     include
