@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
+#include "zephyr_compat.h"
 
 #ifdef __cplusplus
 extern "C" {
