@@ -577,7 +577,7 @@ static void __attribute((unused)) esp_phy_reduce_tx_power(esp_phy_init_data_t* i
 void esp_phy_load_cal_and_init(void)
 {
     char * phy_version = get_phy_version_str();
-    ESP_LOGI(TAG, "phy_version %s", phy_version);
+    // ESP_LOGI(TAG, "phy_version %s", phy_version);
 
 #if CONFIG_IDF_TARGET_ESP32S2
     phy_eco_version_sel(efuse_hal_chip_revision() / 100);
