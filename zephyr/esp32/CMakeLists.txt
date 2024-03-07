@@ -5,9 +5,6 @@ if(CONFIG_SOC_SERIES_ESP32)
   zephyr_compile_options(-Wno-unused-variable -Wno-maybe-uninitialized)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
 
-  # TODO: in order to join 'bank1' and 'bank2' into single DRAM
-  #zephyr_compile_options(-Wl,--enable-non-contiguous-regions)
-
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
   endif()
