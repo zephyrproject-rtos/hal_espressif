@@ -495,6 +495,15 @@ uint16_t uart_hal_get_max_rx_timeout_thrd(uart_hal_context_t *hal);
  */
 #define uart_hal_get_rxfifo_len(hal) uart_ll_get_rxfifo_len((hal)->dev)
 
+/**
+ * @brief  Get UART port number from its address
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return UART port number
+ */
+int8_t uart_hal_get_port_num(uart_hal_context_t *hal);
+
 #ifdef __cplusplus
 }
 #endif

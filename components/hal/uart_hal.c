@@ -188,3 +188,17 @@ uint16_t uart_hal_get_max_rx_timeout_thrd(uart_hal_context_t *hal)
     uint16_t max_tout_thresh = uart_ll_max_tout_thrd(hal->dev);
     return (max_tout_thresh / symb_len);
 }
+
+int8_t uart_hal_get_port_num(uart_hal_context_t *hal)
+{
+	if (hal->dev == (uart_dev_t *)&UART0) {
+		return 0;
+	} else if (hal->dev == (uart_dev_t *)&UART1) {
+		return 1;
+#if CONFIG_SOC_SERIES_ESP32 || CONFIG_SOC_SERIES_ESP32S3
+	} else if (hal->dev == (uart_dev_t *)&UART2) {
+		return 2;
+#endif
+	}
+	return -1;
+}
