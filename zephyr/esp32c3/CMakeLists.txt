@@ -241,6 +241,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
+      ../../components/bootloader_support/src/bootloader_console_loader.c
       ../../components/bootloader_support/src/bootloader_random.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c

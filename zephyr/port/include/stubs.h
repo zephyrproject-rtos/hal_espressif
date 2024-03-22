@@ -59,6 +59,12 @@
 #define ESP_CONSOLE_UART_NUM 2
 #define ESP_CONSOLE_UART_BAUDRATE DT_PROP(DT_NODELABEL(uart2), current_speed)
 
+#elif DT_NODE_HAS_STATUS(DT_NODELABEL(usb_serial), okay) &&		\
+	DT_PROP_BY_IDX(DT_NODELABEL(usb_serial), reg, 0) ==		\
+	DT_PROP_BY_IDX(DT_CHOSEN(zephyr_console), reg, 0)
+#define CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG 1
+#define ESP_CONSOLE_UART_NUM 0
+#define ESP_CONSOLE_UART_BAUDRATE 1
 #else
 
 #define ESP_CONSOLE_UART_NONE
