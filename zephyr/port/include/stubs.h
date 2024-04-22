@@ -17,15 +17,15 @@
 #include <zephyr/devicetree.h>
 
 #if defined(CONFIG_SOC_SERIES_ESP32)
-#define DT_CPU_COMPAT cdns_tensilica_xtensa_lx6
+#define DT_CPU_COMPAT espressif_xtensa_lx6
 #elif defined(CONFIG_SOC_SERIES_ESP32S2) || defined(CONFIG_SOC_SERIES_ESP32S3)
-#define DT_CPU_COMPAT cdns_tensilica_xtensa_lx7
+#define DT_CPU_COMPAT espressif_xtensa_lx7
 #elif CONFIG_SOC_SERIES_ESP32C3
 #define DT_CPU_COMPAT espressif_riscv
 #endif
 
 #define CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ ((DT_PROP(DT_INST(0, DT_CPU_COMPAT), clock_frequency)) / 1000000)
-#define CONFIG_XTAL_FREQ (DT_PROP(DT_INST(0, espressif_esp32_rtc), xtal_freq))
+#define CONFIG_XTAL_FREQ (DT_PROP(DT_INST(0, DT_CPU_COMPAT), xtal_freq) / 1000000)
 
 #if defined(CONFIG_SOC_SERIES_ESP32)
 #define CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ ESP_SOC_DEFAULT_CPU_FREQ_MHZ
