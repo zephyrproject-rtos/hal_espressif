@@ -180,9 +180,5 @@ class Tools(WestCommand):
 
         monitor_path = Path(module_path, "tools/idf_monitor/idf_monitor.py")
         cmd_path = Path(os.getcwd())
-        if platform.system() == 'Windows':
-            cmd_exec((sys.executable, str(monitor_path), "-p", esp_port,
-                     "-b", args.baud, str(elf_path), "--eol", args.eol), cwd=cmd_path)
-        else:
-            cmd_exec((sys.executable, monitor_path, "-p", esp_port, "-b", args.baud,
-                      elf_path, "--eol", args.eol), cwd=cmd_path)
+        cmd_exec((sys.executable, str(monitor_path), "-p", esp_port,
+                 "-b", args.baud, str(elf_path), "--eol", args.eol), cwd=cmd_path)
