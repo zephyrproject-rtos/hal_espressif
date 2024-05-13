@@ -367,6 +367,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
 
+    ../../components/hal/xt_wdt_hal.c
+
     ../../components/log/log_noos.c
     ../../components/log/log.c
 
