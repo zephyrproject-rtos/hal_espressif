@@ -8,8 +8,7 @@ import yaml
 import argparse
 from pathlib import Path
 
-file_out_head = '''
-/*
+file_out_head = '''/*
  * Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
  *
  * SPDX-License-Identifier: Apache-2.0
