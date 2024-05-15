@@ -11,7 +11,7 @@ import os
 import re
 import struct
 import tempfile
-from typing import BinaryIO, Optional
+from typing import IO, Optional
 
 from intelhex import HexRecordError, IntelHex
 
@@ -19,9 +19,11 @@ from .loader import ESPLoader
 from .targets import (
     ESP32C2ROM,
     ESP32C3ROM,
+    ESP32C5ROM,
     ESP32C5BETA3ROM,
     ESP32C6BETAROM,
     ESP32C6ROM,
+    ESP32C61ROM,
     ESP32H2BETA1ROM,
     ESP32H2BETA2ROM,
     ESP32H2ROM,
@@ -41,7 +43,7 @@ def align_file_position(f, size):
     f.seek(align, 1)
 
 
-def intel_hex_to_bin(file: BinaryIO, start_addr: Optional[int] = None) -> BinaryIO:
+def intel_hex_to_bin(file: IO[bytes], start_addr: Optional[int] = None) -> IO[bytes]:
     """Convert IntelHex file to temp binary file with padding from start_addr
     If hex file was detected return temp bin file object; input file otherwise"""
     INTEL_HEX_MAGIC = b":"
@@ -57,7 +59,7 @@ def intel_hex_to_bin(file: BinaryIO, start_addr: Optional[int] = None) -> Binary
             return bin
         else:
             return file
-    except HexRecordError:
+    except (HexRecordError, UnicodeDecodeError):
         # file started with HEX magic but the rest was not according to the standard
         return file
 
@@ -87,6 +89,8 @@ def LoadFirmwareImage(chip, image_file):
                 "esp32h2beta2": ESP32H2BETA2FirmwareImage,
                 "esp32c2": ESP32C2FirmwareImage,
                 "esp32c6": ESP32C6FirmwareImage,
+                "esp32c61": ESP32C61FirmwareImage,
+                "esp32c5": ESP32C5FirmwareImage,
                 "esp32c5beta3": ESP32C5BETA3FirmwareImage,
                 "esp32h2": ESP32H2FirmwareImage,
                 "esp32p4": ESP32P4FirmwareImage,
@@ -111,12 +115,13 @@ class ImageSegment(object):
     """Wrapper class for a segment in an ESP image
     (very similar to a section in an ELFImage also)"""
 
-    def __init__(self, addr, data, file_offs=None, align=4):
+    def __init__(self, addr, data, file_offs=None, flags=0, align=4):
         self.addr = addr
         self.data = data
         self.file_offs = file_offs
-        self.include_in_checksum = True
+        self.flags = flags
         self.align = align
+        self.include_in_checksum = True
         if self.addr != 0:
             self.pad_to_alignment(
                 4
@@ -163,7 +168,7 @@ class ImageSegment(object):
         end_addr = self.addr + len(self.data)
         addr_mod = end_addr % alignment
         if addr_mod != 0:
-            end_addr += (alignment - addr_mod)
+            end_addr += alignment - addr_mod
         return end_addr
 
     def pad_to_addr(self, addr):
@@ -176,8 +181,8 @@ class ELFSection(ImageSegment):
     """Wrapper class for a section in an ELF image, has a section
     name as well as the common properties of an ImageSegment."""
 
-    def __init__(self, name, addr, data, align=4):
-        super(ELFSection, self).__init__(addr, data, align=align)
+    def __init__(self, name, addr, data, flags, align=4):
+        super(ELFSection, self).__init__(addr, data, flags=flags, align=align)
         self.name = name.decode("utf-8")
 
     def __repr__(self):
@@ -187,6 +192,9 @@ class ELFSection(ImageSegment):
 class BaseFirmwareImage(object):
     SEG_HEADER_LEN = 8
     SHA256_DIGEST_LEN = 32
+    ELF_FLAG_WRITE = 0x1
+    ELF_FLAG_READ = 0x2
+    ELF_FLAG_EXEC = 0x4
 
     """ Base class with common firmware image functions """
 
@@ -361,6 +369,11 @@ class BaseFirmwareImage(object):
         irom_segment = self.get_irom_segment()
         return [s for s in self.segments if s != irom_segment]
 
+    def sort_segments(self):
+        if not self.segments:
+            return  # nothing to sort
+        self.segments = sorted(self.segments, key=lambda s: s.addr)
+
     def merge_adjacent_segments(self):
         if not self.segments:
             return  # nothing to merge
@@ -373,19 +386,32 @@ class BaseFirmwareImage(object):
             elem = self.segments[i - 1]
             next_elem = self.segments[i]
             elem_pad_addr = elem.addr_align(next_elem.align)
-            if (elem_pad_addr != elem.addr + len(elem.data) and
-                elem_pad_addr == next_elem.addr):
-                print(
-                    'Info: inserting %d bytes padding between %s and %s' %
-                    (next_elem.addr - (elem.addr + len(elem.data)),
-                     elem.name, next_elem.name)
-                )
-                elem.pad_to_addr(elem_pad_addr)
+
+            # When creating the images from 3rd-party frameworks ELFs, the merging
+            # could bring together segments with incompatible alignment requirements.
+            # At this point, we add padding so the resulting placement respects the
+            # original alignment requirements of those segments.
+            if self.ROM_LOADER != ESP8266ROM and self.ram_only_header:
+                if (
+                    elem_pad_addr != elem.addr + len(elem.data)
+                    and elem_pad_addr == next_elem.addr
+                ):
+                    print(
+                        "Info: inserting %d bytes padding between %s and %s"
+                        % (
+                            next_elem.addr - (elem.addr + len(elem.data)),
+                            elem.name,
+                            next_elem.name,
+                        )
+                    )
+                    elem.pad_to_addr(elem_pad_addr)
             if all(
                 (
                     elem.get_memory_type(self) == next_elem.get_memory_type(self),
                     elem.include_in_checksum == next_elem.include_in_checksum,
                     next_elem.addr == elem.addr + len(elem.data),
+                    next_elem.flags & self.ELF_FLAG_EXEC
+                    == elem.flags & self.ELF_FLAG_EXEC,
                 )
             ):
                 # Merge any segment that ends where the next one starts,
@@ -641,6 +667,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
         self.ram_only_header = ram_only_header
 
         self.append_digest = append_digest
+        self.data_length = None
 
         if load_file is not None:
             start = load_file.tell()
@@ -659,6 +686,7 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                 calc_digest = hashlib.sha256()
                 calc_digest.update(load_file.read(end - start))
                 self.calc_digest = calc_digest.digest()  # TODO: decide what to do here?
+                self.data_length = end - start
 
             self.verify()
 
@@ -767,12 +795,11 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                     # Some chips have a non-zero load offset (eg. 0x1000)
                     # therefore we shift the ROM segments "-load_offset"
                     # so it will be aligned properly after it is flashed
-                    align_min = (
-                        self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET - self.SEG_HEADER_LEN
-                    )
-                    if pad_len < align_min:
-                        print("Unable to align the segment!")
-                        break
+                    if pad_len < self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET:
+                        # in case pad_len does not fit minimum alignment,
+                        # pad it to next aligned boundary
+                        pad_len += self.IROM_ALIGN
+
                     pad_len -= self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET
                     pad_segment = ImageSegment(0, b"\x00" * pad_len, f.tell())
                     self.save_segment(f, pad_segment)
@@ -1150,6 +1177,24 @@ class ESP32C6FirmwareImage(ESP32FirmwareImage):
 ESP32C6ROM.BOOTLOADER_IMAGE = ESP32C6FirmwareImage
 
 
+class ESP32C61FirmwareImage(ESP32C6FirmwareImage):
+    """ESP32C61 Firmware Image almost exactly the same as ESP32C6FirmwareImage"""
+
+    ROM_LOADER = ESP32C61ROM
+
+
+ESP32C61ROM.BOOTLOADER_IMAGE = ESP32C61FirmwareImage
+
+
+class ESP32C5FirmwareImage(ESP32C6FirmwareImage):
+    """ESP32C5 Firmware Image almost exactly the same as ESP32C6FirmwareImage"""
+
+    ROM_LOADER = ESP32C5ROM
+
+
+ESP32C5ROM.BOOTLOADER_IMAGE = ESP32C5FirmwareImage
+
+
 class ESP32C5BETA3FirmwareImage(ESP32C6FirmwareImage):
     """ESP32C5BETA3 Firmware Image almost exactly the same as ESP32C6FirmwareImage"""
 
@@ -1264,10 +1309,18 @@ class ELFFile(object):
         section_header_offsets = range(0, len(section_header), self.LEN_SEC_HEADER)
 
         def read_section_header(offs):
-            name_offs, sec_type, _flags, lma, sec_offs, size, link, info, align = struct.unpack_from(
-                "<LLLLLLLLL", section_header[offs:]
-            )
-            return (name_offs, sec_type, lma, size, sec_offs, align)
+            (
+                name_offs,
+                sec_type,
+                _flags,
+                lma,
+                sec_offs,
+                size,
+                link,
+                info,
+                align,
+            ) = struct.unpack_from("<LLLLLLLLL", section_header[offs:])
+            return (name_offs, sec_type, lma, size, sec_offs, _flags, align)
 
         all_sections = [read_section_header(offs) for offs in section_header_offsets]
         prog_sections = [s for s in all_sections if s[1] in ELFFile.PROG_SEC_TYPES]
@@ -1276,7 +1329,7 @@ class ELFFile(object):
         # search for the string table section
         if (shstrndx * self.LEN_SEC_HEADER) not in section_header_offsets:
             raise FatalError("ELF file has no STRTAB section at shstrndx %d" % shstrndx)
-        _, sec_type, _, sec_size, sec_offs, _ = read_section_header(
+        _, sec_type, _, sec_size, sec_offs, _, _ = read_section_header(
             shstrndx * self.LEN_SEC_HEADER
         )
         if sec_type != ELFFile.SEC_TYPE_STRTAB:
@@ -1298,14 +1351,20 @@ class ELFFile(object):
             return f.read(size)
 
         prog_sections = [
-            ELFSection(lookup_string(n_offs), lma, read_data(offs, size), align=align)
-            for (n_offs, _type, lma, size, offs, align) in prog_sections
+            ELFSection(
+                lookup_string(n_offs),
+                lma,
+                read_data(offs, size),
+                flags=_flags,
+                align=align,
+            )
+            for (n_offs, _type, lma, size, offs, _flags, align) in prog_sections
             if lma != 0 and size > 0
         ]
         self.sections = prog_sections
         self.nobits_sections = [
-            ELFSection(lookup_string(n_offs), lma, b"")
-            for (n_offs, _type, lma, size, offs, align) in nobits_secitons
+            ELFSection(lookup_string(n_offs), lma, b"", flags=_flags, align=align)
+            for (n_offs, _type, lma, size, offs, _flags, align) in nobits_secitons
             if lma != 0 and size > 0
         ]
 
@@ -1338,7 +1397,7 @@ class ELFFile(object):
                 _flags,
                 _align,
             ) = struct.unpack_from("<LLLLLLLL", segment_header[offs:])
-            return (seg_type, lma, size, seg_offs)
+            return (seg_type, lma, size, seg_offs, _flags)
 
         all_segments = [read_segment_header(offs) for offs in segment_header_offsets]
         prog_segments = [s for s in all_segments if s[0] == ELFFile.SEG_TYPE_LOAD]
@@ -1348,8 +1407,8 @@ class ELFFile(object):
             return f.read(size)
 
         prog_segments = [
-            ELFSection(b"PHDR", lma, read_data(offs, size))
-            for (_type, lma, size, offs) in prog_segments
+            ELFSection(b"PHDR", lma, read_data(offs, size), flags=_flags)
+            for (_type, lma, size, offs, _flags) in prog_segments
             if lma != 0 and size > 0
         ]
         self.segments = prog_segments

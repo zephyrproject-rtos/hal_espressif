@@ -96,13 +96,26 @@ Conventional Commits
 Ruff
 """"
 
-``esptool.py`` is `PEP8 <https://peps.python.org/pep-0008/>` compliant and enforces this style guide. For compliancy checking, we use `ruff <https://docs.astral.sh/ruff/>`.
+``esptool.py`` is `PEP8 <https://peps.python.org/pep-0008/>`_ compliant and enforces this style guide. For compliance checking, we use `ruff <https://docs.astral.sh/ruff/>`_.
 ``Ruff`` also auto-format files in the same style as previously used ``black``.
 
 
 ``Ruff`` and ``Conventional Precommit Linter`` tools will be automatically run by ``pre-commit`` if that is configured. To check your code manually before submitting, run ``python -m ruff`` (this tool is installed as part of the development requirements shown at the beginning of this document).
 
 When you submit a Pull Request, the GitHub Actions automated build system will run automated checks using these tools.
+
+Shinx-lint
+""""""""""
+
+The documentation is checked for stylistic and formal issues by ``sphinx-lint``.
+
+
+Codespell check
+"""""""""""""""
+
+This repository utilizes an automatic `spell checker <https://github.com/codespell-project/codespell>`_ integrated into the pre-commit process. If any spelling issues are detected, the recommended corrections will be applied automatically to the file, ready for commit.
+In the event of false positives, you can adjust the configuration in the `.codespell.rc`. To exclude files from the spell check, utilize the `skip` keyword followed by comma-separated paths to the files (wildcards are supported). Additionally, to exclude specific words from the spell check, employ the `ignore-words-list` keyword followed by comma-separated words to be skipped.
+
 
 Automated Integration Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -118,7 +131,7 @@ The following tests run automatically by GitHub Actions for each Pull Request. Y
 *  ``test_mergebin.py`` tests the ``merge_bin`` command
 *  ``test_modules.py`` tests the modules used by ``esptool.py`` for regressions
 *  ``test_espsecure.py`` tests ``espsecure.py`` functionality
-*  ``test_espsecure_hsm.py`` tests support of extarnal HSM signing in ``espsecure.py``. These tests require additional prerequisites, see ``SoftHSM2 setup`` in the `tests workflow definition <https://github.com/espressif/esptool/blob/master/.github/workflows/test_esptool.yml>`_ for more information.
+*  ``test_espsecure_hsm.py`` tests support of external HSM signing in ``espsecure.py``. These tests require additional prerequisites, see ``SoftHSM2 setup`` in the `tests workflow definition <https://github.com/espressif/esptool/blob/master/.github/workflows/test_esptool.yml>`_ for more information.
 
 The following tests are not run automatically by GitHub Actions, because they need real connected hardware. Therefore, they need to be run locally in a command line:
 
@@ -137,6 +150,8 @@ The following tests are not run automatically by GitHub Actions, because they ne
    .. note::
 
       Some tests might fail at higher baud rates on some hardware.
+
+*  ``test_esptool_sdm.py`` contains integration tests for ``esptool.py`` with chips in secure download mode. It needs to be run against real Espressif hardware (with active SDM). The command line format is the same as for ``test_esptool.py``.
 
 The following tests are not run automatically by GitHub Actions, but can be run locally in a command line:
 

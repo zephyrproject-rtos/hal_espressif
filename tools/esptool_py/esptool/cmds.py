@@ -10,8 +10,10 @@ import struct
 import sys
 import time
 import zlib
+import itertools
 
 from intelhex import IntelHex
+from serial import SerialException
 
 from .bin_image import ELFFile, ImageSegment, LoadFirmwareImage
 from .bin_image import (
@@ -115,7 +117,7 @@ def detect_chip(
         else:
             err_msg = f"Unexpected chip ID value {chip_id}."
     except (UnsupportedCommandError, struct.error, FatalError) as e:
-        # UnsupportedCommmanddError: ESP8266/ESP32 ROM
+        # UnsupportedCommandError: ESP8266/ESP32 ROM
         # struct.error: ESP32-S2
         # FatalError: ESP8266/ESP32 STUB
         print(" Unsupported detection protocol, switching and trying again...")
@@ -229,7 +231,7 @@ def detect_flash_size(esp, args=None):
         if flash_size is None:
             flash_size = "4MB"
             print(
-                "Warning: Could not auto-detect Flash size "
+                "WARNING: Could not auto-detect Flash size "
                 f"(FlashID={flash_id:#x}, SizeID={size_id:#x}), defaulting to 4MB"
             )
         else:
@@ -276,49 +278,60 @@ def _update_image_flash_params(esp, address, args, image):
 
     # After the 8-byte header comes the extended header for chips others than ESP8266.
     # The 15th byte of the extended header indicates if the image is protected by
-    # a SHA256 checksum. In that case we should not modify the header because
-    # the checksum check would fail.
-    sha_implies_keep = args.chip != "esp8266" and image[8 + 15] == 1
-
-    def print_keep_warning(arg_to_keep, arg_used):
-        print(
-            "Warning: Image file at {addr} is protected with a hash checksum, "
-            "so not changing the flash {arg} setting. "
-            "Use the --flash_{arg}=keep option instead of --flash_{arg}={arg_orig} "
-            "in order to remove this warning, or use the --dont-append-digest option "
-            "for the elf2image command in order to generate an image file "
-            "without a hash checksum".format(
-                addr=hex(address), arg=arg_to_keep, arg_orig=arg_used
-            )
-        )
+    # a SHA256 checksum. In that case we recalculate the SHA digest after modifying the header.
+    sha_appended = args.chip != "esp8266" and image[8 + 15] == 1
 
     if args.flash_mode != "keep":
-        new_flash_mode = FLASH_MODES[args.flash_mode]
-        if flash_mode != new_flash_mode and sha_implies_keep:
-            print_keep_warning("mode", args.flash_mode)
-        else:
-            flash_mode = new_flash_mode
+        flash_mode = FLASH_MODES[args.flash_mode]
 
     flash_freq = flash_size_freq & 0x0F
     if args.flash_freq != "keep":
-        new_flash_freq = esp.parse_flash_freq_arg(args.flash_freq)
-        if flash_freq != new_flash_freq and sha_implies_keep:
-            print_keep_warning("frequency", args.flash_freq)
-        else:
-            flash_freq = new_flash_freq
+        flash_freq = esp.parse_flash_freq_arg(args.flash_freq)
 
     flash_size = flash_size_freq & 0xF0
     if args.flash_size != "keep":
-        new_flash_size = esp.parse_flash_size_arg(args.flash_size)
-        if flash_size != new_flash_size and sha_implies_keep:
-            print_keep_warning("size", args.flash_size)
-        else:
-            flash_size = new_flash_size
+        flash_size = esp.parse_flash_size_arg(args.flash_size)
 
     flash_params = struct.pack(b"BB", flash_mode, flash_size + flash_freq)
     if flash_params != image[2:4]:
         print("Flash params set to 0x%04x" % struct.unpack(">H", flash_params))
         image = image[0:2] + flash_params + image[4:]
+
+    # recalculate the SHA digest if it was appended
+    if sha_appended:
+        # Since the changes are only made for images located in the bootloader offset,
+        # we can assume that the image is always a bootloader image.
+        # For merged binaries, we check the bootloader SHA when parameters are changed.
+        image_object = esp.BOOTLOADER_IMAGE(io.BytesIO(image))
+        # get the image header, extended header (if present) and data
+        image_data_before_sha = image[: image_object.data_length]
+        # get the image data after the SHA digest (primary for merged binaries)
+        image_data_after_sha = image[
+            (image_object.data_length + image_object.SHA256_DIGEST_LEN) :
+        ]
+
+        sha_digest_calculated = hashlib.sha256(image_data_before_sha).digest()
+        image = bytes(
+            itertools.chain(
+                image_data_before_sha, sha_digest_calculated, image_data_after_sha
+            )
+        )
+
+        # get the SHA digest newly stored in the image and compare it to the calculated one
+        image_stored_sha = image[
+            image_object.data_length : image_object.data_length
+            + image_object.SHA256_DIGEST_LEN
+        ]
+
+        if hexify(sha_digest_calculated) == hexify(image_stored_sha):
+            print("SHA digest in image updated")
+        else:
+            print(
+                "WARNING: SHA recalculation for binary failed!\n"
+                f"\tExpected calculated SHA: {hexify(sha_digest_calculated)}\n"
+                f"\tSHA stored in binary:    {hexify(image_stored_sha)}"
+            )
+
     return image
 
 
@@ -555,62 +568,101 @@ def write_flash(esp, args):
         if len(image) == 0:
             print("WARNING: File %s is empty" % argfile.name)
             continue
-        image = _update_image_flash_params(esp, address, args, image)
+
+        if not esp.secure_download_mode and not esp.get_secure_boot_enabled():
+            image = _update_image_flash_params(esp, address, args, image)
+        else:
+            print(
+                "WARNING: Security features enabled, so not changing any flash settings."
+            )
         calcmd5 = hashlib.md5(image).hexdigest()
         uncsize = len(image)
         if compress:
             uncimage = image
             image = zlib.compress(uncimage, 9)
-            # Decompress the compressed binary a block at a time,
-            # to dynamically calculate the timeout based on the real write size
-            decompress = zlib.decompressobj()
-            blocks = esp.flash_defl_begin(uncsize, len(image), address)
-        else:
-            blocks = esp.flash_begin(uncsize, address, begin_rom_encrypted=encrypted)
-        argfile.seek(0)  # in case we need it again
-        seq = 0
-        bytes_sent = 0  # bytes sent on wire
-        bytes_written = 0  # bytes written to flash
-        t = time.time()
-
-        timeout = DEFAULT_TIMEOUT
-
-        while len(image) > 0:
-            print_overwrite(
-                "Writing at 0x%08x... (%d %%)"
-                % (address + bytes_written, 100 * (seq + 1) // blocks)
-            )
-            sys.stdout.flush()
-            block = image[0 : esp.FLASH_WRITE_SIZE]
-            if compress:
-                # feeding each compressed block into the decompressor lets us
-                # see block-by-block how much will be written
-                block_uncompressed = len(decompress.decompress(block))
-                bytes_written += block_uncompressed
-                block_timeout = max(
-                    DEFAULT_TIMEOUT,
-                    timeout_per_mb(ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed),
-                )
-                if not esp.IS_STUB:
-                    timeout = (
-                        block_timeout  # ROM code writes block to flash before ACKing
-                    )
-                esp.flash_defl_block(block, seq, timeout=timeout)
-                if esp.IS_STUB:
-                    # Stub ACKs when block is received,
-                    # then writes to flash while receiving the block after it
-                    timeout = block_timeout
-            else:
-                # Pad the last block
-                block = block + b"\xff" * (esp.FLASH_WRITE_SIZE - len(block))
-                if encrypted:
-                    esp.flash_encrypt_block(block, seq)
+        original_image = image  # Save the whole image in case retry is needed
+        # Try again if reconnect was successful
+        for attempt in range(1, esp.WRITE_FLASH_ATTEMPTS + 1):
+            try:
+                if compress:
+                    # Decompress the compressed binary a block at a time,
+                    # to dynamically calculate the timeout based on the real write size
+                    decompress = zlib.decompressobj()
+                    blocks = esp.flash_defl_begin(uncsize, len(image), address)
                 else:
-                    esp.flash_block(block, seq)
-                bytes_written += len(block)
-            bytes_sent += len(block)
-            image = image[esp.FLASH_WRITE_SIZE :]
-            seq += 1
+                    blocks = esp.flash_begin(
+                        uncsize, address, begin_rom_encrypted=encrypted
+                    )
+                argfile.seek(0)  # in case we need it again
+                seq = 0
+                bytes_sent = 0  # bytes sent on wire
+                bytes_written = 0  # bytes written to flash
+                t = time.time()
+
+                timeout = DEFAULT_TIMEOUT
+
+                while len(image) > 0:
+                    print_overwrite(
+                        "Writing at 0x%08x... (%d %%)"
+                        % (address + bytes_written, 100 * (seq + 1) // blocks)
+                    )
+                    sys.stdout.flush()
+                    block = image[0 : esp.FLASH_WRITE_SIZE]
+                    if compress:
+                        # feeding each compressed block into the decompressor lets us
+                        # see block-by-block how much will be written
+                        block_uncompressed = len(decompress.decompress(block))
+                        bytes_written += block_uncompressed
+                        block_timeout = max(
+                            DEFAULT_TIMEOUT,
+                            timeout_per_mb(
+                                ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed
+                            ),
+                        )
+                        if not esp.IS_STUB:
+                            timeout = block_timeout  # ROM code writes block to flash before ACKing
+                        esp.flash_defl_block(block, seq, timeout=timeout)
+                        if esp.IS_STUB:
+                            # Stub ACKs when block is received,
+                            # then writes to flash while receiving the block after it
+                            timeout = block_timeout
+                    else:
+                        # Pad the last block
+                        block = block + b"\xff" * (esp.FLASH_WRITE_SIZE - len(block))
+                        if encrypted:
+                            esp.flash_encrypt_block(block, seq)
+                        else:
+                            esp.flash_block(block, seq)
+                        bytes_written += len(block)
+                    bytes_sent += len(block)
+                    image = image[esp.FLASH_WRITE_SIZE :]
+                    seq += 1
+                break
+            except SerialException:
+                if attempt == esp.WRITE_FLASH_ATTEMPTS or encrypted:
+                    # Already retried once or encrypted mode is disabled because of security reasons
+                    raise
+                print("\nLost connection, retrying...")
+                esp._port.close()
+                print("Waiting for the chip to reconnect", end="")
+                for _ in range(DEFAULT_CONNECT_ATTEMPTS):
+                    try:
+                        time.sleep(1)
+                        esp._port.open()
+                        print()  # Print new line which was suppressed by print(".")
+                        esp.connect()
+                        if esp.IS_STUB:
+                            # Hack to bypass the stub overwrite check
+                            esp.IS_STUB = False
+                            # Reflash stub because chip was reset
+                            esp = esp.run_stub()
+                        image = original_image
+                        break
+                    except SerialException:
+                        print(".", end="")
+                        sys.stdout.flush()
+                else:
+                    raise  # Reconnect limit reached
 
         if esp.IS_STUB:
             # Stub only writes each block to flash after 'ack'ing the receive,
@@ -645,7 +697,7 @@ def write_flash(esp, args):
                     print("Flash md5: %s" % res)
                     print(
                         "MD5 of 0xFF is %s"
-                        % (hashlib.md5(b"\xFF" * uncsize).hexdigest())
+                        % (hashlib.md5(b"\xff" * uncsize).hexdigest())
                     )
                     raise FatalError("MD5 of file does not match data in flash!")
                 else:
@@ -987,8 +1039,6 @@ def elf2image(args):
         args.chip = "esp8266"
 
     print("Creating {} image...".format(args.chip))
-    if args.ram_only_header:
-        print("ROM segments hidden - only RAM segments are visible to the ROM loader!")
 
     if args.chip != "esp8266":
         image = CHIP_DEFS[args.chip].BOOTLOADER_IMAGE()
@@ -1000,7 +1050,10 @@ def elf2image(args):
         image.min_rev_full = args.min_rev_full
         image.max_rev_full = args.max_rev_full
         image.ram_only_header = args.ram_only_header
-        image.append_digest = args.append_digest
+        if image.ram_only_header:
+            image.append_digest = False
+        else:
+            image.append_digest = args.append_digest
     elif args.version == "1":  # ESP8266
         image = ESP8266ROMFirmwareImage()
     elif args.version == "2":
@@ -1023,6 +1076,13 @@ def elf2image(args):
     if args.elf_sha256_offset:
         image.elf_sha256 = e.sha256()
         image.elf_sha256_offset = args.elf_sha256_offset
+
+    if args.ram_only_header:
+        print(
+            "Image has only RAM segments visible. "
+            "ROM segments are hidden and SHA256 digest is not appended."
+        )
+        image.sort_segments()
 
     before = len(image.segments)
     image.merge_adjacent_segments()
@@ -1108,6 +1168,7 @@ def flash_id(esp, args):
     flash_type_str = flash_type_dict.get(flash_type)
     if flash_type_str:
         print(f"Flash type set in eFuse: {flash_type_str}")
+    esp.get_flash_voltage()
 
 
 def read_flash(esp, args):
@@ -1275,7 +1336,7 @@ def get_security_info(esp, args):
     hard_dis_jtag = get_security_flag_status("HARD_DIS_JTAG", flags)
     soft_dis_jtag = get_security_flag_status("SOFT_DIS_JTAG", flags)
     if hard_dis_jtag:
-        print("JTAG: Permenantly Disabled")
+        print("JTAG: Permanently Disabled")
     elif soft_dis_jtag:
         print("JTAG: Software Access Disabled")
     if get_security_flag_status("DIS_USB", flags):
@@ -1328,7 +1389,7 @@ def merge_bin(args):
 
             def pad_to(flash_offs):
                 # account for output file offset if there is any
-                of.write(b"\xFF" * (flash_offs - args.target_offset - of.tell()))
+                of.write(b"\xff" * (flash_offs - args.target_offset - of.tell()))
 
             for addr, argfile in input_files:
                 pad_to(addr)

@@ -12,6 +12,7 @@ from bitstring import BitArray, BitStream, CreationError
 import esptool
 
 from . import util
+from typing import List
 
 
 class CheckArgValue(object):
@@ -227,13 +228,14 @@ class EfuseBlockBase(EfuseProtectBase):
 
         return [self.parent.read_reg(offs) for offs in get_offsets(self)]
 
-    def read(self):
+    def read(self, print_info=True):
         words = self.get_words()
         data = BitArray()
         for word in reversed(words):
             data.append("uint:32=%d" % word)
         self.bitarray.overwrite(data, pos=0)
-        self.print_block(self.bitarray, "read_regs")
+        if print_info:
+            self.print_block(self.bitarray, "read_regs")
 
     def print_block(self, bit_string, comment, debug=False):
         if self.parent.debug or debug:
@@ -317,7 +319,7 @@ class EfuseBlockBase(EfuseProtectBase):
                                     if rd_chunk == wr_chunk:
                                         print(
                                             "wr_chunk == rd_chunk. "
-                                            "Countinue with empty chunk."
+                                            "Continue with empty chunk."
                                         )
                                         wr_data[i : i + 6 * 8 :].set(0)
                                     else:
@@ -385,6 +387,18 @@ class EfuseBlockBase(EfuseProtectBase):
                     )
                     break
             if not self.fail and self.num_errors == 0:
+                self.read(print_info=False)
+                if self.wr_bitarray & self.bitarray != self.wr_bitarray:
+                    # if the required bits are not set then we need to re-burn it again.
+                    if burns < 2:
+                        print(
+                            f"\nRepeat burning BLOCK{self.id} (#{burns + 2}) because not all bits were set"
+                        )
+                        continue
+                    else:
+                        print(
+                            f"\nAfter {burns + 1} attempts, the required data was not set to BLOCK{self.id}"
+                        )
                 break
 
     def burn(self):
@@ -441,8 +455,8 @@ class EspEfusesBase(object):
     """
 
     _esp = None
-    blocks = []
-    efuses = []
+    blocks: List[EfuseBlockBase] = []
+    efuses: List = []
     coding_scheme = None
     force_write_always = None
     batch_mode_cnt = 0
@@ -736,7 +750,7 @@ class EfuseFieldBase(EfuseProtectBase):
         else:
             if self.name not in ["WR_DIS", "RD_DIS"]:
                 # WR_DIS, RD_DIS fields can have already set bits.
-                # Do not neeed to check below condition for them.
+                # Do not need to check below condition for them.
                 if bitarray_new_value | bitarray_old_value != bitarray_new_value:
                     error_msg = "\tNew value contains some bits that cannot be cleared "
                     error_msg += "(value will be {})".format(
