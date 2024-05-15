@@ -475,7 +475,7 @@ def main(argv=None, esp=None):
     parser_elf2image.add_argument(
         "--use_segments",
         help="If set, ELF segments will be used instead of ELF sections "
-        "to genereate the image.",
+        "to generate the image.",
         action="store_true",
     )
     parser_elf2image.add_argument(
@@ -496,7 +496,7 @@ def main(argv=None, esp=None):
         "quantity. This will make the other segments invisible to the ROM "
         "loader. Use this argument with care because the ROM loader will load "
         "only the RAM segments although the other segments being present in "
-        "the output.",
+        "the output. Implies --dont-append-digest",
         action="store_true",
         default=None,
     )
@@ -906,6 +906,10 @@ def main(argv=None, esp=None):
                 flash_size = detect_flash_size(esp, args)
             elif args.flash_size == "keep":
                 flash_size = detect_flash_size(esp, args=None)
+                if not esp.IS_STUB:
+                    print(
+                        "WARNING: In case of failure, please set a specific --flash_size."
+                    )
             else:
                 flash_size = args.flash_size
 

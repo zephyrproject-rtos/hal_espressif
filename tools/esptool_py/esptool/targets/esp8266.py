@@ -169,11 +169,17 @@ class ESP8266ROM(ESPLoader):
         else:
             return (num_sectors - head_sectors) * sector_size
 
+    def get_flash_voltage(self):
+        pass  # not supported on ESP8266
+
     def override_vddsdio(self, new_voltage):
         raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def check_spi_connection(self, spi_connection):
         raise NotSupportedError(self, "Setting --spi-connection")
+
+    def get_secure_boot_enabled(self):
+        return False  # ESP8266 doesn't have security features
 
 
 class ESP8266StubLoader(ESP8266ROM):

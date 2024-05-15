@@ -86,16 +86,16 @@ class ESP32P4ROM(ESP32ROM):
     UF2_FAMILY_ID = 0x3D308E94
 
     def get_pkg_version(self):
-        # ESP32P4 TODO
-        return 0
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 27) & 0x07
 
     def get_minor_chip_version(self):
-        # ESP32P4 TODO
-        return 0
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 0) & 0x0F
 
     def get_major_chip_version(self):
-        # ESP32P4 TODO
-        return 0
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 4) & 0x03
 
     def get_chip_description(self):
         chip_name = {
@@ -111,6 +111,9 @@ class ESP32P4ROM(ESP32ROM):
     def get_crystal_freq(self):
         # ESP32P4 XTAL is fixed to 40MHz
         return 40
+
+    def get_flash_voltage(self):
+        pass  # not supported on ESP32-P4
 
     def override_vddsdio(self, new_voltage):
         raise NotImplementedInROMError(
@@ -170,7 +173,13 @@ class ESP32P4ROM(ESP32ROM):
         #     self.disable_watchdogs()
 
     def check_spi_connection(self, spi_connection):
-        pass  # TODO: Define GPIOs for --spi-connection
+        if not set(spi_connection).issubset(set(range(0, 55))):
+            raise FatalError("SPI Pin numbers must be in the range 0-54.")
+        if any([v for v in spi_connection if v in [24, 25]]):
+            print(
+                "WARNING: GPIO pins 24 and 25 are used by USB-Serial/JTAG, "
+                "consider using other pins for SPI flash connection."
+            )
 
 
 class ESP32P4StubLoader(ESP32P4ROM):

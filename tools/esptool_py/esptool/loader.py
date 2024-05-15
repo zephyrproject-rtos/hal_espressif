@@ -13,6 +13,8 @@ import string
 import struct
 import sys
 import time
+from typing import Optional
+
 
 from .config import load_config_file
 from .reset import (
@@ -59,7 +61,7 @@ except ImportError:
     print(
         "The installed version (%s) of pyserial appears to be too old for esptool.py "
         "(Python interpreter %s). Check the README for installation instructions."
-        % (sys.VERSION, sys.executable)
+        % (serial.VERSION, sys.executable)
     )
     raise
 except Exception:
@@ -179,12 +181,15 @@ class ESPLoader(object):
 
     Don't instantiate this base class directly, either instantiate a subclass or
     call cmds.detect_chip() which will interrogate the chip and return the
-    appropriate subclass instance.
+    appropriate subclass instance. You can also use a context manager as
+    "with detect_chip() as esp:" to ensure the serial port is closed when done.
 
     """
 
     CHIP_NAME = "Espressif device"
     IS_STUB = False
+    STUB_CLASS: Optional[object] = None
+    BOOTLOADER_IMAGE: Optional[object] = None
 
     DEFAULT_PORT = "/dev/ttyUSB0"
 
@@ -201,7 +206,7 @@ class ESPLoader(object):
     ESP_WRITE_REG = 0x09
     ESP_READ_REG = 0x0A
 
-    # Some comands supported by ESP32 and later chips ROM bootloader (or -8266 w/ stub)
+    # Some commands supported by ESP32 and later chips ROM bootloader (or -8266 w/ stub)
     ESP_SPI_SET_PARAMS = 0x0B
     ESP_SPI_ATTACH = 0x0D
     ESP_READ_FLASH_SLOW = 0x0E  # ROM only, much slower than the stub flash read
@@ -273,11 +278,15 @@ class ESPLoader(object):
     # Chip IDs that are no longer supported by esptool
     UNSUPPORTED_CHIPS = {6: "ESP32-S3(beta 3)"}
 
+    # Number of attempts to write flash data
+    WRITE_FLASH_ATTEMPTS = 2
+
     def __init__(self, port=DEFAULT_PORT, baud=ESP_ROM_BAUD, trace_enabled=False):
         """Base constructor for ESPLoader bootloader interaction
 
         Don't call this constructor, either instantiate a specific
-        ROM class directly, or use cmds.detect_chip().
+        ROM class directly, or use cmds.detect_chip(). You can use the with
+        statement to ensure the serial port is closed when done.
 
         This base class has all of the instance methods for bootloader
         functionality supported across various chips & stub
@@ -360,6 +369,12 @@ class ESPLoader(object):
             # no write timeout for RFC2217 ports
             # need to set the property back to None or it will continue to fail
             self._port.write_timeout = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._port.close()
 
     @property
     def serial_port(self):
@@ -509,7 +524,7 @@ class ESPLoader(object):
 
         # ROM bootloaders send some non-zero "val" response. The flasher stub sends 0.
         # If we receive 0 then it probably indicates that the chip wasn't or couldn't be
-        # reseted properly and esptool is talking to the flasher stub.
+        # reset properly and esptool is talking to the flasher stub.
         self.sync_stub_detected = val == 0
 
         for _ in range(7):

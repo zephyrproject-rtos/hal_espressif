@@ -42,14 +42,14 @@ Optional arguments:
 
 .. only:: esp32
 
-    {IDF_TARGET_NAME} supportes keys:
+    {IDF_TARGET_NAME} supports keys:
 
     * Secure boot key. Use ``secure_boot_v1`` or ``secure_boot_v2`` as block name. The key is placed in BLOCK2.
     * Flash encryption key. Use ``flash_encryption`` as block name. The key is placed in BLOCK1.
 
     Keys for ``flash_encryption`` and ``secure_boot_v1`` will be burned as read and write protected. The hardware will still have access to them.  These keys are burned in reversed byte order.
 
-    Key for ``secure_boot_v2`` will be burned only as write protected. The key must be readable because the software need acces to it.
+    Key for ``secure_boot_v2`` will be burned only as write protected. The key must be readable because the software need access to it.
 
     .. warning::
 
@@ -57,7 +57,7 @@ Optional arguments:
 
 .. only:: not esp32 and not esp32c2
 
-    {IDF_TARGET_NAME} supportes eFuse key purposes. This means that each eFuse block has a special eFuse field that indicates which key is in the eFuse block. During the burn operation this eFuse key purpose is burned as well with write protection (the ``--no-write-protect`` flag has no effect on this field). The {IDF_TARGET_NAME} chip supports the following key purposes:
+    {IDF_TARGET_NAME} supports eFuse key purposes. This means that each eFuse block has a special eFuse field that indicates which key is in the eFuse block. During the burn operation this eFuse key purpose is burned as well with write protection (the ``--no-write-protect`` flag has no effect on this field). The {IDF_TARGET_NAME} chip supports the following key purposes:
 
     .. list::
 
@@ -78,7 +78,7 @@ Optional arguments:
 
 .. only:: esp32h2
 
-    {IDF_TARGET_NAME} has the ECDSA accelerator for signature purposes and supports private keys based on the NIST192p or NIST256p curve. These two commands below can be used to generate such keys (``PEM`` file). The ``burn_key`` command with the ``ECDSA_KEY`` purpose takes the ``PEM`` file and writes the private key into a eFuse block. The key is written to the block in reverse byte order. 
+    {IDF_TARGET_NAME} has the ECDSA accelerator for signature purposes and supports private keys based on the NIST192p or NIST256p curve. These two commands below can be used to generate such keys (``PEM`` file). The ``burn_key`` command with the ``ECDSA_KEY`` purpose takes the ``PEM`` file and writes the private key into a eFuse block. The key is written to the block in reverse byte order.
 
     For NIST192p, the private key is 192 bits long, so 8 padding bytes ("0x00") are added.
 
@@ -166,7 +166,7 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py burn_key flash_encryption  256bit_fe_key.bin 
+        > espefuse.py burn_key flash_encryption  256bit_fe_key.bin
 
         === Run "burn_key" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
@@ -177,13 +177,13 @@ Usage
                 Disabling write to key block
 
         Burn keys in efuse blocks.
-        The key block will be read and write protected  
+        The key block will be read and write protected
 
         Check all blocks for burn...
         idx, BLOCK_NAME,          Conclusion
         [00] BLOCK0               is empty, will burn the new value
         [01] BLOCK1               is empty, will burn the new value
-        . 
+        .
         This is an irreversible operation!
         Type 'BURN' (all capitals) to continue.
         BURN
@@ -196,15 +196,15 @@ Usage
 
         > espefuse.py summary
         ...
-        BLOCK1 (BLOCK1):                                   Flash encryption key                              
-        = ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? -/- 
+        BLOCK1 (BLOCK1):                                   Flash encryption key
+        = ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? -/-
 
     Byte order for flash encryption key is reversed. Content of flash encryption key file ("256bit_fe_key.bin"):
 
     .. code-block:: none
 
         0001 0203 0405 0607 0809 0a0b 0c0d 0e0f  1011 1213 1415 1617 1819 1a1b 1c1d 1e1f
-    
+
     When the ``no protection`` option is used then you can see the burned key:
 
     .. code-block:: none
@@ -219,12 +219,12 @@ Usage
 
         Key is left unprotected as per --no-protect-key argument.
         Burn keys in efuse blocks.
-        The key block will left readable and writeable (due to --no-protect-key) 
+        The key block will left readable and writeable (due to --no-protect-key)
 
         Check all blocks for burn...
         idx, BLOCK_NAME,          Conclusion
         [01] BLOCK1               is empty, will burn the new value
-        . 
+        .
         This is an irreversible operation!
         Type 'BURN' (all capitals) to continue.
         BURN
@@ -236,8 +236,8 @@ Usage
 
         > espefuse.py summary
         ...
-        BLOCK1 (BLOCK1):                                   Flash encryption key                              
-        = 1f 1e 1d 1c 1b 1a 19 18 17 16 15 14 13 12 11 10 0f 0e 0d 0c 0b 0a 09 08 07 06 05 04 03 02 01 00 R/W 
+        BLOCK1 (BLOCK1):                                   Flash encryption key
+        = 1f 1e 1d 1c 1b 1a 19 18 17 16 15 14 13 12 11 10 0f 0e 0d 0c 0b 0a 09 08 07 06 05 04 03 02 01 00 R/W
 
 .. only:: esp32s2 or esp32s3
 
@@ -280,7 +280,7 @@ Usage
         [00] BLOCK0               is empty, will burn the new value
         [04] BLOCK_KEY0           is empty, will burn the new value
         [05] BLOCK_KEY1           is empty, will burn the new value
-        . 
+        .
         This is an irreversible operation!
         Type 'BURN' (all capitals) to continue.
         BURN
@@ -297,12 +297,12 @@ Usage
         ...
         BLOCK_KEY0 (BLOCK4)
         Purpose: XTS_AES_256_KEY_1
-        Encryption key0 or user data                      
-        = 1f 1e 1d 1c 1b 1a 19 18 17 16 15 14 13 12 11 10 0f 0e 0d 0c 0b 0a 09 08 07 06 05 04 03 02 01 00 R/- 
+        Encryption key0 or user data
+        = 1f 1e 1d 1c 1b 1a 19 18 17 16 15 14 13 12 11 10 0f 0e 0d 0c 0b 0a 09 08 07 06 05 04 03 02 01 00 R/-
         BLOCK_KEY1 (BLOCK5)
         Purpose: XTS_AES_256_KEY_2
-        Encryption key1 or user data                      
-        = 3f 3e 3d 3c 3b 3a 39 38 37 36 35 34 33 32 31 30 2f 2e 2d 2c 2b 2a 29 28 27 26 25 24 23 22 21 20 R/- 
+        Encryption key1 or user data
+        = 3f 3e 3d 3c 3b 3a 39 38 37 36 35 34 33 32 31 30 2f 2e 2d 2c 2b 2a 29 28 27 26 25 24 23 22 21 20 R/-
 
 .. only:: esp32c2
 
@@ -336,7 +336,7 @@ Usage
         idx, BLOCK_NAME,          Conclusion
         [00] BLOCK0               is empty, will burn the new value
         [03] BLOCK_KEY0           is empty, will burn the new value
-        . 
+        .
         This is an irreversible operation!
         Type 'BURN' (all capitals) to continue.
         BURN
