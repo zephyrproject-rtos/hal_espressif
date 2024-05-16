@@ -1,25 +1,16 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 // The HAL layer for UART (common part)
 #include "hal/uart_hal.h"
-
-void uart_hal_set_sclk(uart_hal_context_t *hal, uart_sclk_t sclk)
-{
-    uart_ll_set_sclk(hal->dev, sclk);
-}
+#include "soc/soc_caps.h"
 
 void uart_hal_get_sclk(uart_hal_context_t *hal, uart_sclk_t *sclk)
 {
     uart_ll_get_sclk(hal->dev, sclk);
-}
-
-void uart_hal_set_baudrate(uart_hal_context_t *hal, uint32_t baud_rate, uint32_t sclk_freq)
-{
-    uart_ll_set_baudrate(hal->dev, baud_rate, sclk_freq);
 }
 
 void uart_hal_get_baudrate(uart_hal_context_t *hal, uint32_t *baud_rate, uint32_t sclk_freq)
@@ -132,10 +123,8 @@ void uart_hal_set_loop_back(uart_hal_context_t *hal, bool loop_back_en)
     uart_ll_set_loop_back(hal->dev, loop_back_en);
 }
 
-void uart_hal_init(uart_hal_context_t *hal, int uart_num)
+void uart_hal_init(uart_hal_context_t *hal, uart_port_t uart_num)
 {
-    // Set default clock source
-    uart_ll_set_sclk(hal->dev, UART_SCLK_DEFAULT);
     // Set UART mode.
     uart_ll_set_mode(hal->dev, UART_MODE_UART);
     // Disable UART parity
