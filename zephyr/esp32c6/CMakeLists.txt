@@ -136,18 +136,20 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 	../../components/esp_hw_support/sleep_gpio.c
 	../../components/driver/gpio/rtc_io.c
 	../../components/esp_hw_support/sleep_modes.c
-	#../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
 	../../components/esp_hw_support/sleep_modem.c
 	../../components/hal/rtc_io_hal.c
 	../../components/driver/gpio/gpio.c
 	../../components/esp_hw_support/sleep_cpu.c
-	#../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
 	)
   endif()
 
   if (CONFIG_MCUBOOT)
     zephyr_compile_definitions(BOOTLOADER_BUILD)
     zephyr_compile_definitions(NDEBUG)
+
+    zephyr_sources(
+        ../port/boot/esp_loader.c
+        )
   endif()
 
   if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
@@ -170,11 +172,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
-	  )
-
-    zephyr_sources_ifdef(
-      CONFIG_MCUBOOT
-      ../port/boot/esp_loader.c
       )
   endif()
 
@@ -248,6 +245,13 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_PWM_LED_ESP32
+    ../../components/soc/esp32c6/ledc_periph.c
+    ../../components/hal/ledc_hal_iram.c
+    ../../components/hal/ledc_hal.c
     )
 
 endif()

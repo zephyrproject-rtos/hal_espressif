@@ -185,6 +185,23 @@ static inline void ledc_ll_get_clock_divider(ledc_dev_t *hw, ledc_mode_t speed_m
 }
 
 /**
+ * @brief Set LEDC timer clock source
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param speed_mode LEDC speed_mode, high-speed mode or low-speed mode
+ * @param timer_sel LEDC timer index (0-3), select from ledc_timer_t
+ * @param clk_src Timer clock source
+ *
+ * @note  This function is here to satisfy hal interface, but it is not supported in hardware.
+ *
+ * @return None
+ */
+static inline void ledc_ll_set_clock_source(ledc_dev_t *hw, ledc_mode_t speed_mode, ledc_timer_t timer_sel, ledc_clk_src_t clk_src)
+{
+    // do nothing;
+}
+
+/**
  * @brief Get LEDC timer clock source
  *
  * @param hw Beginning address of the peripheral registers
