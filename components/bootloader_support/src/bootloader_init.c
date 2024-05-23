@@ -45,6 +45,17 @@ esp_err_t bootloader_check_bootloader_validity(void)
     unsigned int major = revision / 100;
     unsigned int minor = revision % 100;
     ESP_EARLY_LOGI(TAG, "chip revision: v%d.%d", major, minor);
+
+#if defined(CONFIG_SOC_SERIES_ESP32)
+    if (major < 3) {
+        ESP_EARLY_LOGE(TAG, "You are using ESP32 chip revision (%d) that is unsupported. While it may work, it could cause unexpected behavior or issues.", major);
+        ESP_EARLY_LOGE(TAG, "Proceeding with this ESP32 chip revision is not recommended unless you fully understand the potential risk and limitations.");
+#if !defined(CONFIG_ESP32_USE_UNSUPPORTED_REVISION)
+        ESP_EARLY_LOGE(TAG, "If you choose to continue, please enable the 'CONFIG_ESP32_USE_UNSUPPORTED_REVISION' in your project configuration.");
+        return ESP_FAIL;
+#endif
+    }
+#endif
     /* compare with the one set in bootloader image header */
     if (bootloader_common_check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != ESP_OK) {
         return ESP_FAIL;
