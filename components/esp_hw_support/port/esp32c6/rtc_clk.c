@@ -128,7 +128,12 @@ soc_rtc_fast_clk_src_t rtc_clk_fast_src_get(void)
 
 static void rtc_clk_bbpll_disable(void)
 {
+#if defined(CLK_BBPLL_DISABLE)
+    /* Disabling BBPLL is commented due to issues when transitioning
+     * from PLL to XTAL clock sources. Only peripheral using BBPLL on C6
+     * should be USB Serial/JTAG, so investigation is necessary */
     clk_ll_bbpll_disable();
+#endif
     s_cur_pll_freq = 0;
 }
 

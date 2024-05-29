@@ -39,7 +39,7 @@ static const char *TAG = "rtc_clk_init";
  * ICG map of all modem clock domains under different power states (PMU_ACTIVE,
  * PMU_MODEM and PMU_SLEEP) will be initialized in esp_perip_clk_init().
  */
-static void rtc_clk_modem_clock_domain_active_state_icg_map_preinit(void)
+void rtc_clk_modem_clock_domain_active_state_icg_map_preinit(void)
 {
     /* Configure modem ICG code in PMU_ACTIVE state */
     pmu_ll_hp_set_icg_modem(&PMU, PMU_MODE_HP_ACTIVE, PMU_HP_ICG_MODEM_CODE_ACTIVE);
