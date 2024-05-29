@@ -19,7 +19,7 @@
 #if defined(CONFIG_SOC_SERIES_ESP32)
 #define DT_CPU_COMPAT espressif_xtensa_lx6
 #elif defined(CONFIG_SOC_SERIES_ESP32S2) || defined(CONFIG_SOC_SERIES_ESP32S3)
-#define DT_CPU_COMPAT cdns_tensilica_xtensa_lx7
+#define DT_CPU_COMPAT espressif_xtensa_lx7
 #elif defined(CONFIG_SOC_SERIES_ESP32C3) || defined(CONFIG_SOC_SERIES_ESP32C6)
 #define DT_CPU_COMPAT espressif_riscv
 #endif

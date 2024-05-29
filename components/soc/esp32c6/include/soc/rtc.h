@@ -478,6 +478,10 @@ bool rtc_dig_8m_enabled(void);
  */
 uint32_t rtc_clk_freq_cal(uint32_t cal_val);
 
+/**
+ * @brief: Initialize the ICG map of some modem clock domains in the PMU_ACTIVE state
+ */
+void rtc_clk_modem_clock_domain_active_state_icg_map_preinit(void);
 
 // -------------------------- CLOCK TREE DEFS ALIAS ----------------------------
 // **WARNING**: The following are only for backwards compatibility.
