@@ -143,6 +143,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 	)
   endif()
 
+  zephyr_sources_ifdef(
+    CONFIG_DMA_ESP32
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
   if (CONFIG_MCUBOOT)
     zephyr_compile_definitions(BOOTLOADER_BUILD)
     zephyr_compile_definitions(NDEBUG)
