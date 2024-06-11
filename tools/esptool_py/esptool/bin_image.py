@@ -767,12 +767,8 @@ class ESP32FirmwareImage(BaseFirmwareImage):
                     # Some chips have a non-zero load offset (eg. 0x1000)
                     # therefore we shift the ROM segments "-load_offset"
                     # so it will be aligned properly after it is flashed
-                    align_min = (
-                        self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET - self.SEG_HEADER_LEN
-                    )
-                    if pad_len < align_min:
-                        print("Unable to align the segment!")
-                        break
+                    if pad_len < self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET:
+                        pad_len += self.IROM_ALIGN
                     pad_len -= self.ROM_LOADER.BOOTLOADER_FLASH_OFFSET
                     pad_segment = ImageSegment(0, b"\x00" * pad_len, f.tell())
                     self.save_segment(f, pad_segment)
