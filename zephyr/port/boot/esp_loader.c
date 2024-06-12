@@ -40,6 +40,7 @@
 #include "esp_mcuboot_image.h"
 #include "esp_loader.h"
 #include "flash_map_backend/flash_map_backend.h"
+#include <zephyr/drivers/timer/system_timer.h>
 
 #ifdef CONFIG_ESP_MULTI_PROCESSOR_BOOT
 #include "app_cpu_start.h"
@@ -126,6 +127,11 @@ void start_cpu0_image(int image_index, int slot, unsigned int hdr_offset)
 {
     unsigned int entry_addr;
     esp_app_image_load(image_index, slot, hdr_offset, &entry_addr);
+
+    if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
+        sys_clock_disable();
+    }
+
     ((void (*)(void))entry_addr)(); /* Call to application entry address should not return */
     FIH_PANIC; /* It should not get here */
 }
