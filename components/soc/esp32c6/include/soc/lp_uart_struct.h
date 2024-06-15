@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
  *
  *  SPDX-License-Identifier: Apache-2.0
  */
@@ -499,7 +499,7 @@ typedef union {
          */
         uint32_t err_wr_mask:1;
         uint32_t reserved_19:1;
-        /** mem_clk_en : R/W; bitpos: [20]; default: 1;
+        /** mem_clk_en : R/W; bitpos: [20]; default: 0;
          *  UART memory clock gate enable signal.
          */
         uint32_t mem_clk_en:1;
@@ -792,30 +792,7 @@ typedef union {
  */
 typedef union {
     struct {
-        /** sclk_div_b : R/W; bitpos: [5:0]; default: 0;
-         *  The  denominator of the frequency divider factor.
-         */
-        uint32_t sclk_div_b:6;
-        /** sclk_div_a : R/W; bitpos: [11:6]; default: 0;
-         *  The numerator of the frequency divider factor.
-         */
-        uint32_t sclk_div_a:6;
-        /** sclk_div_num : R/W; bitpos: [19:12]; default: 1;
-         *  The integral part of the frequency divider factor.
-         */
-        uint32_t sclk_div_num:8;
-        /** sclk_sel : R/W; bitpos: [21:20]; default: 3;
-         *  UART clock source select. 1: 80Mhz.  2: 8Mhz.  3: XTAL.
-         */
-        uint32_t sclk_sel:2;
-        /** sclk_en : R/W; bitpos: [22]; default: 1;
-         *  Set this bit to enable UART Tx/Rx clock.
-         */
-        uint32_t sclk_en:1;
-        /** rst_core : R/W; bitpos: [23]; default: 0;
-         *  Write 1 then write 0 to this bit to reset UART Tx/Rx.
-         */
-        uint32_t rst_core:1;
+        uint32_t reserved_0:24;
         /** tx_sclk_en : R/W; bitpos: [24]; default: 1;
          *  Set this bit to enable UART Tx clock.
          */
@@ -1040,7 +1017,7 @@ typedef union {
  */
 typedef union {
     struct {
-        /** date : R/W; bitpos: [31:0]; default: 35656288;
+        /** date : R/W; bitpos: [31:0]; default: 36720720;
          *  This is the version register.
          */
         uint32_t date:32;
@@ -1077,7 +1054,7 @@ typedef union {
 } lp_uart_id_reg_t;
 
 
-typedef struct lp_uart_dev_t {
+typedef struct {
     volatile lp_uart_fifo_reg_t fifo;
     volatile lp_uart_int_raw_reg_t int_raw;
     volatile lp_uart_int_st_reg_t int_st;
@@ -1116,7 +1093,6 @@ typedef struct lp_uart_dev_t {
     volatile lp_uart_id_reg_t id;
 } lp_uart_dev_t;
 
-extern lp_uart_dev_t LP_UART;
 
 #ifndef __cplusplus
 _Static_assert(sizeof(lp_uart_dev_t) == 0xa0, "Invalid size of lp_uart_dev_t structure");

@@ -23,7 +23,7 @@
 
 static const char *TAG = "sar_periph_ctrl";
 
-static int rtc_spinlock;
+int rtc_spinlock;
 
 #define ENTER_CRITICAL_SECTION()    do { rtc_spinlock = irq_lock(); } while(0)
 #define LEAVE_CRITICAL_SECTION()    irq_unlock(rtc_spinlock);
