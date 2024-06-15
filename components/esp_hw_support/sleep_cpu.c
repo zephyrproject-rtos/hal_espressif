@@ -37,6 +37,7 @@
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/cache.h"
 #elif CONFIG_IDF_TARGET_ESP32C6
+#include "riscv/csr.h"
 #include "esp32c6/rom/rtc.h"
 #include "riscv/rvsleep-frames.h"
 #include "soc/intpri_reg.h"
@@ -299,7 +300,7 @@ static void * cpu_domain_dev_sleep_frame_alloc_and_init(const cpu_domain_dev_reg
     for (int num = 0; num < region_num; num++) {
         regs_frame_sz += regions[num].end - regions[num].start;
     }
-    void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+    uint32_t *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
     if (frame) {
         cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));

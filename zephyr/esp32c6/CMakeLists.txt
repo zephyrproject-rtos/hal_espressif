@@ -16,7 +16,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../esp_shared/components/include
     ../port/include
 
-       ../../components/efuse/include
+    ../../components/efuse/include
     ../../components/efuse/private_include
     ../../components/efuse/${CONFIG_SOC_SERIES}/include
     ../../components/efuse/${CONFIG_SOC_SERIES}/private_include
@@ -41,7 +41,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_system/include/esp_private
     ../../components/esp_system/port/include
     ../../components/esp_system/port/include/private/esp_private
-	../../components/esp_system/port/include/private
+    ../../components/esp_system/port/include/private
 
     ../../components/hal/${CONFIG_SOC_SERIES}/include
     ../../components/hal/include
@@ -60,7 +60,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     ../../components/esp_timer/include
     ../../components/esp_timer/private_include
-  
+
     ../../components/driver/include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
@@ -134,14 +134,21 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
   zephyr_sources(
-	../../components/esp_hw_support/sleep_gpio.c
-	../../components/driver/gpio/rtc_io.c
-	../../components/esp_hw_support/sleep_modes.c
-	../../components/esp_hw_support/sleep_modem.c
-	../../components/hal/rtc_io_hal.c
-	../../components/driver/gpio/gpio.c
-	../../components/esp_hw_support/sleep_cpu.c
-	)
+    ../../components/driver/gpio/gpio.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
+    ../../components/esp_hw_support/sleep_clock.c
+    ../../components/esp_hw_support/sleep_cpu.c
+    ../../components/esp_hw_support/sleep_cpu_asm.S
+    ../../components/esp_hw_support/sleep_gpio.c
+    ../../components/esp_hw_support/sleep_modem.c
+    ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_retention.c
+    ../../components/esp_hw_support/sleep_system_peripheral.c
+    ../../components/esp_pm/pm_impl.c
+    ../../components/hal/${CONFIG_SOC_SERIES}/pmu_hal.c
+    ../../components/hal/rtc_io_hal.c
+    )
   endif()
 
   zephyr_sources_ifdef(

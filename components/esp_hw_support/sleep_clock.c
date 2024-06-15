@@ -15,10 +15,10 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_check.h"
-#include "esp_regdma.h"
 #include "esp_private/startup_internal.h"
 #include "esp_private/sleep_retention.h"
 #include "esp_private/sleep_clock.h"
+#include "esp_regdma.h"
 
 #include "soc/pcr_reg.h"
 #include "modem/modem_syscon_reg.h"

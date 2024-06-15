@@ -113,8 +113,8 @@
 // If light sleep time is less than that, don't power down flash
 #define FLASH_PD_MIN_SLEEP_TIME_US  2000
 
-// Time from VDD_SDIO power up to first flash read in ROM code
-#define VDD_SDIO_POWERUP_TO_FLASH_READ_US 700
+// Default waiting time for the software to wait for Flash ready after waking up from sleep
+#define ESP_SLEEP_WAIT_FLASH_READY_DEFAULT_DELAY_US 700
 
 // Cycles for RTC Timer clock source (internal oscillator) calibrate
 #define RTC_CLK_SRC_CAL_CYCLES      (10)
@@ -161,12 +161,6 @@
 #define DEEP_SLEEP_TIME_OVERHEAD_US         (650 + 100 * 240 / CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ)
 #else
 #define DEEP_SLEEP_TIME_OVERHEAD_US         (250 + 100 * 240 / CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ)
-#endif
-
-#if CONFIG_ESP_SLEEP_DEEP_SLEEP_WAKEUP_DELAY
-#define DEEP_SLEEP_WAKEUP_DELAY     CONFIG_ESP_SLEEP_DEEP_SLEEP_WAKEUP_DELAY
-#else
-#define DEEP_SLEEP_WAKEUP_DELAY     0
 #endif
 
 // Minimal amount of time we can sleep for
@@ -354,13 +348,16 @@ void RTC_IRAM_ATTR esp_default_wake_deep_sleep(void)
                      _DPORT_REG_READ(DPORT_PRO_CACHE_CTRL1_REG) | DPORT_PRO_CACHE_MMU_IA_CLR);
     _DPORT_REG_WRITE(DPORT_PRO_CACHE_CTRL1_REG,
                      _DPORT_REG_READ(DPORT_PRO_CACHE_CTRL1_REG) & (~DPORT_PRO_CACHE_MMU_IA_CLR));
-#if DEEP_SLEEP_WAKEUP_DELAY > 0
+#if CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY > 0
     // ROM code has not started yet, so we need to set delay factor
     // used by esp_rom_delay_us first.
     ets_update_cpu_frequency_rom(ets_get_detected_xtal_freq() / 1000000);
-    // This delay is configured in menuconfig, it can be used to give
-    // the flash chip some time to become ready.
-    esp_rom_delay_us(DEEP_SLEEP_WAKEUP_DELAY);
+    // Time from VDD_SDIO power up to first flash read in ROM code is 700 us,
+    // for some flash chips is not sufficient, this delay is configured in menuconfig,
+    // it can be used to give the flash chip some extra time to become ready.
+    // For later chips, we have EFUSE_FLASH_TPUW field to configure it and do
+    // this delay in the ROM.
+    esp_rom_delay_us(CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY);
 #endif
 #elif CONFIG_IDF_TARGET_ESP32S2
     REG_SET_BIT(EXTMEM_CACHE_DBG_INT_ENA_REG, EXTMEM_CACHE_DBG_EN);
@@ -406,11 +403,11 @@ void esp_deep_sleep_deregister_hook(esp_deep_sleep_cb_t old_dslp_cb)
 // [refactor-todo] provide target logic for body of uart functions below
 static void IRAM_ATTR flush_uarts(void)
 {
-    for (int i = 0; i < SOC_UART_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
 #ifdef CONFIG_IDF_TARGET_ESP32
         esp_rom_uart_tx_wait_idle(i);
 #else
-        if (periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
+        if (uart_ll_is_enabled(i)) {
             esp_rom_uart_tx_wait_idle(i);
         }
 #endif
@@ -425,9 +422,9 @@ static uint32_t s_suspended_uarts_bmap = 0;
 static IRAM_ATTR void suspend_uarts(void)
 {
     s_suspended_uarts_bmap = 0;
-    for (int i = 0; i < SOC_UART_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
 #ifndef CONFIG_IDF_TARGET_ESP32
-        if (!periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
+        if (!uart_ll_is_enabled(i)) {
             continue;
         }
 #endif
@@ -436,7 +433,11 @@ static IRAM_ATTR void suspend_uarts(void)
 #if SOC_UART_SUPPORT_FSM_TX_WAIT_SEND
         uint32_t uart_fsm = 0;
         do {
+#ifdef CONFIG_IDF_TARGET_ESP32C6
+            uart_fsm = uart_ll_get_tx_fsm_status(i);
+#else
             uart_fsm = uart_ll_get_fsm_status(i);
+#endif
         } while (!(uart_fsm == UART_LL_FSM_IDLE || uart_fsm == UART_LL_FSM_TX_WAIT_SEND));
 #else
         while (uart_ll_get_fsm_status(i) != 0) {}
@@ -446,7 +447,7 @@ static IRAM_ATTR void suspend_uarts(void)
 
 static void IRAM_ATTR resume_uarts(void)
 {
-    for (int i = 0; i < SOC_UART_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
         if (s_suspended_uarts_bmap & 0x1) {
             uart_ll_force_xon(i);
         }
@@ -1011,12 +1012,9 @@ esp_err_t esp_light_sleep_start(void)
                                      + rtc_time_slowclk_to_us(rtc_cntl_xtl_buf_wait_slp_cycles + RTC_CNTL_CK8M_WAIT_SLP_CYCLES + RTC_CNTL_WAKEUP_DELAY_CYCLES, s_config.rtc_clk_cal_period);
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32C6 // TODO: IDF-6930
-    const uint32_t flash_enable_time_us = 0;
-#else
     // Decide if VDD_SDIO needs to be powered down;
     // If it needs to be powered down, adjust sleep time.
-    const uint32_t flash_enable_time_us = VDD_SDIO_POWERUP_TO_FLASH_READ_US + DEEP_SLEEP_WAKEUP_DELAY;
+    const uint32_t flash_enable_time_us = ESP_SLEEP_WAIT_FLASH_READY_DEFAULT_DELAY_US + CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY;
 
     /**
      * If VDD_SDIO power domain is requested to be turned off, bit `RTC_SLEEP_PD_VDDSDIO`
@@ -1055,13 +1053,13 @@ esp_err_t esp_light_sleep_start(void)
             }
         }
     }
-#endif
 
     periph_inform_out_light_sleep_overhead(s_config.sleep_time_adjustment - sleep_time_overhead_in);
 
     // Safety net: enable WDT in case exit from light sleep fails
     wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
     bool wdt_was_enabled = wdt_hal_is_enabled(&rtc_wdt_ctx);    // If WDT was enabled in the user code, then do not change it here.
+
     if (!wdt_was_enabled) {
         wdt_hal_init(&rtc_wdt_ctx, WDT_RWDT, 0, false);
         uint32_t stage_timeout_ticks = (uint32_t)(1000ULL * rtc_clk_slow_freq_get_hz() / 1000ULL);
