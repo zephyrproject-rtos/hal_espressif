@@ -187,7 +187,7 @@ void emac_hal_iomux_init_rmii(void);
 
 void emac_hal_iomux_rmii_clk_input(void);
 
-void emac_hal_iomux_rmii_clk_ouput(int num);
+void emac_hal_iomux_rmii_clk_output(int num);
 
 void emac_hal_iomux_init_tx_er(void);
 

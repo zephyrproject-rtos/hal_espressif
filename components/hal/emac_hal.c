@@ -83,7 +83,7 @@ void emac_hal_iomux_rmii_clk_input(void)
     PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[0]);
 }
 
-void emac_hal_iomux_rmii_clk_ouput(int num)
+void emac_hal_iomux_rmii_clk_output(int num)
 {
     switch (num) {
     case 0:
