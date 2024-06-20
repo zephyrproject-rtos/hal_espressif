@@ -436,7 +436,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/pmksa_cache.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/wpa.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/wpa_ie.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/base64.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/common.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/ext_password.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/uuid.c"
