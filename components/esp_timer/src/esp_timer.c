@@ -165,12 +165,17 @@ esp_err_t IRAM_ATTR esp_timer_restart(esp_timer_handle_t timer, uint64_t timeout
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (!is_initialized() || !timer_armed(timer)) {
+    if (!is_initialized()) {
         return ESP_ERR_INVALID_STATE;
     }
 
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
     timer_list_lock(dispatch_method);
+
+    if (!timer_armed(timer)) {
+        timer_list_unlock(dispatch_method);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     const int64_t now = esp_timer_impl_get_time();
     const uint64_t period = timer->period;
@@ -332,7 +337,7 @@ static IRAM_ATTR esp_err_t timer_insert(esp_timer_handle_t timer, bool without_u
             last = it;
         }
         if (it == NULL) {
-            assert(last);
+            __ASSERT_NO_MSG(last);
             LIST_INSERT_AFTER(last, timer, list_entry);
         }
     }
@@ -345,7 +350,6 @@ static IRAM_ATTR esp_err_t timer_insert(esp_timer_handle_t timer, bool without_u
 static IRAM_ATTR esp_err_t timer_remove(esp_timer_handle_t timer)
 {
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
-    timer_list_lock(dispatch_method);
     esp_timer_handle_t first_timer = LIST_FIRST(&s_timers[dispatch_method]);
     LIST_REMOVE(timer, list_entry);
     timer->alarm = 0;
@@ -361,7 +365,6 @@ static IRAM_ATTR esp_err_t timer_remove(esp_timer_handle_t timer)
 #if WITH_PROFILING
     timer_insert_inactive(timer);
 #endif
-    timer_list_unlock(dispatch_method);
     return ESP_OK;
 }
 
@@ -369,9 +372,6 @@ static IRAM_ATTR esp_err_t timer_remove(esp_timer_handle_t timer)
 
 static IRAM_ATTR void timer_insert_inactive(esp_timer_handle_t timer)
 {
-    /* May be locked or not, depending on where this is called from.
-     * Lock recursively.
-     */
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
     esp_timer_handle_t head = LIST_FIRST(&s_inactive_timers[dispatch_method]);
     if (head == NULL) {
@@ -398,12 +398,19 @@ static IRAM_ATTR bool timer_armed(esp_timer_handle_t timer)
 
 static IRAM_ATTR void timer_list_lock(esp_timer_dispatch_t timer_type)
 {
-    s_timer_lock[timer_type] = irq_lock();
+    unsigned key = irq_lock();
+
+    /* ensure lock is not already held */
+    __ASSERT_NO_MSG(s_timer_lock[timer_type] == 0);
+    s_timer_lock[timer_type] = key;
 }
 
 static IRAM_ATTR void timer_list_unlock(esp_timer_dispatch_t timer_type)
 {
-    irq_unlock(s_timer_lock[timer_type]);
+    unsigned int key = s_timer_lock[timer_type];
+    s_timer_lock[timer_type] = 0;
+
+    irq_unlock(key);
 }
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
@@ -486,7 +493,7 @@ static void timer_task(void* arg)
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
 {
-    assert(k_is_in_isr();
+    __ASSERT_NO_MSG(k_is_in_isr();
     s_isr_dispatch_need_yield = pdTRUE;
 }
 #endif
