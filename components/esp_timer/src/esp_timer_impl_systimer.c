@@ -154,7 +154,9 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    int isr_flags = ((1 << 1) & ESP_INTR_FLAG_LEVELMASK)
+    int isr_flags = 0  /* ZEP-795 (GH #74368): esp_timer ISR priority relaxed to avoid
+                        * IRQ not being allocated when several peripherals are enabled
+                        */
 #if !SOC_SYSTIMER_INT_LEVEL
                     | ESP_INTR_FLAG_EDGE
 #endif
