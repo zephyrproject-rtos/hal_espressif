@@ -920,29 +920,3 @@ static esp_err_t adc_hal_convert(adc_unit_t adc_n, int channel, uint32_t clk_src
 
     return ESP_OK;
 }
-
-#if SOC_ADC_CALIBRATION_V1_SUPPORTED
-/*---------------------------------------------------------------
-            ADC Hardware Calibration
----------------------------------------------------------------*/
-static void adc_hw_calibration(void)
-{
-    //Calculate all ICode
-    for (int i = 0; i < SOC_ADC_PERIPH_NUM; i++) {
-        adc_hal_calibration_init(i);
-        for (int j = 0; j < SOC_ADC_ATTEN_NUM; j++) {
-            /**
-             * This may get wrong when attenuations are NOT consecutive on some chips,
-             * update this when bringing up the calibration on that chip
-             */
-            adc_calc_hw_calibration_code(i, j);
-#if SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED
-            /* Load the channel compensation from efuse */
-            for (int k = 0; k < SOC_ADC_CHANNEL_NUM(i); k++) {
-                adc_load_hw_calibration_chan_compens(i, k, j);
-            }
-#endif
-        }
-    }
-}
-#endif  //#if SOC_ADC_CALIBRATION_V1_SUPPORTED
