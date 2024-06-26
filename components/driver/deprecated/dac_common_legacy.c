@@ -132,19 +132,3 @@ esp_err_t dac_cw_generator_config(dac_cw_config_t *cw)
 
     return ESP_OK;
 }
-
-/**
- * @brief This function will be called during start up, to check that this legacy DAC driver is not running along with the new driver
- */
-__attribute__((constructor))
-static void check_dac_legacy_driver_conflict(void)
-{
-    // This function was declared as weak here. The new DAC driver has one implementation.
-    // So if the new DAC driver is not linked in, then `dac_priv_register_channel()` should be NULL at runtime.
-    extern __attribute__((weak)) esp_err_t dac_priv_register_channel(dac_channel_t chan_id, const char *mode_name);
-    if ((void *)dac_priv_register_channel != NULL) {
-        ESP_EARLY_LOGE(TAG, "CONFLICT! The new DAC driver is not allowed to be used together with the legacy driver");
-        abort();
-    }
-    ESP_EARLY_LOGW(TAG, "legacy driver is deprecated, please migrate to `driver/dac_oneshot.h`, `driver/dac_cosine.h` or `driver/dac_continuous.h` instead");
-}

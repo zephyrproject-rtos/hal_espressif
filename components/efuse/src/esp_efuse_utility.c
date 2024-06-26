@@ -27,7 +27,7 @@ uint32_t virt_blocks[EFUSE_BLK_MAX][COUNT_EFUSE_REG_PER_BLOCK];
 #ifndef BOOTLOADER_BUILD
 #ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 /* Call the update function to seed virtual efuses during initialization */
-__attribute__((constructor)) void esp_efuse_utility_update_virt_blocks(void);
+void esp_efuse_utility_update_virt_blocks(void);
 #endif // CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 #endif // NOT BOOTLOADER_BUILD
 

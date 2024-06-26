@@ -444,7 +444,6 @@ bool IRAM_ATTR timer_group_get_auto_reload_in_isr(timer_group_t group_num, timer
 /**
  * @brief This function will be called during start up, to check that this legacy timer group driver is not running along with the gptimer driver
  */
-__attribute__((constructor))
 static void check_legacy_timer_driver_conflict(void)
 {
     // This function was declared as weak here. gptimer driver has one implementation.

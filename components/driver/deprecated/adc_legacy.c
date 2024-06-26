@@ -924,7 +924,6 @@ static esp_err_t adc_hal_convert(adc_unit_t adc_n, int channel, uint32_t clk_src
 /**
  * @brief This function will be called during start up, to check that adc_oneshot driver is not running along with the legacy adc oneshot driver
  */
-__attribute__((constructor))
 static void check_adc_oneshot_driver_conflict(void)
 {
     // This function was declared as weak here. adc_oneshot driver has one implementation.
@@ -941,7 +940,7 @@ static void check_adc_oneshot_driver_conflict(void)
 /*---------------------------------------------------------------
             ADC Hardware Calibration
 ---------------------------------------------------------------*/
-static __attribute__((constructor)) void adc_hw_calibration(void)
+static void adc_hw_calibration(void)
 {
     //Calculate all ICode
     for (int i = 0; i < SOC_ADC_PERIPH_NUM; i++) {
