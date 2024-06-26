@@ -921,21 +921,6 @@ static esp_err_t adc_hal_convert(adc_unit_t adc_n, int channel, uint32_t clk_src
     return ESP_OK;
 }
 
-/**
- * @brief This function will be called during start up, to check that adc_oneshot driver is not running along with the legacy adc oneshot driver
- */
-static void check_adc_oneshot_driver_conflict(void)
-{
-    // This function was declared as weak here. adc_oneshot driver has one implementation.
-    // So if adc_oneshot driver is not linked in, then `adc_oneshot_new_unit` should be NULL at runtime.
-    extern __attribute__((weak)) esp_err_t adc_oneshot_new_unit(const void *init_config, void **ret_unit);
-    if ((void *)adc_oneshot_new_unit != NULL) {
-        ESP_EARLY_LOGE(ADC_TAG, "CONFLICT! driver_ng is not allowed to be used with the legacy driver");
-        abort();
-    }
-    ESP_EARLY_LOGW(ADC_TAG, "legacy driver is deprecated, please migrate to `esp_adc/adc_oneshot.h`");
-}
-
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
 /*---------------------------------------------------------------
             ADC Hardware Calibration
