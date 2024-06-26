@@ -23,7 +23,7 @@ extern int rtc_spinlock;
  * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
  *        This API be called in before `app_main()`.
  */
-static __attribute__((constructor)) void adc2_init_code_calibration(void)
+static void adc2_init_code_calibration(void)
 {
     adc_hal_calibration_init(ADC_UNIT_2);
     adc_calc_hw_calibration_code(ADC_UNIT_2, ADC_ATTEN_DB_11);

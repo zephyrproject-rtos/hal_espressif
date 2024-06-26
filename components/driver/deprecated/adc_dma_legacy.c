@@ -576,7 +576,6 @@ esp_err_t adc_digi_controller_configure(const adc_digi_configuration_t *config)
 /**
  * @brief This function will be called during start up, to check that adc_continuous driver is not running along with the legacy adc_continuous driver
  */
-__attribute__((constructor))
 static void check_adc_continuous_driver_conflict(void)
 {
     // This function was declared as weak here. adc_continuous driver has one implementation.
@@ -593,7 +592,7 @@ static void check_adc_continuous_driver_conflict(void)
 /*---------------------------------------------------------------
             ADC Hardware Calibration
 ---------------------------------------------------------------*/
-static __attribute__((constructor)) void adc_hw_calibration(void)
+static void adc_hw_calibration(void)
 {
     //Calculate all ICode
     for (int i = 0; i < SOC_ADC_PERIPH_NUM; i++) {

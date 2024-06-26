@@ -91,7 +91,7 @@ esp_err_t adc_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int *io_n
 /*---------------------------------------------------------------
             ADC Hardware Calibration
 ---------------------------------------------------------------*/
-static __attribute__((constructor)) void adc_hw_calibration(void)
+static void adc_hw_calibration(void)
 {
     //Calculate all ICode
     for (int i = 0; i < SOC_ADC_PERIPH_NUM; i++) {
