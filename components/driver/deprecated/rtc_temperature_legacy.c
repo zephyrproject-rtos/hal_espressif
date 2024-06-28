@@ -153,19 +153,3 @@ esp_err_t temp_sensor_read_celsius(float *celsius)
     }
     return ESP_OK;
 }
-
-/**
- * @brief This function will be called during start up, to check that this legacy temp sensor driver is not running along with the new driver
- */
-__attribute__((constructor))
-static void check_legacy_temp_sensor_driver_conflict(void)
-{
-    // This function was declared as weak here. temperature_sensor driver has one implementation.
-    // So if temperature_sensor driver is not linked in, then `temperature_sensor_install()` should be NULL at runtime.
-    extern __attribute__((weak)) esp_err_t temperature_sensor_install(const void *tsens_config, void **ret_tsens);
-    if ((void *)temperature_sensor_install != NULL) {
-        ESP_EARLY_LOGE(TAG, "CONFLICT! driver_ng is not allowed to be used with the legacy driver");
-        abort();
-    }
-    ESP_EARLY_LOGW(TAG, "legacy driver is deprecated, please migrate to `driver/temperature_sensor.h`");
-}
