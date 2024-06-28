@@ -647,6 +647,10 @@ static IRAM_ATTR bool is_xmc_chip_strict(uint32_t rdid)
         if (cpid >= 0x15 && cpid <= 0x16) {
             matched =  true;
         }
+    } else if (mfid == 0x70) {
+        if (cpid >= 0x17 && cpid <= 0x20) {
+            matched =  true;
+        }
     }
     return matched;
 }
