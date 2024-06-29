@@ -316,3 +316,65 @@ twai:
   bus_off:
     sigo: twai_bus_off_on
     gpio: [[0, 21], [26, 48]]
+
+sdhc0:
+  clkout:
+    sigo: sdhost_cclk_out_1
+    gpio: [[0, 21], [26, 48]]
+  cmd:
+    sigi: sdhost_ccmd_in_1
+    sigo: sdhost_ccmd_out_1
+    gpio: [[0, 21], [26, 48]]
+  data0:
+    sigi: sdhost_cdata_in_10
+    sigo: sdhost_cdata_out_10
+    gpio: [[0, 21], [26, 48]]
+  data1:
+    sigi: sdhost_cdata_in_11
+    sigo: sdhost_cdata_out_11
+    gpio: [[0, 21], [26, 48]]
+  data2:
+    sigi: sdhost_cdata_in_12
+    sigo: sdhost_cdata_out_12
+    gpio: [[0, 21], [26, 48]]
+  data3:
+    sigi: sdhost_cdata_in_13
+    sigo: sdhost_cdata_out_13
+    gpio: [[0, 21], [26, 48]]
+  cd:
+    sigi: sdhost_card_detect_n_1
+    gpio: [[0, 21], [26, 48]]
+  wp:
+    sigi: sdhost_card_write_prt_1
+    gpio: [[0, 21], [26, 48]]
+
+sdhc1:
+  clkout:
+    sigo: sdhost_cclk_out_2
+    gpio: [[0, 21], [26, 48]]
+  cmd:
+    sigi: sdhost_ccmd_in_2
+    sigo: sdhost_ccmd_out_2
+    gpio: [[0, 21], [26, 48]]
+  data0:
+    sigi: sdhost_cdata_in_20
+    sigo: sdhost_cdata_out_20
+    gpio: [[0, 21], [26, 48]]
+  data1:
+    sigi: sdhost_cdata_in_21
+    sigo: sdhost_cdata_out_21
+    gpio: [[0, 21], [26, 48]]
+  data2:
+    sigi: sdhost_cdata_in_22
+    sigo: sdhost_cdata_out_22
+    gpio: [[0, 21], [26, 48]]
+  data3:
+    sigi: sdhost_cdata_in_23
+    sigo: sdhost_cdata_out_23
+    gpio: [[0, 21], [26, 48]]
+  cd:
+    sigi: sdhost_card_detect_n_2
+    gpio: [[0, 21], [26, 48]]
+  wp:
+    sigi: sdhost_card_write_prt_2
+    gpio: [[0, 21], [26, 48]]
