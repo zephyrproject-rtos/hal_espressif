@@ -309,7 +309,11 @@ static esp_err_t bootloader_flash_read_allow_decrypt(size_t src_addr, void *dest
 #if CONFIG_IDF_TARGET_ESP32
             //Should never fail if we only map a SPI_FLASH_MMU_PAGE_SIZE to the vaddr starting from FLASH_READ_VADDR
             int e = cache_flash_mmu_set(0, 0, FLASH_READ_VADDR, map_at, 64, 1);
-            assert(e == 0);
+            if (e != 0) {
+                ESP_EARLY_LOGE(TAG, "cache_flash_mmu_set failed: error=%d\n", e);
+                Cache_Read_Enable(0);
+                return ESP_FAIL;
+            }
 #else
             uint32_t actual_mapped_len = 0;
             mmu_hal_map_region(0, MMU_TARGET_FLASH0, FLASH_READ_VADDR, map_at, SPI_FLASH_MMU_PAGE_SIZE - 1, &actual_mapped_len);

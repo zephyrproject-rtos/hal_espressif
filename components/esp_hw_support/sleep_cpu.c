@@ -208,8 +208,6 @@ static esp_err_t esp_sleep_tagmem_pd_low_deinit(void)
 
 #if SOC_PM_SUPPORT_CPU_PD && SOC_PM_CPU_RETENTION_BY_RTCCNTL
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpointer-arith"
 esp_err_t esp_sleep_cpu_pd_low_init(void)
 {
     if (s_cpu_retention.retent.cpu_pd_mem == NULL) {
@@ -218,7 +216,7 @@ esp_err_t esp_sleep_cpu_pd_low_init(void)
                                             MALLOC_CAP_RETENTION);
         if (buf) {
             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
         } else {
             return ESP_ERR_NO_MEM;
         }
@@ -234,7 +232,6 @@ esp_err_t esp_sleep_cpu_pd_low_init(void)
 #endif
     return ESP_OK;
 }
-#pragma GCC diagnostic pop
 
 esp_err_t esp_sleep_cpu_pd_low_deinit(void)
 {

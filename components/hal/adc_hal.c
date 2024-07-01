@@ -139,8 +139,6 @@ void adc_hal_digi_deinit(adc_hal_dma_ctx_t *hal)
 /*---------------------------------------------------------------
                     DMA read
 ---------------------------------------------------------------*/
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wreturn-type"
 static adc_ll_digi_convert_mode_t get_convert_mode(adc_digi_convert_mode_t convert_mode)
 {
 #if CONFIG_IDF_TARGET_ESP32 || SOC_ADC_DIGI_CONTROLLER_NUM == 1
@@ -160,7 +158,6 @@ static adc_ll_digi_convert_mode_t get_convert_mode(adc_digi_convert_mode_t conve
     }
 #endif
 }
-#pragma GCC diagnostic pop
 
 /**
  * For esp32s2 and later chips

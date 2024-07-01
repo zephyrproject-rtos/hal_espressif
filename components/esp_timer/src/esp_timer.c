@@ -536,6 +536,11 @@ static esp_err_t init_timer_task(void)
     } else {
         int ret = k_sem_init(&s_timer_semaphore, 0, TIMER_EVENT_QUEUE_SIZE);
 
+        if (!ret) {
+            ESP_EARLY_LOGE(TAG, "Not enough memory to run esp_timer");
+            err = ESP_ERR_NO_MEM;
+        }
+
         k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
                 4096, (k_thread_entry_t)timer_task, NULL, NULL, NULL,
                 ESP_TASK_TIMER_PRIO, K_INHERIT_PERMS, K_NO_WAIT);
