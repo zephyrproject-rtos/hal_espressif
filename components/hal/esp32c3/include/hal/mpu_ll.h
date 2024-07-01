@@ -22,13 +22,10 @@ extern "C" {
 
 /* This LL is currently unused for ESP32-C3 - cleanup is TODO ESP32-C3 IDF-2375 */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wreturn-type"
 static inline uint32_t mpu_ll_id_to_addr(unsigned id)
 {
     abort();
 }
-#pragma GCC diagnostic pop
 
 static inline void mpu_ll_set_region_rw(uint32_t addr)
 {

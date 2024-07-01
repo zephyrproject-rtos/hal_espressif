@@ -15,10 +15,6 @@
 #include "soc/rtc.h"
 #include "esp_rom_uart.h"
 
-static unsigned int lock_key;
-
-static const char *TAG = "system_api";
-
 #define SHUTDOWN_HANDLERS_NO 4
 static shutdown_handler_t shutdown_handlers[SHUTDOWN_HANDLERS_NO];
 

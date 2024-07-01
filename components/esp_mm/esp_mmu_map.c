@@ -624,8 +624,6 @@ esp_err_t esp_mmu_unmap(void *ptr)
     return ESP_OK;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat"
 esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
 {
     char line[100];
@@ -654,8 +652,8 @@ esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
             if (mem_block != TAILQ_FIRST(&region->mem_block_head) && mem_block != TAILQ_LAST(&region->mem_block_head, mem_block_head_)) {
                 snprintf(buf, len, "%-4d 0x%-11x 0x%-10x 0x%-10x 0x%-4x 0x%-11"PRIx32" 0x%-8"PRIx32"\n",
                          id,
-                         mem_block->vaddr_start,
-                         mem_block->vaddr_end,
+                         (uint32_t) mem_block->vaddr_start,
+                         (uint32_t) mem_block->vaddr_end,
                          mem_block->size,
                          mem_block->caps,
                          mem_block->paddr_start,
@@ -669,8 +667,6 @@ esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
 
     return ESP_OK;
 }
-#pragma GCC diagnostic pop
-
 
 /*---------------------------------------------------------------
         Private dump functions, IRAM Safe
