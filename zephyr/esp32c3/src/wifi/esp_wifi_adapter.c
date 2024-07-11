@@ -418,7 +418,7 @@ static int32_t IRAM_ATTR task_ms_to_tick_wrapper(uint32_t ms)
 
 static int32_t task_get_max_priority_wrapper(void)
 {
-	return (int32_t)(4);
+	return (int32_t)(CONFIG_ESP_WIFI_MAX_THREAD_PRIORITY);
 }
 
 static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
