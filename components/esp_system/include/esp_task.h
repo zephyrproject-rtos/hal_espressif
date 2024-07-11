@@ -22,7 +22,7 @@
 
 #include "sdkconfig.h"
 
-#define ESP_TASK_PRIO_MAX (5)
+#define ESP_TASK_PRIO_MAX (CONFIG_ESP_WIFI_MAX_THREAD_PRIORITY)
 #define ESP_TASK_PRIO_MIN (0)
 
 /* Bt contoller Task */
