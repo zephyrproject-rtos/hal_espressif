@@ -3,6 +3,7 @@
 if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_compile_options(-Wno-unused-variable  -Wno-maybe-uninitialized)
+  zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
 
   if(CONFIG_MCUBOOT)
