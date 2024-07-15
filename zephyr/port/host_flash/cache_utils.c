@@ -17,6 +17,10 @@
 #include "esp32s3/rom/cache.h"
 #include "soc/extmem_reg.h"
 #include "soc/ext_mem_defs.h"
+#elif CONFIG_SOC_SERIES_ESP32C2
+#include "esp32c2/rom/cache.h"
+#include "soc/extmem_reg.h"
+#include "soc/ext_mem_defs.h"
 #elif CONFIG_SOC_SERIES_ESP32C3
 #include "esp32c3/rom/cache.h"
 #include "soc/extmem_reg.h"
@@ -133,11 +137,13 @@ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 
 	s_intr_saved_state = irq_lock();
 
-#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_SERIES_ESP32C6)
+#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) && \
+	!defined(CONFIG_SOC_SERIES_ESP32C6)
 	esp_intr_noniram_disable();
 #endif
 
-#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_SERIES_ESP32C6)
+#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) && \
+	!defined(CONFIG_SOC_SERIES_ESP32C6)
 	int cpu_id = arch_curr_cpu()->id;
 #else
 	int cpu_id =  PRO_CPU_NUM;
@@ -152,7 +158,8 @@ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 
 void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 {
-#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_SERIES_ESP32C6)
+#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) && \
+	!defined(CONFIG_SOC_SERIES_ESP32C6)
 	int cpu_id = arch_curr_cpu()->id;
 #else
 	int cpu_id = PRO_CPU_NUM;
@@ -164,7 +171,8 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 	spi_flash_restore_cache(other_cpu, s_cache_ops_saved_state[other_cpu]);
 #endif
 
-#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_SERIES_ESP32C6)
+#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) && \
+	!defined(CONFIG_SOC_SERIES_ESP32C6)
 	esp_intr_noniram_enable();
 #endif
 
