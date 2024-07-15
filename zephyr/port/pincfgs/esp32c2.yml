@@ -1,0 +1,42 @@
+# Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 10], [18, 20]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 10], [18, 20]]
+  rts:
+    sigo: u0rts_out
+    gpio: [[0, 10], [18, 20]]
+  cts:
+    sigi: u0cts_in
+    gpio: [[0, 10], [18, 20]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 10], [18, 20]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 10], [18, 20]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 10], [18, 20]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 10], [18, 20]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 10], [18, 20]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 10], [18, 20]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 10], [18, 20]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 10], [18, 20]]

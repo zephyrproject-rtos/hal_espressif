@@ -85,9 +85,6 @@ void esp_cpu_configure_region_protection(void)
      */
 
     if (esp_cpu_dbgr_is_attached()) {
-        // Anti-FI check that cpu is really in ocd mode
-        ESP_FAULT_ASSERT(esp_cpu_dbgr_is_attached());
-
         // 1. IRAM
         PMP_ENTRY_SET(0, SOC_DIRAM_IRAM_LOW, NONE);
         PMP_ENTRY_SET(1, SOC_DIRAM_IRAM_HIGH, PMP_TOR | RWX);

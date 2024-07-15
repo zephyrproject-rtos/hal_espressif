@@ -16,6 +16,7 @@
  */
 
 #include <zephyr/kernel.h>
+
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_private/sar_periph_ctrl.h"
@@ -24,7 +25,7 @@
 
 static const char *TAG = "sar_periph_ctrl";
 
-static int rtc_spinlock;
+int rtc_spinlock;
 
 #define ENTER_CRITICAL_SECTION()    do { rtc_spinlock = irq_lock(); } while(0)
 #define LEAVE_CRITICAL_SECTION()    irq_unlock(rtc_spinlock);
@@ -74,7 +75,7 @@ void sar_periph_ctrl_pwdet_power_release(void)
     s_pwdet_power_on_cnt--;
     /* Sanity check */
     if (s_pwdet_power_on_cnt < 0) {
-        portEXIT_CRITICAL(&rtc_spinlock);
+        LEAVE_CRITICAL();
         ESP_LOGE(TAG, "%s called, but s_pwdet_power_on_cnt == 0", __func__);
         abort();
     } else if (s_pwdet_power_on_cnt == 0) {

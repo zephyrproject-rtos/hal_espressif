@@ -9,11 +9,15 @@
 
 
 #pragma once
+
 #include "hal/uart_types.h"
 #include "soc/uart_periph.h"
 #include "hal/clk_tree_ll.h"
 #include "esp_attr.h"
 #include "hal/misc.h"
+#include "soc/system_struct.h"
+#include "soc/system_reg.h"
+#include "soc/dport_access.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,6 +57,23 @@ typedef enum {
     UART_INTR_CMD_CHAR_DET     = (0x1 << 18),
     UART_INTR_WAKEUP           = (0x1 << 19),
 } uart_intr_t;
+
+/**
+ * @brief Check if UART is enabled or disabled.
+ *
+ * @param uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ *
+ * @return true: enabled; false: disabled
+ */
+FORCE_INLINE_ATTR bool uart_ll_is_enabled(uint32_t uart_num)
+{
+    uint32_t uart_rst_bit = ((uart_num == 0) ? SYSTEM_UART_RST :
+                            (uart_num == 1) ? SYSTEM_UART1_RST : 0);
+    uint32_t uart_en_bit  = ((uart_num == 0) ? SYSTEM_UART_CLK_EN :
+                            (uart_num == 1) ? SYSTEM_UART1_CLK_EN : 0);
+    return DPORT_REG_GET_BIT(SYSTEM_PERIP_RST_EN0_REG, uart_rst_bit) == 0 &&
+        DPORT_REG_GET_BIT(SYSTEM_PERIP_CLK_EN0_REG, uart_en_bit) != 0;
+}
 
 /**
  * @brief  Configure the UART core reset.
@@ -669,6 +690,18 @@ FORCE_INLINE_ATTR void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
     hw->rs485_conf.dl0_en = 1;
     hw->rs485_conf.dl1_en = 1;
     hw->rs485_conf.en = 1;
+}
+
+/**
+ * @brief  Get the rs485_half_duplex mode.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return True if RS485 half duplex mode enabled.
+ */
+FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+    return (!hw->rs485_conf.rx_busy_tx_en && hw->rs485_conf.en);
 }
 
 /**

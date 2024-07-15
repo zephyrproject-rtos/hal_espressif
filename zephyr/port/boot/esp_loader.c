@@ -15,7 +15,9 @@
 #include "soc/soc_memory_layout.h"
 #include "esp_log.h"
 
-#if !defined(CONFIG_SOC_SERIES_ESP32C3) && !defined(CONFIG_SOC_ESP32C6)
+#if !defined(CONFIG_SOC_SERIES_ESP32C2) &&	\
+	!defined(CONFIG_SOC_SERIES_ESP32C3) &&	\
+	!defined(CONFIG_SOC_SERIES_ESP32C6)
 #include "soc/dport_reg.h"
 #endif
 
@@ -35,6 +37,8 @@
 #elif CONFIG_SOC_SERIES_ESP32S3
 #include "esp32s3/rom/uart.h"
 #include "esp32s3/rom/cache.h"
+#elif CONFIG_SOC_SERIES_ESP32C2
+#include "esp32c2/rom/uart.h"
 #elif CONFIG_SOC_SERIES_ESP32C3
 #include "esp32c3/rom/uart.h"
 #elif CONFIG_SOC_SERIES_ESP32C6
@@ -189,4 +193,3 @@ void mcuboot_assert_handler(const char *file, int line, const char *func)
     ets_printf("ASSERTION FAIL @ %s:%d in function %s\n", file, line, func);
     abort();
 }
-
