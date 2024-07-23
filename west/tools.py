@@ -31,6 +31,8 @@ from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
 
+build_elf_path = None
+baud_rate = None
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
     return subprocess.check_output(cmd, cwd=cwd, stderr=stderr)
@@ -84,7 +86,7 @@ def get_build_dir(path, die_if_none=True):
         return None
 
 
-def get_build_elf_path():
+def parse_runners_yaml():
     def runners_yaml_path(build_dir):
         ret = Path(build_dir) / 'zephyr' / 'runners.yaml'
         if not ret.is_file():
@@ -106,6 +108,9 @@ def get_build_elf_path():
 
         return content
 
+    global build_elf_path
+    global baud_rate
+
     build_dir = get_build_dir(None)
     domain = load_domains(build_dir).get_default_domain()
 
@@ -117,8 +122,21 @@ def get_build_elf_path():
     yaml_path = runners_yaml_path(build_dir)
     runners_yaml = load_runners_yaml(yaml_path)
 
-    return Path(build_dir) / 'zephyr' / runners_yaml['config']['elf_file']
+    # get build elf file path
+    build_elf_path = Path(build_dir) / 'zephyr' / runners_yaml['config']['elf_file']
 
+    # parse specific arguments for the tool
+    yaml_args = runners_yaml['args']['esp32']
+
+    # Iterate through the list to find default baud rate
+    for item in yaml_args:
+        if item.startswith('--esp-monitor-baud='):
+            baud_rate = item.split('=')[1]
+            break
+
+    # if specific default baud rate is not defined in runners.yaml, default to 115200
+    if not baud_rate:
+        baud_rate = "115200"
 
 class Tools(WestCommand):
 
@@ -132,6 +150,9 @@ class Tools(WestCommand):
             accepts_unknown_args=False)
 
     def do_add_parser(self, parser_adder):
+
+        parse_runners_yaml()
+
         parser = parser_adder.add_parser(self.name,
                                          help=self.help,
                                          description=self.description)
@@ -141,7 +162,7 @@ class Tools(WestCommand):
 
         # monitor arguments
         group = parser.add_argument_group('monitor optional arguments')
-        group.add_argument('-b', '--baud', default="115200", help='Serial port baud rate')
+        group.add_argument('-b', '--baud', default=baud_rate, help='Serial port baud rate')
         group.add_argument('-p', '--port', help='Serial port address')
         group.add_argument('-e', '--elf', help='ELF file')
         group.add_argument('-n', '--eol', default='CRLF', help='EOL to use')
@@ -170,8 +191,7 @@ class Tools(WestCommand):
         if elf_path:
             elf_path = os.path.abspath(elf_path)
         else:
-            # get build elf file path
-            elf_path = get_build_elf_path()
+            elf_path = build_elf_path
 
         esp_port = args.port
         if not esp_port:
