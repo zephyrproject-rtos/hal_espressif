@@ -1,3 +1,88 @@
-# Copyright 2022 Espressif Systems (Shanghai) PTE LTD
+# Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
 
-# This file is required by Zephyr's build system and can be empty
+if SOC_FAMILY_ESPRESSIF_ESP32
+
+if MCUBOOT
+
+config EFUSE_VIRTUAL_OFFSET
+	hex
+	default 0x250000 if SOC_SERIES_ESP32
+	default 0x250000 if SOC_SERIES_ESP32S2
+	default 0x250000 if SOC_SERIES_ESP32S3
+	default 0x250000 if SOC_SERIES_ESP32C3
+	default 0x250000 if SOC_SERIES_ESP32C6
+
+config EFUSE_VIRTUAL_SIZE
+	hex
+	default 0x2000 if SOC_SERIES_ESP32
+	default 0x2000 if SOC_SERIES_ESP32S2
+	default 0x2000 if SOC_SERIES_ESP32S3
+	default 0x2000 if SOC_SERIES_ESP32C3
+	default 0x2000 if SOC_SERIES_ESP32C6
+
+config EFUSE_MAX_BLK_LEN
+	int
+	default 192 if SOC_SERIES_ESP32
+	default 256 if SOC_SERIES_ESP32S2
+	default 256 if SOC_SERIES_ESP32S3
+	default 256 if SOC_SERIES_ESP32C3
+	default 256 if SOC_SERIES_ESP32C6
+
+endif # MCUBOOT
+
+config BOOTLOADER_LOG_LEVEL
+	int
+	default 3
+
+config LOG_TIMESTAMP_SOURCE_RTOS
+	bool
+	default y
+
+config ESP32_DPORT_DIS_INTERRUPT_LVL
+	int
+	default 5 if SOC_SERIES_ESP32 || SOC_SERIES_ESP32S3
+
+config FREERTOS_UNICORE
+	bool
+	default y if !SMP
+
+config ESP_SYSTEM_SINGLE_CORE_MODE
+	bool
+	default y if SOC_SERIES_ESP32
+
+config IDF_FIRMWARE_CHIP_ID
+	hex
+	default 0x0000 if SOC_SERIES_ESP32
+	default 0x0002 if SOC_SERIES_ESP32S2
+	default 0x0009 if SOC_SERIES_ESP32S3
+	default 0x0005 if SOC_SERIES_ESP32C3
+	default 0x000D if SOC_SERIES_ESP32C6
+
+config SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY
+	bool
+	default y if SOC_SERIES_ESP32
+	default y if SOC_SERIES_ESP32S2
+	default y if SOC_SERIES_ESP32S3
+
+config IDF_TARGET_ESP32
+	bool
+	default y if SOC_SERIES_ESP32
+
+config IDF_TARGET_ESP32S2
+	bool
+	default y if SOC_SERIES_ESP32S2
+
+config IDF_TARGET_ESP32S3
+	bool
+	default y if SOC_SERIES_ESP32S3
+
+config IDF_TARGET_ESP32C3
+	bool
+	default y if SOC_SERIES_ESP32C3
+
+config IDF_TARGET_ESP32C6
+	bool
+	default y if SOC_SERIES_ESP32C6
+
+endif # SOC_FAMILY_ESPRESSIF_ESP32
