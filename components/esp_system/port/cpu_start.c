@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,6 +17,8 @@
 #include "esp_efuse.h"
 #include "esp_private/cache_err_int.h"
 #include "esp_clk_internal.h"
+// For workaround `rtc_clk_recalib_bbpll()`
+#include "esp_private/rtc_clk.h"
 
 #include "esp_rom_efuse.h"
 #include "esp_rom_uart.h"
@@ -108,7 +110,10 @@ extern int _bss_start;
 extern int _bss_end;
 extern int _rtc_bss_start;
 extern int _rtc_bss_end;
-
+#if CONFIG_BT_LE_RELEASE_IRAM_SUPPORTED
+extern int _bss_bt_start;
+extern int _bss_bt_end;
+#endif // CONFIG_BT_LE_RELEASE_IRAM_SUPPORTED
 extern int _instruction_reserved_start;
 extern int _instruction_reserved_end;
 extern int _rodata_reserved_start;
@@ -328,6 +333,11 @@ void IRAM_ATTR call_start_cpu0(void)
     //Clear BSS. Please do not attempt to do any complex stuff (like early logging) before this.
     memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
 
+#if CONFIG_BT_LE_RELEASE_IRAM_SUPPORTED
+    // Clear Bluetooth bss
+    memset(&_bss_bt_start, 0, (&_bss_bt_end - &_bss_bt_start) * sizeof(_bss_bt_start));
+#endif // CONFIG_BT_LE_RELEASE_IRAM_SUPPORTED
+
 #if defined(CONFIG_IDF_TARGET_ESP32) && defined(CONFIG_ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY)
     // Clear IRAM BSS
     memset(&_iram_bss_start, 0, (&_iram_bss_end - &_iram_bss_start) * sizeof(_iram_bss_start));
@@ -404,10 +414,6 @@ void IRAM_ATTR call_start_cpu0(void)
     Cache_Resume_DCache(0);
 #endif // CONFIG_IDF_TARGET_ESP32S3
 
-    if (esp_efuse_check_errors() != ESP_OK) {
-        esp_restart();
-    }
-
 #if CONFIG_ESP_ROM_NEEDS_SET_CACHE_MMU_SIZE
 #if CONFIG_APP_BUILD_TYPE_ELF_RAM
     // For RAM loadable ELF case, we don't need to reserve IROM/DROM as instructions and data
@@ -446,7 +452,14 @@ void IRAM_ATTR call_start_cpu0(void)
      * In this stage, we re-configure the Flash (and MSPI) to required configuration
      */
     spi_flash_init_chip_state();
+
+    // In earlier version of ESP-IDF, the PLL provided by bootloader is not stable enough.
+    // Do calibration again here so that we can use better clock for the timing tuning.
+#if CONFIG_ESP_SYSTEM_BBPLL_RECALIB
+    rtc_clk_recalib_bbpll();
+#endif
 #if SOC_MEMSPI_SRC_FREQ_120M
+    // This function needs to be called when PLL is enabled
     mspi_timing_flash_tuning();
 #endif
 
@@ -468,6 +481,10 @@ void IRAM_ATTR call_start_cpu0(void)
     }
 #endif
 #endif // !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+
+    if (esp_efuse_check_errors() != ESP_OK) {
+        esp_restart();
+    }
 
     bootloader_init_mem();
 

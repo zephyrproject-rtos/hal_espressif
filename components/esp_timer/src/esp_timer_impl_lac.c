@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -104,7 +104,6 @@ static alarm_intr_handler_t s_alarm_handler;
 
 /* Spinlock used to protect access to the hardware registers. */
 static unsigned int s_time_update_lock;
-
 
 void esp_timer_impl_lock(void)
 {
@@ -280,12 +279,6 @@ void esp_timer_impl_deinit(void)
     s_alarm_handler = NULL;
 }
 
-/* FIXME: This value is safe for 80MHz APB frequency, should be modified to depend on clock frequency. */
-uint64_t IRAM_ATTR esp_timer_impl_get_min_period_us(void)
-{
-    return 50;
-}
-
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
     s_time_update_lock = irq_lock();
@@ -300,5 +293,3 @@ uint64_t esp_timer_impl_get_alarm_reg(void)
 void esp_timer_private_update_apb_freq(uint32_t apb_ticks_per_us) __attribute__((alias("esp_timer_impl_update_apb_freq")));
 void esp_timer_private_set(uint64_t new_us) __attribute__((alias("esp_timer_impl_set")));
 void esp_timer_private_advance(int64_t time_diff_us) __attribute__((alias("esp_timer_impl_advance")));
-void esp_timer_private_lock(void) __attribute__((alias("esp_timer_impl_lock")));
-void esp_timer_private_unlock(void) __attribute__((alias("esp_timer_impl_unlock")));

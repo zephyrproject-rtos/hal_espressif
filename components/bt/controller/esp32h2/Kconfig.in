@@ -2,17 +2,35 @@
 menu "HCI Config"
 
     choice BT_LE_HCI_INTERFACE
-        prompt "Select HCI interface"
+        prompt "HCI mode"
         default BT_LE_HCI_INTERFACE_USE_RAM
 
         config BT_LE_HCI_INTERFACE_USE_RAM
-            bool "ram"
+            bool "VHCI"
             help
                 Use RAM as HCI interface
         config BT_LE_HCI_INTERFACE_USE_UART
-            bool "uart"
+            bool "UART(H4)"
             help
                 Use UART as HCI interface
+    endchoice
+
+    choice BT_LE_UART_HCI_MODE_CHOICE
+        prompt "UART HCI mode"
+        depends on BT_LE_HCI_INTERFACE_USE_UART
+        default BT_LE_UART_HCI_NO_DMA_MODE
+        help
+            Specify UART HCI mode: DMA or No DMA
+
+        config BT_LE_UART_HCI_DMA_MODE
+            bool "UHCI(UART with DMA)(EXPERIMENTAL)"
+            help
+                UART HCI Mode with DMA functionality.
+
+        config BT_LE_UART_HCI_NO_DMA_MODE
+            bool "UART(NO DMA)"
+            help
+                UART HCI Mode without DMA functionality.
     endchoice
 
     config BT_LE_HCI_UART_PORT
@@ -73,12 +91,40 @@ menu "HCI Config"
                 UART_PARITY_ODD
     endchoice
 
-    config BT_LE_HCI_UART_TASK_STACK_SIZE
-        int "HCI uart task stack size"
-        depends on BT_LE_HCI_INTERFACE_USE_UART
-        default 1000
+    config BT_LE_HCI_UART_RX_BUFFER_SIZE
+        int "The size of rx ring buffer memory"
+        depends on BT_LE_UART_HCI_NO_DMA_MODE
+        default 512
         help
-            Set the size of uart task stack
+            The size of rx ring buffer memory
+
+    config BT_LE_HCI_UART_TX_BUFFER_SIZE
+        int "The size of tx ring buffer memory"
+        depends on BT_LE_UART_HCI_NO_DMA_MODE
+        default 256
+        help
+            The size of tx ring buffer memory
+
+    config BT_LE_HCI_TRANS_TASK_STACK_SIZE
+        int "HCI transport task stack size"
+        depends on !BT_LE_HCI_INTERFACE_USE_RAM
+        default 1024
+        help
+            This configures stack size of hci transport task
+
+    config BT_LE_HCI_TRANS_RX_MEM_NUM
+        int "The amount of rx memory received at the same time"
+        depends on BT_LE_UART_HCI_DMA_MODE
+        default 3
+        help
+            The amount of rx memory received at the same time
+
+    config BT_LE_HCI_LLDESCS_POOL_NUM
+        int "The amount of lldecs memory for driver dma mode"
+        depends on BT_LE_UART_HCI_DMA_MODE
+        default 20
+        help
+            The amount of lldecs memory for driver dma mode
 endmenu
 
 config BT_LE_CONTROLLER_NPL_OS_PORTING_SUPPORT
@@ -147,7 +193,7 @@ if BT_LE_EXT_ADV
             Enable this option to start periodic advertisement.
 
     config BT_LE_PERIODIC_ADV_SYNC_TRANSFER
-        bool "Enable Transer Sync Events"
+        bool "Enable Transfer Sync Events"
         depends on BT_LE_ENABLE_PERIODIC_ADV
         default y
         help
@@ -260,18 +306,71 @@ config BT_LE_CONTROLLER_TASK_STACK_SIZE
     help
         This configures stack size of NimBLE controller task
 
-config BT_LE_CONTROLLER_LOG_ENABLED
+menuconfig BT_LE_CONTROLLER_LOG_ENABLED
     bool "Controller log enable"
     default n
     help
-        Enable controller log module
+        Enable controller log
+
+config BT_LE_CONTROLLER_LOG_CTRL_ENABLED
+    bool "enable controller log module"
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default y
+    help
+            Enable controller log module
+
+config BT_LE_CONTROLLER_LOG_HCI_ENABLED
+    bool "enable HCI log module"
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default y
+    help
+            Enable hci log module
 
 config BT_LE_CONTROLLER_LOG_DUMP_ONLY
     bool "Controller log dump mode only"
     depends on BT_LE_CONTROLLER_LOG_ENABLED
     default y
     help
-        Only operate in dump mode
+            Only operate in dump mode
+
+config BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
+    bool "Store ble controller logs to flash(Experimental)"
+    depends on !BT_LE_CONTROLLER_LOG_DUMP_ONLY
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default n
+    help
+            Store ble controller logs to flash memory.
+
+config BT_LE_CONTROLLER_LOG_PARTITION_SIZE
+    int "size of ble controller log partition(Multiples of 4K)"
+    depends on BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
+    default 65536
+    help
+            The size of ble controller log partition shall be a multiples of 4K.
+            The name of log partition shall be "bt_ctrl_log".
+            The partition type shall be ESP_PARTITION_TYPE_DATA.
+            The partition sub_type shall be ESP_PARTITION_SUBTYPE_ANY.
+
+config BT_LE_LOG_CTRL_BUF1_SIZE
+    int "size of the first BLE controller LOG buffer"
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default 4096
+    help
+            Configure the size of the first BLE controller LOG buffer.
+
+config BT_LE_LOG_CTRL_BUF2_SIZE
+    int "size of the second BLE controller LOG buffer"
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default 1024
+    help
+            Configure the size of the second BLE controller LOG buffer.
+
+config BT_LE_LOG_HCI_BUF_SIZE
+    int "size of the BLE HCI LOG buffer"
+    depends on BT_LE_CONTROLLER_LOG_ENABLED
+    default 4096
+    help
+            Configure the size of the BLE HCI LOG buffer.
 
 config BT_LE_LL_RESOLV_LIST_SIZE
     int "BLE LL Resolving list size"
@@ -321,7 +420,6 @@ config BT_LE_CRYPTO_STACK_MBEDTLS
     bool "Override TinyCrypt with mbedTLS for crypto computations"
     default y
     depends on !BT_NIMBLE_ENABLED
-    select MBEDTLS_ECP_RESTARTABLE
     select MBEDTLS_CMAC_C
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
@@ -338,7 +436,7 @@ config BT_LE_WHITELIST_SIZE
 
 config BT_LE_LL_DUP_SCAN_LIST_COUNT
     int "BLE duplicate scan list count"
-    range 1 100
+    range 5 100
     default 20
     help
         config the max count of duplicate scan list
@@ -353,7 +451,7 @@ config BT_LE_LL_SCA
 config BT_LE_MAX_CONNECTIONS
     int "Maximum number of concurrent connections"
     depends on !BT_NIMBLE_ENABLED
-    range 1 9
+    range 1 35
     default 3
     help
         Defines maximum number of concurrent BLE connections. For ESP32, user
@@ -365,7 +463,7 @@ config BT_LE_MAX_CONNECTIONS
 choice BT_LE_COEX_PHY_CODED_TX_RX_TLIM
     prompt "Coexistence: limit on MAX Tx/Rx time for coded-PHY connection"
     default BT_LE_COEX_PHY_CODED_TX_RX_TLIM_DIS
-    depends on !BT_NIMBLE_ENABLED
+    depends on ESP_COEX_SW_COEXIST_ENABLE
     help
         When using PHY-Coded in BLE connection, limitation on max tx/rx time can be applied to
         better avoid dramatic performance deterioration of Wi-Fi.
@@ -383,7 +481,7 @@ endchoice
 
 config BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
     int
-    depends on !BT_NIMBLE_ENABLED
+    default 0 if !ESP_COEX_SW_COEXIST_ENABLE
     default 1 if BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EN
     default 0 if BT_LE_COEX_PHY_CODED_TX_RX_TLIM_DIS
 
@@ -392,21 +490,6 @@ config BT_LE_SLEEP_ENABLE
     default n
     help
         Enable BLE sleep
-
-choice BT_LE_WAKEUP_SOURCE
-    prompt "BLE light sleep wakeup source"
-    depends on BT_LE_SLEEP_ENABLE
-    default BT_LE_WAKEUP_SOURCE_BLE_RTC_TIMER
-    config BT_LE_WAKEUP_SOURCE_CPU_RTC_TIMER
-        bool "Use ESP timer to wakeup CPU"
-        help
-            Use esp timer to wakeup CPU
-
-    config BT_LE_WAKEUP_SOURCE_BLE_RTC_TIMER
-        bool "Use BLE rtc timer to wakeup CPU"
-        help
-            Use BLE rtc timer to wakeup CPU
-endchoice
 
 choice BT_LE_LP_CLK_SRC
     prompt "BLE low power clock source"
@@ -435,6 +518,39 @@ config BT_LE_USE_ESP_TIMER
     help
         Set this option to use Esp Timer which has higher priority timer
         instead of FreeRTOS timer
+
+config BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_SUPP
+    bool "BLE adv report flow control supported"
+    default y
+    help
+        The function is mainly used to enable flow control for advertising reports. When it is enabled,
+        advertising reports will be discarded by the controller if the number of unprocessed advertising
+        reports exceeds the size of BLE adv report flow control.
+
+config BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_NUM
+    int "BLE adv report flow control number"
+    depends on BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_SUPP
+    range 50 1000
+    default 100
+    help
+        The number of unprocessed advertising report that bluetooth host can save.If you set
+        `BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_NUM` to a small value, this may cause adv packets lost.
+        If you set `BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_NUM` to a large value, bluetooth host may cache a
+        lot of adv packets and this may cause system memory run out. For example, if you set
+        it to 50, the maximum memory consumed by host is 35 * 50 bytes. Please set
+        `BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_NUM` according to your system free memory and handle adv
+        packets as fast as possible, otherwise it will cause adv packets lost.
+
+config BT_CTRL_BLE_ADV_REPORT_DISCARD_THRSHOLD
+    int "BLE adv lost event threshold value"
+    depends on BT_CTRL_BLE_ADV_REPORT_FLOW_CTRL_SUPP
+    range 1 1000
+    default 20
+    help
+        When adv report flow control is enabled, The ADV lost event will be generated when the number
+        of ADV packets lost in the controller reaches this threshold. It is better to set a larger value.
+        If you set `BT_CTRL_BLE_ADV_REPORT_DISCARD_THRSHOLD` to a small value or printf every adv lost event, it
+        may cause adv packets lost more.
 
 config BT_LE_SCAN_DUPL
     bool "BLE Scan Duplicate Options"
@@ -482,16 +598,6 @@ config BT_LE_SCAN_DUPL_TYPE
     default 2 if BT_LE_SCAN_DUPL_TYPE_DATA_DEVICE
     default 0
 
-
-config BT_LE_SCAN_DUPL_CACHE_SIZE
-    int "Maximum number of devices in scan duplicate filter"
-    depends on BT_LE_SCAN_DUPL
-    range 10 1000
-    default 100
-    help
-        Maximum number of devices which can be recorded in scan duplicate filter.
-        When the maximum amount of device in the filter is reached, the cache will be refreshed.
-
 config BT_LE_SCAN_DUPL_CACHE_REFRESH_PERIOD
     int "Duplicate scan list refresh period (seconds)"
     depends on BT_LE_SCAN_DUPL
@@ -507,3 +613,80 @@ config BT_LE_SCAN_DUPL_CACHE_REFRESH_PERIOD
         add new device information.
         2. When the refresh period is up, the controller will clear all device information and start filtering
         again.
+
+config BT_LE_MSYS_INIT_IN_CONTROLLER
+    bool
+    default y
+
+config BT_LE_TX_CCA_ENABLED
+    bool "Enable TX CCA feature"
+    default n
+    help
+        Enable CCA feature to cancel sending the packet if the signal power is stronger than CCA threshold.
+
+config BT_LE_CCA_RSSI_THRESH
+    int "CCA RSSI threshold value"
+    depends on BT_LE_TX_CCA_ENABLED
+    range 20 100
+    default 20
+    help
+        Power threshold of CCA in unit of -1 dBm.
+
+choice BT_LE_DFT_TX_POWER_LEVEL_DBM
+    prompt "BLE default Tx power level(dBm)"
+    default BT_LE_DFT_TX_POWER_LEVEL_P9
+    help
+        Specify default Tx power level(dBm).
+    config BT_LE_DFT_TX_POWER_LEVEL_N24
+        bool "-24dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N21
+        bool "-21dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N18
+        bool "-18dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N15
+        bool "-15dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N12
+        bool "-12dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N9
+        bool "-9dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N6
+        bool "-6dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N3
+        bool "-3dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_N0
+        bool "0dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P3
+        bool "+3dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P6
+        bool "+6dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P9
+        bool "+9dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P12
+        bool "+12dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P15
+        bool "+15dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P18
+        bool "+18dBm"
+    config BT_LE_DFT_TX_POWER_LEVEL_P20
+        bool "+20dBm"
+endchoice
+
+config BT_LE_DFT_TX_POWER_LEVEL_DBM_EFF
+    int
+    default -24 if BT_LE_DFT_TX_POWER_LEVEL_N24
+    default -21 if BT_LE_DFT_TX_POWER_LEVEL_N21
+    default -18 if BT_LE_DFT_TX_POWER_LEVEL_N18
+    default -15 if BT_LE_DFT_TX_POWER_LEVEL_N15
+    default -12 if BT_LE_DFT_TX_POWER_LEVEL_N12
+    default -9 if BT_LE_DFT_TX_POWER_LEVEL_N9
+    default -6 if BT_LE_DFT_TX_POWER_LEVEL_N6
+    default -3 if BT_LE_DFT_TX_POWER_LEVEL_N3
+    default 0 if BT_LE_DFT_TX_POWER_LEVEL_N0
+    default 3 if BT_LE_DFT_TX_POWER_LEVEL_P3
+    default 6 if BT_LE_DFT_TX_POWER_LEVEL_P6
+    default 9 if BT_LE_DFT_TX_POWER_LEVEL_P9
+    default 12 if BT_LE_DFT_TX_POWER_LEVEL_P12
+    default 15 if BT_LE_DFT_TX_POWER_LEVEL_P15
+    default 18 if BT_LE_DFT_TX_POWER_LEVEL_P18
+    default 20 if BT_LE_DFT_TX_POWER_LEVEL_P20
+    default 0

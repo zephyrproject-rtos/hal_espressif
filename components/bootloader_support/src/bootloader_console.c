@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "sdkconfig.h"
 #include "bootloader_console.h"
+#include "soc/soc_caps.h"
 #include "soc/uart_periph.h"
 #include "soc/uart_channel.h"
 #include "soc/io_mux_reg.h"
@@ -18,6 +19,9 @@
 #if CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/usb/cdc_acm.h"
 #include "esp32s2/rom/usb/usb_common.h"
+#endif
+#if CONFIG_ESP_CONSOLE_USB_CDC
+#include "hal/usb_wrap_ll.h"
 #endif
 #include "esp_rom_gpio.h"
 #include "esp_rom_uart.h"
@@ -96,8 +100,11 @@ void bootloader_console_init(void)
 #endif
 
     esp_rom_uart_usb_acm_init(s_usb_cdc_buf, sizeof(s_usb_cdc_buf));
-    esp_rom_uart_set_as_console(ESP_ROM_UART_USB);
+    esp_rom_uart_set_as_console(ESP_ROM_USB_OTG_NUM);
     esp_rom_install_channel_putc(1, bootloader_console_write_char_usb);
+    // Ensure that the USB FSLS PHY is mapped to the USB WRAP
+    usb_wrap_ll_phy_enable_pad(&USB_WRAP, true);
+    usb_wrap_ll_phy_enable_external(&USB_WRAP, false);
 }
 #endif //CONFIG_ESP_CONSOLE_USB_CDC
 

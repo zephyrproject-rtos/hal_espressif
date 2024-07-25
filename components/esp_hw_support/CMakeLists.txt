@@ -16,7 +16,7 @@ if(${target} STREQUAL "esp32c6")
     list(APPEND priv_requires hal)
 endif()
 
-set(srcs "cpu.c" "esp_memory_utils.c" "port/${IDF_TARGET}/cpu_region_protect.c")
+set(srcs "cpu.c" "port/${IDF_TARGET}/esp_cpu_intr.c" "esp_memory_utils.c" "port/${IDF_TARGET}/cpu_region_protect.c")
 if(NOT BOOTLOADER_BUILD)
     list(APPEND srcs "esp_clk.c"
                      "clk_ctrl_os.c"
@@ -24,9 +24,12 @@ if(NOT BOOTLOADER_BUILD)
                      "intr_alloc.c"
                      "mac_addr.c"
                      "periph_ctrl.c"
+                     "revision.c"
                      "rtc_module.c"
                      "sleep_modes.c"
+                     "sleep_console.c"
                      "sleep_gpio.c"
+                     "sleep_event.c"
                      "sleep_modem.c"
                      "regi2c_ctrl.c"
                      "esp_gpio_reserve.c"
@@ -56,6 +59,9 @@ if(NOT BOOTLOADER_BUILD)
 
     if(CONFIG_SOC_GDMA_SUPPORTED)
         list(APPEND srcs "dma/gdma.c" "dma/async_memcpy_impl_gdma.c")
+        if(CONFIG_SOC_PAU_SUPPORTED)
+            list(APPEND srcs "dma/gdma_sleep_retention.c")
+        endif()
     endif()
 
     if(CONFIG_SOC_CP_DMA_SUPPORTED)
@@ -113,12 +119,6 @@ if(NOT BOOTLOADER_BUILD)
 
     if(CONFIG_SOC_RTC_FAST_MEM_SUPPORTED)
         list(APPEND srcs "sleep_wake_stub.c")
-    endif()
-
-    if(CONFIG_IDF_TARGET_ESP32H2)
-        list(REMOVE_ITEM srcs
-                "sleep_wake_stub.c"   # TODO: IDF-6268
-            )
     endif()
 else()
     # Requires "_esp_error_check_failed()" function

@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2017 Nordic Semiconductor ASA
  * SPDX-FileCopyrightText: 2015-2016 Intel Corporation
- * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2018-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -67,7 +67,7 @@ static struct bt_mesh_conn_cb *bt_mesh_gatts_conn_cb;
 static tBTA_GATTS_IF bt_mesh_gatts_if;
 static BD_ADDR bt_mesh_gatts_addr;
 static uint16_t svc_handle, char_handle;
-static future_t *future_mesh;
+static future_t *gatts_future_mesh;
 
 /* Static Functions */
 static struct bt_mesh_gatt_attr *bt_mesh_gatts_find_attr_by_handle(uint16_t handle);
@@ -95,6 +95,11 @@ static tBTA_GATTC_IF bt_mesh_gattc_if;
 #endif
 
 int bt_mesh_host_init(void)
+{
+    return 0;
+}
+
+int bt_mesh_host_deinit(void)
 {
     return 0;
 }
@@ -316,6 +321,7 @@ int bt_le_adv_start(const struct bt_mesh_adv_param *param,
     tBLE_ADDR_TYPE addr_type_own = 0U;
     tBLE_BD_ADDR p_dir_bda = {0};
     tBTM_BLE_AFP adv_fil_pol = 0U;
+    uint16_t interval = 0U;
     uint8_t adv_type = 0U;
     int err = 0;
 
@@ -365,9 +371,24 @@ int bt_le_adv_start(const struct bt_mesh_adv_param *param,
     adv_fil_pol = BLE_MESH_AP_SCAN_CONN_ALL;
     p_start_adv_cb = start_adv_completed_cb;
 
+    interval = param->interval_min;
+
+#if CONFIG_BLE_MESH_RANDOM_ADV_INTERVAL
+    /* If non-connectable mesh packets are transmitted with an adv interval
+     * not smaller than 10ms, then we will use a random adv interval between
+     * [interval / 2, interval] for them.
+     */
+    if (adv_type == BLE_MESH_ADV_NONCONN_IND && interval >= 16) {
+        interval >>= 1;
+        interval += (bt_mesh_get_rand() % (interval + 1));
+
+        BT_INFO("%u->%u", param->interval_min, interval);
+    }
+#endif
+
     /* Check if we can start adv using BTM_BleSetAdvParamsStartAdvCheck */
     BLE_MESH_BTM_CHECK_STATUS(
-        BTM_BleSetAdvParamsAll(param->interval_min, param->interval_max, adv_type,
+        BTM_BleSetAdvParamsAll(interval, interval, adv_type,
                                addr_type_own, &p_dir_bda,
                                channel_map, adv_fil_pol, p_start_adv_cb));
     BLE_MESH_BTM_CHECK_STATUS(BTM_BleStartAdv());
@@ -518,6 +539,9 @@ static void bt_mesh_bta_gatts_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
     case BTA_GATTS_REG_EVT:
         if (p_data->reg_oper.status == BTA_GATT_OK) {
             bt_mesh_gatts_if = p_data->reg_oper.server_if;
+            future_ready(gatts_future_mesh, FUTURE_SUCCESS);
+        } else {
+            future_ready(gatts_future_mesh, FUTURE_FAIL);
         }
         break;
     case BTA_GATTS_READ_EVT: {
@@ -575,27 +599,27 @@ static void bt_mesh_bta_gatts_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
         break;
     case BTA_GATTS_CREATE_EVT:
         svc_handle = p_data->create.service_id;
-        BT_DBG("svc_handle %d, future_mesh %p", svc_handle, future_mesh);
-        if (future_mesh != NULL) {
-            future_ready(future_mesh, FUTURE_SUCCESS);
+        BT_DBG("svc_handle %d, gatts_future_mesh %p", svc_handle, gatts_future_mesh);
+        if (gatts_future_mesh != NULL) {
+            future_ready(gatts_future_mesh, FUTURE_SUCCESS);
         }
         break;
     case BTA_GATTS_ADD_INCL_SRVC_EVT:
         svc_handle = p_data->add_result.attr_id;
-        if (future_mesh != NULL) {
-            future_ready(future_mesh, FUTURE_SUCCESS);
+        if (gatts_future_mesh != NULL) {
+            future_ready(gatts_future_mesh, FUTURE_SUCCESS);
         }
         break;
     case BTA_GATTS_ADD_CHAR_EVT:
         char_handle = p_data->add_result.attr_id;
-        if (future_mesh != NULL) {
-            future_ready(future_mesh, FUTURE_SUCCESS);
+        if (gatts_future_mesh != NULL) {
+            future_ready(gatts_future_mesh, FUTURE_SUCCESS);
         }
         break;
     case BTA_GATTS_ADD_CHAR_DESCR_EVT:
         char_handle = p_data->add_result.attr_id;
-        if (future_mesh != NULL) {
-            future_ready(future_mesh, FUTURE_SUCCESS);
+        if (gatts_future_mesh != NULL) {
+            future_ready(gatts_future_mesh, FUTURE_SUCCESS);
         }
         break;
     case BTA_GATTS_DELELTE_EVT:
@@ -921,11 +945,11 @@ int bt_mesh_gatts_service_register(struct bt_mesh_gatt_service *svc)
         if (svc->attrs[i].uuid->type == BLE_MESH_UUID_TYPE_16) {
             switch (BLE_MESH_UUID_16(svc->attrs[i].uuid)->val) {
             case BLE_MESH_UUID_GATT_PRIMARY_VAL: {
-                future_mesh = future_new();
+                gatts_future_mesh = future_new();
                 bta_uuid_to_bt_mesh_uuid(&bta_uuid, (struct bt_mesh_uuid *)svc->attrs[i].user_data);
                 BTA_GATTS_CreateService(bt_mesh_gatts_if,
                                         &bta_uuid, 0, svc->attr_count, true);
-                if (future_await(future_mesh) == FUTURE_FAIL) {
+                if (future_await(gatts_future_mesh) == FUTURE_FAIL) {
                     BT_ERR("Failed to add primary service");
                     return ESP_FAIL;
                 }
@@ -935,11 +959,11 @@ int bt_mesh_gatts_service_register(struct bt_mesh_gatt_service *svc)
                 break;
             }
             case BLE_MESH_UUID_GATT_SECONDARY_VAL: {
-                future_mesh = future_new();
+                gatts_future_mesh = future_new();
                 bta_uuid_to_bt_mesh_uuid(&bta_uuid, (struct bt_mesh_uuid *)svc->attrs[i].user_data);
                 BTA_GATTS_CreateService(bt_mesh_gatts_if,
                                         &bta_uuid, 0, svc->attr_count, false);
-                if (future_await(future_mesh) == FUTURE_FAIL) {
+                if (future_await(gatts_future_mesh) == FUTURE_FAIL) {
                     BT_ERR("Failed to add secondary service");
                     return ESP_FAIL;
                 }
@@ -952,11 +976,11 @@ int bt_mesh_gatts_service_register(struct bt_mesh_gatt_service *svc)
                 break;
             }
             case BLE_MESH_UUID_GATT_CHRC_VAL: {
-                future_mesh = future_new();
+                gatts_future_mesh = future_new();
                 struct bt_mesh_gatt_char *gatts_chrc = (struct bt_mesh_gatt_char *)svc->attrs[i].user_data;
                 bta_uuid_to_bt_mesh_uuid(&bta_uuid, gatts_chrc->uuid);
                 BTA_GATTS_AddCharacteristic(svc_handle, &bta_uuid, bt_mesh_perm_to_bta_perm(svc->attrs[i + 1].perm), gatts_chrc->properties, NULL, NULL);
-                if (future_await(future_mesh) == FUTURE_FAIL) {
+                if (future_await(gatts_future_mesh) == FUTURE_FAIL) {
                     BT_ERR("Failed to add characteristic");
                     return ESP_FAIL;
                 }
@@ -978,10 +1002,10 @@ int bt_mesh_gatts_service_register(struct bt_mesh_gatt_service *svc)
             case BLE_MESH_UUID_ES_CONFIGURATION_VAL:
             case BLE_MESH_UUID_ES_MEASUREMENT_VAL:
             case BLE_MESH_UUID_ES_TRIGGER_SETTING_VAL: {
-                future_mesh = future_new();
+                gatts_future_mesh = future_new();
                 bta_uuid_to_bt_mesh_uuid(&bta_uuid, svc->attrs[i].uuid);
                 BTA_GATTS_AddCharDescriptor(svc_handle, bt_mesh_perm_to_bta_perm(svc->attrs[i].perm), &bta_uuid, NULL, NULL);
-                if (future_await(future_mesh) == FUTURE_FAIL) {
+                if (future_await(gatts_future_mesh) == FUTURE_FAIL) {
                     BT_ERR("Failed to add descriptor");
                     return ESP_FAIL;
                 }
@@ -1615,6 +1639,7 @@ static void bt_mesh_bta_gattc_cb(tBTA_GATTC_EVT event, tBTA_GATTC *p_data)
         }
         break;
     case BTA_GATTC_CLOSE_EVT:
+        bta_gattc_clcb_dealloc_by_conn_id(p_data->close.conn_id);
         BT_DBG("BTA_GATTC_CLOSE_EVT");
         break;
     case BTA_GATTC_CONNECT_EVT: {
@@ -1723,7 +1748,19 @@ void bt_mesh_gatt_init(void)
     CONFIG_BLE_MESH_GATT_PROXY_SERVER
     tBT_UUID gatts_app_uuid = {LEN_UUID_128, {0}};
     memset(&gatts_app_uuid.uu.uuid128, BLE_MESH_GATTS_APP_UUID_BYTE, LEN_UUID_128);
+
+    gatts_future_mesh = future_new();
+    if (!gatts_future_mesh) {
+        BT_ERR("Mesh gatts sync lock alloc failed");
+        return;
+    }
+
     BTA_GATTS_AppRegister(&gatts_app_uuid, bt_mesh_bta_gatts_cb);
+
+    if (future_await(gatts_future_mesh) == FUTURE_FAIL) {
+        BT_ERR("Mesh gatts app register failed");
+        return;
+    }
 #endif
 
 #if (CONFIG_BLE_MESH_PROVISIONER && CONFIG_BLE_MESH_PB_GATT) || \
@@ -1977,6 +2014,16 @@ int bt_mesh_update_exceptional_list(uint8_t sub_code, uint32_t type, void *info)
             BT_ERR("Invalid Provisioning Link ID");
             return -EINVAL;
         }
+
+        /* When removing an unused link (i.e., Link ID is 0), and since
+         * Controller has never added this Link ID, it will cause error
+         * log been wrongly reported.
+         * Therefore, add this check here to avoid such occurrences.
+         */
+        if (*(uint32_t*)info == 0) {
+            return 0;
+        }
+
         sys_memcpy_swap(value, info, sizeof(uint32_t));
     }
 

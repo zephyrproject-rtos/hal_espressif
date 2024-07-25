@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,24 +7,26 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "esp_crypto_lock.h"
 #include "esp_private/periph_ctrl.h"
 #include "ecc_impl.h"
 #include "hal/ecc_hal.h"
-
-static _lock_t s_crypto_ecc_lock;
+#include "hal/ecc_ll.h"
 
 static void esp_ecc_acquire_hardware(void)
 {
-    _lock_acquire(&s_crypto_ecc_lock);
+    esp_crypto_ecc_lock_acquire();
 
     periph_module_enable(PERIPH_ECC_MODULE);
+    ecc_ll_power_up();
 }
 
 static void esp_ecc_release_hardware(void)
 {
     periph_module_disable(PERIPH_ECC_MODULE);
+    ecc_ll_power_down();
 
-    _lock_release(&s_crypto_ecc_lock);
+    esp_crypto_ecc_lock_release();
 }
 
 int esp_ecc_point_multiply(const ecc_point_t *point, const uint8_t *scalar, ecc_point_t *result, bool verify_first)

@@ -139,7 +139,7 @@ typedef UINT16 tGATT_DISCONN_REASON;
 /* max length of an attribute value
 */
 #ifndef GATT_MAX_ATTR_LEN
-#define GATT_MAX_ATTR_LEN                   600
+#define GATT_MAX_ATTR_LEN                   512
 #endif
 
 /* default GATT MTU size over LE link
@@ -701,7 +701,7 @@ extern UINT8 GATT_SetTraceLevel (UINT8 new_level);
 **
 ** Function         GATTS_AddHandleRange
 **
-** Description      This function add the allocated handles range for the specifed
+** Description      This function add the allocated handles range for the specified
 **                  application UUID, service UUID and service instance
 **
 ** Parameter        p_hndl_range:   pointer to allocated handles information
@@ -720,7 +720,7 @@ extern BOOLEAN GATTS_AddHandleRange(tGATTS_HNDL_RANGE *p_hndl_range);
 **                  NV save callback function.  There can be one and only one
 **                  NV save callback function.
 **
-** Parameter        p_cb_info : callback informaiton
+** Parameter        p_cb_info : callback information
 **
 ** Returns          TRUE if registered OK, else FALSE
 **
@@ -943,7 +943,7 @@ tGATT_STATUS GATTS_SetAttributeValue(UINT16 attr_handle, UINT16 length, UINT8 *v
 *******************************************************************************/
 tGATT_STATUS GATTS_GetAttributeValue(UINT16 attr_handle, UINT16 *length, UINT8 **value);
 
-
+tGATT_STATUS GATTS_GetAttributeValueInternal(UINT16 attr_handle, UINT16 *length, UINT8 **value);
 
 /*******************************************************************************/
 /* GATT Profile Client Functions */
@@ -1143,7 +1143,7 @@ extern BOOLEAN GATT_Connect (tGATT_IF gatt_if, BD_ADDR bd_addr, tBLE_ADDR_TYPE b
 **
 ** Function         GATT_CancelConnect
 **
-** Description      This function terminate the connection initaition to a remote
+** Description      This function terminate the connection initiation to a remote
 **                  device on GATT channel.
 **
 ** Parameters       gatt_if: client interface. If 0 used as unconditionally disconnect,
@@ -1278,6 +1278,17 @@ extern tGATT_STATUS GATTS_SetServiceChangeMode(UINT8 mode);
 **
 *******************************************************************************/
 extern tGATT_STATUS GATTS_HandleMultiValueNotification (UINT16 conn_id, tGATT_HLV *tuples, UINT16 num_tuples);
+
+/*******************************************************************************
+**
+** Function         GATTS_ShowLocalDatabase
+**
+** Description      This function print local service database.
+**
+** Returns          GATT_SUCCESS if successfully sent; otherwise error code.
+**
+*******************************************************************************/
+extern tGATT_STATUS GATTS_ShowLocalDatabase(void);
 
 #ifdef __cplusplus
 

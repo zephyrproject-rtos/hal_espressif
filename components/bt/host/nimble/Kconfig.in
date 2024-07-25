@@ -65,6 +65,8 @@ config BT_NIMBLE_LOG_LEVEL
 config BT_NIMBLE_MAX_CONNECTIONS
     int "Maximum number of concurrent connections"
     range 1 2 if IDF_TARGET_ESP32C2
+    range 1 70 if IDF_TARGET_ESP32C6
+    range 1 35 if IDF_TARGET_ESP32H2
     range 1 9
     default 2 if IDF_TARGET_ESP32C2
     default 3
@@ -162,6 +164,16 @@ config BT_NIMBLE_NVS_PERSIST
     help
             Enable this flag to make bonding persistent across device reboots
 
+config BT_NIMBLE_SMP_ID_RESET
+    bool "Reset device identity when all bonding records are deleted"
+    default n
+    help
+        There are tracking risks associated with using a fixed or static IRK.
+        If enabled this option, Bluedroid will assign a new randomly-generated IRK
+        when all pairing and bonding records are deleted. This would decrease the ability
+        of a previously paired peer to be used to determine whether a device
+        with which it previously shared an IRK is within range.
+
 menuconfig BT_NIMBLE_SECURITY_ENABLE
     bool "Enable BLE SM feature"
     depends on BT_NIMBLE_ENABLED
@@ -199,12 +211,29 @@ config BT_NIMBLE_LL_CFG_FEAT_LE_ENCRYPTION
     help
             Enable encryption connection
 
+config BT_NIMBLE_SM_SC_LVL
+    int "Security level"
+    depends on BT_NIMBLE_SECURITY_ENABLE
+    default 0
+    help
+        LE Security Mode 1 Levels:
+        1. No Security
+        2. Unauthenticated pairing with encryption
+        3. Authenticated pairing with encryption
+        4. Authenticated LE Secure Connections pairing with encryption using a 128-bit strength encryption key.
+
 config BT_NIMBLE_DEBUG
     bool "Enable extra runtime asserts and host debugging"
     default n
     depends on BT_NIMBLE_ENABLED
     help
         This enables extra runtime asserts and host debugging
+
+config BT_NIMBLE_DYNAMIC_SERVICE
+    bool "Enable dynamic services"
+    depends on BT_NIMBLE_ENABLED
+    help
+        This enables user to add/remove Gatt services at runtime
 
 config BT_NIMBLE_SVC_GAP_DEVICE_NAME
     string "BLE GAP default device name"
@@ -266,6 +295,15 @@ menu "Memory Settings"
         default 320
         help
                 Dynamic memory size of block 2
+
+    config BT_NIMBLE_MSYS_BUF_FROM_HEAP
+        bool "Get Msys Mbuf from heap"
+        default y
+        depends on BT_LE_MSYS_INIT_IN_CONTROLLER
+        help
+            This option sets the source of the shared msys mbuf memory between
+            the Host and the Controller. Allocate the memory from the heap if
+            this option is sets, from the mempool otherwise.
 
     config BT_NIMBLE_TRANSPORT_ACL_FROM_LL_COUNT
         int "ACL Buffer count"
@@ -359,8 +397,7 @@ config BT_NIMBLE_RPA_TIMEOUT
     depends on BT_NIMBLE_ENABLED
     default 900
     help
-        Time interval between RPA address change. This is applicable in case of
-        Host based RPA
+        Time interval between RPA address change.
 
 menuconfig BT_NIMBLE_MESH
     bool "Enable BLE mesh functionality"
@@ -463,7 +500,6 @@ config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     bool "Override TinyCrypt with mbedTLS for crypto computations"
     default y
     depends on BT_NIMBLE_ENABLED
-    select MBEDTLS_ECP_RESTARTABLE
     select MBEDTLS_CMAC_C
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
@@ -494,7 +530,7 @@ config BT_NIMBLE_ENABLE_CONN_REATTEMPT
 
 config BT_NIMBLE_MAX_CONN_REATTEMPT
     int "Maximum number connection reattempts"
-    range 1 7
+    range 1 255
     default 3
     depends on BT_NIMBLE_ENABLED && BT_NIMBLE_ENABLE_CONN_REATTEMPT
     help
@@ -562,7 +598,7 @@ if BT_NIMBLE_EXT_ADV
             Enable this option to start periodic advertisement.
 
     config BT_NIMBLE_PERIODIC_ADV_SYNC_TRANSFER
-        bool "Enable Transer Sync Events"
+        bool "Enable Transfer Sync Events"
         depends on BT_NIMBLE_ENABLE_PERIODIC_ADV
         default y
         help
@@ -596,31 +632,42 @@ config BT_NIMBLE_BLE_POWER_CONTROL
     help
         Set this option to enable the Power Control feature
 
-choice BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM
-    prompt "Coexistence: limit on MAX Tx/Rx time for coded-PHY connection"
-    default BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_DIS
-    depends on ESP_WIFI_SW_COEXIST_ENABLE && BT_NIMBLE_ENABLED
+config BT_NIMBLE_PERIODIC_ADV_ENH
+    bool "Periodic adv enhancements(adi support)"
+    depends on BT_NIMBLE_ENABLE_PERIODIC_ADV && BT_NIMBLE_50_FEATURE_SUPPORT && SOC_BLE_PERIODIC_ADV_ENH_SUPPORTED
     help
-            When using PHY-Coded in BLE connection, limitation on max tx/rx time can be applied to
-            better avoid dramatic performance deterioration of Wi-Fi.
+        Enable the periodic advertising enhancements
 
-        config BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_EN
-            bool "Force Enable"
-            help
-                Always enable the limitation on max tx/rx time for Coded-PHY connection
-
-        config BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_DIS
-            bool "Force Disable"
-            help
-                Disable the limitation on max tx/rx time for Coded-PHY connection
-endchoice
-
-config BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_EFF
-    int
-    default 0 if !(ESP_WIFI_SW_COEXIST_ENABLE && BT_NIMBLE_ENABLED)
-    default 1 if BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_EN
-    default 0 if BT_NIMBLE_COEX_PHY_CODED_TX_RX_TLIM_DIS
-
+menuconfig BT_NIMBLE_GATT_CACHING
+    bool "Enable GATT caching"
+    depends on BT_NIMBLE_ENABLED && BT_NIMBLE_50_FEATURE_SUPPORT
+    select BT_NIMBLE_DYNAMIC_SERVICE
+    help
+        Enable GATT caching
+config BT_NIMBLE_GATT_CACHING_MAX_CONNS
+    int "Maximum connections to be cached"
+    depends on BT_NIMBLE_GATT_CACHING
+    default 1
+    help
+        Set this option to set the upper limit on number of connections to be cached.
+config BT_NIMBLE_GATT_CACHING_MAX_SVCS
+    int "Maximum number of services per connection"
+    depends on BT_NIMBLE_GATT_CACHING
+    default 64
+    help
+        Set this option to set the upper limit on number of services per connection to be cached.
+config BT_NIMBLE_GATT_CACHING_MAX_CHRS
+    int "Maximum number of characteristics per connection"
+    depends on BT_NIMBLE_GATT_CACHING
+    default 64
+    help
+        Set this option to set the upper limit on number of characteristics per connection to be cached.
+config BT_NIMBLE_GATT_CACHING_MAX_DSCS
+    int "Maximum number of descriptors per connection"
+    depends on BT_NIMBLE_GATT_CACHING
+    default 64
+    help
+        Set this option to set the upper limit on number of descriptors per connection to be cached.
 
 config BT_NIMBLE_WHITELIST_SIZE
     int "BLE white list size"
@@ -662,8 +709,350 @@ config BT_NIMBLE_BLE_GATT_BLOB_TRANSFER
         This option is used when data to be sent is more than 512 bytes. For peripheral role,
         BT_NIMBLE_MSYS_1_BLOCK_COUNT needs to be increased according to the need.
 
+menu "GAP Service"
+    menu "GAP Appearance write permissions"
+        config BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+            bool "Write"
+            default n
+            help
+                Enable write permission (BLE_GATT_CHR_F_WRITE)
+
+        config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_ENC
+            depends on BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+            bool "Write with encryption"
+            default n
+            help
+                Enable write with encryption permission (BLE_GATT_CHR_F_WRITE_ENC)
+
+        config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHEN
+            depends on BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+            bool "Write with authentication"
+            default n
+            help
+                Enable write with authentication permission (BLE_GATT_CHR_F_WRITE_AUTHEN)
+
+        config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHOR
+            depends on BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+            bool "Write with authorisation"
+            default n
+            help
+                Enable write with authorisation permission (BLE_GATT_CHR_F_WRITE_AUTHOR)
+    endmenu
+
+    config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_PERM
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+        default 8 if BT_NIMBLE_SVC_GAP_APPEAR_WRITE
+
+    config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_PERM_ENC
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_APPEAR_WRITE_ENC
+        default 4096 if BT_NIMBLE_SVC_GAP_APPEAR_WRITE_ENC
+
+    config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_PERM_ATHN
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHEN
+        default 8192 if BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHEN
+
+    config BT_NIMBLE_SVC_GAP_APPEAR_WRITE_PERM_ATHR
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHOR
+        default 16384 if BT_NIMBLE_SVC_GAP_APPEAR_WRITE_AUTHOR
+
+    choice BT_NIMBLE_SVC_GAP_CENT_ADDR_RESOLUTION
+        prompt "GAP Characteristic - Central Address Resolution"
+        default BT_NIMBLE_SVC_GAP_CAR_CHAR_NOT_SUPP
+        help
+            Weather or not Central Address Resolution characteristic is supported on
+            the device, and if supported, weather or not Central Address Resolution
+            is supported.
+
+            - Central Address Resolution characteristic not supported
+            - Central Address Resolution not supported
+            - Central Address Resolution supported
+
+        config BT_NIMBLE_SVC_GAP_CAR_CHAR_NOT_SUPP
+            bool "Characteristic not supported"
+
+        config BT_NIMBLE_SVC_GAP_CAR_NOT_SUPP
+            bool "Central Address Resolution not supported"
+
+        config BT_NIMBLE_SVC_GAP_CAR_SUPP
+            bool "Central Address Resolution supported"
+    endchoice
+
+    config BT_NIMBLE_SVC_GAP_CENT_ADDR_RESOLUTION
+        int
+        default -1 if BT_NIMBLE_SVC_GAP_CAR_CHAR_NOT_SUPP
+        default 0 if BT_NIMBLE_SVC_GAP_CAR_NOT_SUPP
+        default 1 if BT_NIMBLE_SVC_GAP_CAR_SUPP
+
+    menu "GAP device name write permissions"
+        config BT_NIMBLE_SVC_GAP_NAME_WRITE
+            bool "Write"
+            default n
+            help
+                Enable write permission (BLE_GATT_CHR_F_WRITE)
+
+        config BT_NIMBLE_SVC_GAP_NAME_WRITE_ENC
+            depends on BT_NIMBLE_SVC_GAP_NAME_WRITE
+            bool "Write with encryption"
+            default n
+            help
+                Enable write with encryption permission (BLE_GATT_CHR_F_WRITE_ENC)
+
+        config BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHEN
+            depends on BT_NIMBLE_SVC_GAP_NAME_WRITE
+            bool "Write with authentication"
+            default n
+            help
+                Enable write with authentication permission (BLE_GATT_CHR_F_WRITE_AUTHEN)
+
+        config BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHOR
+            depends on BT_NIMBLE_SVC_GAP_NAME_WRITE
+            bool "Write with authorisation"
+            default n
+            help
+                Enable write with authorisation permission (BLE_GATT_CHR_F_WRITE_AUTHOR)
+    endmenu
+
+    config BT_NIMBLE_SVC_GAP_NAME_WRITE_PERM
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_NAME_WRITE
+        default 8 if BT_NIMBLE_SVC_GAP_NAME_WRITE
+
+    config BT_NIMBLE_SVC_GAP_NAME_WRITE_PERM_ENC
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_NAME_WRITE_ENC
+        default 4096 if BT_NIMBLE_SVC_GAP_NAME_WRITE_ENC
+
+    config BT_NIMBLE_SVC_GAP_NAME_WRITE_PERM_AUTHEN
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHEN
+        default 8192 if BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHEN
+
+    config BT_NIMBLE_SVC_GAP_NAME_WRITE_PERM_AUTHOR
+        int
+        default 0 if !BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHOR
+        default 16384 if BT_NIMBLE_SVC_GAP_NAME_WRITE_AUTHOR
+
+    config BT_NIMBLE_SVC_GAP_PPCP_MAX_CONN_INTERVAL
+        int "PPCP Connection Interval Max (Unit: 1.25 ms)"
+        depends on BT_NIMBLE_ROLE_PERIPHERAL
+        default 0
+        help
+            Peripheral Preferred Connection Parameter: Connection Interval maximum value
+            Interval Max = value * 1.25 ms
+
+    config BT_NIMBLE_SVC_GAP_PPCP_MIN_CONN_INTERVAL
+        int "PPCP Connection Interval Min (Unit: 1.25 ms)"
+        depends on BT_NIMBLE_ROLE_PERIPHERAL
+        default 0
+        help
+            Peripheral Preferred Connection Parameter: Connection Interval minimum value
+            Interval Min = value * 1.25 ms
+
+    config BT_NIMBLE_SVC_GAP_PPCP_SLAVE_LATENCY
+        int "PPCP Slave Latency"
+        default 0
+        help
+            Peripheral Preferred Connection Parameter: Slave Latency
+
+    config BT_NIMBLE_SVC_GAP_PPCP_SUPERVISION_TMO
+        int "PPCP Supervision Timeout (Uint: 10 ms)"
+        default 0
+        help
+            Peripheral Preferred Connection Parameter: Supervision Timeout
+            Timeout = Value * 10 ms
+
+endmenu
+
+menu "BLE Services"
+    menuconfig BT_NIMBLE_HID_SERVICE
+        bool "HID service"
+        depends on BT_NIMBLE_ENABLED
+        default n
+        help
+            Enable HID service support
+
+    config BT_NIMBLE_SVC_HID_MAX_INSTANCES
+        depends on BT_NIMBLE_HID_SERVICE
+        int "Maximum HID service instances"
+        default 2
+        help
+            Defines maximum number of HID service instances
+
+    config BT_NIMBLE_SVC_HID_MAX_RPTS
+        depends on BT_NIMBLE_HID_SERVICE
+        int "Maximum HID Report characteristics per service instance"
+        default 3
+        help
+            Defines maximum number of report characteristics per service instance
+endmenu
+
 config BT_NIMBLE_VS_SUPPORT
     bool "Enable support for VSC and VSE"
     help
         This option is used to enable support for sending Vendor Specific HCI commands and handling
         Vendor Specific HCI Events.
+
+config BT_NIMBLE_OPTIMIZE_MULTI_CONN
+    bool "Enable the optimization of multi-connection"
+    depends on SOC_BLE_MULTI_CONN_OPTIMIZATION
+    select BT_NIMBLE_VS_SUPPORT
+    default n
+    help
+        This option enables the use of vendor-specific APIs for multi-connections, which can
+        greatly enhance the stability of coexistence between numerous central and peripheral
+        devices. It will prohibit the usage of standard APIs.
+
+config BT_NIMBLE_ENC_ADV_DATA
+    bool "Encrypted Advertising Data"
+    select BT_NIMBLE_EXT_ADV
+    help
+        This option is used to enable encrypted advertising data.
+
+config BT_NIMBLE_MAX_EADS
+    int "Maximum number of EAD devices to save across reboots"
+    default 10
+    depends on BT_NIMBLE_ENABLED && BT_NIMBLE_ENC_ADV_DATA
+    help
+        Defines maximum number of encrypted advertising data key material to save
+
+config BT_NIMBLE_HIGH_DUTY_ADV_ITVL
+    bool "Enable BLE high duty advertising interval feature"
+    depends on BT_NIMBLE_ENABLED
+    help
+        This enable BLE high duty advertising interval feature
+
+config BT_NIMBLE_HOST_ALLOW_CONNECT_WITH_SCAN
+    bool "Allow Connections with scanning in progress"
+    depends on BT_NIMBLE_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3)
+    help
+        This enables support for user to initiate a new connection with scan in progress
+
+config BT_NIMBLE_HOST_QUEUE_CONG_CHECK
+    bool "BLE queue congestion check"
+    depends on BT_NIMBLE_ENABLED
+    default n
+    help
+        When scanning and scan duplicate is not enabled, if there are a lot of adv packets around
+        or application layer handling adv packets is slow, it will cause the controller memory
+        to run out. if enabled, adv packets will be lost when host queue is congested.
+
+menu "Host-controller Transport"
+    config BT_NIMBLE_TRANSPORT_UART
+        bool "Enable Uart Transport"
+        default y
+        depends on BT_CONTROLLER_DISABLED
+        help
+            Use UART transport
+
+    config BT_NIMBLE_TRANSPORT_UART_PORT
+        int "Uart port"
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        default 1
+        help
+            Uart port
+
+    choice BT_NIMBLE_HCI_USE_UART_BAUDRATE
+        prompt "Uart Hci Baud Rate"
+        default UART_BAUDRATE_921600
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        help
+            Uart Baud Rate
+
+        config UART_BAUDRATE_115200
+            bool "115200"
+        config UART_BAUDRATE_230400
+            bool "230400"
+        config UART_BAUDRATE_460800
+            bool "460800"
+        config UART_BAUDRATE_921600
+            bool "921600"
+    endchoice
+
+    config BT_NIMBLE_HCI_UART_BAUDRATE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        int
+        default 115200 if  UART_BAUDRATE_115200
+        default 230400 if  UART_BAUDRATE_230400
+        default 460800 if  UART_BAUDRATE_460800
+        default 921600 if  UART_BAUDRATE_921600
+
+    choice BT_NIMBLE_USE_HCI_UART_PARITY
+        prompt "Uart PARITY"
+        default UART_PARITY_NONE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        help
+            Uart Parity
+
+        config UART_PARITY_NONE
+            bool "None"
+        config UART_PARITY_ODD
+            bool "Odd"
+        config UART_PARITY_EVEN
+            bool "Even"
+    endchoice
+
+    config BT_NIMBLE_TRANSPORT_UART_PARITY_NONE
+        int
+        default 0 if !UART_PARITY_NONE
+        default 1 if UART_PARITY_NONE
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+
+    config BT_NIMBLE_TRANSPORT_UART_PARITY_ODD
+        int
+        default 0 if !UART_PARITY_ODD
+        default 1 if UART_PARITY_ODD
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+
+    config BT_NIMBLE_TRANSPORT_UART_PARITY_EVEN
+        int
+        default 0 if !UART_PARITY_EVEN
+        default 1 if UART_PARITY_EVEN
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+
+    config BT_NIMBLE_UART_RX_PIN
+        int "UART Rx pin"
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        default 5
+        help
+            Rx pin for Nimble Transport
+
+    config BT_NIMBLE_UART_TX_PIN
+        int "UART Tx pin"
+        depends on BT_CONTROLLER_DISABLED && BT_NIMBLE_TRANSPORT_UART
+        default 4
+        help
+            Tx pin for Nimble Transport
+
+    choice BT_NIMBLE_USE_HCI_UART_FLOW_CTRL
+        prompt "Uart Flow Control"
+        default UART_HW_FLOWCTRL_DISABLE
+        help
+            Uart Flow Control
+
+        config UART_HW_FLOWCTRL_DISABLE
+            bool "Disable"
+        config UART_HW_FLOWCTRL_CTS_RTS
+            bool "Enable hardware flow control"
+    endchoice
+
+    config BT_NIMBLE_HCI_UART_FLOW_CTRL
+        int
+        default 0 if UART_HW_FLOWCTRL_DISABLE
+        default 1 if UART_HW_FLOWCTRL_CTS_RTS
+
+    config BT_NIMBLE_HCI_UART_RTS_PIN
+        int "UART Rts Pin"
+        default 19
+        help
+            UART HCI RTS pin
+
+    config BT_NIMBLE_HCI_UART_CTS_PIN
+        int "UART Cts Pin"
+        default 23
+        help
+            UART HCI CTS pin
+endmenu

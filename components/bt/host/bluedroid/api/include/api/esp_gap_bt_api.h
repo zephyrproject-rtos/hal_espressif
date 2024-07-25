@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -91,7 +91,35 @@ typedef struct {
 
 typedef uint8_t esp_bt_eir_type_t;
 
+/* ACL Packet Types */
+#define ESP_BT_ACL_PKT_TYPES_MASK_DM1           0x0008
+#define ESP_BT_ACL_PKT_TYPES_MASK_DH1           0x0010
+#define ESP_BT_ACL_PKT_TYPES_MASK_DM3           0x0400
+#define ESP_BT_ACL_PKT_TYPES_MASK_DH3           0x0800
+#define ESP_BT_ACL_PKT_TYPES_MASK_DM5           0x4000
+#define ESP_BT_ACL_PKT_TYPES_MASK_DH5           0x8000
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH1      0x0002
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH1      0x0004
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH3      0x0100
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH3      0x0200
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH5      0x1000
+#define ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH5      0x2000
 
+// DM1 cann not be disabled. All options are mandatory to include DM1.
+#define ESP_BT_ACL_DM1_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DM1 | 0x330e)         /* 0x330e */
+#define ESP_BT_ACL_DH1_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DH1 | 0x330e)         /* 0x331e */
+#define ESP_BT_ACL_DM3_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DM3 | 0x330e)         /* 0x370e */
+#define ESP_BT_ACL_DH3_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DH3 | 0x330e)         /* 0x3b0e */
+#define ESP_BT_ACL_DM5_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DM5 | 0x330e)         /* 0x730e */
+#define ESP_BT_ACL_DH5_ONLY     (ESP_BT_ACL_PKT_TYPES_MASK_DH5 | 0x330e)         /* 0xb30e */
+#define ESP_BT_ACL_2_DH1_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH1 & 0x330e)   /* 0x330c */
+#define ESP_BT_ACL_3_DH1_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH1 & 0x330e)   /* 0x330a */
+#define ESP_BT_ACL_2_DH3_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH3 & 0x330e)   /* 0x320e */
+#define ESP_BT_ACL_3_DH3_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH3 & 0x330e)   /* 0x310e */
+#define ESP_BT_ACL_2_DH5_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_2_DH5 & 0x330e)   /* 0x230e */
+#define ESP_BT_ACL_3_DH5_ONLY   (~ESP_BT_ACL_PKT_TYPES_MASK_NO_3_DH5 & 0x330e)   /* 0x130e */
+
+typedef uint16_t esp_bt_acl_pkt_type_t;
 
 /* ESP_BT_EIR_FLAG bit definition */
 #define ESP_BT_EIR_FLAG_LIMIT_DISC         (0x01 << 0)
@@ -106,6 +134,7 @@ typedef struct {
     bool                    fec_required;           /*!< FEC is required or not, true by default */
     bool                    include_txpower;        /*!< EIR data include TX power, false by default */
     bool                    include_uuid;           /*!< EIR data include UUID, false by default */
+    bool                    include_name;           /*!< EIR data include device name, true by default */
     uint8_t                 flag;                   /*!< EIR flags, see ESP_BT_EIR_FLAG for details, EIR will not include flag if it is 0, 0 by default */
     uint16_t                manufacturer_len;       /*!< Manufacturer data length, 0 by default */
     uint8_t                 *p_manufacturer_data;   /*!< Manufacturer data point */
@@ -217,6 +246,7 @@ typedef enum {
     ESP_BT_GAP_QOS_CMPL_EVT,                        /*!< QOS complete event */
     ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT,              /*!< ACL connection complete status event */
     ESP_BT_GAP_ACL_DISCONN_CMPL_STAT_EVT,           /*!< ACL disconnection complete status event */
+    ESP_BT_GAP_ACL_PKT_TYPE_CHANGED_EVT,            /*!< Set ACL packet types event */
     ESP_BT_GAP_EVT_MAX,
 } esp_bt_gap_cb_event_t;
 
@@ -229,6 +259,11 @@ typedef enum {
 /** Minimum and Maximum inquiry length*/
 #define ESP_BT_GAP_MIN_INQ_LEN                (0x01)  /*!< Minimum inquiry duration, unit is 1.28s */
 #define ESP_BT_GAP_MAX_INQ_LEN                (0x30)  /*!< Maximum inquiry duration, unit is 1.28s */
+
+/** Minimum, Default and Maximum poll interval **/
+#define ESP_BT_GAP_TPOLL_MIN                  (0x0006) /*!< Minimum poll interval, unit is 625 microseconds */
+#define ESP_BT_GAP_TPOLL_DFT                  (0x0028) /*!< Default poll interval, unit is 625 microseconds */
+#define ESP_BT_GAP_TPOLL_MAX                  (0x1000) /*!< Maximum poll interval, unit is 625 microseconds */
 
 /// GAP state callback parameters
 typedef union {
@@ -370,6 +405,15 @@ typedef union {
                                                     which from the master to a particular slave on the ACL
                                                     logical transport. unit is 0.625ms. */
     } qos_cmpl;                                /*!< QoS complete parameter struct */
+
+    /**
+     * @brief ESP_BT_GAP_ACL_PKT_TYPE_CHANGED_EVT
+     */
+    struct set_acl_pkt_types_param {
+        esp_bt_status_t status;                 /*!< set ACL packet types status */
+        esp_bd_addr_t bda;                      /*!< remote bluetooth device address */
+        uint16_t pkt_types;                     /*!< packet types successfully set */
+    } set_acl_pkt_types;                        /*!< set ACL packet types parameter struct */
 
     /**
      * @brief ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT
@@ -784,6 +828,17 @@ esp_err_t esp_bt_gap_read_remote_name(esp_bd_addr_t remote_bda);
 *
 */
 esp_err_t esp_bt_gap_set_qos(esp_bd_addr_t remote_bda, uint32_t t_poll);
+
+/**
+ * @brief           Set ACL packet types. FOR INTERNAL TESTING ONLY.
+ *                  An ESP_BT_GAP_SET_ACL_PPKT_TYPES_EVT event will reported to
+ *                  the APP layer.
+ *
+ * @return          - ESP_OK: success
+ *                  - ESP_ERR_INVALID_STATE: if bluetooth stack is not yet enabled
+ *                  - other: failed
+ */
+esp_err_t esp_bt_gap_set_acl_pkt_types(esp_bd_addr_t remote_bda, esp_bt_acl_pkt_type_t pkt_types);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -149,6 +149,10 @@ esp_err_t esp_timer_impl_early_init(void)
     systimer_hal_select_alarm_mode(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_ALARM_MODE_ONESHOT);
     systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
 
+    for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
+        systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, (cpuid < portNUM_PROCESSORS) ? true : false);
+    }
+
     return ESP_OK;
 }
 
@@ -189,11 +193,6 @@ void esp_timer_impl_deinit(void)
     s_alarm_handler = NULL;
 }
 
-uint64_t IRAM_ATTR esp_timer_impl_get_min_period_us(void)
-{
-    return 50;
-}
-
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
     s_time_update_lock = irq_lock();
@@ -205,5 +204,3 @@ uint64_t esp_timer_impl_get_alarm_reg(void)
 void esp_timer_private_update_apb_freq(uint32_t apb_ticks_per_us) __attribute__((alias("esp_timer_impl_update_apb_freq")));
 void esp_timer_private_set(uint64_t new_us) __attribute__((alias("esp_timer_impl_set")));
 void esp_timer_private_advance(int64_t time_diff_us) __attribute__((alias("esp_timer_impl_advance")));
-void esp_timer_private_lock(void) __attribute__((alias("esp_timer_impl_lock")));
-void esp_timer_private_unlock(void) __attribute__((alias("esp_timer_impl_unlock")));
