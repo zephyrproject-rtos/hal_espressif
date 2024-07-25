@@ -79,6 +79,25 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/heap/include
 
     ../../components/esp_mm/include
+
+    ../../components/esp_netif/include
+
+    ../../components/esp_coex/include
+    ../../components/esp_phy/include
+    ../../components/esp_phy/include/esp_private
+    ../../components/esp_phy/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_wifi/include
+    ../../components/esp_event/include
+    ../../components/wpa_supplicant/esp_supplicant/src
+    ../../components/wpa_supplicant/esp_supplicant/include
+    ../../components/wpa_supplicant/include
+    ../../components/wpa_supplicant/include/esp_supplicant
+    ../../components/wpa_supplicant/port/include
+    ../../components/wpa_supplicant/src
+    ../../components/wpa_supplicant/src/crypto
+    ../../components/wpa_supplicant/src/utils
+    ../../components/wpa_supplicant/src/eap_peer
+    ../../components/mbedtls/port/include
   )
 
   zephyr_link_libraries(
@@ -266,9 +285,245 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
-    ../../components/soc/esp32c2/ledc_periph.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
+
+  ## shared WIFI/BT resources
+  if (CONFIG_BT OR CONFIG_WIFI_ESP32)
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+      )
+
+    zephyr_sources(
+      ../../components/esp_hw_support/sleep_modes.c
+      ../../components/efuse/src/esp_efuse_utility.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+      ../../components/efuse/src/esp_efuse_api.c
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+      ../../components/efuse/src/efuse_controller/keys/without_key_purposes/one_key_block/esp_efuse_api_key.c
+      )
+
+    zephyr_link_libraries(
+      net80211
+      core
+      pp
+      phy
+      ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+      )
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+    zephyr_sources(src/bt/esp_bt_adapter.c)
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
+
+    zephyr_link_libraries(
+      ## ble
+      btbb
+      btdm_app
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+      )
+  endif()
+
+  ## WIFI definitions
+  if (CONFIG_WIFI_ESP32)
+
+    set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
+    #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
+    set(WPA_SUPPLICANT_SRCS "../port/wifi/wpa_supplicant/os_xtensa.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/port/eloop.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/ap_config.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/ieee802_1x.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/wpa_auth.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/wpa_auth_ie.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/pmksa_cache_auth.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/sta_info.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/ieee802_11.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/comeback_token.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/sae.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/dragonfly.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/wpa_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/bitfield.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-siv.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-kdf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/ccmp.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-gcm.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_ops.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/dh_group5.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/dh_groups.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/ms_funcs.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-tlsprf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-tlsprf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha384-tlsprf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-prf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-prf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha384-prf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md4-internal.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-tprf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/eap_common/eap_wsc_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/ieee802_11_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/eap_peer/chap.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/eap_peer/eap.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/eap_peer/eap_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/eap_peer/mschapv2.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/pmksa_cache.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/wpa.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/wpa_ie.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/ext_password.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/uuid.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/wpabuf.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/wpa_debug.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/utils/json.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_attr_build.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_attr_parse.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_attr_process.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_dev_attr.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/wps/wps_enrollee.c"
+      )
+
+    if(CONFIG_ESP32_WIFI_ENABLE_SAE_PK)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/sae_pk.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/bss.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/scan.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_scan.c"
+        )
+    endif()
+
+    set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa_main.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpas_glue.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa3.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_owe.c"
+      )
+    if(CONFIG_ESP32_WIFI_SOFTAP_SUPPORT)
+        set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
+    endif()
+
+    set(TLS_SRCS
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/bignum.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs1.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs5.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs8.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/rsa.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/tls_internal.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_read.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_write.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_cred.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_record.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_ocsp.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/x509v3.c"
+      )
+
+    if(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO)
+      set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
+         # Add internal RC4 as RC4 has been removed from mbedtls
+         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
+        )
+        if(NOT CONFIG_MBEDTLS_CIPHER_DES_ENABLED)
+          set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c")
+        endif()
+        # Enabling this only for WiFi is probably not a good idea since MbedTLS
+        # uses generic crypto init/update functions for this. That causes
+        # binary size increment since all the other enabled module
+        # functions will also linked in. Even after not using direct MbedTLS APIs
+        # for these, these API are still faster since these all will be using
+        # AES APIs which is using hardware AES blocks.
+        if(NOT CONFIG_MBEDTLS_MAC_CMAC_ENABLED)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c")
+        endif()
+        if(NOT CONFIG_MBEDTLS_NIST_KW_C)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS}
+            "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-wrap.c"
+            "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-unwrap.c")
+        endif()
+        if(NOT CONFIG_MBEDTLS_NIST_KW_C OR NOT CONFIG_MBEDTLS_CMAC_C OR NOT CONFIG_MBEDTLS_CCM_C)
+            set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ccm.c")
+        endif()
+    else()
+      set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ctr.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-cbc.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-ccm.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-dec.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal-enc.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-unwrap.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-wrap.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-cipher.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-modexp.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal-rsa.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/crypto_internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md4-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/md5.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1-pbkdf2.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha384-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha512-internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
+        )
+    endif()
+
+    zephyr_sources(
+      src/wifi/esp_wifi_adapter.c
+      ${WPA_SUPPLICANT_SRCS}
+      ${ESP_SUPPLICANT_SRCS}
+      ${TLS_SRCS}
+      ${CRYPTO_SRCS}
+      )
+
+    zephyr_compile_definitions(
+      __ets__
+      ESP_SUPPLICANT
+      IEEE8021X_EAPOL
+      EAP_PEER_METHOD
+      EAP_MSCHAPv2
+      EAP_TTLS
+      EAP_TLS
+      EAP_PEAP
+      USE_WPA2_TASK
+      CONFIG_WPS
+      USE_WPS_TASK
+      CONFIG_ECC
+      CONFIG_IEEE80211W
+      CONFIG_SHA256
+      CONFIG_NO_RADIUS
+      CONFIG_CRYPTO_INTERNAL
+      )
+
+    zephyr_compile_definitions(CONFIG_ESP_WIFI_ENABLED)
+    zephyr_compile_definitions(CONFIG_SOC_WIFI_SUPPORTED)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
+
+    zephyr_link_libraries(mbedTLS)
+
+  endif()
 
 endif()

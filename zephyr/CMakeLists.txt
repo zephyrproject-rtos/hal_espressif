@@ -2,7 +2,11 @@
 
 # check for RF libraries in case ESP32 family is used and BT or WIFI are enabled
 if(CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32)
-  list(APPEND LIBRARIES "core" "net80211" "phy" "pp" "espnow" "mesh" "wapi")
+  list(APPEND LIBRARIES "core" "net80211" "phy" "pp" "espnow")
+
+  if(NOT CONFIG_SOC_SERIES_ESP32C2)
+    list(APPEND LIBRARIES "mesh" "wapi")
+  endif()
 
   if(CONFIG_SOC_SERIES_ESP32)
     list(APPEND LIBRARIES "btdm_app" "rtc")
@@ -18,7 +22,7 @@ if(CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32)
 
     if(NOT ${lib}_FOUND)
       message(FATAL_ERROR
-        "ESP32 RF libraries not found.\n"
+        "ESP32 RF library ${lib} not found.\n"
         "Run the command below to download the necessary files:\n"
         "> west blobs fetch hal_espressif")
       break()
