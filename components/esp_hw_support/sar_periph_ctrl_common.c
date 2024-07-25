@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,6 +14,9 @@
 #if SOC_TEMP_SENSOR_SUPPORTED
 #include "hal/temperature_sensor_ll.h"
 #include "soc/temperature_sensor_periph.h"
+#include "soc/periph_defs.h"
+#include "esp_private/periph_ctrl.h"
+#include "esp_private/adc_share_hw_ctrl.h"
 
 extern int rtc_spinlock;
 
@@ -39,6 +42,11 @@ void temperature_sensor_power_acquire(void)
     RTC_ENTER_CRITICAL();
     s_temperature_sensor_power_cnt++;
     if (s_temperature_sensor_power_cnt == 1) {
+        adc_apb_periph_claim();
+        periph_module_enable(PERIPH_TEMPSENSOR_MODULE);
+        periph_module_reset(PERIPH_TEMPSENSOR_MODULE);
+        regi2c_saradc_enable();
+        temperature_sensor_ll_clk_enable(true);
         temperature_sensor_ll_enable(true);
     }
     RTC_EXIT_CRITICAL();
@@ -54,7 +62,11 @@ void temperature_sensor_power_release(void)
         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
         abort();
     } else if (s_temperature_sensor_power_cnt == 0) {
+        temperature_sensor_ll_clk_enable(false);
         temperature_sensor_ll_enable(false);
+        regi2c_saradc_disable();
+        periph_module_disable(PERIPH_TEMPSENSOR_MODULE);
+        adc_apb_periph_free();
     }
     RTC_EXIT_CRITICAL();
 }

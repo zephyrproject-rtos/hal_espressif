@@ -29,6 +29,11 @@ esp_err_t esp_ble_gatts_register_callback(esp_gatts_cb_t callback)
     return (btc_profile_cb_set(BTC_PID_GATTS, callback) == 0 ? ESP_OK : ESP_FAIL);
 }
 
+esp_gatts_cb_t esp_ble_gatts_get_callback(void)
+{
+    return (esp_gatts_cb_t) btc_profile_cb_get(BTC_PID_GATTS);
+}
+
 esp_err_t esp_ble_gatts_app_register(uint16_t app_id)
 {
     btc_msg_t msg = {0};
@@ -419,6 +424,19 @@ static esp_err_t esp_ble_gatts_add_char_desc_param_check(esp_attr_value_t *char_
     }
 
     return ESP_OK;
+}
+
+esp_err_t esp_ble_gatts_show_local_database(void)
+{
+    btc_msg_t msg = {0};
+
+    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_GATTS;
+    msg.act = BTC_GATTS_ACT_SHOW_LOCAL_DATABASE;
+
+    return (btc_transfer_context(&msg, NULL, 0, NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 #endif  ///GATTS_INCLUDED

@@ -214,6 +214,10 @@ tBTM_CMPL_CB        *p_tx_power_cmpl_cb;/* Callback function to be called       
 TIMER_LIST_ENT       afh_channels_timer;
 tBTM_CMPL_CB        *p_afh_channels_cmpl_cb; /* Callback function to be called  When */
 /* set AFH channels is completed   */
+
+TIMER_LIST_ENT       set_acl_pkt_types_timer;
+tBTM_CMPL_CB         *p_set_acl_pkt_types_cmpl_cb; /* Callback function to be called when */
+/* set ACL packet types is completed */
 #endif
 
 DEV_CLASS            dev_class;         /* Local device class                   */
@@ -223,6 +227,13 @@ DEV_CLASS            dev_class;         /* Local device class                   
 TIMER_LIST_ENT       ble_channels_timer;
 tBTM_CMPL_CB        *p_ble_channels_cmpl_cb; /* Callback function to be called  When
                                                 ble set host channels is completed   */
+
+tBTM_SET_RPA_TIMEOUT_CMPL_CBACK  *p_ble_set_rpa_timeout_cmpl_cb; /* Callback function to be called  When
+                                                ble set rpa timeout is completed   */
+
+tBTM_ADD_DEV_TO_RESOLVING_LIST_CMPL_CBACK *p_add_dev_to_resolving_list_cmpl_cb;
+
+tBTM_SET_PRIVACY_MODE_CMPL_CBACK *p_set_privacy_mode_cmpl_cb;
 
 tBTM_CMPL_CB        *p_le_test_cmd_cmpl_cb;   /* Callback function to be called when
                                                   LE test mode command has been sent successfully */
@@ -347,7 +358,7 @@ typedef struct {
     UINT8            inqfilt_type;          /* Contains the inquiry filter type (BD ADDR, COD, or Clear) */
 
 #define BTM_INQ_INACTIVE_STATE      0
-#define BTM_INQ_CLR_FILT_STATE      1   /* Currently clearing the inquiry filter preceeding the inquiry request */
+#define BTM_INQ_CLR_FILT_STATE      1   /* Currently clearing the inquiry filter preceding the inquiry request */
     /* (bypassed if filtering is not used)                                  */
 #define BTM_INQ_SET_FILT_STATE      2   /* Sets the new filter (or turns off filtering) in this state */
 #define BTM_INQ_ACTIVE_STATE        3   /* Actual inquiry or periodic inquiry is in progress */
@@ -431,6 +442,7 @@ typedef struct {
 #define BTM_SCO_XMIT_QUEUE_HIGH_WM  20
     fixed_queue_t   *xmit_data_q;       /* SCO data transmitting queue  */
     INT16           sent_not_acked;
+    tBTM_SCO_PKT_STAT_NUMS pkt_stat_nums;
 #endif
     tBTM_SCO_CB     *p_conn_cb;         /* Callback for when connected  */
     tBTM_SCO_CB     *p_disc_cb;         /* Callback for when disconnect */
@@ -937,8 +949,8 @@ typedef struct {
     UINT8                   acl_disc_reason;
     UINT8                   trace_level;
     UINT8                   busy_level; /* the current busy level */
-    BOOLEAN                 is_paging;  /* TRUE, if paging is in progess */
-    BOOLEAN                 is_inquiry; /* TRUE, if inquiry is in progess */
+    BOOLEAN                 is_paging;  /* TRUE, if paging is in progress */
+    BOOLEAN                 is_inquiry; /* TRUE, if inquiry is in progress */
     fixed_queue_t           *page_queue;
     BOOLEAN                 paging;
     BOOLEAN                 discing;
@@ -951,9 +963,11 @@ typedef struct {
 typedef struct{
   //connection parameters update callback
   tBTM_UPDATE_CONN_PARAM_CBACK *update_conn_param_cb;
+  // setting packet data length callback
+  tBTM_SET_PKT_DATA_LENGTH_CBACK *set_pkt_data_length_cb;
 }tBTM_CallbackFunc;
 
-extern tBTM_CallbackFunc conn_param_update_cb;
+extern tBTM_CallbackFunc conn_callback_func;
 /* security action for L2CAP COC channels */
 #define BTM_SEC_OK                1
 #define BTM_SEC_ENCRYPT           2    /* encrypt the link with current key */
@@ -1040,6 +1054,7 @@ tACL_CONN    *btm_handle_to_acl (UINT16 hci_handle);
 void         btm_read_link_policy_complete (UINT8 *p);
 void         btm_read_rssi_complete (UINT8 *p);
 void         btm_read_tx_power_complete (UINT8 *p, BOOLEAN is_ble);
+void         btm_acl_pkt_types_changed(UINT8 status, UINT16 handle, UINT16 pkt_types);
 void         btm_read_link_quality_complete (UINT8 *p);
 tBTM_STATUS  btm_set_packet_types (tACL_CONN *p, UINT16 pkt_types);
 void         btm_process_clk_off_comp_evt (UINT16 hci_handle, UINT16 clock_offset);
@@ -1084,6 +1099,9 @@ void btm_qos_setup_timeout (void *p_tle);
 void btm_create_sync_callback(UINT8 status);
 void btm_set_phy_callback(UINT8 status);
 void btm_read_phy_callback(uint8_t hci_status, uint16_t conn_handle, uint8_t tx_phy, uint8_t rx_phy);
+#endif
+#if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
+void btm_ble_periodic_adv_sync_trans_complete(UINT16 op_code, UINT8 hci_status, UINT16 conn_handle);
 #endif
 /* Internal functions provided by btm_sco.c
 ********************************************

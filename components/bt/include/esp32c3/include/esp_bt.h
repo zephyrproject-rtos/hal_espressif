@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 #define ESP_BT_CTRL_CONFIG_MAGIC_VAL    0x5A5AA5A5
-#define ESP_BT_CTRL_CONFIG_VERSION      0x02302140
+#define ESP_BT_CTRL_CONFIG_VERSION      0x02404010
 
 #define ESP_BT_HCI_TL_MAGIC_VALUE   0xfadebead
 #define ESP_BT_HCI_TL_VERSION       0x00010000
@@ -43,7 +43,7 @@ typedef enum {
 } esp_bt_ctrl_hci_tl_t;
 
 /**
- * @breif type of BLE connection event length computation
+ * @brief type of BLE connection event length computation
  */
 typedef enum {
     ESP_BLE_CE_LEN_TYPE_ORIG = 0,      /*!< original */
@@ -144,8 +144,21 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 
 #ifdef CONFIG_BT_CTRL_AGC_RECORRECT_EN
 #define BT_CTRL_AGC_RECORRECT_EN  CONFIG_BT_CTRL_AGC_RECORRECT_EN
+// ESP32-S3
+#if CONFIG_IDF_TARGET_ESP32S3
+#define BT_CTRL_AGC_RECORRECT_NEW       1
+#else
+//Check if chip target is ESP32-C3 101
+#if CONFIG_ESP32C3_REV_MIN_101
+#define BT_CTRL_AGC_RECORRECT_NEW       1
+#else
+#define BT_CTRL_AGC_RECORRECT_NEW       0
+#endif // CONFIG_ESP32C3_REV_MIN_101
+#endif // CONFIG_IDF_TARGET_ESP32S3
+
 #else
 #define BT_CTRL_AGC_RECORRECT_EN        0
+#define BT_CTRL_AGC_RECORRECT_NEW       0
 #endif
 
 #ifdef CONFIG_BT_CTRL_CODED_AGC_RECORRECT_EN
@@ -169,7 +182,31 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #endif // (CONFIG_BT_BLUEDROID_ENABLED) || (CONFIG_BT_NIMBLE_ENABLED)
 #endif // (CONFIG_BT_BLE_50_FEATURES_SUPPORTED) || (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
 
-#define AGC_RECORRECT_EN       ((BT_CTRL_AGC_RECORRECT_EN << 0) | (BT_CTRL_CODED_AGC_RECORRECT <<1))
+#if defined(CONFIG_BT_BLE_CCA_MODE)
+#define BT_BLE_CCA_MODE (CONFIG_BT_BLE_CCA_MODE)
+#else
+#define BT_BLE_CCA_MODE (0)
+#endif
+
+#if defined(CONFIG_BT_BLE_ADV_DATA_LENGTH_ZERO_AUX)
+#define BT_BLE_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_BT_BLE_ADV_DATA_LENGTH_ZERO_AUX)
+#else
+#define BT_BLE_ADV_DATA_LENGTH_ZERO_AUX (0)
+#endif
+
+#if defined(CONFIG_BT_CTRL_CHAN_ASS_EN)
+#define BT_CTRL_CHAN_ASS_EN (CONFIG_BT_CTRL_CHAN_ASS_EN)
+#else
+#define BT_CTRL_CHAN_ASS_EN (0)
+#endif
+
+#if defined(CONFIG_BT_CTRL_LE_PING_EN)
+#define BT_CTRL_LE_PING_EN (CONFIG_BT_CTRL_LE_PING_EN)
+#else
+#define BT_CTRL_LE_PING_EN (0)
+#endif
+
+#define AGC_RECORRECT_EN       ((BT_CTRL_AGC_RECORRECT_EN << 0) | (BT_CTRL_CODED_AGC_RECORRECT <<1) | (BT_CTRL_AGC_RECORRECT_NEW << 2))
 
 #define CFG_MASK_BIT_SCAN_DUPLICATE_OPTION    (1<<0)
 
@@ -214,6 +251,10 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
     .scan_backoff_upperlimitmax = BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,      \
     .dup_list_refresh_period = DUPL_SCAN_CACHE_REFRESH_PERIOD,             \
     .ble_50_feat_supp  = BT_CTRL_50_FEATURE_SUPPORT,                       \
+    .ble_cca_mode = BT_BLE_CCA_MODE,                                       \
+    .ble_data_lenth_zero_aux = BT_BLE_ADV_DATA_LENGTH_ZERO_AUX,            \
+    .ble_chan_ass_en = BT_CTRL_CHAN_ASS_EN,                                \
+    .ble_ping_en = BT_CTRL_LE_PING_EN,                                     \
 }
 
 #else
@@ -225,16 +266,16 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
  *        This structure shall be registered when HCI transport layer is UART
  */
 typedef struct {
-    uint32_t _magic;                        /* Magic number */
-    uint32_t _version;                      /* version number of the defined structure */
-    uint32_t _reserved;                     /* reserved for future use */
-    int (* _open)(void);                    /* hci tl open */
-    void (* _close)(void);                  /* hci tl close */
-    void (* _finish_transfers)(void);       /* hci tl finish trasnfers */
-    void (* _recv)(uint8_t *buf, uint32_t len, esp_bt_hci_tl_callback_t callback, void* arg); /* hci tl recv */
-    void (* _send)(uint8_t *buf, uint32_t len, esp_bt_hci_tl_callback_t callback, void* arg); /* hci tl send */
-    bool (* _flow_off)(void); /* hci tl flow off */
-    void (* _flow_on)(void); /* hci tl flow on */
+    uint32_t _magic;                        /*!< Magic number */
+    uint32_t _version;                      /*!< Version number of the defined structure */
+    uint32_t _reserved;                     /*!< Reserved for future use */
+    int (* _open)(void);                    /*!< HCI transport layer open function */
+    void (* _close)(void);                  /*!< HCI transport layer close function */
+    void (* _finish_transfers)(void);       /*!< HCI transport layer finish transfers function */
+    void (* _recv)(uint8_t *buf, uint32_t len, esp_bt_hci_tl_callback_t callback, void* arg); /*!< HCI transport layer receive function */
+    void (* _send)(uint8_t *buf, uint32_t len, esp_bt_hci_tl_callback_t callback, void* arg); /*!< HCI transport layer send function */
+    bool (* _flow_off)(void);               /*!< HCI transport layer flow off function */
+    void (* _flow_on)(void);                /*!< HCI transport layer flow on function */
 } esp_bt_hci_tl_t;
 
 /**
@@ -262,7 +303,7 @@ typedef struct {
     uint8_t sleep_clock;                    /*!< controller sleep clock */
     uint8_t ble_st_acl_tx_buf_nb;           /*!< controller static ACL TX BUFFER number */
     uint8_t ble_hw_cca_check;               /*!< controller hardware triggered CCA check */
-    uint16_t ble_adv_dup_filt_max;          /*!< maxinum number of duplicate scan filter */
+    uint16_t ble_adv_dup_filt_max;          /*!< maximum number of duplicate scan filter */
     bool coex_param_en;                     /*!< deprecated */
     uint8_t ce_len_type;                    /*!< connection event length computation method */
     bool coex_use_hooks;                    /*!< deprecated */
@@ -271,7 +312,7 @@ typedef struct {
     uint8_t txant_dft;                      /*!< default Tx antenna */
     uint8_t rxant_dft;                      /*!< default Rx antenna */
     uint8_t txpwr_dft;                      /*!< default Tx power */
-    uint32_t cfg_mask;
+    uint32_t cfg_mask;                      /*!< Configuration mask to set specific options */
     uint8_t scan_duplicate_mode;            /*!< scan duplicate mode */
     uint8_t scan_duplicate_type;            /*!< scan duplicate type */
     uint16_t normal_adv_size;               /*!< Normal adv size for scan duplicate */
@@ -279,11 +320,15 @@ typedef struct {
     uint8_t coex_phy_coded_tx_rx_time_limit;  /*!< limit on max tx/rx time in case of connection using CODED-PHY with Wi-Fi coexistence */
     uint32_t hw_target_code;                /*!< hardware target */
     uint8_t slave_ce_len_min;               /*!< slave minimum ce length*/
-    uint8_t hw_recorrect_en;
+    uint8_t hw_recorrect_en;                /*!< Hardware re-correction enabled */
     uint8_t cca_thresh;                     /*!< cca threshold*/
     uint16_t scan_backoff_upperlimitmax;    /*!< scan backoff upperlimitmax value */
     uint16_t dup_list_refresh_period;       /*!< duplicate scan list refresh time */
     bool ble_50_feat_supp;                  /*!< BLE 5.0 feature support */
+    uint8_t ble_cca_mode;                   /*!< BLE CCA mode */
+    uint8_t ble_data_lenth_zero_aux;        /*!< Config ext adv aux option */
+    uint8_t ble_chan_ass_en;                /*!< BLE channel assessment enable */
+    uint8_t ble_ping_en;                    /*!< BLE ping procedure enable */
 } esp_bt_controller_config_t;
 
 /**
@@ -346,6 +391,18 @@ typedef enum {
 } esp_power_level_t;
 
 /**
+ * @brief The enhanced type of which tx power, could set Advertising/Connection/Default and etc.
+ */
+typedef enum {
+    ESP_BLE_ENHANCED_PWR_TYPE_DEFAULT = 0,
+    ESP_BLE_ENHANCED_PWR_TYPE_ADV,
+    ESP_BLE_ENHANCED_PWR_TYPE_SCAN,
+    ESP_BLE_ENHANCED_PWR_TYPE_INIT,
+    ESP_BLE_ENHANCED_PWR_TYPE_CONN,
+    ESP_BLE_ENHANCED_PWR_TYPE_MAX,
+} esp_ble_enhanced_power_type_t;
+
+/**
  * @brief  Set BLE TX power
  *         Connection Tx power should only be set after connection created.
  * @param  power_type : The type of which tx power, could set Advertising/Connection/Default and etc
@@ -361,6 +418,25 @@ esp_err_t esp_ble_tx_power_set(esp_ble_power_type_t power_type, esp_power_level_
  * @return             >= 0 - Power level, < 0 - Invalid
  */
 esp_power_level_t esp_ble_tx_power_get(esp_ble_power_type_t power_type);
+
+/**
+ * @brief  ENHANCED API for Setting BLE TX power
+ *         Connection Tx power should only be set after connection created.
+ * @param  power_type : The enhanced type of which tx power, could set Advertising/Connection/Default and etc.
+ * @param  handle : The handle of Advertising or Connection and the value 0 for other enhanced power types.
+ * @param  power_level: Power level(index) corresponding to absolute value(dbm)
+ * @return              ESP_OK - success, other - failed
+ */
+esp_err_t esp_ble_tx_power_set_enhanced(esp_ble_enhanced_power_type_t power_type, uint16_t handle, esp_power_level_t power_level);
+
+/**
+ * @brief  ENHANCED API of Getting BLE TX power
+ *         Connection Tx power should only be get after connection created.
+ * @param  power_type : The enhanced type of which tx power, could set Advertising/Connection/Default and etc
+ * @param  handle : The handle of Advertising or Connection and the value 0 for other enhanced power types.
+ * @return             >= 0 - Power level, < 0 - Invalid
+ */
+esp_power_level_t esp_ble_tx_power_get_enhanced(esp_ble_enhanced_power_type_t power_type, uint16_t handle);
 
 /**
  * @brief       Initialize BT controller to allocate task and other resource.
@@ -570,6 +646,15 @@ void esp_wifi_bt_power_domain_on(void);
  * @brief bt Wi-Fi power domain power off
  */
 void esp_wifi_bt_power_domain_off(void);
+
+/**
+ * @brief Get the Bluetooth module sleep clock source.
+ *
+ * Note that this function shall not be invoked before esp_bt_controller_init()
+ *
+ * @return  clock source used in Bluetooth low power mode
+ */
+esp_bt_sleep_clock_t esp_bt_get_lpclk_src(void);
 
 #ifdef __cplusplus
 }

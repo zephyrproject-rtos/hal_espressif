@@ -19,10 +19,14 @@ endif()
 
 if(NOT CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
     list(APPEND srcs "mmu_hal.c")
-endif()
 
-if(NOT ${target} STREQUAL "esp32" AND NOT CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
-    list(APPEND srcs "cache_hal.c")
+    # We wrap Cache ROM APIs as Cache HAL APIs for: 1. internal ram ; 2. unified APIs
+    # ESP32 cache structure / ROM APIs are different and we have a patch `cache_hal_esp32.c` for it.
+    if(${target} STREQUAL "esp32")
+        list(APPEND srcs "esp32/cache_hal_esp32.c")
+    else()
+        list(APPEND srcs "cache_hal.c")
+    endif()
 endif()
 
 if(CONFIG_SOC_LP_TIMER_SUPPORTED)
@@ -54,7 +58,7 @@ if(NOT BOOTLOADER_BUILD)
     endif()
 
     if(CONFIG_SOC_GPTIMER_SUPPORTED)
-        list(APPEND srcs "timer_hal.c" "timer_hal_iram.c")
+        list(APPEND srcs "timer_hal.c")
     endif()
 
     if(CONFIG_SOC_LEDC_SUPPORTED)
@@ -175,6 +179,16 @@ if(NOT BOOTLOADER_BUILD)
         list(APPEND srcs "ds_hal.c")
     endif()
 
+    if(CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED)
+        list(APPEND srcs "usb_serial_jtag_hal.c")
+    endif()
+
+    if(CONFIG_SOC_USB_OTG_SUPPORTED)
+        list(APPEND srcs
+                    "usb_dwc_hal.c"
+                    "usb_wrap_hal.c")
+    endif()
+
     if(${target} STREQUAL "esp32")
         list(APPEND srcs
             "touch_sensor_hal.c"
@@ -186,24 +200,18 @@ if(NOT BOOTLOADER_BUILD)
         list(APPEND srcs
                     "spi_flash_hal_gpspi.c"
                     "touch_sensor_hal.c"
-                    "usb_hal.c"
-                    "usb_phy_hal.c"
                     "xt_wdt_hal.c"
                     "esp32s2/cp_dma_hal.c"
-                    "esp32s2/touch_sensor_hal.c"
-                    "usb_dwc_hal.c")
+                    "esp32s2/touch_sensor_hal.c")
     endif()
 
     if(${target} STREQUAL "esp32s3")
         list(APPEND srcs
             "spi_flash_hal_gpspi.c"
             "touch_sensor_hal.c"
-            "usb_hal.c"
-            "usb_phy_hal.c"
             "xt_wdt_hal.c"
             "esp32s3/touch_sensor_hal.c"
-            "esp32s3/rtc_cntl_hal.c"
-            "usb_dwc_hal.c")
+            "esp32s3/rtc_cntl_hal.c")
     endif()
 
     if(${target} STREQUAL "esp32c3")

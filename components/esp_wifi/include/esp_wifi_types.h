@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -56,18 +56,20 @@ typedef struct {
 } wifi_country_t;
 
 /* Strength of authmodes */
-/* OPEN < WEP < WPA_PSK < OWE < WPA2_PSK = WPA_WPA2_PSK < WAPI_PSK < WPA2_ENTERPRISE < WPA3_PSK = WPA2_WPA3_PSK */
+/* OPEN < WEP < WPA_PSK < OWE < WPA2_PSK = WPA_WPA2_PSK < WAPI_PSK < WPA3_PSK = WPA2_WPA3_PSK */
 typedef enum {
     WIFI_AUTH_OPEN = 0,         /**< authenticate mode : open */
     WIFI_AUTH_WEP,              /**< authenticate mode : WEP */
     WIFI_AUTH_WPA_PSK,          /**< authenticate mode : WPA_PSK */
     WIFI_AUTH_WPA2_PSK,         /**< authenticate mode : WPA2_PSK */
     WIFI_AUTH_WPA_WPA2_PSK,     /**< authenticate mode : WPA_WPA2_PSK */
-    WIFI_AUTH_WPA2_ENTERPRISE,  /**< authenticate mode : WPA2_ENTERPRISE */
+    WIFI_AUTH_ENTERPRISE,       /**< authenticate mode : WiFi EAP security */
+    WIFI_AUTH_WPA2_ENTERPRISE = WIFI_AUTH_ENTERPRISE,  /**< authenticate mode : WiFi EAP security */
     WIFI_AUTH_WPA3_PSK,         /**< authenticate mode : WPA3_PSK */
     WIFI_AUTH_WPA2_WPA3_PSK,    /**< authenticate mode : WPA2_WPA3_PSK */
     WIFI_AUTH_WAPI_PSK,         /**< authenticate mode : WAPI_PSK */
     WIFI_AUTH_OWE,              /**< authenticate mode : OWE */
+    WIFI_AUTH_WPA3_ENT_192,     /**< authenticate mode : WPA3_ENT_SUITE_B_192_BIT */
     WIFI_AUTH_MAX
 } wifi_auth_mode_t;
 
@@ -208,7 +210,7 @@ typedef struct {
     uint8_t ssid[33];                     /**< SSID of AP */
     uint8_t primary;                      /**< channel of AP */
     wifi_second_chan_t second;            /**< secondary channel of AP */
-    int8_t  rssi;                         /**< signal strength of AP */
+    int8_t  rssi;                         /**< signal strength of AP. Note that in some rare cases where signal strength is very strong, rssi values can be slightly positive */
     wifi_auth_mode_t authmode;            /**< authmode of AP */
     wifi_cipher_type_t pairwise_cipher;   /**< pairwise cipher of AP */
     wifi_cipher_type_t group_cipher;      /**< group cipher of AP */
@@ -291,6 +293,8 @@ typedef struct {
     uint8_t ssid_hidden;        /**< Broadcast SSID or not, default 0, broadcast the SSID */
     uint8_t max_connection;     /**< Max number of stations allowed to connect in */
     uint16_t beacon_interval;   /**< Beacon interval which should be multiples of 100. Unit: TU(time unit, 1 TU = 1024 us). Range: 100 ~ 60000. Default value: 100 */
+    uint8_t csa_count;          /**< Channel Switch Announcement Count. Notify the station that the channel will switch after the csa_count beacon intervals. Default value: 3 */
+    uint8_t dtim_period;        /**< Dtim period of soft-AP. Default value: 2 */
     wifi_cipher_type_t pairwise_cipher;   /**< Pairwise cipher of SoftAP, group cipher will be derived using this. Cipher values are valid starting from WIFI_CIPHER_TYPE_TKIP, enum values before that will be considered as invalid and default cipher suites(TKIP+CCMP) will be used. Valid cipher suites in softAP mode are WIFI_CIPHER_TYPE_TKIP, WIFI_CIPHER_TYPE_CCMP and WIFI_CIPHER_TYPE_TKIP_CCMP. */
     bool ftm_responder;         /**< Enable FTM Responder mode */
     wifi_pmf_config_t pmf_cfg;  /**< Configuration for Protected Management Frame */
@@ -308,7 +312,7 @@ typedef struct {
     uint8_t channel;                          /**< channel of target AP. Set to 1~13 to scan starting from the specified channel before connecting to AP. If the channel of AP is unknown, set it to 0.*/
     uint16_t listen_interval;                 /**< Listen interval for ESP32 station to receive beacon when WIFI_PS_MAX_MODEM is set. Units: AP beacon intervals. Defaults to 3 if set to 0. */
     wifi_sort_method_t sort_method;           /**< sort the connect AP in the list by rssi or security mode */
-    wifi_scan_threshold_t  threshold;         /**< When sort_method is set, only APs which have an auth mode that is more secure than the selected auth mode and a signal stronger than the minimum RSSI will be used. */
+    wifi_scan_threshold_t  threshold;         /**< When scan_threshold is set, only APs which have an auth mode that is more secure than the selected auth mode and a signal stronger than the minimum RSSI will be used. */
     wifi_pmf_config_t pmf_cfg;                /**< Configuration for Protected Management Frame. Will be advertised in RSN Capabilities in RSN IE. */
     uint32_t rm_enabled:1;                    /**< Whether Radio Measurements are enabled for the connection */
     uint32_t btm_enabled:1;                   /**< Whether BSS Transition Management is enabled for the connection */
@@ -447,24 +451,26 @@ typedef struct {
     signed rssi:8;                /**< Received Signal Strength Indicator(RSSI) of packet. unit: dBm */
     unsigned rate:5;              /**< PHY rate encoding of the packet. Only valid for non HT(11bg) packet */
     unsigned :1;                  /**< reserved */
-    unsigned sig_mode:2;          /**< 0: non HT(11bg) packet; 1: HT(11n) packet; 3: VHT(11ac) packet */
+    unsigned sig_mode:2;          /**< Protocol of the reveived packet, 0: non HT(11bg) packet; 1: HT(11n) packet; 3: VHT(11ac) packet */
     unsigned :16;                 /**< reserved */
     unsigned mcs:7;               /**< Modulation Coding Scheme. If is HT(11n) packet, shows the modulation, range from 0 to 76(MSC0 ~ MCS76) */
     unsigned cwb:1;               /**< Channel Bandwidth of the packet. 0: 20MHz; 1: 40MHz */
     unsigned :16;                 /**< reserved */
-    unsigned smoothing:1;         /**< reserved */
-    unsigned not_sounding:1;      /**< reserved */
+    unsigned smoothing:1;         /**< Set to 1 indicates that channel estimate smoothing is recommended.
+                                       Set to 0 indicates that only per-carrierindependent (unsmoothed) channel estimate is recommended. */
+    unsigned not_sounding:1;      /**< Set to 0 indicates that PPDU is a sounding PPDU. Set to 1indicates that the PPDU is not a sounding PPDU.
+                                       sounding PPDU is used for channel estimation by the request receiver */
     unsigned :1;                  /**< reserved */
     unsigned aggregation:1;       /**< Aggregation. 0: MPDU packet; 1: AMPDU packet */
     unsigned stbc:2;              /**< Space Time Block Code(STBC). 0: non STBC packet; 1: STBC packet */
-    unsigned fec_coding:1;        /**< Flag is set for 11n packets which are LDPC */
+    unsigned fec_coding:1;        /**< Forward Error Correction(FEC). Flag is set for 11n packets which are LDPC */
     unsigned sgi:1;               /**< Short Guide Interval(SGI). 0: Long GI; 1: Short GI */
 #if CONFIG_IDF_TARGET_ESP32
     signed noise_floor:8;         /**< noise floor of Radio Frequency Module(RF). unit: dBm*/
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2
     unsigned :8;                  /**< reserved */
 #endif
-    unsigned ampdu_cnt:8;         /**< ampdu cnt */
+    unsigned ampdu_cnt:8;         /**< the number of subframes aggregated in AMPDU */
     unsigned channel:4;           /**< primary channel on which this packet is received */
     unsigned secondary_channel:4; /**< secondary channel on which this packet is received. 0: none; 1: above; 2: below */
     unsigned :8;                  /**< reserved */
@@ -558,6 +564,7 @@ typedef struct {
     bool channel_filter_en; /**< enable to turn on channel filter to smooth adjacent sub-carrier. Disable it to keep independence of adjacent sub-carrier. Default enabled */
     bool manu_scale;        /**< manually scale the CSI data by left shifting or automatically scale the CSI data. If set true, please set the shift bits. false: automatically. true: manually. Default false */
     uint8_t shift;          /**< manually left shift bits of the scale of the CSI data. The range of the left shift bits is 0~15 */
+    bool dump_ack_en;       /**< enable to dump 802.11 ACK frame, default disabled */
 } wifi_csi_config_t;
 #endif
 
@@ -569,9 +576,13 @@ typedef struct {
     wifi_pkt_rx_ctrl_t rx_ctrl;/**< received packet radio metadata header of the CSI data */
     uint8_t mac[6];            /**< source MAC address of the CSI data */
     uint8_t dmac[6];           /**< destination MAC address of the CSI data */
-    bool first_word_invalid;   /**< first four bytes of the CSI data is invalid or not */
-    int8_t *buf;               /**< buffer of CSI data */
-    uint16_t len;              /**< length of CSI data */
+    bool first_word_invalid;   /**< first four bytes of the CSI data is invalid or not, true indicates the first four bytes is invalid due to hardware limition */
+    int8_t *buf;               /**< valid buffer of CSI data */
+    uint16_t len;              /**< valid length of CSI data */
+    uint8_t *hdr;              /**< header of the wifi packet */
+    uint8_t *payload;          /**< payload of the wifi packet */
+    uint16_t payload_len;      /**< payload len of the wifi packet */
+    uint16_t rx_seq;           /**< rx sequence number of the wifi packet */
 } wifi_csi_info_t;
 
 /**
@@ -648,7 +659,9 @@ typedef struct {
     uint8_t resp_mac[6];        /**< MAC address of the FTM Responder */
     uint8_t channel;            /**< Primary channel of the FTM Responder */
     uint8_t frm_count;          /**< No. of FTM frames requested in terms of 4 or 8 bursts (allowed values - 0(No pref), 16, 24, 32, 64) */
-    uint16_t burst_period;      /**< Requested time period between consecutive FTM bursts in 100's of milliseconds (0 - No pref) */
+    uint16_t burst_period;      /**< Requested period between FTM bursts in 100's of milliseconds (allowed values 0(No pref) - 100) */
+    bool use_get_report_api;    /**< True - Using esp_wifi_ftm_get_report to get FTM report, False - Using ftm_report_data from
+                                     WIFI_EVENT_FTM_REPORT to get FTM report */
 } wifi_ftm_initiator_cfg_t;
 
 /**
@@ -882,6 +895,7 @@ typedef enum {
     WIFI_EVENT_ITWT_TEARDOWN,           /**< iTWT teardown */
     WIFI_EVENT_ITWT_PROBE,              /**< iTWT probe */
     WIFI_EVENT_ITWT_SUSPEND,            /**< iTWT suspend */
+    WIFI_EVENT_TWT_WAKEUP,              /**< TWT wakeup */
 
     WIFI_EVENT_NAN_STARTED,              /**< NAN Discovery has started */
     WIFI_EVENT_NAN_STOPPED,              /**< NAN Discovery has stopped */
@@ -941,6 +955,7 @@ typedef struct {
 typedef enum {
     WPS_FAIL_REASON_NORMAL = 0,     /**< WPS normal fail reason */
     WPS_FAIL_REASON_RECV_M2D,       /**< WPS receive M2D frame */
+    WPS_FAIL_REASON_RECV_DEAUTH,    /**< Recv deauth from AP while wps handshake */
     WPS_FAIL_REASON_MAX
 } wifi_event_sta_wps_fail_reason_t;
 
@@ -993,6 +1008,8 @@ typedef enum {
     FTM_STATUS_CONF_REJECTED,   /**< Peer rejected FTM configuration in FTM Request */
     FTM_STATUS_NO_RESPONSE,     /**< Peer did not respond to FTM Requests */
     FTM_STATUS_FAIL,            /**< Unknown error during FTM exchange */
+    FTM_STATUS_NO_VALID_MSMT,   /**< FTM session did not result in any valid measurements */
+    FTM_STATUS_USER_TERM,       /**< User triggered termination */
 } wifi_ftm_status_t;
 
 /** Argument structure for */
@@ -1013,7 +1030,8 @@ typedef struct {
     uint32_t rtt_raw;                           /**< Raw average Round-Trip-Time with peer in Nano-Seconds */
     uint32_t rtt_est;                           /**< Estimated Round-Trip-Time with peer in Nano-Seconds */
     uint32_t dist_est;                          /**< Estimated one-way distance in Centi-Meters */
-    wifi_ftm_report_entry_t *ftm_report_data;   /**< Pointer to FTM Report with multiple entries, should be freed after use */
+    wifi_ftm_report_entry_t *ftm_report_data;   /**< Pointer to FTM Report, should be freed after use. Note: Highly recommended
+                                                     to use API esp_wifi_ftm_get_report to get the report instead of using this */
     uint8_t ftm_report_num_entries;             /**< Number of entries in the FTM Report data */
 } wifi_event_ftm_report_t;
 

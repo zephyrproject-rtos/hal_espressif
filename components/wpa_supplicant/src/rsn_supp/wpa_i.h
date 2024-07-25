@@ -117,7 +117,7 @@ struct wpa_sm {
     struct wpabuf *owe_ie;
 #endif /* CONFIG_OWE_STA */
     int (*wpa_sm_wps_disable)(void);
-    esp_err_t (*wpa_sm_wpa2_ent_disable)(void);
+    esp_err_t (*wpa_sm_eap_disable)(void);
 };
 
 /**
@@ -199,7 +199,7 @@ bool wpa_sm_init(void);
 
 void wpa_sm_deinit(void);
 
-void eapol_txcb(void *eb);
+void eapol_txcb(uint8_t *eapol_payload, size_t len, bool tx_failure);
 
 void wpa_set_profile(u32 wpa_proto, u8 auth_mode);
 

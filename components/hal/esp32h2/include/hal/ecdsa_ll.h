@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -22,7 +22,6 @@ typedef enum {
     ECDSA_PARAM_R,
     ECDSA_PARAM_S,
     ECDSA_PARAM_Z,
-    ECDSA_PARAM_K,
     ECDSA_PARAM_QAX,
     ECDSA_PARAM_QAY
 } ecdsa_ll_param_t;
@@ -171,26 +170,6 @@ static inline void ecdsa_ll_set_curve(ecdsa_curve_t curve)
 }
 
 /**
- * @brief Set the source of `K`
- *
- * @param mode Mode of K generation
- */
-static inline void ecdsa_ll_set_k_mode(ecdsa_k_mode_t mode)
-{
-    switch (mode) {
-        case ECDSA_K_USE_TRNG:
-            REG_CLR_BIT(ECDSA_CONF_REG, ECDSA_SOFTWARE_SET_K);
-            break;
-        case ECDSA_K_USER_PROVIDED:
-            REG_SET_BIT(ECDSA_CONF_REG, ECDSA_SOFTWARE_SET_K);
-            break;
-        default:
-            HAL_ASSERT(false && "Unsupported curve");
-            break;
-    }
-}
-
-/**
  * @brief Set the source of `Z` (SHA message)
  *
  * @param mode Mode of SHA generation
@@ -297,7 +276,7 @@ static inline bool ecdsa_ll_sha_is_busy(void)
 /**
  * @brief Write the ECDSA parameter
  *
- * @param param Parameter to be writen
+ * @param param Parameter to be written
  * @param buf   Buffer containing data
  * @param len   Length of buffer
  */
@@ -315,7 +294,6 @@ static inline void ecdsa_ll_write_param(ecdsa_ll_param_t param, const uint8_t *b
         case ECDSA_PARAM_Z:
             reg = ECDSA_Z_MEM;
             break;
-        case ECDSA_PARAM_K:
         case ECDSA_PARAM_QAX:
             reg = ECDSA_QAX_MEM;
             break;
@@ -353,7 +331,6 @@ static inline void ecdsa_ll_read_param(ecdsa_ll_param_t param, uint8_t *buf, uin
         case ECDSA_PARAM_Z:
             reg = ECDSA_Z_MEM;
             break;
-        case ECDSA_PARAM_K:
         case ECDSA_PARAM_QAX:
             reg = ECDSA_QAX_MEM;
             break;
@@ -369,14 +346,12 @@ static inline void ecdsa_ll_read_param(ecdsa_ll_param_t param, uint8_t *buf, uin
 }
 
 /**
- * @brief Get result of ECDSA verification operation
+ * @brief Check if the ECDSA operation is successful
  *
- *        This is only valid for ECDSA verify mode
- *
- * @return - 1, if signature verification succeeds
+ * @return - 1, if ECDSA operation succeeds
  *         - 0, otherwise
  */
-static inline int ecdsa_ll_get_verification_result(void)
+static inline int ecdsa_ll_get_operation_result(void)
 {
     return REG_GET_BIT(ECDSA_RESULT_REG, ECDSA_OPERATION_RESULT);
 }

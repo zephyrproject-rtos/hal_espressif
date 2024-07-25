@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -18,6 +18,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/portmacro.h"
 #include "freertos/xtensa_api.h"
+#include "freertos/idf_additions.h"
 #include "esp_types.h"
 #include "esp_random.h"
 #include "esp_mac.h"
@@ -41,10 +42,10 @@
 #include "nvs.h"
 #include "os.h"
 #include "esp_smartconfig.h"
-#include "esp_coexist_internal.h"
+#include "private/esp_coexist_internal.h"
 #include "esp_rom_sys.h"
 #include "esp32s2/rom/ets_sys.h"
-#include "esp_modem_wrapper.h"
+#include "private/esp_modem_wrapper.h"
 
 #define TAG "esp_adapter"
 
@@ -108,6 +109,7 @@ wifi_static_queue_t* wifi_create_queue( int queue_len, int item_size)
     }
 
 #if CONFIG_SPIRAM_USE_MALLOC
+    /* Wi-Fi still use internal RAM */
 
     queue->storage = heap_caps_calloc(1, sizeof(StaticQueue_t) + (queue_len*item_size), MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
     if (!queue->storage) {
@@ -245,7 +247,37 @@ static int32_t IRAM_ATTR mutex_unlock_wrapper(void *mutex)
 
 static void * queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
+    /*
+     * Since release/v5.1, FreeRTOS has been updated to always use internal memory (i.e., DRAM)
+     * for dynamic memory allocation. Calling FreeRTOS creation functions (e.g., xTaskCreate(), xQueueCreate())
+     * will guarantee that the memory allocated for those tasks/objects is from internal memory.
+     * For more details, please refer to the Migration Guide in release/v5.1.
+     */
+#if CONFIG_SPIRAM_USE_MALLOC
+    /* Use xQueueCreateWithCaps() to allocate from SPIRAM */
+    return (void *)xQueueCreateWithCaps(queue_len, item_size, MALLOC_CAP_SPIRAM);
+#else
     return (void *)xQueueCreate(queue_len, item_size);
+#endif
+#else
+    return (void *)xQueueCreate(queue_len, item_size);
+#endif
+}
+
+static void queue_delete_wrapper(void *queue)
+{
+    if (queue) {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
+#if CONFIG_SPIRAM_USE_MALLOC
+        vQueueDeleteWithCaps(queue);
+#else
+        vQueueDelete(queue);
+#endif
+#else
+        vQueueDelete(queue);
+#endif
+    }
 }
 
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
@@ -537,9 +569,37 @@ static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
 #endif
 }
 
+static int coex_schm_flexible_period_set_wrapper(uint8_t period)
+{
+#if CONFIG_ESP_COEX_POWER_MANAGEMENT
+    return coex_schm_flexible_period_set(period);
+#else
+    return 0;
+#endif
+}
+
+static uint8_t coex_schm_flexible_period_get_wrapper(void)
+{
+#if CONFIG_ESP_COEX_POWER_MANAGEMENT
+    return coex_schm_flexible_period_get();
+#else
+    return 1;
+#endif
+}
+
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
 
+}
+
+static void esp_phy_enable_wrapper(void)
+{
+    esp_phy_enable(PHY_MODEM_WIFI);
+}
+
+static void esp_phy_disable_wrapper(void)
+{
+    esp_phy_disable(PHY_MODEM_WIFI);
 }
 
 wifi_osi_funcs_t g_wifi_osi_funcs = {
@@ -567,7 +627,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._mutex_lock = mutex_lock_wrapper,
     ._mutex_unlock = mutex_unlock_wrapper,
     ._queue_create = queue_create_wrapper,
-    ._queue_delete = (void(*)(void *))vQueueDelete,
+    ._queue_delete = queue_delete_wrapper,
     ._queue_send = queue_send_wrapper,
     ._queue_send_from_isr = queue_send_from_isr_wrapper,
     ._queue_send_to_back = queue_send_to_back_wrapper,
@@ -595,8 +655,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
     ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
     ._wifi_apb80m_release = wifi_apb80m_release_wrapper,
-    ._phy_disable = esp_phy_disable,
-    ._phy_enable = esp_phy_enable,
+    ._phy_disable = esp_phy_disable_wrapper,
+    ._phy_enable = esp_phy_enable_wrapper,
     ._phy_common_clock_enable = esp_phy_common_clock_enable,
     ._phy_common_clock_disable = esp_phy_common_clock_disable,
     ._phy_update_country_info = esp_phy_update_country_info,
@@ -660,6 +720,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._coex_register_start_cb = coex_register_start_cb_wrapper,
     ._coex_schm_process_restart = coex_schm_process_restart_wrapper,
     ._coex_schm_register_cb = coex_schm_register_cb_wrapper,
-
+    ._coex_schm_flexible_period_set = coex_schm_flexible_period_set_wrapper,
+    ._coex_schm_flexible_period_get = coex_schm_flexible_period_get_wrapper,
     ._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
