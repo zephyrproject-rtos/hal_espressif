@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -92,9 +92,9 @@
 #define SOC_CPU_INTR_NUM                32
 #define SOC_CPU_HAS_FLEXIBLE_INTC       1
 
-#define SOC_CPU_BREAKPOINTS_NUM         2
-#define SOC_CPU_WATCHPOINTS_NUM         2
-#define SOC_CPU_WATCHPOINT_SIZE         0x80000000 // bytes
+#define SOC_CPU_BREAKPOINTS_NUM             2
+#define SOC_CPU_WATCHPOINTS_NUM             2
+#define SOC_CPU_WATCHPOINT_MAX_REGION_SIZE  0x80000000 // bytes
 
 #define SOC_CPU_IDRAM_SPLIT_USING_PMP   1
 
@@ -246,6 +246,9 @@
 #define SOC_TIMER_GROUP_SUPPORT_XTAL      (1)
 #define SOC_TIMER_GROUP_TOTAL_TIMERS      (1U)
 
+/*--------------------------- WATCHDOG CAPS ---------------------------------------*/
+#define SOC_MWDT_SUPPORT_XTAL              (1)
+
 /*-------------------------- eFuse CAPS----------------------------*/
 #define SOC_EFUSE_DIS_DOWNLOAD_ICACHE 1
 #define SOC_EFUSE_DIS_PAD_JTAG 1
@@ -267,7 +270,7 @@
 #define SOC_UART_NUM                (2)
 #define SOC_UART_HP_NUM             (2)
 #define SOC_UART_FIFO_LEN           (128)      /*!< The UART hardware FIFO length */
-#define SOC_UART_BITRATE_MAX        (5000000)  /*!< Max bit rate supported by UART */
+#define SOC_UART_BITRATE_MAX        (2500000)  /*!< Max bit rate supported by UART */
 #define SOC_UART_SUPPORT_WAKEUP_INT (1)         /*!< Support UART wakeup interrupt */
 #define SOC_UART_SUPPORT_PLL_F40M_CLK (1)   /*!< Support APB as the clock source */
 #define SOC_UART_SUPPORT_RTC_CLK    (1)     /*!< Support RTC clock as the clock source */
@@ -275,6 +278,9 @@
 
 // UART has an extra TX_WAIT_SEND state when the FIFO is not empty and XOFF is enabled
 #define SOC_UART_SUPPORT_FSM_TX_WAIT_SEND   (1)
+
+/*-------------------------- COEXISTENCE CAPS -------------------------------*/
+#define SOC_SUPPORT_COEXISTENCE     (1)
 
 /*-------------------------- COEXISTENCE HARDWARE PTI CAPS -------------------------------*/
 #define SOC_COEX_HW_PTI                 (1)
@@ -306,6 +312,7 @@
 #define SOC_WIFI_HW_TSF                           (1)    /*!< Support hardware TSF */
 #define SOC_WIFI_FTM_SUPPORT                      (1)    /*!< Support FTM */
 #define SOC_WIFI_SUPPORT_VARIABLE_BEACON_WINDOW   (1)    /*!< Support delta early time for rf phy on/off */
+#define SOC_WIFI_PHY_NEEDS_USB_WORKAROUND         (1)    /*!< SoC has WiFi and USB PHYs interference, needs a workaround */
 
 /*---------------------------------- Bluetooth CAPS ----------------------------------*/
 #define SOC_BLE_SUPPORTED               (1)    /*!< Support Bluetooth Low Energy hardware */
@@ -314,6 +321,8 @@
 #define SOC_BLE_50_SUPPORTED            (1)    /*!< Support Bluetooth 5.0 */
 #define SOC_BLE_DEVICE_PRIVACY_SUPPORTED (1)   /*!< Support BLE device privacy mode */
 #define SOC_BLUFI_SUPPORTED             (1)    /*!< Support BLUFI */
+#define SOC_BLE_PERIODIC_ADV_ENH_SUPPORTED  (1)    /*!< Support For BLE Periodic Adv Enhancements */
 
 /*------------------------------------- PHY CAPS -------------------------------------*/
 #define SOC_PHY_IMPROVE_RX_11B              (1)
+#define SOC_PHY_COMBO_MODULE                  (1) /*!< Support Wi-Fi and BLE*/

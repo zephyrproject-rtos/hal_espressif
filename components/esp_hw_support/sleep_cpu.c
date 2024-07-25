@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,10 +14,11 @@
 #include "esp_check.h"
 #include "esp_sleep.h"
 #include "esp_log.h"
-#include "esp_crc.h"
+#include "esp_rom_crc.h"
 #include "esp_heap_caps.h"
 #include "soc/soc_caps.h"
 #include "esp_private/sleep_cpu.h"
+#include "esp_private/sleep_event.h"
 #include "sdkconfig.h"
 
 #if SOC_PMU_SUPPORTED
@@ -506,18 +507,18 @@ static IRAM_ATTR RvCoreNonCriticalSleepFrame * rv_core_noncritical_regs_save(voi
     frame->pmacfg1   = RV_READ_CSR(CSR_PMACFG(1));
     frame->pmacfg2   = RV_READ_CSR(CSR_PMACFG(2));
     frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(3));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(4));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(5));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(6));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(7));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(8));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(9));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(10));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(11));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(12));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(13));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(14));
-    frame->pmacfg3   = RV_READ_CSR(CSR_PMACFG(15));
+    frame->pmacfg4   = RV_READ_CSR(CSR_PMACFG(4));
+    frame->pmacfg5   = RV_READ_CSR(CSR_PMACFG(5));
+    frame->pmacfg6   = RV_READ_CSR(CSR_PMACFG(6));
+    frame->pmacfg7   = RV_READ_CSR(CSR_PMACFG(7));
+    frame->pmacfg8   = RV_READ_CSR(CSR_PMACFG(8));
+    frame->pmacfg9   = RV_READ_CSR(CSR_PMACFG(9));
+    frame->pmacfg10   = RV_READ_CSR(CSR_PMACFG(10));
+    frame->pmacfg11   = RV_READ_CSR(CSR_PMACFG(11));
+    frame->pmacfg12   = RV_READ_CSR(CSR_PMACFG(12));
+    frame->pmacfg13   = RV_READ_CSR(CSR_PMACFG(13));
+    frame->pmacfg14   = RV_READ_CSR(CSR_PMACFG(14));
+    frame->pmacfg15   = RV_READ_CSR(CSR_PMACFG(15));
 #endif // SOC_CPU_HAS_PMA
 
     frame->utvec     = RV_READ_CSR(utvec);
@@ -652,12 +653,12 @@ static IRAM_ATTR void cpu_domain_dev_regs_restore(cpu_domain_dev_sleep_frame_t *
 #if CONFIG_PM_CHECK_SLEEP_RETENTION_FRAME
 static void update_retention_frame_crc(uint32_t *frame_ptr, uint32_t frame_check_size, uint32_t *frame_crc_ptr)
 {
-    *(frame_crc_ptr) = esp_crc32_le(0, (void *)frame_ptr, frame_check_size);
+    *(frame_crc_ptr) = esp_rom_crc32_le(0, (void *)frame_ptr, frame_check_size);
 }
 
 static void validate_retention_frame_crc(uint32_t *frame_ptr, uint32_t frame_check_size, uint32_t *frame_crc_ptr)
 {
-    if(*(frame_crc_ptr) != esp_crc32_le(0, (void *)(frame_ptr), frame_check_size)){
+    if(*(frame_crc_ptr) != esp_rom_crc32_le(0, (void *)(frame_ptr), frame_check_size)){
         // resume uarts
         for (int i = 0; i < SOC_UART_NUM; ++i) {
 #ifndef CONFIG_IDF_TARGET_ESP32
@@ -684,6 +685,7 @@ static IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
 {
     RvCoreCriticalSleepFrame * frame = rv_core_critical_regs_save();
     if ((frame->pmufunc & 0x3) == 0x1) {
+        esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_CPU_TO_MEM_END, (void *)0);
 #if CONFIG_PM_CHECK_SLEEP_RETENTION_FRAME
         /* Minus 2 * sizeof(long) is for bypass `pmufunc` and `frame_crc` field */
         update_retention_frame_crc((uint32_t*)frame, RV_SLEEP_CTX_FRMSZ - 2 * sizeof(long), (uint32_t *)(&frame->frame_crc));
@@ -703,6 +705,7 @@ static IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
 esp_err_t IRAM_ATTR esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t, uint32_t, uint32_t, bool),
         uint32_t wakeup_opt, uint32_t reject_opt, uint32_t lslp_mem_inf_fpu, bool dslp)
 {
+    esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_CPU_TO_MEM_START, (void *)0);
     uint32_t mstatus = save_mstatus_and_disable_global_int();
 
     cpu_domain_dev_regs_save(s_cpu_retention.retent.plic_frame);
@@ -727,7 +730,6 @@ esp_err_t IRAM_ATTR esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t, uin
     cpu_domain_dev_regs_restore(s_cpu_retention.retent.intpri_frame);
     cpu_domain_dev_regs_restore(s_cpu_retention.retent.clint_frame);
     cpu_domain_dev_regs_restore(s_cpu_retention.retent.plic_frame);
-
     restore_mstatus(mstatus);
     return err;
 }

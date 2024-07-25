@@ -133,6 +133,9 @@ BOOLEAN bta_gatts_hdl_event(BT_HDR *p_msg)
     case BTA_GATTS_API_SEND_SERVICE_CHANGE_EVT:
         bta_gatts_send_service_change_indication((tBTA_GATTS_DATA *) p_msg);
         break;
+    case BTA_GATTS_API_SHOW_LOCAL_DATABASE_EVT:
+        bta_gatts_show_local_database();
+        break;
     default:
         break;
     }
@@ -147,6 +150,19 @@ void bta_gatts_deinit(void)
 #if BTA_DYNAMIC_MEMORY
     FREE_AND_RESET(bta_gatts_cb_ptr);
 #endif /* #if BTA_DYNAMIC_MEMORY */
+}
+
+uint8_t bta_gatts_srvc_active_count(void)
+{
+    uint8_t count = 0;
+
+    for (uint8_t i = 0; i < BTA_GATTS_MAX_SRVC_NUM; i ++) {
+        if (bta_gatts_cb.srvc_cb[i].in_use) {
+            count++;
+        }
+    }
+
+    return count;
 }
 
 #endif /* GATTS_INCLUDED */

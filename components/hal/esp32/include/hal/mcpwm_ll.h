@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -43,8 +43,12 @@ extern "C" {
 #define MCPWM_LL_EVENT_CAPTURE(cap)          (1 << ((cap) + 27))
 
 // Maximum values due to limited register bit width
+#define MCPWM_LL_MAX_GROUP_PRESCALE          256
+#define MCPWM_LL_MAX_TIMER_PRESCALE          256
+#define MCPWM_LL_MAX_CARRIER_PRESCALE        16
 #define MCPWM_LL_MAX_CARRIER_ONESHOT         16
 #define MCPWM_LL_MAX_CAPTURE_PRESCALE        256
+#define MCPWM_LL_MAX_CAPTURE_TIMER_PRESCALE  1
 #define MCPWM_LL_MAX_DEAD_DELAY              65536
 #define MCPWM_LL_MAX_COUNT_VALUE             65536
 
@@ -95,10 +99,11 @@ static inline void mcpwm_ll_group_enable_clock(mcpwm_dev_t *mcpwm, bool en)
  * @param mcpwm Peripheral instance address
  * @param pre_scale Prescale value
  */
-static inline void mcpwm_ll_group_set_clock_prescale(mcpwm_dev_t *mcpwm, int pre_scale)
+static inline void mcpwm_ll_group_set_clock_prescale(mcpwm_dev_t *mcpwm, int prescale)
 {
-    // group clock: PWM_clk = CLK_160M / (prescale + 1)
-    HAL_FORCE_MODIFY_U32_REG_FIELD(mcpwm->clk_cfg, clk_prescale, pre_scale - 1);
+    // group clock: PWM_clk = CLK_160M / (prescale)
+    HAL_ASSERT(prescale <= 256 && prescale > 0);
+    HAL_FORCE_MODIFY_U32_REG_FIELD(mcpwm->clk_cfg, clk_prescale, prescale - 1);
 }
 
 /**
@@ -202,13 +207,12 @@ static inline void mcpwm_ll_timer_set_clock_prescale(mcpwm_dev_t *mcpwm, int tim
  * @param peak Peak value
  * @param symmetric True to set symmetric peak value, False to set asymmetric peak value
  */
+__attribute__((always_inline))
 static inline void mcpwm_ll_timer_set_peak(mcpwm_dev_t *mcpwm, int timer_id, uint32_t peak, bool symmetric)
 {
     if (!symmetric) { // in asymmetric mode, period = [0,peak-1]
-        HAL_ASSERT(peak > 0 && peak <= MCPWM_LL_MAX_COUNT_VALUE);
         HAL_FORCE_MODIFY_U32_REG_FIELD(mcpwm->timer[timer_id].timer_cfg0, timer_period, peak - 1);
     } else { // in symmetric mode, period = [0,peak-1] + [peak,1]
-        HAL_ASSERT(peak < MCPWM_LL_MAX_COUNT_VALUE);
         HAL_FORCE_MODIFY_U32_REG_FIELD(mcpwm->timer[timer_id].timer_cfg0, timer_period, peak);
     }
 }
@@ -692,20 +696,20 @@ static inline void mcpwm_ll_operator_stop_update_action(mcpwm_dev_t *mcpwm, int 
  * @param trig_id Trigger ID, index from 0 to 1
  * @param fault_gpio_id Fault GPIO ID, index from 0 to 3
  */
-static inline void mcpwm_ll_operator_set_trigger_from_gpio(mcpwm_dev_t *mcpwm, int operator_id, int trig_id, int fault_gpio_id)
+static inline void mcpwm_ll_operator_set_trigger_from_gpio_fault(mcpwm_dev_t *mcpwm, int operator_id, int trig_id, int fault_gpio_id)
 {
     mcpwm->operators[operator_id].gen_cfg0.val &= ~(0x07 << (4 + 3 * trig_id));
     mcpwm->operators[operator_id].gen_cfg0.val |= (fault_gpio_id << (4 + 3 * trig_id));
 }
 
 /**
- * @brief Set trigger from timer sync event (when the timer taken the sync signal)
+ * @brief Set trigger from sync event (when the timer/gpio/soft taken the sync signal)
  *
  * @param mcpwm Peripheral instance address
  * @param operator_id Operator ID, index from 0 to 2
  * @param trig_id Trigger ID, index from 0 to 1
  */
-static inline void mcpwm_ll_operator_set_trigger_from_timer_sync(mcpwm_dev_t *mcpwm, int operator_id, int trig_id)
+static inline void mcpwm_ll_operator_set_trigger_from_sync(mcpwm_dev_t *mcpwm, int operator_id, int trig_id)
 {
     // the timer here is not selectable, must be the one connected with the operator
     mcpwm->operators[operator_id].gen_cfg0.val &= ~(0x07 << (4 + 3 * trig_id));

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -73,7 +73,7 @@ typedef enum {
 #define WIFI_LOG_SUBMODULE_INIT  (1)    /*logs related to initialization*/
 #define WIFI_LOG_SUBMODULE_IOCTL (1<<1) /*logs related to API calling*/
 #define WIFI_LOG_SUBMODULE_CONN  (1<<2) /*logs related to connecting*/
-#define WIFI_LOG_SUBMODULE_SCAN  (1<<3) /*logs related to scaning*/
+#define WIFI_LOG_SUBMODULE_SCAN  (1<<3) /*logs related to scanning*/
 
 
 /**
@@ -133,7 +133,7 @@ void esp_wifi_internal_free_rx_buffer(void* buffer);
   * @return
   *    - ESP_OK  : Successfully transmit the buffer to wifi driver
   *    - ESP_ERR_NO_MEM: out of memory
-  *    - ESP_ERR_WIFI_ARG: invalid argument
+  *    - ESP_ERR_INVALID_ARG: invalid argument
   *    - ESP_ERR_WIFI_IF : WiFi interface is invalid
   *    - ESP_ERR_WIFI_CONN : WiFi interface is not created, e.g. send the data to STA while WiFi mode is AP mode
   *    - ESP_ERR_WIFI_NOT_STARTED : WiFi is not started
@@ -165,14 +165,14 @@ typedef void (*wifi_netstack_buf_free_cb_t)(void *netstack_buf);
   * supports reference counter.
   *
   * @param  wifi_if : wifi interface id
-  * @param  buffer : the buffer to be tansmit
+  * @param  buffer : the buffer to be transmit
   * @param  len : the length of buffer
-  * @param  netstack_buf : the netstack buffer related to bufffer
+  * @param  netstack_buf : the netstack buffer related to buffer
   *
   * @return
   *    - ESP_OK  : Successfully transmit the buffer to wifi driver
   *    - ESP_ERR_NO_MEM: out of memory
-  *    - ESP_ERR_WIFI_ARG: invalid argument
+  *    - ESP_ERR_INVALID_ARG: invalid argument
   *    - ESP_ERR_WIFI_IF : WiFi interface is invalid
   *    - ESP_ERR_WIFI_CONN : WiFi interface is not created, e.g. send the data to STA while WiFi mode is AP mode
   *    - ESP_ERR_WIFI_NOT_STARTED : WiFi is not started
@@ -440,7 +440,7 @@ esp_err_t esp_wifi_internal_set_log_level(wifi_log_level_t level);
   * @return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
-  *    - ESP_ERR_WIFI_ARG: invalid argument
+  *    - ESP_ERR_INVALID_ARG: invalid argument
   */
 esp_err_t esp_wifi_internal_set_log_mod(wifi_log_module_t module, uint32_t submodule, bool enable);
 
@@ -540,6 +540,18 @@ void esp_wifi_power_domain_on(void);
  */
 void esp_wifi_power_domain_off(void);
 
+
+#if (CONFIG_FREERTOS_USE_TICKLESS_IDLE && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+/**
+  * @brief     Get wifi mac sleep retention hardware context configuration and size
+  *
+  * @param     config_size: the wifi mac hardware context configuration size
+  *
+  * @return    A pointer that point to wifi mac sleep renteiton hardware context configuration table
+  */
+void * esp_wifi_internal_mac_retention_context_get(int *config_size);
+#endif
+
 #if CONFIG_MAC_BB_PD
 /**
   * @brief     Enable or disable powering down MAC and baseband when Wi-Fi is sleeping.
@@ -563,12 +575,12 @@ void pm_mac_wakeup(void);
 #endif
 
 /**
-  * @breif    TxDone callback function type. Should be registered using esp_wifi_set_tx_done_cb()
+  * @brief    TxDone callback function type. Should be registered using esp_wifi_set_tx_done_cb()
   *
   * @param    ifidx The interface id that the tx callback has been triggered from
   * @param    data Pointer to the data transmitted
   * @param    data_len Length of the data transmitted
-  * @param    txStatus True:if the data was transmitted sucessfully False: if data transmission failed
+  * @param    txStatus True:if the data was transmitted successfully False: if data transmission failed
   */
 typedef void (* wifi_tx_done_cb_t)(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
 
@@ -607,13 +619,13 @@ esp_err_t esp_wifi_internal_set_spp_amsdu(wifi_interface_t ifidx, bool spp_cap, 
 void esp_wifi_internal_update_light_sleep_default_params(int min_freq_mhz, int max_freq_mhz);
 
 /**
- * @brief   Set the delay time for wifi to enter the sleep state when light sleep
+ * @brief   Set the min active time for wifi to enter the sleep state when light sleep
  *
- * @param   return_to_sleep_delay: minimum timeout time  for waiting to receive
+ * @param   min_active_time: minimum timeout time  for waiting to receive
  *                      data, when no data is received during the timeout period,
  *                      the wifi enters the sleep process.
  */
-void esp_wifi_set_sleep_delay_time(uint32_t return_to_sleep_delay);
+void esp_wifi_set_sleep_min_active_time(uint32_t min_active_time);
 
 /**
  * @brief   Set wifi keep alive time
@@ -623,6 +635,17 @@ void esp_wifi_set_sleep_delay_time(uint32_t return_to_sleep_delay);
 void esp_wifi_set_keep_alive_time(uint32_t keep_alive_time);
 
 /**
+  * @brief      Set the min broadcast data wait time for wifi to enter the sleep state
+  *
+  * @attention  Default sleep wait broadcast data time is 15000, Uint µs.
+  *
+  * @param      time: When the station knows through the beacon that the AP
+  *                   will send broadcast packet, it will wait for a minimum of
+  *                   wait_broadcast_data_time before entering the sleep process.
+  */
+void esp_wifi_set_sleep_wait_broadcast_data_time(uint32_t time);
+
+/**
  * @brief   Configure wifi beacon montior default parameters
  *
  * @param   config: the configuration parameters for wifi beacon monitor
@@ -630,15 +653,23 @@ void esp_wifi_set_keep_alive_time(uint32_t keep_alive_time);
 void esp_wifi_beacon_monitor_configure(wifi_beacon_monitor_config_t *config);
 
 /**
- * @brief   Require WiFi to enable or disable Advanced DTIM sleep function
+ * @brief   Set modem state mode to require WiFi to enable or disable Advanced DTIM sleep function
  *
- * @param   light_sleep_enable: true for light sleep mode is enabled, false for light sleep mode is disabled.
- * @param   modem_state_enable: true for require WiFi to enable Advanced DTIM sleep function,
+ * @param   require_modem_state: true for require WiFi to enable Advanced DTIM sleep function,
  *                              false for require WiFi to disable Advanced DTIM sleep function.
  * @return
  *    - ESP_OK: succeed
  */
-void esp_wifi_internal_mac_sleep_configure(bool light_sleep_enable, bool modem_state_enable);
+void esp_wifi_internal_modem_state_configure(bool require_modem_state);
+
+/**
+ * @brief   Set light sleep mode to require WiFi to enable or disable Advanced DTIM sleep function
+ *
+ * @param   light_sleep_enable: true for light sleep mode is enabled, false for light sleep mode is disabled.
+ * @return
+ *    - ESP_OK: succeed
+ */
+void esp_wifi_internal_light_sleep_configure(bool light_sleep_enable);
 
 /**
   * @brief      Start Publishing a service in the NAN cluster

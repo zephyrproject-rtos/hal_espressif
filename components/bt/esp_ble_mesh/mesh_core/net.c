@@ -2,7 +2,7 @@
 
 /*
  * SPDX-FileCopyrightText: 2017 Intel Corporation
- * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2018-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -967,18 +967,36 @@ int bt_mesh_net_send(struct bt_mesh_net_tx *tx, struct net_buf *buf,
     }
 
     /* Deliver to local network interface if necessary */
-    if (IS_ENABLED(CONFIG_BLE_MESH_NODE) && bt_mesh_is_provisioned() &&
-        (bt_mesh_fixed_group_match(tx->ctx->addr) ||
-            bt_mesh_elem_find(tx->ctx->addr))) {
-        if (cb && cb->start) {
-            cb->start(0, 0, cb_data);
+    if (((IS_ENABLED(CONFIG_BLE_MESH_NODE) && bt_mesh_is_provisioned()) ||
+        (IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER) && bt_mesh_is_provisioner_en())) &&
+        (bt_mesh_fixed_group_match(tx->ctx->addr) || bt_mesh_elem_find(tx->ctx->addr))) {
+        /**
+         * If the target address isn't a unicast address, then the callback function
+         * will be called by `adv task` in place of here, to avoid the callback function
+         * being called twice.
+         * See BLEMESH24-76 for more details.
+         */
+        if (BLE_MESH_ADDR_IS_UNICAST(tx->ctx->addr)) {
+            if (cb && cb->start) {
+                cb->start(0, 0, cb_data);
+            }
+
+            net_buf_slist_put(&bt_mesh.local_queue, net_buf_ref(buf));
+
+            if (cb && cb->end) {
+                cb->end(0, cb_data);
+            }
+
+            k_work_submit(&bt_mesh.local_work);
+
+            goto done;
+        } else {
+            net_buf_slist_put(&bt_mesh.local_queue, net_buf_ref(buf));
+            k_work_submit(&bt_mesh.local_work);
         }
-        net_buf_slist_put(&bt_mesh.local_queue, net_buf_ref(buf));
-        if (cb && cb->end) {
-            cb->end(0, cb_data);
-        }
-        k_work_submit(&bt_mesh.local_work);
-    } else if (tx->ctx->send_ttl != 1U) {
+    }
+
+    if (tx->ctx->send_ttl != 1U) {
         /* Deliver to the advertising network interface. Mesh spec
          * 3.4.5.2: "The output filter of the interface connected to
          * advertising or GATT bearers shall drop all messages with
@@ -1265,7 +1283,7 @@ static void bt_mesh_net_relay(struct net_buf_simple *sbuf,
 #endif
 
     if (!buf) {
-        BT_ERR("Out of relay buffers");
+        BT_INFO("Out of relay buffers");
         return;
     }
 
@@ -1432,9 +1450,7 @@ static bool ignore_net_msg(uint16_t src, uint16_t dst)
     }
 
     if (IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER) &&
-        bt_mesh_is_provisioner_en() &&
-        BLE_MESH_ADDR_IS_UNICAST(dst) &&
-        bt_mesh_elem_find(dst)) {
+        bt_mesh_is_provisioner_en()) {
         /* If the destination address of the message is the element
          * address of Provisioner, but Provisioner fails to find the
          * node in its provisioning database, then this message will
@@ -1509,7 +1525,11 @@ void bt_mesh_net_recv(struct net_buf_simple *data, int8_t rssi,
      * was neither a local element nor an LPN we're Friends for.
      */
     if (!BLE_MESH_ADDR_IS_UNICAST(rx.ctx.recv_dst) ||
-            (!rx.local_match && !rx.friend_match)) {
+        (!rx.local_match && !rx.friend_match
+#if CONFIG_BLE_MESH_NOT_RELAY_REPLAY_MSG
+        && !rx.replay_msg
+#endif
+        )) {
         net_buf_simple_restore(&buf, &state);
         bt_mesh_net_relay(&buf, &rx);
     }

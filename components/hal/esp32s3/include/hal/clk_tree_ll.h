@@ -309,7 +309,7 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
     uint8_t dr3;
     uint8_t dchgp;
     uint8_t dcur;
-    uint8_t dbias;
+    uint8_t dbias = 3;
 
     if (pll_freq_mhz == CLK_LL_PLL_480M_FREQ_MHZ) {
         /* Configure 480M PLL */
@@ -321,7 +321,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 0;
             dchgp = 5;
             dcur = 3;
-            dbias = 2;
             break;
         case RTC_XTAL_FREQ_32M:
             div_ref = 1;
@@ -330,7 +329,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 1;
             dchgp = 4;
             dcur = 0;
-            dbias = 2;
             break;
         default:
             div_ref = 0;
@@ -339,7 +337,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 0;
             dchgp = 5;
             dcur = 3;
-            dbias = 2;
             break;
         }
         REGI2C_WRITE(I2C_BBPLL, I2C_BBPLL_MODE_HF, 0x6B);
@@ -353,7 +350,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 0;
             dchgp = 5;
             dcur = 3;
-            dbias = 2;
             break;
         case RTC_XTAL_FREQ_32M:
             div_ref = 1;
@@ -362,7 +358,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 0;
             dchgp = 5;
             dcur = 3;
-            dbias = 2;
             break;
         default:
             div_ref = 0;
@@ -371,7 +366,6 @@ static inline __attribute__((always_inline)) void clk_ll_bbpll_set_config(uint32
             dr3 = 0;
             dchgp = 5;
             dcur = 3;
-            dbias = 2;
             break;
         }
         REGI2C_WRITE(I2C_BBPLL, I2C_BBPLL_MODE_HF, 0x69);
