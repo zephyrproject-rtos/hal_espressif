@@ -79,6 +79,8 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
             return PCR_SDIO_SLAVE_CLK_EN;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CLK_EN;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CLK_EN;
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
             return LPPERI_LP_EXT_I2C_CK_EN;
@@ -163,6 +165,8 @@ static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool en
             return PCR_SDIO_SLAVE_RST_EN;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_RST_EN;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_RST_EN;
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
             return LPPERI_LP_EXT_I2C_RESET_EN;
@@ -232,6 +236,8 @@ static uint32_t periph_ll_get_clk_en_reg(periph_module_t periph)
             return PCR_SDIO_SLAVE_CONF_REG;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CONF_REG;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CONF_REG;
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
             return LPPERI_CLK_EN_REG;
@@ -301,6 +307,8 @@ static uint32_t periph_ll_get_rst_en_reg(periph_module_t periph)
             return PCR_SDIO_SLAVE_CONF_REG;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CONF_REG;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CONF_REG;
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
             return LPPERI_RESET_EN_REG;
