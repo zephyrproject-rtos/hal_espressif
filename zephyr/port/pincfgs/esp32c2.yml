@@ -40,3 +40,32 @@ uart1:
   dsr:
     sigi: u1dsr_in
     gpio: [[0, 10], [18, 20]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 10], [18, 20]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 10], [18, 20]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 10], [18, 20]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 10], [18, 20]]
+  csel1:
+    sigo: fspics1_out
+    gpio: [[0, 10], [18, 20]]
+  csel2:
+    sigo: fspics2_out
+    gpio: [[0, 10], [18, 20]]
+  csel3:
+    sigo: fspics3_out
+    gpio: [[0, 10], [18, 20]]
+  csel4:
+    sigo: fspics4_out
+    gpio: [[0, 10], [18, 20]]
+  csel5:
+    sigo: fspics5_out
+    gpio: [[0, 10], [18, 20]]
