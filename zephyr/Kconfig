@@ -56,6 +56,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x0000 if SOC_SERIES_ESP32
 	default 0x0002 if SOC_SERIES_ESP32S2
 	default 0x0009 if SOC_SERIES_ESP32S3
+	default 0x000C if SOC_SERIES_ESP32C2
 	default 0x0005 if SOC_SERIES_ESP32C3
 	default 0x000D if SOC_SERIES_ESP32C6
 
@@ -76,6 +77,10 @@ config IDF_TARGET_ESP32S2
 config IDF_TARGET_ESP32S3
 	bool
 	default y if SOC_SERIES_ESP32S3
+
+config IDF_TARGET_ESP32C2
+		bool
+		default y if SOC_SERIES_ESP32C2
 
 config IDF_TARGET_ESP32C3
 	bool
