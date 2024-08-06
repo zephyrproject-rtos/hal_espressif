@@ -69,3 +69,23 @@ spim2:
   csel5:
     sigo: fspics5_out
     gpio: [[0, 10], [18, 20]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 10], [18, 20]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 10], [18, 20]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 10], [18, 20]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 10], [18, 20]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 10], [18, 20]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 10], [18, 20]]
