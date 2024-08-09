@@ -122,13 +122,6 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_library_sources(src/hal/windowspill_asm.S)
 
-  zephyr_link_libraries_ifdef(
-    CONFIG_ESP_SPIRAM
-    gcc
-    "-Wl,--wrap=k_calloc"
-    "-Wl,--wrap=k_malloc"
-    )
-
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
     ../../components/spi_flash/flash_ops.c
