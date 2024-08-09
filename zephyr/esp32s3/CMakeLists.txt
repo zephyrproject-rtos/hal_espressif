@@ -119,13 +119,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
-  zephyr_link_libraries_ifdef(
-    CONFIG_ESP_SPIRAM
-    gcc
-    "-Wl,--wrap=k_calloc"
-    "-Wl,--wrap=k_malloc"
-    )
-
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
     ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
