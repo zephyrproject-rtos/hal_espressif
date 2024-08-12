@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -48,7 +48,7 @@
 #endif
 
 #if CONFIG_IDF_TARGET_ESP32
-wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
+wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
 #endif
 
 static const char* TAG = "phy_init";
@@ -155,6 +155,60 @@ static phy_country_to_bin_type_t s_country_code_map_type_table[] = {
     {"US",  ESP_PHY_INIT_DATA_TYPE_FCC},
 };
 #endif
+
+#if CONFIG_ESP_PHY_RECORD_USED_TIME
+#define ESP_PHY_MODEM_COUNT_MAX         (__builtin_ffs(PHY_MODEM_MAX - 1))
+#define ESP_PHY_IS_VALID_MODEM(modem)   (__builtin_popcount(modem) == 1 && __builtin_ctz(modem) < ESP_PHY_MODEM_COUNT_MAX)
+
+static DRAM_ATTR struct {
+    uint64_t used_time;
+    uint64_t enabled_time;
+    uint64_t disabled_time;
+} s_phy_rf_used_info[ESP_PHY_MODEM_COUNT_MAX];
+
+static IRAM_ATTR void phy_record_time(bool enabled, esp_phy_modem_t modem) {
+    uint8_t index = __builtin_ctz(modem);
+    if (enabled) {
+        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
+    } else {
+        s_phy_rf_used_info[index].disabled_time = esp_timer_get_time();
+        s_phy_rf_used_info[index].used_time += s_phy_rf_used_info[index].disabled_time - s_phy_rf_used_info[index].enabled_time;
+    }
+}
+
+esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem) {
+    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    uint8_t index = __builtin_ctz(modem);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    *used_time = s_phy_rf_used_info[index].used_time;
+    if (s_phy_rf_used_info[index].disabled_time < s_phy_rf_used_info[index].enabled_time) {
+        // phy is being used
+        *used_time += esp_timer_get_time() - s_phy_rf_used_info[index].enabled_time;
+    }
+    k_mutex_unlock(&s_phy_access_lock);
+    return ESP_OK;
+}
+
+esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
+    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    uint8_t index = __builtin_ctz(modem);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    if (s_phy_rf_used_info[index].enabled_time > s_phy_rf_used_info[index].disabled_time) {
+        // phy is being used
+        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
+    } else {
+        s_phy_rf_used_info[index].enabled_time = s_phy_rf_used_info[index].disabled_time;
+    }
+    s_phy_rf_used_info[index].used_time = 0;
+    k_mutex_unlock(&s_phy_access_lock);
+    return ESP_OK;
+}
+#endif
+
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
     int key = irq_lock();
@@ -258,6 +312,8 @@ void esp_phy_enable(esp_phy_modem_t modem)
                 } else {
                     phy_wakeup_init();
                 }
+            } else {
+                phy_wakeup_from_modem_state_extra_init();
             }
 #else
             phy_wakeup_init();
@@ -287,13 +343,18 @@ void esp_phy_enable(esp_phy_modem_t modem)
     phy_track_pll();
 #endif
 
+#if CONFIG_ESP_PHY_RECORD_USED_TIME
+    phy_record_time(true, modem);
+#endif
     k_mutex_unlock(&s_phy_access_lock);
 }
 
 void esp_phy_disable(esp_phy_modem_t modem)
 {
     k_mutex_lock(&s_phy_access_lock, K_FOREVER);
-
+#if CONFIG_ESP_PHY_RECORD_USED_TIME
+    phy_record_time(false, modem);
+#endif
     phy_clr_modem_flag(modem);
     if (phy_get_modem_flag() == 0) {
 // ESP32 will track pll in the wifi/BT modem interrupt handler.
@@ -304,6 +365,8 @@ void esp_phy_disable(esp_phy_modem_t modem)
         phy_digital_regs_store();
 #endif
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
+        extern void pm_mac_modem_clear_rf_power_state(void);
+        pm_mac_modem_clear_rf_power_state();
         if (sleep_modem_wifi_modem_state_enabled()) {
             sleep_modem_wifi_do_phy_retention(false);
         } else
@@ -704,7 +767,7 @@ void esp_phy_load_cal_and_init(void)
     memcpy(cal_data->mac, sta_mac, 6);
     esp_err_t ret = register_chipv7_phy(init_data, cal_data, calibration_mode);
     if (ret == ESP_CAL_DATA_CHECK_FAIL) {
-        ESP_LOGW(TAG, "saving new calibration data because of checksum failure, mode(%d)", calibration_mode);
+        ESP_LOGI(TAG, "Saving new calibration data due to checksum failure or outdated calibration data, mode(%d)", calibration_mode);
     }
 
     if ((calibration_mode != PHY_RF_CAL_NONE) && ((err != ESP_OK) || (ret == ESP_CAL_DATA_CHECK_FAIL))) {

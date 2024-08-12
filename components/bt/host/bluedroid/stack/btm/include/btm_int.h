@@ -50,6 +50,7 @@ typedef char tBTM_LOC_BD_NAME[BTM_MAX_LOC_BD_NAME_LEN + 1];
 #endif
 
 #define  BTM_ACL_IS_CONNECTED(bda)   (btm_bda_to_acl (bda, BT_TRANSPORT_BR_EDR) != NULL)
+#define  BTM_LE_ACL_IS_CONNECTED(bda)   (btm_bda_to_acl (bda, BT_TRANSPORT_LE) != NULL)
 
 /* Definitions for Server Channel Number (SCN) management
 */
@@ -875,6 +876,7 @@ typedef struct {
     UINT16                  ediv;       /* received ediv value from LTK request */
     UINT8                   key_size;
     tBTM_BLE_VSC_CB         cmn_ble_vsc_cb;
+    BOOLEAN                 addr_res_en;   /* internal use for test: address resolution enable/disable */
 #endif
 
     /* Packet types supported by the local device */
@@ -1107,6 +1109,7 @@ void btm_ble_periodic_adv_sync_trans_complete(UINT16 op_code, UINT8 hci_status, 
 ********************************************
 */
 void btm_sco_init (void);
+void btm_sco_free(void);
 void btm_sco_connected (UINT8 hci_status, BD_ADDR bda, UINT16 hci_handle,
                         tBTM_ESCO_DATA *p_esco_data);
 void btm_esco_proc_conn_chg (UINT8 status, UINT16 handle, UINT8 tx_interval,

@@ -212,11 +212,14 @@ typedef struct {
 #define BTM_BLE_MAX_BG_CONN_DEV_NUM    10
 
 typedef struct {
+    UINT16              scan_interval;
+    UINT16              scan_window;
     UINT16              min_conn_int;
     UINT16              max_conn_int;
     UINT16              slave_latency;
     UINT16              supervision_tout;
-
+    UINT16              min_ce_len;
+    UINT16              max_ce_len;
 } tBTM_LE_CONN_PRAMS;
 
 
@@ -377,6 +380,7 @@ typedef struct {
     tBTM_BLE_STATE_MASK cur_states; /* bit mask of tBTM_BLE_STATE */
     UINT8 link_count[2]; /* total link count master and slave*/
     tBTM_UPDATE_DUPLICATE_EXCEPTIONAL_LIST_CMPL_CBACK *update_exceptional_list_cmp_cb;
+    tBTM_SET_CSA_SUPPORT_CMPL_CBACK *set_csa_support_cmpl_cb;
 } tBTM_BLE_CB;
 
 #ifdef __cplusplus

@@ -174,14 +174,14 @@ bool wpa_ap_rx_eapol(void *hapd_data, void *sm_data, u8 *data, size_t data_len)
 
 void wpa_ap_get_peer_spp_msg(void *sm_data, bool *spp_cap, bool *spp_req)
 {
-    struct wpa_state_machine *sm = (struct wpa_state_machine *)sm_data;
+    struct sta_info *sta = sm_data;
 
-    if (!sm) {
+    if (!sta || !sta->wpa_sm) {
         return;
     }
 
-    *spp_cap = sm->spp_sup.capable;
-    *spp_req = sm->spp_sup.require;
+    *spp_cap = sta->wpa_sm->spp_sup.capable;
+    *spp_req = sta->wpa_sm->spp_sup.require;
 }
 
 bool wpa_deattach(void)
@@ -253,8 +253,8 @@ static void wpa_sta_disconnected_cb(uint8_t reason_code)
 {
     switch (reason_code) {
         case WIFI_REASON_AUTH_EXPIRE:
-        case WIFI_REASON_NOT_AUTHED:
-        case WIFI_REASON_NOT_ASSOCED:
+        case WIFI_REASON_CLASS2_FRAME_FROM_NONAUTH_STA:
+        case WIFI_REASON_CLASS3_FRAME_FROM_NONASSOC_STA:
         case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
         case WIFI_REASON_INVALID_PMKID:
         case WIFI_REASON_AUTH_FAIL:
@@ -323,6 +323,7 @@ static bool hostap_sta_join(void **sta, u8 *bssid, u8 *wpa_ie, u8 wpa_ie_len, u8
 {
     struct sta_info *sta_info = NULL;
     struct hostapd_data *hapd = hostapd_get_hapd_data();
+    uint8_t reason = WLAN_REASON_PREV_AUTH_NOT_VALID;
 
     if (!hapd) {
         goto fail;
@@ -381,7 +382,7 @@ process_old_sta:
         goto fail;
     }
 #endif
-    if (wpa_ap_join(sta_info, bssid, wpa_ie, wpa_ie_len, rsnxe, rsnxe_len, pmf_enable, subtype, pairwise_cipher)) {
+    if (hostap_new_assoc_sta(sta_info, bssid, wpa_ie, wpa_ie_len, rsnxe, rsnxe_len, pmf_enable, subtype, pairwise_cipher, &reason)) {
         goto done;
     } else {
         goto fail;
@@ -402,7 +403,7 @@ fail:
         os_semphr_give(sta_info->lock);
     }
 #endif /* CONFIG_SAE */
-    esp_wifi_ap_deauth_internal(bssid, WLAN_REASON_PREV_AUTH_NOT_VALID);
+    esp_wifi_ap_deauth_internal(bssid, reason);
     return false;
 }
 #endif
@@ -443,6 +444,7 @@ int esp_supplicant_init(void)
     wpa_cb->wpa_config_bss = NULL;//wpa_config_bss;
     wpa_cb->wpa_michael_mic_failure = wpa_michael_mic_failure;
     wpa_cb->wpa_config_done = wpa_config_done;
+    wpa_cb->wpa_sta_clear_curr_pmksa = wpa_sta_clear_curr_pmksa;
 
     esp_wifi_register_wpa3_ap_cb(wpa_cb);
     esp_wifi_register_wpa3_cb(wpa_cb);
@@ -471,6 +473,9 @@ int esp_supplicant_deinit(void)
     esp_supplicant_unset_all_appie();
     eloop_destroy();
     wpa_cb = NULL;
+#if CONFIG_ESP_WIFI_WAPI_PSK
+    esp_wifi_internal_wapi_deinit();
+#endif
     return esp_wifi_unregister_wpa_cb_internal();
 }
 

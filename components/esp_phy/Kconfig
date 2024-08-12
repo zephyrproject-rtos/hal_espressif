@@ -74,6 +74,12 @@ menu "PHY"
                 If enabled, when an error occurs while the PHY init data is updated,
                 the program will terminate and restart.
                 If not enabled, the PHY init data will not be updated when an error occurs.
+
+        config ESP_PHY_RECORD_USED_TIME
+            bool "Record PHY used time"
+            default n
+            help
+                Select to support record and query phy used time.
     endif
 
     config ESP_PHY_MAX_WIFI_TX_POWER
@@ -124,7 +130,6 @@ menu "PHY"
     config ESP_PHY_ENABLE_CERT_TEST
         bool "Enable RF certification test functions"
         default n
-        depends on IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3
         help
             If enabled, you can use RF certification test APIs.
 

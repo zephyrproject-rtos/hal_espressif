@@ -59,7 +59,7 @@ config BT_A2DP_ENABLE
     depends on BT_CLASSIC_ENABLED
     default n
     help
-        Advanced Audio Distrubution Profile
+        Advanced Audio Distribution Profile
 
 config BT_SPP_ENABLED
     bool "SPP"
@@ -114,7 +114,7 @@ config BT_HFP_WBS_ENABLE
     default y
     help
         This enables Wide Band Speech. Should disable it when SCO data path is PCM.
-        Otherwise there will be no data transmited via GPIOs.
+        Otherwise there will be no data transmitted via GPIOs.
 
 
 menuconfig BT_HID_ENABLED
@@ -304,6 +304,13 @@ config BT_BLE_SMP_ID_RESET_ENABLE
         when all pairing and bonding records are deleted. This would decrease the ability
         of a previously paired peer to be used to determine whether a device
         with which it previously shared an IRK is within range.
+
+config BT_BLE_SMP_BOND_NVS_FLASH
+    bool "Save SMP bonding keys to nvs flash"
+    depends on BT_BLE_SMP_ENABLE
+    default y
+    help
+        This select can save SMP bonding keys to nvs flash
 
 config BT_STACK_NO_LOG
     bool "Disable BT debug logs (minimize bin size)"
@@ -1065,7 +1072,7 @@ config BT_ACL_CONNECTIONS
         is used.
 
 config BT_MULTI_CONNECTION_ENBALE
-    bool "Enable BLE multi-conections"
+    bool "Enable BLE multi-connections"
     depends on BT_BLE_ENABLED
     default y
     help
@@ -1163,19 +1170,23 @@ config BT_BLE_RPA_TIMEOUT
         Default is 900 s (15 minutes). Range is 1 s to 1 hour (3600 s).
 
 config BT_BLE_50_FEATURES_SUPPORTED
-    bool "Enable BLE 5.0 features"
+    bool "Enable BLE 5.0 features(please disable BLE 4.2 if enable BLE 5.0)"
     depends on (BT_BLE_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3 || SOC_ESP_NIMBLE_CONTROLLER))
     default y
     help
         Enabling this option activates BLE 5.0 features.
         This option is universally supported in chips that support BLE, except for ESP32.
+        BLE 4.2 and BLE 5.0 cannot be used simultaneously.
+
 
 config BT_BLE_42_FEATURES_SUPPORTED
-    bool "Enable BLE 4.2 features"
+    bool "Enable BLE 4.2 features(please disable BLE 5.0 if enable BLE 4.2)"
     depends on (BT_BLE_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3 || SOC_ESP_NIMBLE_CONTROLLER))
     default n
     help
         This enables BLE 4.2 features.
+        This option is universally supported by all ESP chips with BLE capabilities.
+        BLE 4.2 and BLE 5.0 cannot be used simultaneously.
 
 config BT_BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER
     bool "Enable BLE periodic advertising sync transfer feature"
@@ -1204,3 +1215,10 @@ config BT_BLE_HIGH_DUTY_ADV_INTERVAL
     default n
     help
         This enable BLE high duty advertising interval feature
+
+config BT_ABORT_WHEN_ALLOCATION_FAILS
+    bool "Abort when memory allocation fails in BT/BLE stack"
+    depends on BT_BLUEDROID_ENABLED
+    default n
+    help
+        This enables abort when memory allocation fails

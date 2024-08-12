@@ -439,6 +439,8 @@ typedef tBTM_ADD_DEV_TO_RESOLVING_LIST_CMPL_CBACK tBTA_ADD_DEV_TO_RESOLVING_LIST
 
 typedef tBTM_SET_PRIVACY_MODE_CMPL_CBACK tBTA_SET_PRIVACY_MODE_CMPL_CBACK;
 
+typedef tBTM_SET_CSA_SUPPORT_CMPL_CBACK tBTA_SET_CSA_SUPPORT_CMPL_CBACK;
+
 typedef tBTM_CMPL_CB tBTA_CMPL_CB;
 
 typedef tBTM_VSC_CMPL tBTA_VSC_CMPL;
@@ -993,6 +995,7 @@ typedef struct {
 typedef struct {
     BD_ADDR         bd_addr;            /* BD address peer device. */
     tBTA_PM_MODE    mode;               /* the new connection role */
+    UINT16          interval;           /* Number of baseband slots */
 } tBTA_DM_MODE_CHG;
 
 typedef struct {
@@ -1336,8 +1339,20 @@ typedef UINT8 tBTA_DM_PM_ACTION;
 #define BTA_DM_PM_SNIFF_HD_IDLE_IDX     BTA_DM_PM_SNIFF4
 #endif
 
+#ifndef BTA_DM_PM_SNIFF_AG_OPEN_IDX
+#define BTA_DM_PM_SNIFF_AG_OPEN_IDX     BTA_DM_PM_SNIFF
+#endif
+
+#ifndef BTA_DM_PM_SNIFF_AG_IDLE_IDX
+#define BTA_DM_PM_SNIFF_AG_IDLE_IDX     BTA_DM_PM_SNIFF
+#endif
+
 #ifndef BTA_DM_PM_SNIFF_SCO_OPEN_IDX
 #define BTA_DM_PM_SNIFF_SCO_OPEN_IDX    BTA_DM_PM_SNIFF3
+#endif
+
+#ifndef BTA_DM_PM_SNIFF_SCO_CLOSE_IDX
+#define BTA_DM_PM_SNIFF_SCO_CLOSE_IDX   BTA_DM_PM_SNIFF
 #endif
 
 #ifndef BTA_DM_PM_SNIFF_HD_ACTIVE_IDX
@@ -2125,6 +2140,17 @@ extern UINT16 BTA_DmGetConnectionState( BD_ADDR bd_addr );
 *******************************************************************************/
 extern tBTA_STATUS BTA_DmSetLocalDiRecord( tBTA_DI_RECORD *p_device_info,
         UINT32 *p_handle );
+
+/*******************************************************************************
+**
+** Function         BTA_DmRemoveLocalDiRecord
+**
+** Description      This function removes a DI record from the local SDP database.
+**
+** Returns          BTA_SUCCESS if record is removed successfully, otherwise error code.
+**
+*******************************************************************************/
+extern tBTA_STATUS BTA_DmRemoveLocalDiRecord(UINT32 handle);
 #endif  ///SDP_INCLUDED == TRUE
 /*******************************************************************************
 **
@@ -2831,6 +2857,8 @@ extern void BTA_DmBleDtmRxStart(uint8_t rx_channel, tBTA_DTM_CMD_CMPL_CBACK *p_d
 extern void BTA_DmBleDtmStop(tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback);
 
 extern void BTA_DmBleSetPrivacyMode(uint8_t addr_type, BD_ADDR addr, uint8_t privacy_mode, tBTA_SET_PRIVACY_MODE_CMPL_CBACK *p_cback);
+
+extern void BTA_DmBleGapSetCsaSupport(uint8_t csa_select, tBTM_SET_CSA_SUPPORT_CMPL_CBACK *p_callback);
 
 /*******************************************************************************
 **

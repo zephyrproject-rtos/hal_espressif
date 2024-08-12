@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -239,7 +239,7 @@ static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
 /**
  * Switch to FLASH_PLL as cpu clock source.
  * On ESP32H2, FLASH_PLL frequency is 64MHz.
- * PLL must alreay be enabled.
+ * PLL must already be enabled.
  */
 static void rtc_clk_cpu_freq_to_flash_pll(uint32_t cpu_freq_mhz, uint32_t cpu_divider)
 {
@@ -399,10 +399,7 @@ void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config)
 void rtc_clk_cpu_freq_set_xtal(void)
 {
     rtc_clk_cpu_set_to_default_config();
-    // We don't turn off the bbpll if some consumers only depends on bbpll
-    if (!s_bbpll_digi_consumers_ref_count) {
-        rtc_clk_bbpll_disable();
-    }
+    rtc_clk_bbpll_disable();
 }
 
 void rtc_clk_cpu_set_to_default_config(void)
@@ -410,6 +407,7 @@ void rtc_clk_cpu_set_to_default_config(void)
     int freq_mhz = (int)rtc_clk_xtal_freq_get();
 
     rtc_clk_cpu_freq_to_xtal(freq_mhz, 1);
+    s_cur_pll_freq = 0; // no disable PLL, but set freq to 0 to trigger a PLL calibration after wake-up from sleep
 }
 
 rtc_xtal_freq_t rtc_clk_xtal_freq_get(void)
@@ -474,22 +472,4 @@ void rtc_dig_clk8m_disable(void)
 bool rtc_dig_8m_enabled(void)
 {
     return clk_ll_rc_fast_digi_is_enabled();
-}
-
-// Workaround for bootloader not calibrated well issue.
-// Placed in IRAM because disabling BBPLL may influence the cache
-void rtc_clk_recalib_bbpll(void)
-{
-    rtc_cpu_freq_config_t old_config;
-    rtc_clk_cpu_freq_get_config(&old_config);
-
-    // There are two paths we arrive here: 1. CPU reset. 2. Other reset reasons.
-    // - For other reasons, the bootloader will set CPU source to BBPLL and enable it. But there are calibration issues.
-    //   Turn off the BBPLL and do calibration again to fix the issue. Flash_PLL comes from the same source as PLL.
-    // - For CPU reset, the CPU source will be set to XTAL, while the BBPLL is kept to meet USB Serial JTAG's
-    //   requirements. In this case, we don't touch BBPLL to avoid USJ disconnection.
-    if (old_config.source == SOC_CPU_CLK_SRC_PLL || old_config.source == SOC_CPU_CLK_SRC_FLASH_PLL) {
-        rtc_clk_cpu_freq_set_xtal();
-        rtc_clk_cpu_freq_set_config(&old_config);
-    }
 }

@@ -115,8 +115,8 @@ const pmu_hp_system_power_param_t * pmu_hp_system_power_param_default(pmu_hp_mod
 }
 
 #define PMU_HP_MODEM_CLOCK_CONFIG_DEFAULT() {   \
-    .icg_func   = 0,                            \
-    .icg_apb    = 0,                            \
+    .icg_func   = BIT(PMU_ICG_FUNC_ENA_SARADC), \
+    .icg_apb    = BIT(PMU_ICG_APB_ENA_SARADC),  \
     .icg_modem  = {                             \
         .code = PMU_HP_ICG_MODEM_CODE_MODEM     \
     }, \
@@ -367,21 +367,14 @@ const pmu_hp_system_retention_param_t * pmu_hp_system_retention_param_default(pm
 
 
 /** LP system default parameter */
-
-#if CONFIG_ESP_SYSTEM_RTC_EXT_XTAL
-# define PMU_SLOW_CLK_USE_EXT_XTAL  (1)
-#else
-# define PMU_SLOW_CLK_USE_EXT_XTAL  (0)
-#endif
-
 #define PMU_LP_ACTIVE_POWER_CONFIG_DEFAULT() { \
     .dig_power = {              \
         .mem_dslp       = 0,    \
         .peri_pd_en     = 0,    \
     }, \
     .clk_power = {              \
-        .xpd_xtal32k    = PMU_SLOW_CLK_USE_EXT_XTAL,    \
-        .xpd_rc32k      = 0,    \
+        .xpd_xtal32k    = 1,    \
+        .xpd_rc32k      = 1,    \
         .xpd_fosc       = 1,    \
         .pd_osc         = 0     \
     } \
