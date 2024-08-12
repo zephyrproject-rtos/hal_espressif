@@ -13,7 +13,7 @@
 #include "btc/btc_manage.h"
 #include "btc_gap_ble.h"
 #include "btc/btc_ble_storage.h"
-
+#include "esp_random.h"
 
 esp_err_t esp_ble_gap_register_callback(esp_gap_ble_cb_t callback)
 {
@@ -188,6 +188,25 @@ esp_err_t esp_ble_gap_set_pkt_data_len(esp_bd_addr_t remote_device, uint16_t tx_
     return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
+esp_err_t esp_ble_gap_addr_create_static(esp_bd_addr_t rand_addr)
+{
+    // Static device address: First two bits are '11', rest is random
+    rand_addr[0] = 0xC0 | (esp_random() & 0x3F);
+    for (int i = 1; i < 6; i++) {
+        rand_addr[i] = esp_random() & 0xFF; // Randomize remaining bits
+    }
+    return ESP_OK;
+}
+
+esp_err_t esp_ble_gap_addr_create_nrpa(esp_bd_addr_t rand_addr)
+{
+    // Non-resolvable private address: First two bits are '00', rest is random
+    rand_addr[0] = (esp_random() & 0x3F);
+    for (int i = 1; i < 6; i++) {
+        rand_addr[i] = esp_random() & 0xFF; // Randomize remaining bits
+    }
+    return ESP_OK;
+}
 
 esp_err_t esp_ble_gap_set_rand_addr(esp_bd_addr_t rand_addr)
 {
@@ -469,21 +488,37 @@ esp_err_t esp_ble_gap_get_local_used_addr(esp_bd_addr_t local_used_addr, uint8_t
     return ESP_OK;
 }
 
-uint8_t *esp_ble_resolve_adv_data( uint8_t *adv_data, uint8_t type, uint8_t *length)
+uint8_t *esp_ble_resolve_adv_data_by_type( uint8_t *adv_data, uint16_t adv_data_len, esp_ble_adv_data_type type, uint8_t *length)
 {
+    if (length == NULL) {
+        return NULL;
+    }
+
     if (((type < ESP_BLE_AD_TYPE_FLAG) || (type > ESP_BLE_AD_TYPE_128SERVICE_DATA)) &&
             (type != ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE)) {
-        LOG_ERROR("the eir type not define, type = %x\n", type);
+        LOG_ERROR("The advertising data type is not defined, type = %x", type);
+        *length = 0;
         return NULL;
     }
 
+    if (adv_data_len == 0) {
+        *length = 0;
+        return NULL;
+    }
     if (adv_data == NULL) {
-        LOG_ERROR("Invalid p_eir data.\n");
+        LOG_ERROR("Invalid advertising data.");
+        *length = 0;
         return NULL;
     }
 
-    return (BTM_CheckAdvData( adv_data, type, length));
+    return (BTM_CheckAdvData( adv_data, adv_data_len, type, length));
 }
+
+uint8_t *esp_ble_resolve_adv_data( uint8_t *adv_data, uint8_t type, uint8_t *length)
+{
+    return esp_ble_resolve_adv_data_by_type( adv_data, ESP_BLE_ADV_DATA_LEN_MAX + ESP_BLE_SCAN_RSP_DATA_LEN_MAX, (esp_ble_adv_data_type) type, length);
+}
+
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
 esp_err_t esp_ble_gap_config_adv_data_raw(uint8_t *raw_data, uint32_t raw_data_len)
 {
@@ -993,6 +1028,23 @@ esp_err_t esp_ble_gap_set_privacy_mode(esp_ble_addr_type_t addr_type, esp_bd_add
     arg.set_privacy_mode.addr_type = addr_type;
     memcpy(arg.set_privacy_mode.addr, addr, sizeof(esp_bd_addr_t));
     arg.set_privacy_mode.privacy_mode = mode;
+
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL)
+            == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+}
+
+esp_err_t esp_ble_gap_set_csa_support(uint8_t csa_select)
+{
+    btc_msg_t msg;
+    btc_ble_gap_args_t arg;
+
+    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = BTC_GAP_BLE_SET_CSA_SUPPORT;
+
+    arg.set_csa_support.csa_select = csa_select;
 
     return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL)
             == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);

@@ -314,7 +314,7 @@ static int sae_derive_pwe_ecc(struct sae_data *sae, const u8 *addr1,
 	if (dragonfly_get_random_qr_qnr(sae->tmp->prime, &qr, &qnr) < 0 ||
 	    crypto_bignum_to_bin(qr, qr_bin, sizeof(qr_bin), prime_len) < 0 ||
 	    crypto_bignum_to_bin(qnr, qnr_bin, sizeof(qnr_bin), prime_len) < 0)
-		    goto fail;
+		goto fail;
 
 	wpa_hexdump_ascii_key(MSG_DEBUG, "SAE: password",
 			      password, password_len);
@@ -1542,7 +1542,7 @@ static int sae_derive_keys(struct sae_data *sae, const u8 *k)
 	 * zero padding it from left to the length of the order (in full
 	 * octets). */
 	if (crypto_bignum_to_bin(tmp, val, sizeof(val),
-		sae->tmp->order_len) < 0) {
+                                  sae->tmp->order_len) < 0) {
 		goto fail;
 	}
 	wpa_hexdump(MSG_DEBUG, "SAE: PMKID", val, SAE_PMKID_LEN);
@@ -1568,7 +1568,9 @@ static int sae_derive_keys(struct sae_data *sae, const u8 *k)
 
 	forced_memzero(keyseed, sizeof(keyseed));
 	os_memcpy(sae->tmp->kck, keys, hash_len);
+	sae->tmp->kck_len = hash_len;
 	os_memcpy(sae->pmk, keys + hash_len, SAE_PMK_LEN);
+	sae->pmk_len = SAE_PMK_LEN;
 	os_memcpy(sae->pmkid, val, SAE_PMKID_LEN);
 
 #ifdef CONFIG_SAE_PK
@@ -1581,7 +1583,7 @@ static int sae_derive_keys(struct sae_data *sae, const u8 *k)
 #endif /* CONFIG_SAE_PK */
 	forced_memzero(keys, sizeof(keys));
 	wpa_hexdump_key(MSG_DEBUG, "SAE: KCK",
-			sae->tmp->kck, SAE_KCK_LEN);
+			sae->tmp->kck, sae->tmp->kck_len);
 	wpa_hexdump_key(MSG_DEBUG, "SAE: PMK", sae->pmk, SAE_PMK_LEN);
 
 	ret = 0;
@@ -2016,8 +2018,11 @@ static int sae_parse_rejected_groups(struct sae_data *sae,
 
 	wpa_hexdump(MSG_DEBUG, "SAE: Possible elements at the end of the frame",
 		    *pos, end - *pos);
-	if (!sae_is_rejected_groups_elem(*pos, end))
+	if (!sae_is_rejected_groups_elem(*pos, end)) {
+		wpabuf_free(sae->tmp->peer_rejected_groups);
+		sae->tmp->peer_rejected_groups = NULL;
 		return WLAN_STATUS_SUCCESS;
+	}
 
 	epos = *pos;
 	epos++; /* skip IE type */
@@ -2027,6 +2032,12 @@ static int sae_parse_rejected_groups(struct sae_data *sae,
 	epos++; /* skip ext ID */
 	len--;
 
+	if (len & 1) {
+		wpa_printf(MSG_DEBUG,
+			   "SAE: Invalid length of the Rejected Groups element payload: %u",
+			   len);
+		return WLAN_STATUS_UNSPECIFIED_FAILURE;
+	}
 	wpabuf_free(sae->tmp->peer_rejected_groups);
 	sae->tmp->peer_rejected_groups = wpabuf_alloc(len);
 	if (!sae->tmp->peer_rejected_groups)
@@ -2077,6 +2088,9 @@ u16 sae_parse_commit(struct sae_data *sae, const u8 *data, size_t len,
 		res = sae_parse_rejected_groups(sae, &pos, end);
 		if (res != WLAN_STATUS_SUCCESS)
 			return res;
+	} else {
+		wpabuf_free(sae->tmp->peer_rejected_groups);
+		sae->tmp->peer_rejected_groups = NULL;
 	}
 
 	/* Optional Anti-Clogging Token Container element */
@@ -2144,7 +2158,7 @@ static int sae_cn_confirm(struct sae_data *sae, const u8 *sc,
 	len[3] = sae->tmp->prime_len;
 	addr[4] = element2;
 	len[4] = element2_len;
-	return hkdf_extract(SAE_KCK_LEN, sae->tmp->kck, SAE_KCK_LEN,
+	return hkdf_extract(SAE_KCK_LEN, sae->tmp->kck, sae->tmp->kck_len,
 			    5, addr, len, confirm);
 }
 
@@ -2207,10 +2221,12 @@ static int sae_cn_confirm_ffc(struct sae_data *sae, const u8 *sc,
 int sae_write_confirm(struct sae_data *sae, struct wpabuf *buf)
 {
 	const u8 *sc;
+	size_t hash_len;
 
 	if (sae->tmp == NULL)
 		return ESP_FAIL;
 
+	hash_len = sae->tmp->kck_len;
 	/* Send-Confirm */
 	sc = wpabuf_put(buf, 0);
 	wpabuf_put_le16(buf, sae->send_confirm);
@@ -2222,7 +2238,7 @@ int sae_write_confirm(struct sae_data *sae, struct wpabuf *buf)
 					 sae->tmp->own_commit_element_ecc,
 					 sae->peer_commit_scalar,
 					 sae->tmp->peer_commit_element_ecc,
-					 wpabuf_put(buf, SHA256_MAC_LEN))) {
+					 wpabuf_put(buf, hash_len))) {
 			wpa_printf(MSG_ERROR, "SAE: failed generate SAE confirm (ecc)");
 			return ESP_FAIL;
 		}
@@ -2231,7 +2247,7 @@ int sae_write_confirm(struct sae_data *sae, struct wpabuf *buf)
 					 sae->tmp->own_commit_element_ffc,
 					 sae->peer_commit_scalar,
 					 sae->tmp->peer_commit_element_ffc,
-					 wpabuf_put(buf, SHA256_MAC_LEN))) {
+					 wpabuf_put(buf, hash_len))) {
 			wpa_printf(MSG_ERROR, "SAE: failed generate SAE confirm (ffc)");
 			return ESP_FAIL;
 		}
@@ -2243,11 +2259,12 @@ int sae_write_confirm(struct sae_data *sae, struct wpabuf *buf)
 int sae_check_confirm(struct sae_data *sae, const u8 *data, size_t len)
 {
 	u8 verifier[SAE_MAX_HASH_LEN];
-	size_t hash_len= SAE_KCK_LEN;
+	size_t hash_len;
 
-	if (!sae->tmp)
+	if (!sae->tmp) {
 		return ESP_FAIL;
-
+	}
+	hash_len = sae->tmp->kck_len;
 	if (len < 2 + hash_len) {
 		wpa_printf(MSG_DEBUG, "SAE: Too short confirm message");
 		return ESP_FAIL;

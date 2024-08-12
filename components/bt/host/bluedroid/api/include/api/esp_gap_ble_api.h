@@ -229,6 +229,7 @@ typedef enum {
     ESP_GAP_BLE_ADD_DEV_TO_RESOLVING_LIST_COMPLETE_EVT,          /*!< when add a device to the resolving list completes, the event comes*/
     ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT,                         /*!< When vendor hci command complete, the event comes */
     ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT,                   /*!< When set privacy mode complete, the event comes */
+    ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT,                    /*!< When set CSA support complete, the event comes */
     ESP_GAP_BLE_EVT_MAX,                                         /*!< when maximum advertising event complete, the event comes */
 } esp_gap_ble_cb_event_t;
 
@@ -1572,6 +1573,12 @@ typedef union {
     struct ble_set_privacy_mode_cmpl_evt_param {
         esp_bt_status_t status;                     /*!< Indicate privacy mode set operation success status */
     } set_privacy_mode_cmpl;                        /*!< Event parameter of ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT
+     */
+    struct ble_set_csa_support_cmpl_evt_param {
+        esp_bt_status_t status;                     /*!< Indicate CSA support set operation success status */
+    } set_csa_support_cmpl;                        /*!< Event parameter of ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT */
 } esp_ble_gap_cb_param_t;
 
 /**
@@ -1709,13 +1716,13 @@ esp_err_t esp_ble_gap_set_pkt_data_len(esp_bd_addr_t remote_device, uint16_t tx_
  *
  * @param[in]       rand_addr: The address to be configured. Refer to the table below for possible address subtypes:
  *
- *               | address [47:46] | Address Type             |
- *               |-----------------|--------------------------|
- *               |      0b00       | Non-Resolvable Private   |
- *               |                 | Address                  |
- *               |-----------------|--------------------------|
- *               |      0b11       | Static Random Address    |
- *               |-----------------|--------------------------|
+ *               | address [47:46] | Address Type                | Corresponding API                      |
+ *               |-----------------|-----------------------------|----------------------------------------|
+ *               |      0b00       | Non-Resolvable Private      | esp_ble_gap_addr_create_nrpa           |
+ *               |                 | Address (NRPA)              |                                        |
+ *               |-----------------|-----------------------------|----------------------------------------|
+ *               |      0b11       | Static Random Address       | esp_ble_gap_addr_create_static         |
+ *               |-----------------|-----------------------------|----------------------------------------|
  *
  * @return
  *                  - ESP_OK : success
@@ -1723,6 +1730,22 @@ esp_err_t esp_ble_gap_set_pkt_data_len(esp_bd_addr_t remote_device, uint16_t tx_
  *
  */
 esp_err_t esp_ble_gap_set_rand_addr(esp_bd_addr_t rand_addr);
+
+/**
+ * @brief           Create a static device address
+ * @param[out]      rand_addr: Pointer to the buffer where the static device address will be stored.
+ * @return          - ESP_OK : Success
+ *                  - Other  : Failed
+ */
+esp_err_t esp_ble_gap_addr_create_static(esp_bd_addr_t rand_addr);
+
+/**
+ * @brief           Create a non-resolvable private address (NRPA)
+ * @param[out]      rand_addr: Pointer to the buffer where the NRPA will be stored.
+ * @return          - ESP_OK : Success
+ *                  - Other  : Failed
+ */
+esp_err_t esp_ble_gap_addr_create_nrpa(esp_bd_addr_t rand_addr);
 
 /**
  * @brief           This function sets the length of time the Controller uses a Resolvable Private Address
@@ -1771,7 +1794,6 @@ esp_err_t esp_ble_gap_add_device_to_resolving_list(esp_bd_addr_t peer_addr, uint
  *
  */
 esp_err_t esp_ble_gap_clear_rand_addr(void);
-
 
 /**
  * @brief           Enable/disable privacy (including address resolution) on the local device
@@ -1888,17 +1910,41 @@ esp_err_t esp_ble_gap_get_device_name(void);
  *
  */
 esp_err_t esp_ble_gap_get_local_used_addr(esp_bd_addr_t local_used_addr, uint8_t * addr_type);
+
 /**
  * @brief          This function is called to get ADV data for a specific type.
  *
- * @param[in]       adv_data - pointer of ADV data which to be resolved
- * @param[in]       type   - finding ADV data type
- * @param[out]      length - return the length of ADV data not including type
+ * @note           This is the recommended function to use for resolving ADV data by type.
+ *                 It improves upon the deprecated `esp_ble_resolve_adv_data` function by
+ *                 including an additional parameter to specify the length of the ADV data,
+ *                 thereby offering better safety and reliability.
  *
- * @return          pointer of ADV data
+ * @param[in]      adv_data - pointer of ADV data which to be resolved
+ * @param[in]      adv_data_len - the length of ADV data which to be resolved.
+ * @param[in]      type   - finding ADV data type
+ * @param[out]     length - return the length of ADV data not including type
+ *
+ * @return         pointer of ADV data
+ *
+ */
+uint8_t *esp_ble_resolve_adv_data_by_type( uint8_t *adv_data, uint16_t adv_data_len, esp_ble_adv_data_type type, uint8_t *length);
+
+/**
+ * @brief          This function is called to get ADV data for a specific type.
+ *
+ * @note           This function has been deprecated and will be removed in a future release.
+ *                 Please use `esp_ble_resolve_adv_data_by_type` instead, which provides
+ *                 better parameter validation and supports more accurate data resolution.
+ *
+ * @param[in]      adv_data - pointer of ADV data which to be resolved
+ * @param[in]      type   - finding ADV data type
+ * @param[out]     length - return the length of ADV data not including type
+ *
+ * @return         pointer of ADV data
  *
  */
 uint8_t *esp_ble_resolve_adv_data(uint8_t *adv_data, uint8_t type, uint8_t *length);
+
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
 /**
  * @brief           This function is called to set raw advertising data. User need to fill
@@ -2086,7 +2132,6 @@ esp_err_t esp_ble_remove_bond_device(esp_bd_addr_t bd_addr);
 *
 */
 int esp_ble_get_bond_device_num(void);
-
 
 /**
 * @brief           Get the device from the security database list of peer device.
@@ -2705,6 +2750,23 @@ esp_err_t esp_ble_gap_vendor_command_send(esp_ble_vendor_cmd_params_t *vendor_cm
  *                  - other  : failed
  */
 esp_err_t esp_ble_gap_set_privacy_mode(esp_ble_addr_type_t addr_type, esp_bd_addr_t addr, esp_ble_privacy_mode_t mode);
+
+/**
+ * @brief           This function is used to set which channel selection algorithm(CSA) is supported.
+ *
+ * @note            - This function should only be used when there are BLE compatibility issues about channel hopping after connected.
+ *                    For example, if the peer device only supports CSA#1, this function can be called to make the Controller use CSA#1.
+ *                  - This function is not supported on ESP32.
+ *
+ * @param[in]       csa_select: 0: Channel Selection Algorighm will be selected by Controller
+ *                              1: Select the LE Channel Selection Algorighm #1
+ *                              2: Select the LE Channel Selection Algorighm #2
+ *
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ */
+esp_err_t esp_ble_gap_set_csa_support(uint8_t csa_select);
 
 #ifdef __cplusplus
 }

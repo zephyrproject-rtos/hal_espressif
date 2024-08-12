@@ -240,6 +240,32 @@ static void init_gatt_values(void)
 
 }
 
+static void deinit_gatt_values(void)
+{
+    int i = 0;
+    const struct ble_gatt_svc_def *svc;
+    const struct ble_gatt_chr_def *chr;
+    const struct ble_gatt_dsc_def *dsc;
+
+    for (svc = gatt_svr_svcs; svc && svc->uuid; svc++) {
+        for (chr = svc->characteristics; chr && chr->uuid; chr++) {
+            if (i < SERVER_MAX_VALUES && gatt_values[i].buf != NULL) {
+                os_mbuf_free(gatt_values[i].buf);  /* Free the buffer */
+                gatt_values[i].buf = NULL;         /* Nullify the pointer to avoid dangling references */
+            }
+            ++i;
+
+            for (dsc = chr->descriptors; dsc && dsc->uuid; dsc++) {
+                if (i < SERVER_MAX_VALUES && gatt_values[i].buf != NULL) {
+                    os_mbuf_free(gatt_values[i].buf);  /* Free the buffer */
+                    gatt_values[i].buf = NULL;         /* Nullify the pointer to avoid dangling references */
+                }
+                ++i;
+            }
+        }
+    }
+}
+
 int esp_blufi_gatt_svr_init(void)
 {
     int rc;
@@ -257,6 +283,18 @@ int esp_blufi_gatt_svr_init(void)
     }
 
     init_gatt_values();
+    return 0;
+}
+
+int esp_blufi_gatt_svr_deinit(void)
+{
+    deinit_gatt_values();
+
+    ble_gatts_free_svcs();
+    /* Deinitialize BLE GATT and GAP services */
+    ble_svc_gatt_deinit();
+    ble_svc_gap_deinit();
+
     return 0;
 }
 
@@ -442,8 +480,10 @@ uint8_t esp_blufi_init(void)
 void esp_blufi_deinit(void)
 {
     blufi_env.enabled = false;
-    btc_msg_t msg;
     esp_blufi_cb_param_t param;
+    btc_msg_t msg;
+    memset (&msg, 0x0, sizeof (msg));
+    msg.sig = BTC_SIG_API_CB;
     msg.pid = BTC_PID_BLUFI;
     msg.act = ESP_BLUFI_EVENT_DEINIT_FINISH;
     param.deinit_finish.state = ESP_BLUFI_DEINIT_OK;
