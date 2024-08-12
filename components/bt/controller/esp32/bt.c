@@ -92,6 +92,7 @@ do{\
 #define OSI_VERSION              0x00010005
 #define OSI_MAGIC_VALUE          0xFADEBEAD
 
+#define BLE_CONTROLLER_MALLOC_CAPS        (MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL)
 /* Types definition
  ************************************************************************
  */
@@ -864,7 +865,21 @@ static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-    return heap_caps_malloc(size, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+    return heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+}
+
+void *malloc_ble_controller_mem(size_t size)
+{
+    void *p = heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+    if(p == NULL) {
+        ESP_LOGE(BTDM_LOG_TAG, "Malloc failed");
+    }
+    return p;
+}
+
+uint32_t get_ble_controller_free_heap_size(void)
+{
+    return heap_caps_get_free_size(BLE_CONTROLLER_MALLOC_CAPS);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -1326,7 +1341,8 @@ static esp_err_t esp_bt_controller_rom_mem_release(esp_bt_mode_t mode)
 
     //already released
     if (!(mode & btdm_dram_available_region[0].mode)) {
-        return ESP_ERR_INVALID_STATE;
+        ESP_LOGW(BTDM_LOG_TAG, "%s already released, mode %d",__func__, mode);
+        return ESP_OK;
     }
 
     for (int i = 0; i < sizeof(btdm_dram_available_region)/sizeof(btdm_dram_available_region_t); i++) {
@@ -1619,7 +1635,10 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
     btdm_cfg_mask = btdm_config_mask_load();
 
-    if (btdm_controller_init(btdm_cfg_mask, cfg) != 0) {
+    err = btdm_controller_init(btdm_cfg_mask, cfg);
+
+    if (err != 0) {
+        ESP_LOGE(BTDM_LOG_TAG, "%s %d\n",__func__,err);
         err = ESP_ERR_NO_MEM;
         goto error;
     }
@@ -1909,13 +1928,18 @@ esp_err_t esp_bredr_sco_datapath_set(esp_sco_data_path_t data_path)
     return ESP_OK;
 }
 
-esp_err_t esp_ble_scan_dupilcate_list_flush(void)
+esp_err_t esp_ble_scan_duplicate_list_flush(void)
 {
     if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_ENABLED) {
         return ESP_ERR_INVALID_STATE;
     }
     btdm_controller_scan_duplicate_list_clear();
     return ESP_OK;
+}
+
+esp_err_t esp_ble_scan_dupilcate_list_flush(void)
+{
+    return esp_ble_scan_duplicate_list_flush();
 }
 
 /**

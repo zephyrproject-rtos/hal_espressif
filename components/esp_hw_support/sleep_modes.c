@@ -238,7 +238,7 @@ static sleep_config_t s_config = {
             .refs = 0
         }
     },
-	.ccount_ticks_record = 0,
+    .ccount_ticks_record = 0,
     .sleep_time_overhead_out = DEFAULT_SLEEP_OUT_OVERHEAD_US,
     .wakeup_triggers = 0
 };
@@ -303,13 +303,12 @@ static void __attribute__((section(".rtc.entry.text"))) esp_wake_stub_entry(void
 
 #ifdef __riscv
     __asm__ __volatile__ (
-        "addi sp, sp, -16 \n"
-        "sw   ra, 0(sp)   \n"
-        "la   ra, " SYM2STR(esp_wake_stub_start) "\n" // Load full address of esp_wake_stub_start
-        "jalr ra \n"  // Jump to the address in ra
-        "lw   ra, 0(sp)   \n"
-        "addi sp, sp, 16  \n"
-);
+            "addi sp, sp, -16 \n"
+            "sw   ra, 0(sp)   \n"
+            "jal  ra, " SYM2STR(esp_wake_stub_start) "\n"
+            "lw   ra, 0(sp)  \n"
+            "addi sp, sp, 16 \n"
+            );
 #else
     // call4 has a larger effective addressing range (-524284 to 524288 bytes),
     // which is sufficient for instruction addressing in RTC fast memory.
@@ -972,12 +971,14 @@ static esp_err_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags, esp_sleep_mode_t m
     esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_CLK_READY, (void *)0);
 
     if (!deep_sleep) {
-        s_config.ccount_ticks_record = esp_cpu_get_cycle_count();
+        if (result == ESP_OK) {
+            s_config.ccount_ticks_record = esp_cpu_get_cycle_count();
 #if SOC_PM_RETENTION_SW_TRIGGER_REGDMA
-        if (pd_flags & PMU_SLEEP_PD_TOP) {
-            sleep_retention_do_system_retention(false);
-        }
+            if (pd_flags & PMU_SLEEP_PD_TOP) {
+                sleep_retention_do_system_retention(false);
+            }
 #endif
+        }
         misc_modules_wake_prepare();
     }
 
@@ -1130,7 +1131,7 @@ static esp_err_t esp_light_sleep_inner(uint32_t pd_flags,
 #endif
 
     // If SPI flash was powered down, wait for it to become ready
-    if (pd_flags & RTC_SLEEP_PD_VDDSDIO) {
+    if (!reject && (pd_flags & RTC_SLEEP_PD_VDDSDIO)) {
 #if SOC_PM_SUPPORT_TOP_PD
         if (pd_flags & PMU_SLEEP_PD_TOP) {
             uint32_t flash_ready_hw_waited_time_us = pmu_sleep_get_wakup_retention_cost();
@@ -1184,7 +1185,7 @@ esp_err_t esp_light_sleep_start(void)
     timerret = esp_task_wdt_stop();
 #endif // CONFIG_ESP_TASK_WDT_USE_ESP_TIMER
 
-	s_config.lock = irq_lock();
+    s_config.lock = irq_lock();
     /*
     Note: We are about to stall the other CPU via the esp_ipc_isr_stall_other_cpu(). However, there is a chance of
     deadlock if after stalling the other CPU, we attempt to take spinlocks already held by the other CPU that is.
@@ -1223,8 +1224,7 @@ esp_err_t esp_light_sleep_start(void)
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
 
-
-#if CONFIG_SOC_SERIES_ESP32 || CONFIG_SOC_SERIES_ESP32S2 || CONFIG_SOC_SERIES_ESP32S3
+#ifdef CONFIG_ESP_SLEEP_RTC_BUS_ISO_WORKAROUND
     pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
 #endif
 
@@ -1331,22 +1331,18 @@ esp_err_t esp_light_sleep_start(void)
 
     // System timer has been stopped for the duration of the sleep, correct for that.
     uint64_t rtc_ticks_at_end = rtc_time_get();
-    uint64_t rtc_time_diff = rtc_time_slowclk_to_us(rtc_ticks_at_end - s_config.rtc_ticks_at_sleep_start, s_config.rtc_clk_cal_period);
 
-#if CONFIG_ESP_SLEEP_DEBUG
-    if (s_sleep_ctx != NULL) {
-        s_sleep_ctx->sleep_out_rtc_time_stamp = rtc_ticks_at_end;
+    if (s_light_sleep_wakeup) {
+        uint64_t rtc_time_diff = rtc_time_slowclk_to_us(rtc_ticks_at_end - s_config.rtc_ticks_at_sleep_start, s_config.rtc_clk_cal_period);
+        /**
+         * If sleep duration is too small(less than 1 rtc_slow_clk cycle), rtc_time_diff will be zero.
+         * In this case, just ignore the time compensation and keep esp_timer monotonic.
+         */
+        if (rtc_time_diff > 0) {
+            esp_timer_private_set(high_res_time_at_start + rtc_time_diff);
+        }
+        // esp_set_time_from_rtc();
     }
-#endif
-
-    /**
-     * If sleep duration is too small(less than 1 rtc_slow_clk cycle), rtc_time_diff will be zero.
-     * In this case, just ignore the time compensation and keep esp_timer monotonic.
-     */
-    if (rtc_time_diff > 0) {
-        esp_timer_private_set(high_res_time_at_start + rtc_time_diff);
-    }
-    // esp_set_time_from_rtc();
 
     esp_clk_private_unlock();
     esp_timer_private_unlock();
@@ -1356,7 +1352,6 @@ esp_err_t esp_light_sleep_start(void)
         wdt_hal_disable(&rtc_wdt_ctx);
         wdt_hal_write_protect_enable(&rtc_wdt_ctx);
     }
-	irq_unlock(s_config.lock);
 
 #if CONFIG_ESP_TASK_WDT_USE_ESP_TIMER
     /* Restart the Task Watchdog timer as it was stopped before sleeping. */
@@ -1366,13 +1361,19 @@ esp_err_t esp_light_sleep_start(void)
 #endif // CONFIG_ESP_TASK_WDT_USE_ESP_TIMER
 
     esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_EXIT_SLEEP, (void *)0);
-    s_config.sleep_time_overhead_out = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
 
 #if CONFIG_ESP_SLEEP_DEBUG
     if (s_sleep_ctx != NULL) {
+        s_sleep_ctx->sleep_out_rtc_time_stamp = rtc_ticks_at_end;
         s_sleep_ctx->sleep_request_result = err;
     }
 #endif
+
+    if (s_light_sleep_wakeup) {
+        s_config.sleep_time_overhead_out = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / 1000000ULL);
+    }
+
+    irq_unlock(s_config.lock);
     return err;
 }
 

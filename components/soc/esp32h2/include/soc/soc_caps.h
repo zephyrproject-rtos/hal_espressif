@@ -192,6 +192,9 @@
 #define SOC_GPIO_VALID_GPIO_MASK        ((1U << SOC_GPIO_PIN_COUNT) - 1)
 #define SOC_GPIO_VALID_OUTPUT_GPIO_MASK SOC_GPIO_VALID_GPIO_MASK
 
+#define SOC_GPIO_IN_RANGE_MAX           27
+#define SOC_GPIO_OUT_RANGE_MAX          27
+
 // digital I/O pad powered by VDD3P3_CPU or VDD_SPI(GPIO_NUM_0~6. GPIO_NUM_15~27)
 #define SOC_GPIO_VALID_DIGITAL_IO_PAD_MASK 0x000000000FFF807FULL
 
@@ -471,6 +474,9 @@
 #define SOC_PM_SUPPORT_TOP_PD           (1)
 #define SOC_PM_PAU_LINK_NUM             (4)
 #define SOC_PM_CPU_RETENTION_BY_SW      (1)
+
+#define SOC_PM_PAU_REGDMA_UPDATE_CACHE_BEFORE_WAIT_COMPARE  (1)
+
 #define SOC_PM_MODEM_RETENTION_BY_REGDMA           (1)
 #define SOC_PM_SUPPORT_DEEPSLEEP_CHECK_STUB_ONLY   (1) /*!<Supports CRC only the stub code in RTC memory */
 #define SOC_PM_RETENTION_SW_TRIGGER_REGDMA      (1)    /*!< In esp32H2, regdma will power off when entering sleep */

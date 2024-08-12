@@ -118,6 +118,7 @@ do{\
 
 #define BLE_PWR_HDL_INVL 0xFFFF
 
+#define BLE_CONTROLLER_MALLOC_CAPS        (MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA)
 /* Types definition
  ************************************************************************
  */
@@ -257,7 +258,6 @@ extern int API_vhci_host_register_callback(const vhci_host_callback_t *callback)
 extern int ble_txpwr_set(int power_type, uint16_t handle, int power_level);
 extern int ble_txpwr_get(int power_type, uint16_t handle);
 
-extern uint16_t l2c_ble_link_get_tx_buf_num(void);
 extern void coex_pti_v2(void);
 
 extern bool btdm_deep_sleep_mem_init(void);
@@ -273,6 +273,7 @@ extern void ets_backup_dma_copy(uint32_t reg, uint32_t mem_addr, uint32_t num, b
 #endif
 
 extern void btdm_cca_feature_enable(void);
+extern void btdm_aa_check_enhance_enable(void);
 
 extern uint32_t _bt_bss_start;
 extern uint32_t _bt_bss_end;
@@ -496,7 +497,11 @@ static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handle
 {
     btdm_isr_alloc_t p;
     p.source = source;
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+    p.flags = ESP_INTR_FLAG_LEVEL3;
+#else
     p.flags = ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM;
+#endif
     p.fn = handler;
     p.arg = arg;
     p.handle = (intr_handle_t *)ret_handle;
@@ -687,11 +692,25 @@ static bool IRAM_ATTR is_in_isr_wrapper(void)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-    void *p = heap_caps_malloc(size, MALLOC_CAP_INTERNAL|MALLOC_CAP_DMA);
+    void *p = heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
     if(p == NULL) {
         ESP_LOGE(BT_LOG_TAG, "Malloc failed");
     }
     return p;
+}
+
+void *malloc_ble_controller_mem(size_t size)
+{
+    void *p = heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+    if(p == NULL) {
+        ESP_LOGE(BT_LOG_TAG, "Malloc failed");
+    }
+    return p;
+}
+
+uint32_t get_ble_controller_free_heap_size(void)
+{
+    return heap_caps_get_free_size(BLE_CONTROLLER_MALLOC_CAPS);
 }
 
 static int IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -764,7 +783,8 @@ static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles)
     // allow a maximum time uncertainty to be about 488ppm(1/2048) at least as clock drift
     // and set the timer in advance
     uint32_t uncertainty = (us_to_sleep >> 11);
-#if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+    // recalculate clock drift when Bluetooth using main XTAL during light sleep
     if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_RC_SLOW) {
         uncertainty = us_to_sleep * BTDM_RTC_SLOW_CLK_RC_DRIFT_PERCENT / 100;
     }
@@ -942,6 +962,9 @@ static void btdm_funcs_table_ready_wrapper(void)
 {
 #if BT_BLE_CCA_MODE == 2
     btdm_cca_feature_enable();
+#endif
+#if BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED
+    btdm_aa_check_enhance_enable();
 #endif
 }
 
@@ -1408,6 +1431,10 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
     ESP_LOGI(BT_LOG_TAG, "BT controller compile version [%s]", btdm_controller_get_compile_version());
 
+#if (CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY)
+    ESP_LOGI(BT_LOG_TAG,"Put all controller code in flash");
+#endif
+
     if ((err = btdm_low_power_mode_init(cfg)) != ESP_OK) {
         ESP_LOGE(BT_LOG_TAG, "Low power module initialization failed");
         goto error;
@@ -1420,7 +1447,10 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     periph_module_enable(PERIPH_BT_MODULE);
     periph_module_reset(PERIPH_BT_MODULE);
 
-    if (btdm_controller_init(cfg) != 0) {
+    err = btdm_controller_init(cfg);
+
+    if (err != 0) {
+        ESP_LOGE(BT_LOG_TAG, "%s %d\n",__func__,err);
         err = ESP_ERR_NO_MEM;
         goto error;
     }
@@ -1736,7 +1766,7 @@ esp_power_level_t esp_ble_tx_power_get(esp_ble_power_type_t power_type)
         handle = power_type;
     }
 
-    lvl = (esp_power_level_t)ble_txpwr_get(power_type, handle);
+    lvl = (esp_power_level_t)ble_txpwr_get(enh_pwr_type, handle);
 
     return lvl;
 }
@@ -1846,11 +1876,6 @@ void esp_bt_controller_wakeup_request(void)
 int IRAM_ATTR esp_bt_h4tl_eif_io_event_notify(int event)
 {
     return btdm_hci_tl_io_event_post(event);
-}
-
-uint16_t esp_bt_get_tx_buf_num(void)
-{
-    return l2c_ble_link_get_tx_buf_num();
 }
 
 static void coex_wifi_sleep_set_hook(bool sleep)

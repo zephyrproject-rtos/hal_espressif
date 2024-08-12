@@ -48,16 +48,16 @@
 
 //L2CAP
 #ifdef CONFIG_BT_L2CAP_ENABLED
-#define UC_BT_L2CAP_ENABLED                   CONFIG_BT_L2CAP_ENABLED
+#define UC_BT_L2CAP_ENABLED                 CONFIG_BT_L2CAP_ENABLED
 #else
-#define UC_BT_L2CAP_ENABLED                   FALSE
+#define UC_BT_L2CAP_ENABLED                 FALSE
 #endif
 
 //HFP(AG)
 #ifdef CONFIG_BT_HFP_AG_ENABLE
-#define UC_BT_HFP_AG_ENABLED            CONFIG_BT_HFP_AG_ENABLE
+#define UC_BT_HFP_AG_ENABLED                CONFIG_BT_HFP_AG_ENABLE
 #else
-#define UC_BT_HFP_AG_ENABLED            FALSE
+#define UC_BT_HFP_AG_ENABLED                FALSE
 #endif
 
 //HFP(Client)
@@ -222,6 +222,12 @@
 #define UC_BT_BLE_SMP_ID_RESET_ENABLE FALSE
 #endif
 
+#ifdef CONFIG_BT_BLE_SMP_BOND_NVS_FLASH
+#define UC_BT_BLE_SMP_BOND_NVS_FLASH CONFIG_BT_BLE_SMP_BOND_NVS_FLASH
+#else
+#define UC_BT_BLE_SMP_BOND_NVS_FLASH FALSE
+#endif
+
 //Device Name Maximum Length
 #ifdef CONFIG_BT_MAX_DEVICE_NAME_LEN
 #define UC_MAX_LOC_BD_NAME_LEN  CONFIG_BT_MAX_DEVICE_NAME_LEN
@@ -378,20 +384,6 @@
 /**********************************************************
  * Memory reference
  **********************************************************/
-
-//MEMORY ALLOCATOR
-#ifdef CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST
-#define UC_HEAP_ALLOCATION_FROM_SPIRAM_FIRST    CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST
-#else
-#define UC_HEAP_ALLOCATION_FROM_SPIRAM_FIRST    FALSE
-#endif
-
-//MEMORY DEBUG
-#ifdef CONFIG_BT_BLUEDROID_MEM_DEBUG
-#define UC_BT_BLUEDROID_MEM_DEBUG               CONFIG_BT_BLUEDROID_MEM_DEBUG
-#else
-#define UC_BT_BLUEDROID_MEM_DEBUG               FALSE
-#endif
 
 
 /**********************************************************

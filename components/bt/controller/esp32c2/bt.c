@@ -47,6 +47,7 @@
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #include "esp_private/sleep_modem.h"
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#include "esp_private/esp_modem_clock.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -73,11 +74,6 @@
 #define EXT_FUNC_MAGIC_VALUE         0xA5A5A5A5
 
 #define BT_ASSERT_PRINT              ets_printf
-typedef enum ble_rtc_slow_clk_src {
-    BT_SLOW_CLK_SRC_MAIN_XTAL,
-    BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0,
-} ble_rtc_slow_clk_src_t;
-
 /* Types definition
  ************************************************************************
  */
@@ -158,6 +154,10 @@ extern int ble_get_npl_element_info(esp_bt_controller_config_t *cfg, ble_npl_cou
 extern void bt_track_pll_cap(void);
 extern char *ble_controller_get_compile_version(void);
 extern const char *r_ble_controller_get_rom_compile_version(void);
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+extern void ble_ll_supported_features_init(void);
+#endif //CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+
 #if CONFIG_BT_RELEASE_IRAM
 extern uint32_t _iram_bt_text_start;
 extern uint32_t _bss_bt_end;
@@ -197,6 +197,9 @@ static void esp_bt_ctrl_log_partition_get_and_erase_first_block(void);
 /* Local variable definition
  ***************************************************************************
  */
+#if (CONFIG_ESP32C2_REV_MIN_FULL < 200) && (!CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY)
+void *g_ble_lll_rfmgmt_env_p;
+#endif
 /* Static variable declare */
 static DRAM_ATTR esp_bt_controller_status_t ble_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 #if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
@@ -440,8 +443,20 @@ static bool s_ble_active = false;
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock = NULL;
 #define BTDM_MIN_TIMER_UNCERTAINTY_US      (200)
 #endif // CONFIG_PM_ENABLE
+static DRAM_ATTR modem_clock_lpclk_src_t s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_INVALID;
 
 #define BLE_RTC_DELAY_US                    (1800)
+
+#define BLE_CONTROLLER_MALLOC_CAPS          (MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT|MALLOC_CAP_DMA)
+void *malloc_ble_controller_mem(size_t size)
+{
+    return heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+}
+
+uint32_t get_ble_controller_free_heap_size(void)
+{
+    return heap_caps_get_free_size(BLE_CONTROLLER_MALLOC_CAPS);
+}
 
 static const struct osi_coex_funcs_t s_osi_coex_funcs_ro = {
     ._magic = OSI_COEX_MAGIC_VALUE,
@@ -535,7 +550,12 @@ static int esp_ecc_gen_dh_key(const uint8_t *peer_pub_key_x, const uint8_t *peer
 
 static int esp_intr_alloc_wrapper(int source, int flags, intr_handler_t handler, void *arg, void **ret_handle_in)
 {
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+    int rc = esp_intr_alloc(source, flags, handler, arg, (intr_handle_t *)ret_handle_in);
+#else
     int rc = esp_intr_alloc(source, flags | ESP_INTR_FLAG_IRAM, handler, arg, (intr_handle_t *)ret_handle_in);
+#endif
+
     return rc;
 }
 
@@ -553,6 +573,20 @@ void sleep_modem_light_sleep_overhead_set(uint32_t overhead)
     esp_ble_set_wakeup_overhead(overhead);
 }
 #endif /* CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+
+modem_clock_lpclk_src_t esp_bt_get_lpclk_src(void)
+{
+    return s_bt_lpclk_src;
+}
+
+void esp_bt_set_lpclk_src(modem_clock_lpclk_src_t clk_src)
+{
+    if (clk_src >= MODEM_CLOCK_LPCLK_SRC_MAX) {
+        return;
+    }
+
+    s_bt_lpclk_src = clk_src;
+}
 
 IRAM_ATTR void controller_sleep_cb(uint32_t enable_tick, void *arg)
 {
@@ -580,7 +614,7 @@ IRAM_ATTR void controller_wakeup_cb(void *arg)
     s_ble_active = true;
 }
 
-esp_err_t controller_sleep_init(ble_rtc_slow_clk_src_t slow_clk_src)
+esp_err_t controller_sleep_init(modem_clock_lpclk_src_t slow_clk_src)
 {
     esp_err_t rc = 0;
 #ifdef CONFIG_BT_LE_SLEEP_ENABLE
@@ -588,7 +622,7 @@ esp_err_t controller_sleep_init(ble_rtc_slow_clk_src_t slow_clk_src)
     r_ble_lll_rfmgmt_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0, 500 + BLE_RTC_DELAY_US);
 
 #ifdef CONFIG_PM_ENABLE
-    if (slow_clk_src == BT_SLOW_CLK_SRC_MAIN_XTAL) {
+    if (slow_clk_src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_ON);
     } else {
         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_AUTO);
@@ -643,11 +677,11 @@ void controller_sleep_deinit(void)
 #endif //CONFIG_PM_ENABLE
 }
 
-static void esp_bt_rtc_slow_clk_select(ble_rtc_slow_clk_src_t slow_clk_src)
+static void esp_bt_rtc_slow_clk_select(modem_clock_lpclk_src_t slow_clk_src)
 {
     /* Select slow clock source for BT momdule */
     switch (slow_clk_src) {
-        case BT_SLOW_CLK_SRC_MAIN_XTAL:
+        case MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL:
             ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Using main XTAL as clock source");
             SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_XTAL32K_S);
             SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 1, MODEM_CLKRST_LP_TIMER_SEL_XTAL_S);
@@ -659,7 +693,7 @@ static void esp_bt_rtc_slow_clk_select(ble_rtc_slow_clk_src_t slow_clk_src)
             SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM, 249, MODEM_CLKRST_LP_TIMER_CLK_DIV_NUM_S);
 #endif // CONFIG_XTAL_FREQ_26
             break;
-        case BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0:
+        case MODEM_CLOCK_LPCLK_SRC_EXT32K:
             ESP_LOGI(NIMBLE_PORT_LOG_TAG, "Using external 32.768 kHz XTAL as clock source");
             SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 1, MODEM_CLKRST_LP_TIMER_SEL_XTAL32K_S);
             SET_PERI_REG_BITS(MODEM_CLKRST_MODEM_LP_TIMER_CONF_REG, 1, 0, MODEM_CLKRST_LP_TIMER_SEL_XTAL_S);
@@ -676,40 +710,39 @@ static void esp_bt_rtc_slow_clk_select(ble_rtc_slow_clk_src_t slow_clk_src)
     SET_PERI_REG_BITS(MODEM_CLKRST_ETM_CLK_CONF_REG, 1, 0, MODEM_CLKRST_ETM_CLK_SEL_S);
 }
 
-static ble_rtc_slow_clk_src_t ble_rtc_clk_init(esp_bt_controller_config_t *cfg)
+static modem_clock_lpclk_src_t ble_rtc_clk_init(esp_bt_controller_config_t *cfg)
 {
-    ble_rtc_slow_clk_src_t slow_clk_src;
-
+    if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_INVALID) {
 #if CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL
-#ifdef CONFIG_XTAL_FREQ_26
-   cfg->rtc_freq = 40000;
+        s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
 #else
-   cfg->rtc_freq = 32000;
-#endif // CONFIG_XTAL_FREQ_26
-    slow_clk_src = BT_SLOW_CLK_SRC_MAIN_XTAL;
-#else
-    if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {
+        if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {
+            s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_EXT32K;
+        } else {
+            ESP_LOGW(NIMBLE_PORT_LOG_TAG, "32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock");
+            s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
+        }
+#endif // CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL
+    }
+
+    if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_EXT32K) {
         cfg->rtc_freq = 32768;
-        slow_clk_src = BT_SLOW_CLK_SRC_32K_XTAL_ON_PIN0;
-    } else {
-        ESP_LOGW(NIMBLE_PORT_LOG_TAG, "32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock");
+    } else if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
 #ifdef CONFIG_XTAL_FREQ_26
         cfg->rtc_freq = 40000;
 #else
         cfg->rtc_freq = 32000;
 #endif // CONFIG_XTAL_FREQ_26
-        slow_clk_src = BT_SLOW_CLK_SRC_MAIN_XTAL;
     }
-#endif /* CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL */
-    esp_bt_rtc_slow_clk_select(slow_clk_src);
-    return slow_clk_src;
+    esp_bt_rtc_slow_clk_select(s_bt_lpclk_src);
+    return s_bt_lpclk_src;
 }
 
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
     esp_err_t ret = ESP_OK;
     ble_npl_count_info_t npl_info;
-    ble_rtc_slow_clk_src_t rtc_clk_src;
+    modem_clock_lpclk_src_t rtc_clk_src;
     uint8_t hci_transport_mode;
 
     memset(&npl_info, 0, sizeof(ble_npl_count_info_t));
@@ -731,6 +764,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
         return ret;
     }
 
+    /* If we place the ble code into flash, don't need to initialize ROM. */
+#if !CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
 #if DEFAULT_BT_LE_50_FEATURE_SUPPORT || DEFAULT_BT_LE_ROLE_CENTROL || DEFAULT_BT_LE_ROLE_OBSERVER
     extern int esp_ble_rom_func_ptr_init_all(void);
     esp_ble_rom_func_ptr_init_all();
@@ -739,6 +774,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     extern int esp_ble_rom_func_ptr_init_legacy_adv_and_slave(void);
     esp_ble_rom_func_ptr_init_legacy_adv_and_slave();
 #endif
+#endif //!CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
 
     /* Initialize the function pointers for OS porting */
     npl_freertos_funcs_init();
@@ -788,6 +824,11 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 #if CONFIG_SW_COEXIST_ENABLE
     coex_init();
 #endif
+
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+    ble_ll_supported_features_init();
+#endif //CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+
     ret = ble_controller_init(cfg);
     if (ret != ESP_OK) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "ble_controller_init failed %d", ret);

@@ -77,10 +77,13 @@ typedef enum {
     WIFI_REASON_UNSPECIFIED                        = 1,
     WIFI_REASON_AUTH_EXPIRE                        = 2,
     WIFI_REASON_AUTH_LEAVE                         = 3,
-    WIFI_REASON_ASSOC_EXPIRE                       = 4,
+    WIFI_REASON_ASSOC_EXPIRE                       = 4, /* Deprecated, will be removed in next IDF major release */
+    WIFI_REASON_DISASSOC_DUE_TO_INACTIVITY         = 4,
     WIFI_REASON_ASSOC_TOOMANY                      = 5,
-    WIFI_REASON_NOT_AUTHED                         = 6,
-    WIFI_REASON_NOT_ASSOCED                        = 7,
+    WIFI_REASON_NOT_AUTHED                         = 6, /* Deprecated, will be removed in next IDF major release */
+    WIFI_REASON_CLASS2_FRAME_FROM_NONAUTH_STA      = 6,
+    WIFI_REASON_NOT_ASSOCED                        = 7, /* Deprecated, will be removed in next IDF major release */
+    WIFI_REASON_CLASS3_FRAME_FROM_NONASSOC_STA     = 7,
     WIFI_REASON_ASSOC_LEAVE                        = 8,
     WIFI_REASON_ASSOC_NOT_AUTHED                   = 9,
     WIFI_REASON_DISASSOC_PWRCAP_BAD                = 10,
@@ -293,8 +296,8 @@ typedef struct {
     uint8_t ssid_hidden;        /**< Broadcast SSID or not, default 0, broadcast the SSID */
     uint8_t max_connection;     /**< Max number of stations allowed to connect in */
     uint16_t beacon_interval;   /**< Beacon interval which should be multiples of 100. Unit: TU(time unit, 1 TU = 1024 us). Range: 100 ~ 60000. Default value: 100 */
-    uint8_t csa_count;          /**< Channel Switch Announcement Count. Notify the station that the channel will switch after the csa_count beacon intervals. Default value: 3 */
-    uint8_t dtim_period;        /**< Dtim period of soft-AP. Default value: 2 */
+    uint8_t csa_count;          /**< Channel Switch Announcement Count. Notify the station that the channel will switch after the csa_count beacon intervals. Range: 1 ~ 30. Default value: 3 */
+    uint8_t dtim_period;        /**< Dtim period of soft-AP. Range: 1 ~ 10. Default value: 1 */
     wifi_cipher_type_t pairwise_cipher;   /**< Pairwise cipher of SoftAP, group cipher will be derived using this. Cipher values are valid starting from WIFI_CIPHER_TYPE_TKIP, enum values before that will be considered as invalid and default cipher suites(TKIP+CCMP) will be used. Valid cipher suites in softAP mode are WIFI_CIPHER_TYPE_TKIP, WIFI_CIPHER_TYPE_CCMP and WIFI_CIPHER_TYPE_TKIP_CCMP. */
     bool ftm_responder;         /**< Enable FTM Responder mode */
     wifi_pmf_config_t pmf_cfg;  /**< Configuration for Protected Management Frame */
@@ -884,6 +887,7 @@ typedef enum {
     WIFI_EVENT_STA_BEACON_TIMEOUT,       /**< Station beacon timeout */
 
     WIFI_EVENT_CONNECTIONLESS_MODULE_WAKE_INTERVAL_START,   /**< Connectionless module wake interval start */
+    /* Add next events after this only */
 
     WIFI_EVENT_AP_WPS_RG_SUCCESS,       /**< Soft-AP wps succeeds in registrar mode */
     WIFI_EVENT_AP_WPS_RG_FAILED,        /**< Soft-AP wps fails in registrar mode */
