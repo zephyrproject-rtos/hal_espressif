@@ -167,7 +167,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/gdma_hal.c
     )
 
-  zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
+  zephyr_sources_ifdef(
+    CONFIG_COUNTER_TMR_ESP32
+    ../../components/hal/timer_hal.c
+  )
 
   zephyr_sources_ifdef(
     CONFIG_I2C_ESP32

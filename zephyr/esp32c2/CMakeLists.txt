@@ -91,7 +91,10 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.peripherals.ld
   )
 
-  zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
+  zephyr_sources_ifdef(
+    CONFIG_COUNTER_TMR_ESP32
+    ../../components/hal/timer_hal.c
+  )
 
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
