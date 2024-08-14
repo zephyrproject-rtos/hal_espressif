@@ -120,7 +120,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
-  zephyr_library_sources(src/hal/windowspill_asm.S)
+  zephyr_sources(src/hal/windowspill_asm.S)
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
@@ -151,7 +151,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     )
   endif()
 
-  zephyr_library_sources_ifdef(
+  zephyr_sources_ifdef(
     CONFIG_COUNTER_TMR_ESP32
     ../../components/hal/timer_hal.c
   )

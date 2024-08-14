@@ -169,7 +169,10 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/i2s_hal.c
     )
 
-  zephyr_library_sources_ifdef(CONFIG_COUNTER_TMR_ESP32 ../../components/hal/timer_hal.c)
+  zephyr_sources_ifdef(
+    CONFIG_COUNTER_TMR_ESP32
+    ../../components/hal/timer_hal.c
+  )
 
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
