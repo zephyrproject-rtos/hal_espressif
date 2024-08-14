@@ -268,7 +268,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     zephyr_sources_ifdef(
       CONFIG_MCUBOOT
-      ../port/boot/esp_loader.c
+      ../port/boot/esp_image_loader.c
       )
   endif()
 
