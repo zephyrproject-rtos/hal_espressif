@@ -432,3 +432,131 @@ sdhc1:
   wp:
     sigi: sdhost_card_write_prt_2
     gpio: [[0, 21], [26, 48]]
+
+lcd_cam:
+  data_in0:
+    sigi: cam_data_in0
+    gpio: [[0, 21], [26, 48]]
+  data_out0:
+    sigo: lcd_data_out0
+    gpio: [[0, 21], [26, 48]]
+  data_in1:
+    sigi: cam_data_in1
+    gpio: [[0, 21], [26, 48]]
+  data_out1:
+    sigo: lcd_data_out1
+    gpio: [[0, 21], [26, 48]]
+  data_in2:
+    sigi: cam_data_in2
+    gpio: [[0, 21], [26, 48]]
+  data_out2:
+    sigo: lcd_data_out2
+    gpio: [[0, 21], [26, 48]]
+  data_in3:
+    sigi: cam_data_in3
+    gpio: [[0, 21], [26, 48]]
+  data_out3:
+    sigo: lcd_data_out3
+    gpio: [[0, 21], [26, 48]]
+  data_in4:
+    sigi: cam_data_in4
+    gpio: [[0, 21], [26, 48]]
+  data_out4:
+    sigo: lcd_data_out4
+    gpio: [[0, 21], [26, 48]]
+  data_in5:
+    sigi: cam_data_in5
+    gpio: [[0, 21], [26, 48]]
+  data_out5:
+    sigo: lcd_data_out5
+    gpio: [[0, 21], [26, 48]]
+  data_in6:
+    sigi: cam_data_in6
+    gpio: [[0, 21], [26, 48]]
+  data_out6:
+    sigo: lcd_data_out6
+    gpio: [[0, 21], [26, 48]]
+  data_in7:
+    sigi: cam_data_in7
+    gpio: [[0, 21], [26, 48]]
+  data_out7:
+    sigo: lcd_data_out7
+    gpio: [[0, 21], [26, 48]]
+  data_in8:
+    sigi: cam_data_in8
+    gpio: [[0, 21], [26, 48]]
+  data_out8:
+    sigo: lcd_data_out8
+    gpio: [[0, 21], [26, 48]]
+  data_in9:
+    sigi: cam_data_in9
+    gpio: [[0, 21], [26, 48]]
+  data_out9:
+    sigo: lcd_data_out9
+    gpio: [[0, 21], [26, 48]]
+  data_in10:
+    sigi: cam_data_in10
+    gpio: [[0, 21], [26, 48]]
+  data_out10:
+    sigo: lcd_data_out10
+    gpio: [[0, 21], [26, 48]]
+  data_in11:
+    sigi: cam_data_in11
+    gpio: [[0, 21], [26, 48]]
+  data_out11:
+    sigo: lcd_data_out11
+    gpio: [[0, 21], [26, 48]]
+  data_in12:
+    sigi: cam_data_in12
+    gpio: [[0, 21], [26, 48]]
+  data_out12:
+    sigo: lcd_data_out12
+    gpio: [[0, 21], [26, 48]]
+  data_in13:
+    sigi: cam_data_in13
+    gpio: [[0, 21], [26, 48]]
+  data_out13:
+    sigo: lcd_data_out13
+    gpio: [[0, 21], [26, 48]]
+  data_in14:
+    sigi: cam_data_in14
+    gpio: [[0, 21], [26, 48]]
+  data_out14:
+    sigo: lcd_data_out14
+    gpio: [[0, 21], [26, 48]]
+  data_in15:
+    sigi: cam_data_in15
+    gpio: [[0, 21], [26, 48]]
+  data_out15:
+    sigo: lcd_data_out15
+    gpio: [[0, 21], [26, 48]]
+  cam_clk:
+    sigo: cam_clk
+    gpio: [[0, 21], [26, 48]]
+  cam_pclk:
+    sigi: cam_pclk
+    gpio: [[0, 21], [26, 48]]
+  h_enable_cam:
+    sigi: cam_h_enable
+    gpio: [[0, 21], [26, 48]]
+  h_enable_lcd:
+    sigo: lcd_h_enable
+    gpio: [[0, 21], [26, 48]]
+  h_sync_cam:
+    sigi: cam_h_sync
+    gpio: [[0, 21], [26, 48]]
+  h_sync_lcd:
+    sigo: lcd_h_sync
+    gpio: [[0, 21], [26, 48]]
+  v_sync_cam:
+    sigi: cam_v_sync
+    gpio: [[0, 21], [26, 48]]
+  v_sync_lcd:
+    sigo: lcd_v_sync
+    gpio: [[0, 21], [26, 48]]
+  dc:
+    sigo: lcd_dc
+    gpio: [[0, 21], [26, 48]]
+  lcd_clk:
+    sigo: lcd_pclk
+    gpio: [[0, 21], [26, 48]]
