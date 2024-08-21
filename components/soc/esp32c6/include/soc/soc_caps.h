@@ -542,6 +542,9 @@
 #define SOC_TEMPERATURE_SENSOR_SUPPORT_XTAL                   (1)
 #define SOC_TEMPERATURE_SENSOR_INTR_SUPPORT                   (1)
 
+/*--------------------------------- RNG CAPS ---------------------------------------------*/
+#define SOC_RNG_CLOCK_IS_INDEPENDENT                          (1)
+
 /*------------------------------------ WI-FI CAPS ------------------------------------*/
 #define SOC_WIFI_HW_TSF                     (1)    /*!< Support hardware TSF */
 #define SOC_WIFI_FTM_SUPPORT                (0)    /*!< Support FTM */

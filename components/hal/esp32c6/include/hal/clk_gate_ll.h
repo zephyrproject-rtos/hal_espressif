@@ -84,6 +84,8 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
             return LPPERI_LP_EXT_I2C_CK_EN;
+        case PERIPH_RNG_MODULE:
+            return LPPERI_RNG_CK_EN;
         default:
             return 0;
     }
@@ -240,6 +242,7 @@ static uint32_t periph_ll_get_clk_en_reg(periph_module_t periph)
             return PCR_USB_DEVICE_CONF_REG;
         //TODO: LP_PERIPH modules are added temporarily and will be moved to a separate API (IDF-7374).
         case PERIPH_LP_I2C0_MODULE:
+        case PERIPH_RNG_MODULE:
             return LPPERI_CLK_EN_REG;
     default:
         return 0;
@@ -319,26 +322,54 @@ static uint32_t periph_ll_get_rst_en_reg(periph_module_t periph)
 
 static inline void periph_ll_enable_clk_clear_rst(periph_module_t periph)
 {
-    SET_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
-    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, true));
+    uint32_t clk_en_reg = periph_ll_get_clk_en_reg(periph);
+    uint32_t rst_en_reg = periph_ll_get_rst_en_reg(periph);
+
+    if (clk_en_reg != 0) {
+        SET_PERI_REG_MASK(clk_en_reg, periph_ll_get_clk_en_mask(periph));
+    }
+
+    if (rst_en_reg != 0) {
+        CLEAR_PERI_REG_MASK(rst_en_reg, periph_ll_get_rst_en_mask(periph, true));
+    }
 }
 
 static inline void periph_ll_disable_clk_set_rst(periph_module_t periph)
 {
-    CLEAR_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
-    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
+    uint32_t clk_en_reg = periph_ll_get_clk_en_reg(periph);
+    uint32_t rst_en_reg = periph_ll_get_rst_en_reg(periph);
+
+    if (clk_en_reg != 0) {
+        CLEAR_PERI_REG_MASK(clk_en_reg, periph_ll_get_clk_en_mask(periph));
+    }
+
+    if (rst_en_reg != 0) {
+        SET_PERI_REG_MASK(rst_en_reg, periph_ll_get_rst_en_mask(periph, false));
+    }
 }
 
 static inline void periph_ll_reset(periph_module_t periph)
 {
-    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
-    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
+    uint32_t rst_en_reg = periph_ll_get_rst_en_reg(periph);
+
+    if (rst_en_reg != 0) {
+        SET_PERI_REG_MASK(rst_en_reg, periph_ll_get_rst_en_mask(periph, false));
+        CLEAR_PERI_REG_MASK(rst_en_reg, periph_ll_get_rst_en_mask(periph, false));
+    }
 }
 
 static inline bool IRAM_ATTR periph_ll_periph_enabled(periph_module_t periph)
 {
-    return REG_GET_BIT(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false)) == 0 &&
-           REG_GET_BIT(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph)) != 0;
+    uint32_t clk_en_reg = periph_ll_get_clk_en_reg(periph);
+    uint32_t rst_en_reg = periph_ll_get_rst_en_reg(periph);
+
+    bool clk_enabled = (clk_en_reg != 0) && 
+                       (REG_GET_BIT(clk_en_reg, periph_ll_get_clk_en_mask(periph)) != 0);
+
+    bool rst_disabled = (rst_en_reg == 0) || 
+                        (REG_GET_BIT(rst_en_reg, periph_ll_get_rst_en_mask(periph, false)) == 0);
+
+    return clk_enabled && rst_disabled;
 }
 
 #ifdef __cplusplus
