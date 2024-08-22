@@ -163,7 +163,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     zephyr_compile_definitions(NDEBUG)
 
     zephyr_sources(
-        ../port/boot/esp_image_loader.c
+        ../port/boot/esp_loader.c
         )
   endif()
 
