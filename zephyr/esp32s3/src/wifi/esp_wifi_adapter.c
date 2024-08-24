@@ -71,6 +71,27 @@ static inline void esp_wifi_free_func(void *mem)
 	k_heap_free(&esp_runtime_heap, mem);
 }
 
+#elif defined(CONFIG_ESP_WIFI_HEAP_SPIRAM)
+
+#include <zephyr/multi_heap/shared_multi_heap.h>
+
+#define esp_wifi_malloc_func(_sz) shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 4, _sz)
+
+static inline void *esp_wifi_calloc_func(size_t n, size_t size)
+{
+	size_t sz;
+	if (__builtin_mul_overflow(n, size, &sz)) {
+		return NULL;
+	}
+	void *ptr = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 4, sz);
+	if (ptr) {
+		memset(ptr, 0, sz);
+	}
+	return ptr;
+}
+
+#define esp_wifi_free_func(_mem) shared_multi_heap_free(_mem)
+
 #else
 
 #define esp_wifi_malloc_func(_size) k_malloc(_size)
@@ -89,8 +110,8 @@ uint64_t g_wifi_feature_caps =
 #if CONFIG_ESP_WIFI_ENABLE_WPA3_SAE
 	CONFIG_FEATURE_WPA3_SAE_BIT |
 #endif
-#if defined(CONFIG_SPIRAM)
-	CONFIG_FEATURE_CACHE_TX_BUF_BIT |
+#if CONFIG_SPIRAM
+//	CONFIG_FEATURE_CACHE_TX_BUF_BIT |
 #endif
 #if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
 	CONFIG_FEATURE_FTM_INITIATOR_BIT |
