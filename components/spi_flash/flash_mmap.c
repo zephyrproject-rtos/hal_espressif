@@ -222,7 +222,7 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     *out_ptr = (void *)vaddr_list[0];
     *out_handle = (uint32_t)block;
 
-    free(paddr_blocks);
+    k_free(paddr_blocks);
     return ESP_OK;
 
 err:
