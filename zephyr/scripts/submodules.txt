@@ -1,6 +1,5 @@
-b438f60a295183e7c67eb42ae05f4580f4b1ced0 components/bt/controller/lib_esp32c3_family https://github.com/espressif/esp32c3-bt-lib
-e1b3a29c58a452a6c017113686262094afd87042 components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
-e3e15870cb5d199a59867f66dd236e0d9ff5a127 components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
-998e05636344949ba219e8ac56feb733e27bf5d2 components/esp_phy/lib https://github.com/espressif/esp-phy-lib
-65b3c0857c9f207dcb0b646f2b4ebd8e5edf83c1 components/mbedtls/mbedtls https://github.com/espressif/mbedtls
-413d96a8f6ea6a3488d2c7bb834e6bcd738e2920 bootloader https://github.com/espressif/zephyr-toolchain
+ef1dfc518572e9cda55f13906e32207b40ee280b components/bt/controller/lib_esp32c3_family https://github.com/espressif/esp32c3-bt-lib
+f21a9ef6a4af418621fab356755151d309aae568 components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
+6020d3b9b22eeb4fa94a95a15555d0da699fbdf3 components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
+06e7625de197bc12797dd701d6762229bca01826 components/esp_phy/lib https://github.com/espressif/esp-phy-lib
+72aa687352a469044cbb946f3fdb261430e41ce1 components/mbedtls/mbedtls https://github.com/espressif/mbedtls
