@@ -85,7 +85,7 @@ void *heap_caps_malloc_prefer( size_t size, size_t num, ... )
 
 static void *heap_caps_realloc_base( void *ptr, size_t size, uint32_t caps)
 {
-    ptr = realloc(ptr, caps);
+    ptr = k_realloc(ptr, size);
 
     if (ptr == NULL && size > 0) {
         heap_caps_alloc_failed(size, caps, __func__);
