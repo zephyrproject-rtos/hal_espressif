@@ -48,32 +48,30 @@ __attribute__((weak)) void bootloader_clock_configure(void)
     }
 #endif
 
-    if (esp_rom_get_reset_reason(0) != RESET_REASON_CPU0_SW || rtc_clk_apb_freq_get() < APB_CLK_FREQ) {
-        rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
+    rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
 
-        clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
+    clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
 
-        // Use RTC_SLOW clock source sel register field's default value, RC_SLOW, for 2nd stage bootloader
-        // RTC_SLOW clock source will be switched according to Kconfig selection at application startup
-        clk_cfg.slow_clk_src = rtc_clk_slow_src_get();
-        if (clk_cfg.slow_clk_src == SOC_RTC_SLOW_CLK_SRC_INVALID) {
-            clk_cfg.slow_clk_src = SOC_RTC_SLOW_CLK_SRC_RC_SLOW;
-        }
+    // Use RTC_SLOW clock source sel register field's default value, RC_SLOW, for 2nd stage bootloader
+    // RTC_SLOW clock source will be switched according to Kconfig selection at application startup
+    clk_cfg.slow_clk_src = rtc_clk_slow_src_get();
+    if (clk_cfg.slow_clk_src == SOC_RTC_SLOW_CLK_SRC_INVALID) {
+        clk_cfg.slow_clk_src = SOC_RTC_SLOW_CLK_SRC_RC_SLOW;
+    }
 
 #if CONFIG_IDF_TARGET_ESP32C6
-        // TODO: IDF-5781 Some of esp32c6 SOC_RTC_FAST_CLK_SRC_XTAL_D2 rtc_fast clock has timing issue
-        // Force to use SOC_RTC_FAST_CLK_SRC_RC_FAST since 2nd stage bootloader
-        clk_cfg.fast_clk_src = SOC_RTC_FAST_CLK_SRC_RC_FAST;
+    // TODO: IDF-5781 Some of esp32c6 SOC_RTC_FAST_CLK_SRC_XTAL_D2 rtc_fast clock has timing issue
+    // Force to use SOC_RTC_FAST_CLK_SRC_RC_FAST since 2nd stage bootloader
+    clk_cfg.fast_clk_src = SOC_RTC_FAST_CLK_SRC_RC_FAST;
 #else
-        // Use RTC_FAST clock source sel register field's default value, XTAL_DIV, for 2nd stage bootloader
-        // RTC_FAST clock source will be switched to RC_FAST at application startup
-        clk_cfg.fast_clk_src = rtc_clk_fast_src_get();
-        if (clk_cfg.fast_clk_src == SOC_RTC_FAST_CLK_SRC_INVALID) {
-            clk_cfg.fast_clk_src = SOC_RTC_FAST_CLK_SRC_XTAL_DIV;
-        }
-#endif
-        rtc_clk_init(clk_cfg);
+    // Use RTC_FAST clock source sel register field's default value, XTAL_DIV, for 2nd stage bootloader
+    // RTC_FAST clock source will be switched to RC_FAST at application startup
+    clk_cfg.fast_clk_src = rtc_clk_fast_src_get();
+    if (clk_cfg.fast_clk_src == SOC_RTC_FAST_CLK_SRC_INVALID) {
+        clk_cfg.fast_clk_src = SOC_RTC_FAST_CLK_SRC_XTAL_DIV;
     }
+#endif
+    rtc_clk_init(clk_cfg);
 
     /* As a slight optimization, if 32k XTAL was enabled in sdkconfig, we enable
      * it here. Usually it needs some time to start up, so we amortize at least
