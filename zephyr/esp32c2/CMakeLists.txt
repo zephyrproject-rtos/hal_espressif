@@ -4,6 +4,8 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
+  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
+
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
 
   if(CONFIG_MCUBOOT)
@@ -173,9 +175,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     )
 
   if (CONFIG_MCUBOOT)
-    zephyr_compile_definitions(BOOTLOADER_BUILD)
-    zephyr_compile_definitions(NDEBUG)
-
     zephyr_sources(
         ../port/boot/esp_image_loader.c
         )
