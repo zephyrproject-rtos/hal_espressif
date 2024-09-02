@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Espressif Systems (Shanghai) Co., Ltd.
+ * Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,9 +10,6 @@
 #include "zephyr_compat.h"
 
 #define CONFIG_POSIX_FS
-
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 #include "esp_wifi.h"
 #include "stdlib.h"
@@ -35,7 +32,46 @@ LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "wifi/wifi_event.h"
 #include "esp_private/adc_share_hw_ctrl.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
+
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
+
+/* Select heap to be used for WiFi adapter */
+#if defined(CONFIG_ESP_WIFI_HEAP_RUNTIME)
+
+extern struct k_heap esp_runtime_heap;
+
+static inline void *esp_wifi_malloc_func(size_t size)
+{
+	return k_heap_alloc(&esp_runtime_heap, size, K_NO_WAIT);
+}
+
+static inline void *esp_wifi_calloc_func(size_t n, size_t size)
+{
+	size_t sz;
+	if (__builtin_mul_overflow(n, size, &sz)) {
+		return NULL;
+	}
+	void *ptr = k_heap_alloc(&esp_runtime_heap, sz, K_NO_WAIT);
+	if (ptr) {
+		memset(ptr, 0, sz);
+	}
+	return ptr;
+}
+
+static inline void esp_wifi_free_func(void *mem)
+{
+	k_heap_free(&esp_runtime_heap, mem);
+}
+
+#else
+
+#define esp_wifi_malloc_func(_size) k_malloc(_size)
+#define esp_wifi_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
+#define esp_wifi_free_func(_mem) k_free(_mem)
+
+#endif /* CONFIG_ESP_WIFI_HEAP_* */
 
 static void *wifi_msgq_buffer;
 
@@ -74,7 +110,7 @@ static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_end(void)
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
-	void *ptr = k_malloc(size);
+	void *ptr = esp_wifi_malloc_func(size);
 
 	if (ptr == NULL) {
 		LOG_ERR("memory allocation failed");
@@ -91,7 +127,7 @@ IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
 
 IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
 {
-	void *ptr = k_calloc(n, size);
+	void *ptr = esp_wifi_calloc_func(n, size);
 
 	if (ptr == NULL) {
 		LOG_ERR("memory allocation failed");
@@ -103,6 +139,11 @@ IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
 static void *IRAM_ATTR wifi_zalloc_wrapper(size_t size)
 {
 	return wifi_calloc(1, size);
+}
+
+static void esp_wifi_free(void *mem)
+{
+	esp_wifi_free_func(mem);
 }
 
 wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
@@ -964,9 +1005,4 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
     adc2_cal_include(); //This enables the ADC2 calibration constructor at start up.
 
 	return result;
-}
-
-static void esp_wifi_free(void *mem)
-{
-	k_free(mem);
 }
