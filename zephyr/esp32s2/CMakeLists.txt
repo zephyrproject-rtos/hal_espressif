@@ -4,6 +4,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
+  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
@@ -243,11 +244,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   zephyr_link_libraries("-Wl,--wrap=longjmp")
 
   if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
-
-    if (CONFIG_MCUBOOT)
-      zephyr_compile_definitions(BOOTLOADER_BUILD)
-      zephyr_compile_definitions(NDEBUG)
-    endif()
 
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
