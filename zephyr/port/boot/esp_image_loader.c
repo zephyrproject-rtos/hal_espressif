@@ -46,7 +46,7 @@
 #endif
 
 #include "esp_mcuboot_image.h"
-#include "esp_loader.h"
+#include "esp_image_loader.h"
 #include "flash_map_backend/flash_map_backend.h"
 #include <zephyr/drivers/timer/system_timer.h>
 
