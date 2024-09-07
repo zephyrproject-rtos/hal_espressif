@@ -10,8 +10,6 @@
 #include "esp_private/system_internal.h"
 #include "esp_flash.h"
 #include "esp_flash_partitions.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "hal/spi_types.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
@@ -22,11 +20,13 @@
 
 #include "esp_private/spi_common_internal.h"
 
+#include <zephyr/kernel.h>
+
 #define SPI_FLASH_CACHE_NO_DISABLE  (CONFIG_SPI_FLASH_AUTO_SUSPEND || (CONFIG_SPIRAM_FETCH_INSTRUCTIONS && CONFIG_SPIRAM_RODATA) || CONFIG_APP_BUILD_TYPE_RAM)
 static const char TAG[] = "spi_flash";
 
 #if SPI_FLASH_CACHE_NO_DISABLE
-static _lock_t s_spi1_flash_mutex;
+K_MUTEX_DEFINE(s_spi1_flash_mutex);
 #endif  //  #if SPI_FLASH_CACHE_NO_DISABLE
 
 /*
@@ -71,52 +71,19 @@ IRAM_ATTR static void cache_disable(void* arg)
 }
 #endif  //#if !SPI_FLASH_CACHE_NO_DISABLE
 
-static IRAM_ATTR esp_err_t acquire_spi_bus_lock(void *arg)
-{
-    spi_bus_lock_dev_handle_t dev_lock = ((app_func_arg_t *)arg)->dev_lock;
-
-    // wait for other devices (or cache) to finish their operation
-    esp_err_t ret = spi_bus_lock_acquire_start(dev_lock, portMAX_DELAY);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    spi_bus_lock_touch(dev_lock);
-    return ESP_OK;
-}
-
-static IRAM_ATTR esp_err_t release_spi_bus_lock(void *arg)
-{
-    return spi_bus_lock_acquire_end(((app_func_arg_t *)arg)->dev_lock);
-}
-
-static IRAM_ATTR esp_err_t spi23_start(void *arg){
-    esp_err_t ret = acquire_spi_bus_lock(arg);
-    on_spi_acquired((app_func_arg_t*)arg);
-    return ret;
-}
-
-static IRAM_ATTR esp_err_t spi23_end(void *arg){
-    esp_err_t ret = release_spi_bus_lock(arg);
-    on_spi_released((app_func_arg_t*)arg);
-    return ret;
-}
-
 static IRAM_ATTR esp_err_t spi1_start(void *arg)
 {
     esp_err_t ret = ESP_OK;
     /**
      * There are three ways for ESP Flash API lock:
-     * 1. spi bus lock, this is used when SPI1 is shared with GPSPI Master Driver
+     * 1. spi bus lock, this is used when SPI1 is shared with GPSPI Master Driver (not yet supported in Zephyr)
      * 2. mutex, this is used when the Cache isn't need to be disabled.
      * 3. cache lock (from cache_utils.h), this is used when we need to disable Cache to avoid access from SPI0
      *
      * From 1 to 3, the lock efficiency decreases.
      */
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    //use the lock to disable the cache and interrupts before using the SPI bus
-    ret = acquire_spi_bus_lock(arg);
-#elif SPI_FLASH_CACHE_NO_DISABLE
-    _lock_acquire(&s_spi1_flash_mutex);
+#if SPI_FLASH_CACHE_NO_DISABLE
+    k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
 #else
     //directly disable the cache and interrupts when lock is not used
     cache_disable(NULL);
@@ -132,10 +99,8 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
     /**
      * There are three ways for ESP Flash API lock, see `spi1_start`
      */
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    ret = release_spi_bus_lock(arg);
-#elif SPI_FLASH_CACHE_NO_DISABLE
-    _lock_release(&s_spi1_flash_mutex);
+#if SPI_FLASH_CACHE_NO_DISABLE
+    k_mutex_unlock(&s_spi1_flash_mutex);
 #else
     cache_enable(NULL);
 #endif
@@ -161,11 +126,11 @@ static IRAM_ATTR esp_err_t spi_flash_os_check_yield(void *arg, uint32_t chip_sta
 
 static IRAM_ATTR esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
 {
-    if (likely(xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)) {
+    if (likely(!k_is_pre_kernel())) {
 #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
-        vTaskDelay(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS);
+        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
 #else
-        vTaskDelay(1);
+        k_sleep(K_TICKS(1));
 #endif
     }
     on_spi_yielded((app_func_arg_t*)arg);
@@ -186,13 +151,12 @@ static IRAM_ATTR void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* 
         (May need to shrink read_chunk_size and retry due to race conditions with other tasks
         also allocating from the heap.)
     */
-    void* ret = NULL;
     unsigned retries = 5;
     size_t read_chunk_size = reqest_size;
-    while(ret == NULL && retries--) {
-        read_chunk_size = MIN(read_chunk_size, heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-        read_chunk_size = (read_chunk_size + 3) & ~3;
-        ret = heap_caps_malloc(read_chunk_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* ret = k_malloc(read_chunk_size);
+    while(ret == NULL && retries-- && read_chunk_size > 0) {
+        read_chunk_size = (read_chunk_size / 2 + 3) & ~3;
+        ret = k_malloc(read_chunk_size);
     }
     ESP_LOGV(TAG, "allocate temp buffer: %p (%d)", ret, read_chunk_size);
     *out_size = (ret != NULL? read_chunk_size: 0);
@@ -201,25 +165,21 @@ static IRAM_ATTR void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* 
 
 static IRAM_ATTR void release_buffer_malloc(void* arg, void *temp_buf)
 {
-    free(temp_buf);
+    k_free(temp_buf);
 }
 
 static IRAM_ATTR esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
 {
-    if (((app_func_arg_t*)arg)->no_protect || esp_partition_main_flash_region_safe(start_addr, size)) {
-        //ESP_OK = 0, also means protected==0
-        return ESP_OK;
-    } else {
-        return ESP_ERR_NOT_SUPPORTED;
-    }
+    return ESP_OK;
 }
 
-
+#if CONFIG_SPI_FLASH_BROWNOUT_RESET
 static IRAM_ATTR void main_flash_op_status(uint32_t op_status)
 {
     bool is_erasing = op_status & SPI_FLASH_OS_IS_ERASING_STATUS_FLAG;
     spi_flash_set_erasing_flag(is_erasing);
 }
+#endif
 
 static DRAM_ATTR app_func_arg_t main_flash_arg = {};
 
@@ -240,28 +200,13 @@ static const DRAM_ATTR esp_flash_os_functions_t esp_flash_spi1_default_os_functi
 #endif
 };
 
-static const esp_flash_os_functions_t esp_flash_spi23_default_os_functions = {
-    .start = spi23_start,
-    .end = spi23_end,
-    .delay_us = delay_us,
-    .get_temp_buffer = get_buffer_malloc,
-    .release_temp_buffer = release_buffer_malloc,
-    .region_protected = NULL,
-    .check_yield = spi_flash_os_check_yield,
-    .yield = spi_flash_os_yield,
-    .set_flash_op_status = NULL,
-};
-
 static bool use_bus_lock(int host_id)
 {
     if (host_id != SPI1_HOST) {
         return true;
     }
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    return true;
-#else
+
     return false;
-#endif
 }
 
 // This function is only called by users usually via `spi_bus_add_flash_device` to initialise os functions.
@@ -272,23 +217,14 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
         return ESP_ERR_INVALID_ARG;
     }
 
-    chip->os_func_data = heap_caps_malloc(sizeof(app_func_arg_t),
-                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    chip->os_func_data = k_malloc(sizeof(app_func_arg_t));
     if (chip->os_func_data == NULL) {
         return ESP_ERR_NO_MEM;
     }
 
     switch (host_id) {
         case SPI1_HOST:
-            //SPI1
             chip->os_func = &esp_flash_spi1_default_os_functions;
-            break;
-        case SPI2_HOST:
-#if SOC_SPI_PERIPH_NUM > 2
-        case SPI3_HOST:
-#endif
-            //SPI2, SPI3
-            chip->os_func = &esp_flash_spi23_default_os_functions;
             break;
         default:
             return ESP_ERR_INVALID_ARG;
@@ -308,36 +244,17 @@ esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip, spi_bus_lock_dev_hand
     if (chip->os_func_data) {
         // SPI bus lock is possibly not used on SPI1 bus
         *out_dev_handle = ((app_func_arg_t*)chip->os_func_data)->dev_lock;
-        free(chip->os_func_data);
+        k_free(chip->os_func_data);
     }
     chip->os_func = NULL;
     chip->os_func_data = NULL;
     return ESP_OK;
 }
 
-esp_err_t esp_flash_init_main_bus_lock(void)
-{
-    /* The following called functions are only defined if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-     * is set. Thus, we must not call them if the macro is not defined, else the linker
-     * would trigger errors. */
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    spi_bus_lock_init_main_bus();
-    spi_bus_lock_set_bg_control(g_main_spi_bus_lock, cache_enable, cache_disable, NULL);
-
-    esp_err_t err = spi_bus_lock_init_main_dev();
-    if (err != ESP_OK) {
-        return err;
-    }
-    return ESP_OK;
-#else
-    return ESP_ERR_NOT_SUPPORTED;
-#endif
-}
-
 esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip)
 {
     main_flash_arg = (app_func_arg_t) {
-        .dev_lock = g_spi_lock_main_flash_dev,
+        .dev_lock = 0,
         .no_protect = false, // Required for the main flash chip
     };
     chip->os_func = &esp_flash_spi1_default_os_functions;
@@ -354,7 +271,7 @@ esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip)
 static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
 {
 #ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-    uint32_t time = esp_system_get_time();
+    uint32_t time = k_uptime_get_32();
     // We handle the reset here instead of in `on_spi_acquired()`, when acquire() and release() is
     // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
     if ((time - ctx->released_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000) {
@@ -369,7 +286,7 @@ static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
 static inline IRAM_ATTR void on_spi_released(app_func_arg_t* ctx)
 {
 #ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-    ctx->released_since_us = esp_system_get_time();
+    ctx->released_since_us = k_uptime_get_32();
 #endif
 }
 
@@ -383,6 +300,6 @@ static inline IRAM_ATTR void on_spi_acquired(app_func_arg_t* ctx)
 
 static inline IRAM_ATTR void on_spi_yielded(app_func_arg_t* ctx)
 {
-    uint32_t time = esp_system_get_time();
+    uint32_t time = k_uptime_get_32();
     ctx->acquired_since_us = time;
 }

@@ -134,6 +134,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/spi_flash/flash_mmap.c
     ../../components/spi_flash/flash_ops.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
+    ../../components/spi_flash/spi_flash_os_func_app.c
     ../../components/spi_flash/memspi_host_driver.c
     ../../components/spi_flash/spi_flash_chip_boya.c
     ../../components/spi_flash/spi_flash_chip_drivers.c

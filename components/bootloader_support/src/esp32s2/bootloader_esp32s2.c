@@ -147,7 +147,9 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#ifdef CONFIG_ESP_SIMPLE_BOOT
+    // Workaround to make flash accesible if no bootloader is enabled
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
+    spi_flash_init_chip_state();
     if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
         return ret;
     }

@@ -10,7 +10,6 @@
 
 #include <zephyr/kernel.h>
 
-#include <esp_intr_alloc.h>
 #include "driver/spi_common.h"
 #include "hal/spi_types.h"
 #include "esp_pm.h"
