@@ -76,22 +76,22 @@ void bootloader_enable_qio_mode(void)
     esp_rom_spiflash_wait_idle(&g_rom_flashchip);
 
     raw_flash_id = g_rom_flashchip.device_id;
-    ESP_LOGD(TAG, "Raw SPI flash chip id 0x%"PRIx32, raw_flash_id);
+    ESP_EARLY_LOGD(TAG, "Raw SPI flash chip id 0x%"PRIx32, raw_flash_id);
 
     mfg_id = (raw_flash_id >> 16) & 0xFF;
     flash_id = raw_flash_id & 0xFFFF;
-    ESP_LOGD(TAG, "Manufacturer ID 0x%02x chip ID 0x%04x", mfg_id, flash_id);
+    ESP_EARLY_LOGD(TAG, "Manufacturer ID 0x%02x chip ID 0x%04x", mfg_id, flash_id);
 
     for (i = 0; i < NUM_CHIPS - 1; i++) {
         const bootloader_qio_info_t *chip = &bootloader_flash_qe_support_list[i];
         if (mfg_id == chip->mfg_id && (flash_id & chip->id_mask) == (chip->flash_id & chip->id_mask)) {
-            ESP_LOGI(TAG, "Enabling QIO for flash chip %s", bootloader_flash_qe_support_list[i].manufacturer);
+            ESP_EARLY_LOGI(TAG, "Enabling QIO for flash chip %s", bootloader_flash_qe_support_list[i].manufacturer);
             break;
         }
     }
 
     if (i == NUM_CHIPS - 1) {
-        ESP_LOGI(TAG, "Enabling default flash chip QIO");
+        ESP_EARLY_LOGI(TAG, "Enabling default flash chip QIO");
     }
     enable_qio_mode(bootloader_flash_qe_support_list[i].read_status_fn,
                     bootloader_flash_qe_support_list[i].write_status_fn,
@@ -130,7 +130,7 @@ static esp_err_t enable_qio_mode(bootloader_flash_read_status_fn_t read_status_f
     esp_rom_spiflash_wait_idle(&g_rom_flashchip);
 
     status = read_status_fn();
-    ESP_LOGD(TAG, "Initial flash chip status 0x%"PRIx32, status);
+    ESP_EARLY_LOGD(TAG, "Initial flash chip status 0x%"PRIx32, status);
 
     if ((status & (1 << status_qio_bit)) == 0) {
         bootloader_execute_flash_command(CMD_WREN, 0, 0, 0);
@@ -139,17 +139,17 @@ static esp_err_t enable_qio_mode(bootloader_flash_read_status_fn_t read_status_f
         esp_rom_spiflash_wait_idle(&g_rom_flashchip);
 
         status = read_status_fn();
-        ESP_LOGD(TAG, "Updated flash chip status 0x%"PRIx32, status);
+        ESP_EARLY_LOGD(TAG, "Updated flash chip status 0x%"PRIx32, status);
         if ((status & (1 << status_qio_bit)) == 0) {
-            ESP_LOGE(TAG, "Failed to set QIE bit, not enabling QIO mode");
+            ESP_EARLY_LOGE(TAG, "Failed to set QIE bit, not enabling QIO mode");
             return ESP_FAIL;
         }
 
     } else {
-        ESP_LOGD(TAG, "QIO mode already enabled in flash");
+        ESP_EARLY_LOGD(TAG, "QIO mode already enabled in flash");
     }
 
-    ESP_LOGD(TAG, "Enabling QIO mode...");
+    ESP_EARLY_LOGD(TAG, "Enabling QIO mode...");
 
     esp_rom_spiflash_read_mode_t mode;
 #if CONFIG_ESPTOOLPY_FLASHMODE_QOUT

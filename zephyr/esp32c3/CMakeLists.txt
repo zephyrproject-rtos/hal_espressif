@@ -6,6 +6,11 @@ if(CONFIG_SOC_SERIES_ESP32C3)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
 
+  if(CONFIG_ESP_SIMPLE_BOOT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QIO BOOTLOADER_BUILD)
+    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QOUT BOOTLOADER_BUILD)
+  endif()
+
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
 
   if(CONFIG_MCUBOOT)

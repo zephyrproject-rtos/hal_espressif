@@ -62,7 +62,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
     esp_err_t err = ESP_OK;
     esp_chip_id_t chip_id = CONFIG_IDF_FIRMWARE_CHIP_ID;
     if (chip_id != img_hdr->chip_id) {
-        ESP_LOGE(TAG, "mismatch chip ID, expected %d, found %d", chip_id, img_hdr->chip_id);
+        ESP_EARLY_LOGE(TAG, "mismatch chip ID, expected %d, found %d", chip_id, img_hdr->chip_id);
         err = ESP_FAIL;
     } else {
 #ifndef CONFIG_IDF_ENV_FPGA

@@ -6,6 +6,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
 
+  if(CONFIG_ESP_SIMPLE_BOOT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QIO BOOTLOADER_BUILD)
+    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QOUT BOOTLOADER_BUILD)
+  endif()
+
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
   endif()
@@ -145,7 +150,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/spi_flash/spi_flash_hpm_enable.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
     ../../components/spi_flash/spi_flash_os_func_app.c
-    # todo: ../../components/spi_flash/spi_flash_wrap.c
+    ../../components/spi_flash/spi_flash_wrap.c
     )
   endif()
 
