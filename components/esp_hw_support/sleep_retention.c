@@ -469,9 +469,6 @@ static void sleep_retention_entries_destroy(sleep_retention_module_t module)
         pmu_sleep_disable_regdma_backup();
         memset((void *)s_retention.lists, 0, sizeof(s_retention.lists));
         s_retention.highpri = (uint8_t)-1;
-        k_sem_give(&s_retention_lock);
-        k_sem_init(&s_retention_lock, 1, 1);
-        return;
     }
     k_sem_give(&s_retention_lock);
 }
@@ -606,16 +603,6 @@ esp_err_t sleep_retention_module_init(sleep_retention_module_t module, sleep_ret
     if (param == NULL || param->cbs.create.handle == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (s_retention.lock == NULL) {
-        /* Passive modules will be initialized during the system startup, with the
-         * operating system scheduler not yet enabled. There is no risk of contention
-         * for lock initialization here. */
-        k_sem_take(&s_retention_lock, K_FOREVER);
-        if (s_retention.lock == NULL) {
-            ESP_LOGE(TAG, "Create sleep retention lock failed");
-            return ESP_ERR_NO_MEM;
-        }
-    }
 
     esp_err_t err = ESP_OK;
     k_sem_take(&s_retention_lock, K_FOREVER);
@@ -653,7 +640,6 @@ esp_err_t sleep_retention_module_deinit(sleep_retention_module_t module)
 
     if (do_lock_release) {
         k_sem_give(&s_retention_lock);
-        s_retention.lock = NULL;
     }
     return err;
 }
@@ -683,7 +669,6 @@ static esp_err_t sleep_retention_passive_module_allocate(sleep_retention_module_
     }
     k_sem_give(&s_retention_lock);
     return err;
-    (void)refs;
 }
 
 esp_err_t sleep_retention_module_allocate(sleep_retention_module_t module)

@@ -303,12 +303,13 @@ static void __attribute__((section(".rtc.entry.text"))) esp_wake_stub_entry(void
 
 #ifdef __riscv
     __asm__ __volatile__ (
-            "addi sp, sp, -16 \n"
-            "sw   ra, 0(sp)   \n"
-            "jal  ra, " SYM2STR(esp_wake_stub_start) "\n"
-            "lw   ra, 0(sp)  \n"
-            "addi sp, sp, 16 \n"
-            );
+        "addi sp, sp, -16 \n"
+        "sw   ra, 0(sp)   \n"
+        "la   ra, " SYM2STR(esp_wake_stub_start) "\n" // Load full address of esp_wake_stub_start
+        "jalr ra \n"  // Jump to the address in ra
+        "lw   ra, 0(sp)   \n"
+        "addi sp, sp, 16  \n"
+);
 #else
     // call4 has a larger effective addressing range (-524284 to 524288 bytes),
     // which is sufficient for instruction addressing in RTC fast memory.
@@ -522,11 +523,11 @@ static void IRAM_ATTR resume_timers(uint32_t pd_flags) {
 // [refactor-todo] provide target logic for body of uart functions below
 static void IRAM_ATTR flush_uarts(void)
 {
-    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_NUM; ++i) {
 #ifdef CONFIG_IDF_TARGET_ESP32
         esp_rom_uart_tx_wait_idle(i);
 #else
-        if (uart_ll_is_enabled(i)) {
+        if (periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
             esp_rom_uart_tx_wait_idle(i);
         }
 #endif
@@ -541,9 +542,9 @@ static uint32_t s_suspended_uarts_bmap = 0;
 static IRAM_ATTR void suspend_uarts(void)
 {
     s_suspended_uarts_bmap = 0;
-    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_NUM; ++i) {
 #ifndef CONFIG_IDF_TARGET_ESP32
-        if (!uart_ll_is_enabled(i)) {
+        if (!periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
             continue;
         }
 #endif
@@ -552,11 +553,7 @@ static IRAM_ATTR void suspend_uarts(void)
 #if SOC_UART_SUPPORT_FSM_TX_WAIT_SEND
         uint32_t uart_fsm = 0;
         do {
-#ifdef CONFIG_IDF_TARGET_ESP32C6
-            uart_fsm = uart_ll_get_tx_fsm_status(i);
-#else
             uart_fsm = uart_ll_get_fsm_status(i);
-#endif
         } while (!(uart_fsm == UART_LL_FSM_IDLE || uart_fsm == UART_LL_FSM_TX_WAIT_SEND));
 #else
         while (uart_ll_get_fsm_status(i) != 0) {}
@@ -566,7 +563,7 @@ static IRAM_ATTR void suspend_uarts(void)
 
 static void IRAM_ATTR resume_uarts(void)
 {
-    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+    for (int i = 0; i < SOC_UART_NUM; ++i) {
         if (s_suspended_uarts_bmap & 0x1) {
             uart_ll_force_xon(i);
         }
@@ -892,6 +889,7 @@ static esp_err_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags, esp_sleep_mode_t m
 #endif
 
 #if SOC_PM_SUPPORT_DEEPSLEEP_CHECK_STUB_ONLY
+            esp_set_deep_sleep_wake_stub_default_entry();
             // Enter Deep Sleep
 #if SOC_PMU_SUPPORTED
             result = call_rtc_sleep_start(reject_triggers, config.power.hp_sys.dig_power.mem_dslp, deep_sleep);
@@ -1018,6 +1016,8 @@ static esp_err_t IRAM_ATTR deep_sleep_start(bool allow_sleep_rejection)
     esp_brownout_disable();
 #endif //CONFIG_IDF_TARGET_ESP32S2
 
+    // esp_sync_timekeeping_timers();
+
     /* Disable interrupts and stall another core in case another task writes
      * to RTC memory while we calculate RTC memory CRC.
      */
@@ -1025,6 +1025,13 @@ static esp_err_t IRAM_ATTR deep_sleep_start(bool allow_sleep_rejection)
 
     // record current RTC time
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
+
+#if SOC_RTC_FAST_MEM_SUPPORTED
+    // Configure wake stub
+    if (esp_get_deep_sleep_wake_stub() == NULL) {
+        esp_set_deep_sleep_wake_stub(esp_wake_deep_sleep);
+    }
+#endif // SOC_RTC_FAST_MEM_SUPPORTED
 
     // Decide which power domains can be powered down
     uint32_t pd_flags = get_power_down_flags();
@@ -1078,8 +1085,8 @@ static esp_err_t IRAM_ATTR deep_sleep_start(bool allow_sleep_rejection)
         }
     }
     // Never returns here, except that the sleep is rejected.
-    esp_ipc_isr_release_other_cpu();
-    portEXIT_CRITICAL(&spinlock_rtc_deep_sleep);
+    // esp_ipc_isr_release_other_cpu(); // Zephyr: only for SMP mode
+    RTC_DEEP_SLEEP_EXIT_CRITICAL();
     return err;
 }
 
@@ -1127,7 +1134,7 @@ static esp_err_t esp_light_sleep_inner(uint32_t pd_flags,
 #if SOC_PM_SUPPORT_TOP_PD
         if (pd_flags & PMU_SLEEP_PD_TOP) {
             uint32_t flash_ready_hw_waited_time_us = pmu_sleep_get_wakup_retention_cost();
-            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ);
+            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ(1));
             uint32_t flash_ready_waited_time_us = flash_ready_hw_waited_time_us + flash_ready_sw_waited_time_us;
             if (flash_enable_time_us > flash_ready_waited_time_us){
                 flash_enable_time_us -= flash_ready_waited_time_us;
@@ -1288,7 +1295,6 @@ esp_err_t esp_light_sleep_start(void)
     // Safety net: enable WDT in case exit from light sleep fails
     wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
     bool wdt_was_enabled = wdt_hal_is_enabled(&rtc_wdt_ctx);    // If WDT was enabled in the user code, then do not change it here.
-
     if (!wdt_was_enabled) {
         wdt_hal_init(&rtc_wdt_ctx, WDT_RWDT, 0, false);
         uint32_t stage_timeout_ticks = (uint32_t)(1000ULL * rtc_clk_slow_freq_get_hz() / 1000ULL);
@@ -1339,8 +1345,8 @@ esp_err_t esp_light_sleep_start(void)
      */
     if (rtc_time_diff > 0) {
         esp_timer_private_set(high_res_time_at_start + rtc_time_diff);
-        sys_clock_announce((rtc_time_diff * CONFIG_SYS_CLOCK_TICKS_PER_SEC) / USEC_PER_SEC);
     }
+    // esp_set_time_from_rtc();
 
     esp_clk_private_unlock();
     esp_timer_private_unlock();

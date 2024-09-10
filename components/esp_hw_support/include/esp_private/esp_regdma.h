@@ -186,13 +186,7 @@ typedef struct regdma_link_config {
     int id; /* REGDMA linked list node unique identifier */
 } regdma_link_config_t;
 
-
 #define REGDMA_LINK_HEAD(plink)  (((regdma_link_config_t *)plink)->head)
-
-
-#ifndef ARRAY_SIZE
-# define ARRAY_SIZE(a)  (sizeof(a) / sizeof((a)[0]))
-#endif
 
 #define REGDMA_LINK_HEAD_INIT(_l, _m, _b, _sr, _sb) \
     {                       \
