@@ -121,12 +121,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
-    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
-    ../../components/hal/cache_hal.c
-    ../../components/hal/mmu_hal.c
     ../../components/hal/spi_flash_encrypt_hal_iram.c
     ../../components/hal/spi_flash_hal.c
     ../../components/hal/spi_flash_hal_iram.c
@@ -164,7 +160,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/spi_hal.c
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/hal/gdma_hal.c
     )
 
@@ -186,7 +181,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
-    ../../components/soc/esp32s3/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
@@ -216,6 +210,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     )
 
   zephyr_sources_ifdef(
@@ -230,7 +225,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/esp_psram.c
-      ../../components/esp_psram/mmu_psram_flash.c
       ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hw_support/esp_gpio_reserve.c
       )
@@ -255,12 +249,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/driver/gpio/gpio.c
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/driver/gpio/rtc_io.c
-      ../../components/esp_hw_support/sleep_modes.c
-      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
       ../../components/esp_hw_support/sleep_modem.c
       ../../components/hal/rtc_io_hal.c
-      ../../components/esp_system/port/brownout.c
-      ../../components/hal/brownout_hal.c
       ../../components/hal/esp32s3/touch_sensor_hal.c
       ../../components/esp_hw_support/sleep_cpu.c
       ../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
@@ -289,13 +279,12 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
-      ../../components/bootloader_support/src/bootloader_random.c
-      ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
       ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+      ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
+      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       )
 
     zephyr_sources_ifdef(
@@ -305,14 +294,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   endif()
 
   zephyr_sources(
-    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/i2s_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
 
-    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
@@ -359,7 +344,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
-    ../../components/esp_timer/src/system_time.c
 
     ../../components/hal/efuse_hal.c
     ../../components/hal/cache_hal.c

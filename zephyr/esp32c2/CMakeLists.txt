@@ -60,7 +60,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
     ../../components/esp_timer/include
     ../../components/esp_timer/private_include
-  
+
     ../../components/driver/include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
@@ -121,14 +121,11 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/hal/spi_hal.c
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/hal/gdma_hal.c
     )
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
-    ../../components/esp_mm/esp_mmu_map.c
-    ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/hal/cache_hal.c
@@ -160,7 +157,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
   zephyr_sources(
 	../../components/esp_hw_support/sleep_gpio.c
 	../../components/driver/gpio/rtc_io.c
-	../../components/esp_hw_support/sleep_modes.c
 	../../components/esp_hw_support/sleep_modem.c
 	../../components/hal/rtc_io_hal.c
 	../../components/driver/gpio/gpio.c
@@ -190,14 +186,12 @@ if(CONFIG_SOC_SERIES_ESP32C2)
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
-      ../../components/bootloader_support/src/bootloader_console_loader.c
-      ../../components/bootloader_support/src/bootloader_random.c
-      ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
       ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+      ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
+      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       )
   endif()
 
@@ -205,9 +199,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
 
-    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
@@ -249,7 +241,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
-    ../../components/esp_timer/src/system_time.c
 
     ../../components/hal/efuse_hal.c
     ../../components/hal/cache_hal.c
@@ -263,7 +254,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/log/log_noos.c
     ../../components/log/log.c
 
-    ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
 
     ../port/heap/heap_caps_zephyr.c
     ../port/host_flash/cache_utils.c
@@ -284,7 +274,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
-    ../../components/soc/${CONFIG_SOC_SERIES}/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
