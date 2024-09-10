@@ -47,6 +47,7 @@ typedef enum {
     CACHE_MEMORY_DCACHE_HIGH = 1<<3,
 } cache_layout_t;
 
+#define CACHE_SIZE_0KB  99 // unique value used for logging only
 #define CACHE_SIZE_8KB  CACHE_SIZE_HALF
 #define CACHE_SIZE_16KB CACHE_SIZE_FULL
 typedef enum {
