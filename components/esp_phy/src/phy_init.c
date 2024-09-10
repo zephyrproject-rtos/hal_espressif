@@ -48,7 +48,7 @@
 #endif
 
 #if CONFIG_IDF_TARGET_ESP32
-wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
+wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
 #endif
 
 static const char* TAG = "phy_init";
@@ -391,7 +391,7 @@ void esp_phy_modem_deinit(void)
     if (s_phy_modem_init_ref == 0) {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
         s_is_phy_reg_stored = false;
-        free(s_phy_digital_regs_mem);
+        k_free(s_phy_digital_regs_mem);
         s_phy_digital_regs_mem = NULL;
         /* Fix the issue caused by the power domain off.
         * This issue is only on ESP32C3.
@@ -464,14 +464,14 @@ void esp_mac_bb_pd_mem_deinit(void)
     k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     s_macbb_backup_mem_ref--;
     if (s_macbb_backup_mem_ref == 0) {
-        free(s_mac_bb_pd_mem);
+        k_free(s_mac_bb_pd_mem);
         s_mac_bb_pd_mem = NULL;
     }
     k_mutex_unlock(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_err_t err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_WIFI_BB);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "failed to free sleep retention linked list for wifi bb retention");
+        ESP_LOGW(TAG, "failed to k_free sleep retention linked list for wifi bb retention");
         return;
     }
     err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_WIFI_BB);
@@ -525,7 +525,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
     size_t init_data_store_length = sizeof(phy_init_magic_pre) +
             sizeof(esp_phy_init_data_t) + sizeof(phy_init_magic_post);
-    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return NULL;
@@ -542,7 +542,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
     ESP_LOGD(TAG, "loading PHY init data from partition at offset 0x%" PRIx32 "", partition->address);
     size_t init_data_store_length = sizeof(phy_init_magic_pre) +
             sizeof(esp_phy_init_data_t) + sizeof(phy_init_magic_post);
-    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data");
         return NULL;
@@ -551,7 +551,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
     esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to read PHY data partition (0x%x)", err);
-        free(init_data_store);
+        k_free(init_data_store);
         return NULL;
     }
 #endif
@@ -561,12 +561,12 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
                 PHY_INIT_MAGIC, sizeof(phy_init_magic_post)) != 0) {
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
         ESP_LOGE(TAG, "failed to validate embedded PHY init data");
-        free(init_data_store);
+        k_free(init_data_store);
         return NULL;
 #else
 #ifndef CONFIG_ESP_PHY_DEFAULT_INIT_IF_INVALID
         ESP_LOGE(TAG, "failed to validate PHY data partition");
-        free(init_data_store);
+        k_free(init_data_store);
         return NULL;
 #else
         ESP_LOGE(TAG, "failed to validate PHY data partition, restoring default data into flash...");
@@ -586,7 +586,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
         err = esp_partition_write(partition, 0, init_data_store, init_data_store_length);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "failed to write default PHY data partition (0x%x)", err);
-            free(init_data_store);
+            k_free(init_data_store);
             return NULL;
         }
 #endif // CONFIG_ESP_PHY_DEFAULT_INIT_IF_INVALID
@@ -606,7 +606,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
 
 void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
 {
-    free((uint8_t*) init_data - sizeof(phy_init_magic_pre));
+    k_free((uint8_t*) init_data - sizeof(phy_init_magic_pre));
 }
 
 #else // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
@@ -653,7 +653,7 @@ void esp_phy_load_cal_and_init(void)
 #endif
 
     esp_phy_calibration_data_t* cal_data =
-            (esp_phy_calibration_data_t*) calloc(sizeof(esp_phy_calibration_data_t), 1);
+            (esp_phy_calibration_data_t*) k_calloc(sizeof(esp_phy_calibration_data_t), 1);
     if (cal_data == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for RF calibration data");
         abort();
@@ -666,7 +666,7 @@ void esp_phy_load_cal_and_init(void)
         abort();
     }
 
-    esp_phy_init_data_t* init_data = (esp_phy_init_data_t*) malloc(sizeof(esp_phy_init_data_t));
+    esp_phy_init_data_t* init_data = (esp_phy_init_data_t*) k_malloc(sizeof(esp_phy_init_data_t));
     if (init_data == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for phy init data");
         abort();
@@ -723,7 +723,7 @@ void esp_phy_load_cal_and_init(void)
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER
     esp_phy_release_init_data(phy_init_data);
-    free(init_data);
+    k_free(init_data);
 #else
     esp_phy_release_init_data(init_data);
 #endif
@@ -733,7 +733,7 @@ void esp_phy_load_cal_and_init(void)
     ESP_ERROR_CHECK(esp_deep_sleep_register_phy_hook(&phy_xpd_tsens));
 #endif
 
-    free(cal_data); // PHY maintains a copy of calibration data, so we can free this
+    k_free(cal_data); // PHY maintains a copy of calibration data, so we can k_free this
 }
 
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN
@@ -797,7 +797,7 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         size_t init_data_store_length,
         phy_init_data_type_t init_data_type)
 {
-    phy_control_info_data_t* init_data_control_info = (phy_control_info_data_t*) malloc(sizeof(phy_control_info_data_t));
+    phy_control_info_data_t* init_data_control_info = (phy_control_info_data_t*) k_malloc(sizeof(phy_control_info_data_t));
     if (init_data_control_info == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data control info");
         return ESP_FAIL;
@@ -808,7 +808,7 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
 #else
     err = esp_partition_read(partition, init_data_store_length, init_data_control_info, sizeof(phy_control_info_data_t));
     if (err != ESP_OK) {
-        free(init_data_control_info);
+        k_free(init_data_control_info);
         ESP_LOGE(TAG, "failed to read PHY control info data partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -817,19 +817,19 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         err =  phy_crc_check_init_data(init_data_control_info->multiple_bin_checksum, init_data_control_info->control_info_checksum,
                 sizeof(phy_control_info_data_t) - sizeof(init_data_control_info->control_info_checksum));
         if (err != ESP_OK) {
-            free(init_data_control_info);
+            k_free(init_data_control_info);
             ESP_LOGE(TAG, "PHY init data control info check error");
             return ESP_FAIL;
         }
     } else {
-        free(init_data_control_info);
+        k_free(init_data_control_info);
         ESP_LOGE(TAG, "Check algorithm not CRC, PHY init data update failed");
         return ESP_FAIL;
     }
 
-    uint8_t* init_data_multiple = (uint8_t*) malloc(sizeof(esp_phy_init_data_t) * init_data_control_info->number);
+    uint8_t* init_data_multiple = (uint8_t*) k_malloc(sizeof(esp_phy_init_data_t) * init_data_control_info->number);
     if (init_data_multiple == NULL) {
-        free(init_data_control_info);
+        k_free(init_data_control_info);
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data multiple bin");
         return ESP_FAIL;
     }
@@ -840,8 +840,8 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
     err = esp_partition_read(partition, init_data_store_length + sizeof(phy_control_info_data_t),
             init_data_multiple, sizeof(esp_phy_init_data_t) * init_data_control_info->number);
     if (err != ESP_OK) {
-        free(init_data_multiple);
-        free(init_data_control_info);
+        k_free(init_data_multiple);
+        k_free(init_data_control_info);
         ESP_LOGE(TAG, "failed to read PHY init data multiple bin partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -850,14 +850,14 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         err = phy_crc_check_init_data(init_data_multiple, init_data_control_info->multiple_bin_checksum,
                 sizeof(esp_phy_init_data_t) * init_data_control_info->number);
         if (err != ESP_OK) {
-            free(init_data_multiple);
-            free(init_data_control_info);
+            k_free(init_data_multiple);
+            k_free(init_data_control_info);
             ESP_LOGE(TAG, "PHY init data multiple bin check error");
             return ESP_FAIL;
         }
     } else {
-        free(init_data_multiple);
-        free(init_data_control_info);
+        k_free(init_data_multiple);
+        k_free(init_data_control_info);
         ESP_LOGE(TAG, "Check algorithm not CRC, PHY init data update failed");
         return ESP_FAIL;
     }
@@ -870,8 +870,8 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         s_phy_init_data_type = init_data_type;
     }
 
-    free(init_data_multiple);
-    free(init_data_control_info);
+    k_free(init_data_multiple);
+    k_free(init_data_control_info);
     return ESP_OK;
 }
 
@@ -882,7 +882,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     const esp_partition_t* partition = NULL;
     size_t init_data_store_length = sizeof(phy_init_magic_pre) +
         sizeof(esp_phy_init_data_t) + sizeof(phy_init_magic_post);
-    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return ESP_ERR_NO_MEM;
@@ -898,7 +898,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     }
     size_t init_data_store_length = sizeof(phy_init_magic_pre) +
         sizeof(esp_phy_init_data_t) + sizeof(phy_init_magic_post);
-    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return ESP_ERR_NO_MEM;
@@ -906,7 +906,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
 
     esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
     if (err != ESP_OK) {
-        free(init_data_store);
+        k_free(init_data_store);
         ESP_LOGE(TAG, "failed to read updated country code PHY data partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -914,7 +914,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     if (memcmp(init_data_store, PHY_INIT_MAGIC, sizeof(phy_init_magic_pre)) != 0 ||
             memcmp(init_data_store + init_data_store_length - sizeof(phy_init_magic_post),
                 PHY_INIT_MAGIC, sizeof(phy_init_magic_post)) != 0) {
-        free(init_data_store);
+        k_free(init_data_store);
         ESP_LOGE(TAG, "failed to validate updated country code PHY data partition");
         return ESP_FAIL;
     }
@@ -923,7 +923,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     if (init_data_type != ESP_PHY_INIT_DATA_TYPE_DEFAULT) {
         err = phy_get_multiple_init_data(partition, init_data_store, init_data_store_length, init_data_type);
         if (err != ESP_OK) {
-            free(init_data_store);
+            k_free(init_data_store);
 #if CONFIG_ESP_PHY_INIT_DATA_ERROR
             abort();
 #else
@@ -938,7 +938,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
         err = esp_phy_apply_phy_init_data(init_data_store + sizeof(phy_init_magic_pre));
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "PHY init data failed to load");
-            free(init_data_store);
+            k_free(init_data_store);
             return ESP_FAIL;
         }
 
@@ -947,7 +947,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
         s_current_apply_phy_init_data = s_phy_init_data_type;
     }
 
-    free(init_data_store);
+    k_free(init_data_store);
     return ESP_OK;
 }
 #endif
@@ -985,7 +985,7 @@ esp_err_t esp_phy_update_country_info(const char *country)
 void esp_wifi_power_domain_on(void) __attribute__((alias("esp_wifi_bt_power_domain_on")));
 void esp_wifi_power_domain_off(void) __attribute__((alias("esp_wifi_bt_power_domain_off")));
 
-_lock_t phy_get_lock(void)
+struct k_mutex *phy_get_lock(void)
 {
-    return s_phy_access_lock;
+    return &s_phy_access_lock;
 }

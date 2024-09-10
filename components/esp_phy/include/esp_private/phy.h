@@ -173,7 +173,7 @@ esp_phy_modem_t phy_get_modem_flag(void);
  * @brief Get the PHY lock, only used in esp_phy, the user should not use this function.
  *
  */
-_lock_t phy_get_lock(void);
+struct k_mutex *phy_get_lock(void);
 
 /**
  * @brief Call this funnction to track pll immediately.
