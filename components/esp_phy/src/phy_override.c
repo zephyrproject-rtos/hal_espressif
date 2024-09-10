@@ -9,8 +9,7 @@
 #include "esp_private/regi2c_ctrl.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/sar_periph_ctrl.h"
-#include "freertos/FreeRTOS.h"
-
+#include <zephyr/kernel.h>
 
 /*
  * This file is used to override the hooks provided by the PHY lib for some system features.

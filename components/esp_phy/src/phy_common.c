@@ -9,6 +9,7 @@
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
 #include <stdint.h>
+#include <zephyr/kernel.h>
 
 static volatile uint16_t s_phy_modem_flag = 0;
 
@@ -83,10 +84,10 @@ static void phy_track_pll_internal(void)
 
 static void phy_track_pll_timer_callback(void* arg)
 {
-    _lock_t phy_lock = phy_get_lock();
-    _lock_acquire(&phy_lock);
+    struct k_mutex *phy_lock = phy_get_lock();
+    k_mutex_lock(phy_lock, K_FOREVER);
     phy_track_pll_internal();
-    _lock_release(&phy_lock);
+    k_mutex_unlock(phy_lock);
 }
 
 void phy_track_pll_init(void)
