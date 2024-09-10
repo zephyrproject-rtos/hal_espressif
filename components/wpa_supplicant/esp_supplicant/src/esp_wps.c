@@ -31,8 +31,6 @@
 #include "eap_common/eap_wsc_common.h"
 #include "esp_wpas_glue.h"
 
-const char *wps_model_number = CONFIG_IDF_TARGET;
-
 void *s_wps_api_lock = NULL;  /* Used in WPS/WPS-REG public API only, never be freed */
 void *s_wps_api_sem = NULL;   /* Sync semaphore used between WPS/WPS-REG public API caller task and WPS task, never be freed */
 bool s_wps_enabled = false;
@@ -373,9 +371,9 @@ wps_parse_scan_result(struct wps_scan_ie *scan)
     }
 
     esp_wifi_get_mode(&op_mode);
-    if ((op_mode != WIFI_MODE_STA)
+    if ((op_mode != ESP32_WIFI_MODE_STA)
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-        && (op_mode != WIFI_MODE_APSTA)
+        && (op_mode != ESP32_WIFI_MODE_APSTA)
 #endif
        ) {
         return false;
@@ -1100,8 +1098,8 @@ int wps_set_default_factory(void)
 
     os_snprintf(s_factory_info->manufacturer, WPS_MAX_MANUFACTURER_LEN, "ESPRESSIF");
     os_snprintf(s_factory_info->model_name, WPS_MAX_MODEL_NUMBER_LEN, "ESPRESSIF IOT");
-    os_snprintf(s_factory_info->model_number, WPS_MAX_MODEL_NAME_LEN, wps_model_number);
-    os_snprintf(s_factory_info->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s STATION", wps_model_number);
+    os_snprintf(s_factory_info->model_number, WPS_MAX_MODEL_NAME_LEN, "%s", CONFIG_SOC_SERIES);
+    os_snprintf(s_factory_info->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s STATION", CONFIG_SOC_SERIES);
 
     return ESP_OK;
 }
@@ -1178,28 +1176,28 @@ int wps_dev_init(void)
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, s_factory_info->manufacturer);
+    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, "%s", s_factory_info->manufacturer);
 
     dev->model_name = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
     if (!dev->model_name) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, s_factory_info->model_name);
+    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_name);
 
     dev->model_number = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
     if (!dev->model_number) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, s_factory_info->model_number);
+    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_number);
 
     dev->device_name = os_zalloc(WPS_MAX_DEVICE_NAME_LEN);
     if (!dev->device_name) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, s_factory_info->device_name);
+    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s", s_factory_info->device_name);
 
     dev->serial_number = os_zalloc(16);
     if (!dev->serial_number) {
@@ -1826,9 +1824,9 @@ int wps_check_wifi_mode(void)
 
     if (
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-        mode == WIFI_MODE_AP ||
+        mode == ESP32_WIFI_MODE_AP ||
 #endif
-        mode == WIFI_MODE_NULL) {
+        mode == ESP32_WIFI_MODE_NULL) {
         wpa_printf(MSG_ERROR, "wps check wifi mode: wrong wifi mode=%d ", mode);
         return ESP_ERR_WIFI_MODE;
     }
