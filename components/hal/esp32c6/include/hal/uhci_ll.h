@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "hal/uhci_types.h"
 #include "soc/uhci_struct.h"
+#include "hal/misc.h"
 
 #ifdef __cplusplus
 extern "C" {
