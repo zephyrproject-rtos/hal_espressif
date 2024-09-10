@@ -163,7 +163,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/spi_hal.c
     ../../components/hal/spi_hal_iram.c
     ../../components/soc/lldesc.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/spi_periph.c
     )
 
   zephyr_sources_ifdef(
@@ -178,7 +177,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_psram/esp_psram.c
       ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
-      ../../components/bootloader_support/src/bootloader_common.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cache_sram_mmu.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
       )
@@ -192,7 +190,6 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
-    ../../components/soc/${CONFIG_SOC_SERIES}/ledc_periph.c
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
@@ -234,6 +231,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/rtc_io_hal.c
     ../../components/driver/gpio/rtc_io.c
     src/esp_adc_cal/esp_adc_cal.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     )
 
   zephyr_link_libraries("-Wl,--wrap=longjmp")
@@ -255,13 +253,12 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/bootloader_support/src/bootloader_console.c
-      ../../components/bootloader_support/src/bootloader_random.c
-      ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
       ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
       ../../components/bootloader_support/src/bootloader_init.c
       ../../components/bootloader_support/src/bootloader_common.c
       ../../components/bootloader_support/src/bootloader_common_loader.c
+      ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
       )
 
     zephyr_sources_ifdef(
@@ -271,13 +268,10 @@ if(CONFIG_SOC_SERIES_ESP32)
   endif()
 
   zephyr_sources(
-    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/i2s_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/dport_access.c
 
-    ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_efuse.c
@@ -301,7 +295,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
     ../../components/esp_mm/esp_mmu_map.c
@@ -321,7 +314,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
     ../../components/esp_timer/src/esp_timer.c
-    ../../components/esp_timer/src/system_time.c
 
     ../../components/hal/efuse_hal.c
     ../../components/hal/mmu_hal.c
