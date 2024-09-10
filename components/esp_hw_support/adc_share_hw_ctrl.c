@@ -201,7 +201,7 @@ esp_err_t adc2_wifi_release(void)
     return ESP_OK;
 }
 
-static portMUX_TYPE s_spinlock = portMUX_INITIALIZER_UNLOCKED;
+static unsigned int s_spinlock = 0;
 
 /*------------------------------------------------------------------------------
 * For those who use APB_SARADC periph
@@ -210,7 +210,7 @@ static int s_adc_digi_ctrlr_cnt;
 
 void adc_apb_periph_claim(void)
 {
-    portENTER_CRITICAL(&s_spinlock);
+    s_spinlock = irq_lock();
     s_adc_digi_ctrlr_cnt++;
     if (s_adc_digi_ctrlr_cnt == 1) {
         //enable ADC digital part
@@ -219,20 +219,20 @@ void adc_apb_periph_claim(void)
         periph_module_reset(PERIPH_SARADC_MODULE);
     }
 
-    portEXIT_CRITICAL(&s_spinlock);
+    irq_unlock(s_spinlock);
 }
 
 void adc_apb_periph_free(void)
 {
-    portENTER_CRITICAL(&s_spinlock);
+    s_spinlock = irq_lock();
     s_adc_digi_ctrlr_cnt--;
     if (s_adc_digi_ctrlr_cnt == 0) {
         periph_module_disable(PERIPH_SARADC_MODULE);
     } else if (s_adc_digi_ctrlr_cnt < 0) {
-        portEXIT_CRITICAL(&s_spinlock);
+        irq_unlock(s_spinlock);
         ESP_LOGE(TAG, "%s called, but `s_adc_digi_ctrlr_cnt == 0`", __func__);
         abort();
     }
 
-    portEXIT_CRITICAL(&s_spinlock);
+    irq_unlock(s_spinlock);
 }
