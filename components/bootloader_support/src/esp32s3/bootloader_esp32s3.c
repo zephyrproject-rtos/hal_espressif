@@ -181,8 +181,11 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#ifdef CONFIG_ESP_SIMPLE_BOOT
-    esp_flash_init_default_chip();
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
+    spi_flash_init_chip_state();
+    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
+        return ret;
+    }
 #endif
 
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
@@ -191,8 +194,7 @@ esp_err_t bootloader_init(void)
     //init mmu
     mmu_hal_init();
     // update flash ID
-    /* disabled it to enable octal support */
-    // bootloader_flash_update_id();
+    bootloader_flash_update_id();
     // Check and run XMC startup flow
     if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "failed when running XMC startup flow, reboot!");

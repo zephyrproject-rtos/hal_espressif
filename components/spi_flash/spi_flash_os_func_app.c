@@ -76,16 +76,13 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg)
     esp_err_t ret = ESP_OK;
     /**
      * There are three ways for ESP Flash API lock:
-     * 1. spi bus lock, this is used when SPI1 is shared with GPSPI Master Driver
+     * 1. spi bus lock, this is used when SPI1 is shared with GPSPI Master Driver (not yet supported in Zephyr)
      * 2. mutex, this is used when the Cache isn't need to be disabled.
      * 3. cache lock (from cache_utils.h), this is used when we need to disable Cache to avoid access from SPI0
      *
      * From 1 to 3, the lock efficiency decreases.
      */
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    //use the lock to disable the cache and interrupts before using the SPI bus
-    ret = acquire_spi_bus_lock(arg);
-#elif SPI_FLASH_CACHE_NO_DISABLE
+#if SPI_FLASH_CACHE_NO_DISABLE
     k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
 #else
     //directly disable the cache and interrupts when lock is not used
@@ -102,9 +99,7 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
     /**
      * There are three ways for ESP Flash API lock, see `spi1_start`
      */
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    ret = release_spi_bus_lock(arg);
-#elif SPI_FLASH_CACHE_NO_DISABLE
+#if SPI_FLASH_CACHE_NO_DISABLE
     k_mutex_unlock(&s_spi1_flash_mutex);
 #else
     cache_enable(NULL);
@@ -210,11 +205,8 @@ static bool use_bus_lock(int host_id)
     if (host_id != SPI1_HOST) {
         return true;
     }
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    return true;
-#else
+
     return false;
-#endif
 }
 
 // This function is only called by users usually via `spi_bus_add_flash_device` to initialise os functions.

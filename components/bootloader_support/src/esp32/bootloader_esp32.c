@@ -211,6 +211,13 @@ esp_err_t bootloader_init(void)
     // print 2nd bootloader banner
     bootloader_print_banner();
 
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
+    spi_flash_init_chip_state();
+    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
+        return ret;
+    }
+#endif
+
 #if !CONFIG_APP_BUILD_TYPE_RAM
     // reset MMU
     bootloader_reset_mmu();
@@ -221,12 +228,6 @@ esp_err_t bootloader_init(void)
         ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
-    // Workaround to make flash accesible if no bootloader is enabled
-#ifdef CONFIG_ESP_SIMPLE_BOOT
-    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
-        return ret;
-    }
-#endif
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         return ret;
