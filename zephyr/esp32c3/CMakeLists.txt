@@ -154,6 +154,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/spi_flash/spi_flash_chip_th.c
     ../../components/spi_flash/spi_flash_chip_winbond.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
+    ../../components/spi_flash/spi_flash_os_func_app.c
     )
   endif()
 
