@@ -107,7 +107,7 @@ static LIST_HEAD(esp_inactive_timer_list, esp_timer) s_inactive_timers[ESP_TIMER
 };
 #endif
 
-K_KERNEL_STACK_MEMBER(timer_task_stack, 4096);
+K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
 // task used to dispatch timer callbacks
 static struct k_thread s_timer_task;
 // counting semaphore used to notify the timer task from ISR
@@ -543,8 +543,8 @@ static esp_err_t init_timer_task(void)
         }
 
         k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
-                4096, (k_thread_entry_t)timer_task, NULL, NULL, NULL,
-                ESP_TASK_TIMER_PRIO, K_INHERIT_PERMS, K_NO_WAIT);
+                CONFIG_ESP32_TIMER_TASK_STACK_SIZE, (k_thread_entry_t)timer_task, NULL, NULL, NULL,
+                CONFIG_ESP32_TIMER_TASK_PRIO, K_INHERIT_PERMS, K_NO_WAIT);
 
         if (!tid) {
             ESP_EARLY_LOGE(TAG, "Not enough memory to create timer task");
@@ -575,6 +575,10 @@ esp_err_t esp_timer_init(void)
     }
     return err;
 }
+
+#if defined(CONFIG_WIFI_ESP32) || defined(CONFIG_BT_ESP32)
+SYS_INIT(esp_timer_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+#endif
 
 esp_err_t esp_timer_deinit(void)
 {

@@ -54,17 +54,10 @@ static intr_handler_t s_alarm_handler = NULL;
 static systimer_hal_context_t systimer_hal;
 
 /* Spinlock used to protect access to the hardware registers. */
-static unsigned int s_time_update_lock;
+extern unsigned int s_time_update_lock;
 
-void esp_timer_impl_lock(void)
-{
-    s_time_update_lock = irq_lock();
-}
-
-void esp_timer_impl_unlock(void)
-{
-    irq_unlock(s_time_update_lock);
-}
+/* Alarm values to generate interrupt on match */
+extern uint64_t timestamp_id[2];
 
 uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
 {
@@ -82,17 +75,11 @@ int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")
 
 void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
-    static uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
-    esp_timer_impl_lock();
+    s_time_update_lock = irq_lock();
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
     systimer_hal_set_alarm_target(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, timestamp);
-    esp_timer_impl_unlock();
-}
-
-void IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
-{
-    esp_timer_impl_set_alarm_id(timestamp, 0);
+    irq_unlock(s_time_update_lock);
 }
 
 static void IRAM_ATTR timer_alarm_isr(void *arg)
@@ -150,7 +137,7 @@ esp_err_t esp_timer_impl_early_init(void)
     systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
 
     for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
-        systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, (cpuid < portNUM_PROCESSORS) ? true : false);
+        systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, (cpuid < CONFIG_MP_MAX_NUM_CPUS) ? true : false);
     }
 
     return ESP_OK;

@@ -103,17 +103,10 @@ static const char* TAG = "esp_timer_impl";
 static alarm_intr_handler_t s_alarm_handler;
 
 /* Spinlock used to protect access to the hardware registers. */
-static unsigned int s_time_update_lock;
+extern unsigned int s_time_update_lock;
 
-void esp_timer_impl_lock(void)
-{
-    s_time_update_lock = irq_lock();
-}
-
-void esp_timer_impl_unlock(void)
-{
-    irq_unlock(s_time_update_lock);
-}
+/* Alarm values to generate interrupt on match */
+extern uint64_t timestamp_id[2];
 
 uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
 {
@@ -155,7 +148,6 @@ int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")
 
 void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
-    static uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
     s_time_update_lock = irq_lock();
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
@@ -181,11 +173,6 @@ void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id
         } while(1);
     }
     irq_unlock(s_time_update_lock);
-}
-
-void IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
-{
-    esp_timer_impl_set_alarm_id(timestamp, 0);
 }
 
 static void IRAM_ATTR timer_alarm_isr(void *arg)
