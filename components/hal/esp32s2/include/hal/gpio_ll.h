@@ -22,6 +22,7 @@
 #include "soc/gpio_struct.h"
 #include "hal/gpio_types.h"
 #include "hal/assert.h"
+#include "hal/misc.h"
 
 #ifdef __cplusplus
 extern "C" {

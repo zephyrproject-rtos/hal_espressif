@@ -13,7 +13,6 @@
 #include "hal/uart_types.h"
 #include "soc/uart_periph.h"
 #include "hal/clk_tree_ll.h"
-#include "hal/misc.h"
 #include "esp_attr.h"
 #include "hal/misc.h"
 #include "soc/system_struct.h"
