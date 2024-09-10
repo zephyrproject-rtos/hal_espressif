@@ -52,14 +52,14 @@ static IRAM_ATTR esp_err_t start(void *arg)
 {
 #if CONFIG_IDF_TARGET_ESP32
     Cache_Read_Disable(0);
+#if CONFIG_SMP
     Cache_Read_Disable(1);
+#endif
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-    spi_noos_arg_t *spi_arg = arg;
-    spi_arg->icache_autoload = Cache_Suspend_ICache();
-    spi_arg->dcache_autoload = Cache_Suspend_DCache();
+    spi_arg.icache_autoload = Cache_Suspend_ICache();
+    spi_arg.dcache_autoload = Cache_Suspend_DCache();
 #elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
-    spi_noos_arg_t *spi_arg = arg;
-    spi_arg->icache_autoload = Cache_Suspend_ICache();
+    spi_arg.icache_autoload = Cache_Suspend_ICache();
 #endif
     return ESP_OK;
 }
@@ -68,16 +68,16 @@ static IRAM_ATTR esp_err_t end(void *arg)
 {
 #if CONFIG_IDF_TARGET_ESP32
     Cache_Read_Enable(0);
+#if CONFIG_SMP
     Cache_Read_Enable(1);
+#endif
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-    spi_noos_arg_t *spi_arg = arg;
     Cache_Invalidate_ICache_All();
-    Cache_Resume_ICache(spi_arg->icache_autoload);
-    Cache_Resume_DCache(spi_arg->dcache_autoload);
+    Cache_Resume_ICache(spi_arg.icache_autoload);
+    Cache_Resume_DCache(spi_arg.dcache_autoload);
 #elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
-    spi_noos_arg_t *spi_arg = arg;
     Cache_Invalidate_ICache_All();
-    Cache_Resume_ICache(spi_arg->icache_autoload);
+    Cache_Resume_ICache(spi_arg.icache_autoload);
 #endif
     return ESP_OK;
 }
@@ -107,7 +107,7 @@ const DRAM_ATTR esp_flash_os_functions_t esp_flash_noos_functions = {
 };
 
 esp_err_t IRAM_ATTR esp_flash_app_disable_os_functions(esp_flash_t* chip)
-{
+{   
     chip->os_func = &esp_flash_noos_functions;
 
 #if !CONFIG_IDF_TARGET_ESP32
