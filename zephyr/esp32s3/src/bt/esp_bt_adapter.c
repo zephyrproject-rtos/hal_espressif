@@ -351,7 +351,6 @@ static unsigned int global_nested_counter = 0;
 K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
 static struct k_thread bt_task_handle;
 
-static DRAM_ATTR uint8_t btdm_lpclk_sel;
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
 static void esp_bt_free(void *mem)
