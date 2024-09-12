@@ -32,6 +32,7 @@ static adc_ll_controller_t get_controller(adc_unit_t unit, adc_hal_work_mode_t w
                 return ADC_LL_CTRL_DIG;
             default:
                 abort();
+                return ADC_LL_CTRL_ARB; //avoid -Wreturn-type
         }
     } else {
         switch (work_mode) {
