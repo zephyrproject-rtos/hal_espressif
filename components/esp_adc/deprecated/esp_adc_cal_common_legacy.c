@@ -61,8 +61,13 @@ int32_t esp_adc_cal_get_reading_error(const esp_adc_error_calc_param_t *param, u
     uint8_t term_num = param->term_num;
     int32_t error = 0;
     uint64_t coeff = 0;
-    uint64_t variable[term_num];
-    uint64_t term[term_num];
+    uint64_t *variable = (uint64_t *)malloc(term_num * sizeof(uint64_t));
+    uint64_t *term = (uint64_t *)malloc(term_num * sizeof(uint64_t));
+
+    if (variable == NULL || term == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
     memset(variable, 0, term_num * sizeof(uint64_t));
     memset(term, 0, term_num * sizeof(uint64_t));
 
