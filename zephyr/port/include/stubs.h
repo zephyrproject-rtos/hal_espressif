@@ -15,6 +15,7 @@
 #endif
 
 #include <zephyr/devicetree.h>
+#include <esp_rom_caps.h>
 
 #if defined(CONFIG_SOC_SERIES_ESP32)
 #define DT_CPU_COMPAT espressif_xtensa_lx6
@@ -67,7 +68,7 @@
 	DT_PROP_BY_IDX(DT_NODELABEL(usb_serial), reg, 0) ==		\
 	DT_PROP_BY_IDX(DT_CHOSEN(zephyr_console), reg, 0)
 #define CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG 1
-#define ESP_CONSOLE_UART_NUM 0
+#define ESP_CONSOLE_UART_NUM ESP_ROM_USB_SERIAL_DEVICE_NUM
 #define ESP_CONSOLE_UART_BAUDRATE 1
 #else
 
