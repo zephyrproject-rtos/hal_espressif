@@ -38,7 +38,7 @@
 #include "esp_efuse.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
-#ifdef CONFIG_ESP_SIMPLE_BOOT
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #include "esp_flash_internal.h"
 #endif
 

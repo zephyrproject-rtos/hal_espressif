@@ -40,7 +40,7 @@
 #include "hal/cache_hal.h"
 #include "xtensa/config/core.h"
 #include "xt_instr_macros.h"
-#ifdef CONFIG_ESP_SIMPLE_BOOT
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #include "esp_flash_internal.h"
 #endif
 
