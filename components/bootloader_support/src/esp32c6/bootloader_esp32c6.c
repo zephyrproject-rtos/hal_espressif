@@ -45,7 +45,7 @@
 #include "soc/lp_wdt_reg.h"
 #include "hal/efuse_hal.h"
 #include "modem/modem_lpcon_reg.h"
-#ifdef CONFIG_ESP_SIMPLE_BOOT
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #include "esp_flash_internal.h"
 #endif
 
