@@ -47,22 +47,22 @@
 #define ESP_BOOTLOADER_SPIFLASH_QE_GD_SR2        BIT1   // QE position when you write 8 bits(for SR2) at one time.
 #define ESP_BOOTLOADER_SPIFLASH_QE_SR1_2BYTE     BIT9   // QE position when you write 16 bits at one time.
 
-#ifndef BOOTLOADER_BUILD
+/* #ifndef BOOTLOADER_BUILD */
 /* Normal app version maps to spi_flash_mmap.h operations...
  */
-static const char *TAG = "bootloader_mmap";
+static const char *ZTAG = "sys_mmap";
 
 static spi_flash_mmap_handle_t map;
 
-uint32_t bootloader_mmap_get_free_pages(void)
+uint32_t sys_mmap_get_free_pages(void)
 {
     return spi_flash_mmap_get_free_pages(SPI_FLASH_MMAP_DATA);
 }
 
-const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
+const void *sys_mmap(uint32_t src_addr, uint32_t size)
 {
     if (map) {
-        ESP_EARLY_LOGE(TAG, "tried to bootloader_mmap twice");
+        ESP_EARLY_LOGE(ZTAG, "tried to bootloader_mmap twice");
         return NULL; /* existing mapping in use... */
     }
     const void *result = NULL;
@@ -70,13 +70,13 @@ const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
     size += (src_addr - src_page);
     esp_err_t err = spi_flash_mmap(src_page, size, SPI_FLASH_MMAP_DATA, &result, &map);
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "spi_flash_mmap failed: 0x%x", err);
+        ESP_EARLY_LOGE(ZTAG, "spi_flash_mmap failed: 0x%x", err);
         return NULL;
     }
     return (void *)((intptr_t)result + (src_addr - src_page));
 }
 
-void bootloader_munmap(const void *mapping)
+void sys_munmap(const void *mapping)
 {
     if (mapping && map) {
         spi_flash_munmap(map);
@@ -84,7 +84,7 @@ void bootloader_munmap(const void *mapping)
     map = 0;
 }
 
-esp_err_t bootloader_flash_read(size_t src, void *dest, size_t size, bool allow_decrypt)
+esp_err_t sys_flash_read(size_t src, void *dest, size_t size, bool allow_decrypt)
 {
     if (allow_decrypt && esp_flash_encryption_enabled()) {
         return esp_flash_read_encrypted(NULL, src, dest, size);
@@ -93,7 +93,7 @@ esp_err_t bootloader_flash_read(size_t src, void *dest, size_t size, bool allow_
     }
 }
 
-esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
+esp_err_t sys_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
 {
     if (write_encrypted && !ENCRYPTION_IS_VIRTUAL) {
         return esp_flash_write_encrypted(NULL, dest_addr, src, size);
@@ -102,19 +102,19 @@ esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool 
     }
 }
 
-esp_err_t bootloader_flash_erase_sector(size_t sector)
+esp_err_t sys_flash_erase_sector(size_t sector)
 {
     // Will de-dependency IDF-5025
     return esp_flash_erase_region(NULL, sector * SPI_FLASH_SEC_SIZE, SPI_FLASH_SEC_SIZE);
 }
 
-esp_err_t bootloader_flash_erase_range(uint32_t start_addr, uint32_t size)
+esp_err_t sys_flash_erase_range(uint32_t start_addr, uint32_t size)
 {
     // Will de-dependency IDF-5025
     return esp_flash_erase_region(NULL, start_addr, size);
 }
 
-#else //BOOTLOADER_BUILD
+/* #else //BOOTLOADER_BUILD  */
 /* Bootloader version, uses ROM functions only */
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/cache.h"
@@ -444,7 +444,7 @@ void bootloader_flash_32bits_address_map_enable(esp_rom_spiflash_read_mode_t fla
 }
 #endif
 
-#endif // BOOTLOADER_BUILD
+/* #endif // BOOTLOADER_BUILD */
 
 
 FORCE_INLINE_ATTR bool is_issi_chip(const esp_rom_spiflash_chip_t* chip)
@@ -649,12 +649,12 @@ void bootloader_spi_flash_reset(void)
 #define XMC_SUPPORT CONFIG_BOOTLOADER_FLASH_XMC_SUPPORT
 #define XMC_VENDOR_ID 0x20
 
-#if BOOTLOADER_BUILD
-#define BOOTLOADER_FLASH_LOG(level, ...)    ESP_EARLY_LOG##level(TAG, ##__VA_ARGS__)
-#else
+// #if BOOTLOADER_BUILD
+//#define BOOTLOADER_FLASH_LOG(level, ...)    ESP_EARLY_LOG##level(TAG, ##__VA_ARGS__)
+//#else
 static DRAM_ATTR char bootloader_flash_tag[] = "bootloader_flash";
 #define BOOTLOADER_FLASH_LOG(level, ...)    ESP_DRAM_LOG##level(bootloader_flash_tag, ##__VA_ARGS__)
-#endif
+//#endif
 
 #if XMC_SUPPORT
 //strictly check the model

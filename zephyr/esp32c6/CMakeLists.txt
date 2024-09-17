@@ -169,9 +169,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     )
 
   if (CONFIG_MCUBOOT)
-    zephyr_compile_definitions(BOOTLOADER_BUILD)
-    zephyr_compile_definitions(NDEBUG)
-
     zephyr_sources(
         ../port/boot/esp_image_loader.c
         )
