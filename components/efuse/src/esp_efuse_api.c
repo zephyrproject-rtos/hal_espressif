@@ -13,7 +13,7 @@
 
 const static char *TAG = "efuse";
 
-#if defined(BOOTLOADER_BUILD)
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #define EFUSE_LOCK_ACQUIRE_RECURSIVE()
 #define EFUSE_LOCK_RELEASE_RECURSIVE()
 #else
@@ -39,11 +39,11 @@ esp_err_t esp_efuse_read_field_blob(const esp_efuse_desc_t* field[], void* dst, 
         do {
             memset((uint8_t *)dst, 0, esp_efuse_utility_get_number_of_items(dst_size_bits, 8));
             err = esp_efuse_utility_process(field, dst, dst_size_bits, esp_efuse_utility_fill_buff);
-#ifndef BOOTLOADER_BUILD
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
             if (err == ESP_ERR_DAMAGED_READING) {
                 esp_rom_delay_us(1000);
             }
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_BOOTLOADER_MCUBOOT
         } while (err == ESP_ERR_DAMAGED_READING);
     }
     return err;
@@ -67,11 +67,11 @@ esp_err_t esp_efuse_read_field_cnt(const esp_efuse_desc_t* field[], size_t* out_
         do {
             *out_cnt = 0;
             err = esp_efuse_utility_process(field, out_cnt, 0, esp_efuse_utility_count_once);
-#ifndef BOOTLOADER_BUILD
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
             if (err == ESP_ERR_DAMAGED_READING) {
                 esp_rom_delay_us(1000);
             }
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_BOOTLOADER_MCUBOOT
         } while (err == ESP_ERR_DAMAGED_READING);
     }
     return err;

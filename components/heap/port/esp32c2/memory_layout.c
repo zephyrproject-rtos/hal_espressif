@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#ifndef BOOTLOADER_BUILD
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -84,4 +84,4 @@ SOC_RESERVE_MEMORY_REGION((intptr_t)&_data_start, (intptr_t)&_heap_start, dram_d
 #define I_D_OFFSET (SOC_DIRAM_IRAM_LOW - SOC_DIRAM_DRAM_LOW)
 SOC_RESERVE_MEMORY_REGION((intptr_t)&_iram_start - I_D_OFFSET, (intptr_t)&_iram_end - I_D_OFFSET, iram_code);
 
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_BOOTLOADER_MCUBOOT

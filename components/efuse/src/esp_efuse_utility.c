@@ -24,12 +24,12 @@ static volatile unsigned s_burn_counter = 0;
 #ifdef CONFIG_EFUSE_VIRTUAL
 uint32_t virt_blocks[EFUSE_BLK_MAX][COUNT_EFUSE_REG_PER_BLOCK];
 
-#ifndef BOOTLOADER_BUILD
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
 #ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 /* Call the update function to seed virtual efuses during initialization */
 void esp_efuse_utility_update_virt_blocks(void);
 #endif // CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
-#endif // NOT BOOTLOADER_BUILD
+#endif // CONFIG_BOOTLOADER_MCUBOOT
 
 #endif // CONFIG_EFUSE_VIRTUAL
 
@@ -418,7 +418,7 @@ uint32_t esp_efuse_utility_get_read_register_address(esp_efuse_block_t block)
 
 }
 
-#if defined(BOOTLOADER_BUILD) && defined(CONFIG_EFUSE_VIRTUAL) && !defined(CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH)
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_EFUSE_VIRTUAL) && !defined(CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH)
 void esp_efuse_init_virtual_mode_in_ram(void)
 {
     esp_efuse_utility_update_virt_blocks();
