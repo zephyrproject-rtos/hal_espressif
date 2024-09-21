@@ -520,6 +520,7 @@ void sleep_retention_do_extra_retention(bool backup_or_restore)
     int refs = s_retention.extra_refs;
     k_sem_give(&s_retention_lock);
     assert(refs >= 0 && refs <= cnt_modules);
+    (void)refs;
 }
 
 void sleep_retention_module_deinit(void)
