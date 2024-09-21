@@ -1661,7 +1661,7 @@ static uint32_t get_power_down_flags(void)
     // If there is any data placed into .rtc.data or .rtc.bss segments, and
     // RTC_SLOW_MEM is Auto, keep it powered up as well.
 
-#if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD && SOC_ULP_SUPPORTED
+#if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD && SOC_ULP_SUPPORTED && !CONFIG_SOC_ESP32_APPCPU && !CONFIG_SOC_ESP32S3_APPCPU
     // Labels are defined in the linker script
     extern int _rtc_slow_length;
     int _rtc_reserved_length = 0;

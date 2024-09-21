@@ -582,7 +582,11 @@ void esp_pm_impl_init(void)
     esp_err_t err = esp_clk_tree_src_get_freq_hz((soc_module_clk_t)clk_source,
             ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &sclk_freq);
 
-    assert(err == ESP_OK);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "could not get UART clock frequency");
+        return;
+    }
+
     uart_ll_set_baudrate(UART_LL_GET_HW(CONFIG_ESP_CONSOLE_UART_NUM), CONFIG_ESP_CONSOLE_UART_BAUDRATE, sclk_freq);
 #endif // CONFIG_ESP_CONSOLE_UART
 
