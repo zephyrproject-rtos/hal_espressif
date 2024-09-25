@@ -289,6 +289,17 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/hal/ledc_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESP32_TEMP
+    ../../components/driver/deprecated/rtc_temperature_legacy.c
+    ../../components/soc//${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    )
+
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
     zephyr_sources(
