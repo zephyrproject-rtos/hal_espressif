@@ -46,7 +46,7 @@ void ledc_hal_get_clk_cfg(ledc_hal_context_t *hal, ledc_timer_t timer_sel, ledc_
         if (hal->speed_mode == LEDC_LOW_SPEED_MODE) {
             /* If the source clock used by LEDC hardware is not REF_TICK, it is
             * necessary to retrieve the global clock source used. */
-            ledc_slow_clk_sel_t slow_clk;
+            ledc_slow_clk_sel_t slow_clk = LEDC_SLOW_CLK_RC_FAST;
             ledc_hal_get_slow_clk_sel(hal, &slow_clk);
             driver_clk = (ledc_clk_cfg_t)slow_clk;
         }
