@@ -215,6 +215,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/adc_hal_common.c
     ../../components/driver/deprecated/adc_legacy.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/adc2_init_cal.c
     ../../components/hal/rtc_io_hal.c
     ../../components/driver/gpio/rtc_io.c
     src/esp_adc_cal/esp_adc_cal.c
@@ -370,6 +371,13 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
+
+    zephyr_sources(
+      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+      ../../components/hal/adc_hal_common.c
+      ../../components/esp_hw_support/adc_share_hw_ctrl.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/adc2_init_cal.c
+      )
 
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.

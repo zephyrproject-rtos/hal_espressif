@@ -147,6 +147,12 @@ esp_err_t adc2_wifi_release(void);
  * @note  This is a private function, Don't call `adc2_cal_include` in user code.
  */
 void adc2_cal_include(void);
+
+/**
+ * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
+ *        This API be called in before `app_main()`.
+ */
+void adc2_init_code_calibration(void);
 #else
 /**
  * @brief There's no calibration involved on this chip.
