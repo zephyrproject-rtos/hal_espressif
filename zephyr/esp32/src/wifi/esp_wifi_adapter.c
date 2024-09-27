@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -28,15 +28,13 @@
 #include "soc/dport_reg.h"
 #include "esp32/rom/ets_sys.h"
 #include "esp_mac.h"
-#include "esp_modem_wrapper.h"
+#include "private/esp_modem_wrapper.h"
 #include "wifi/wifi_event.h"
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_heap_runtime.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
-
-ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
 /* Select heap to be used for WiFi adapter */
 #if defined(CONFIG_ESP_WIFI_HEAP_RUNTIME)
@@ -57,26 +55,7 @@ static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
 
-#if CONFIG_IDF_TARGET_ESP32
-extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
-#endif
-
 static void esp_wifi_free(void *mem);
-
-uint64_t g_wifi_feature_caps =
-#if CONFIG_ESP_WIFI_ENABLE_WPA3_SAE
-	CONFIG_FEATURE_WPA3_SAE_BIT |
-#endif
-#if CONFIG_SPIRAM
-	CONFIG_FEATURE_CACHE_TX_BUF_BIT |
-#endif
-#if CONFIG_ESP_WIFI_FTM_INITIATOR_SUPPORT
-	CONFIG_FEATURE_FTM_INITIATOR_BIT |
-#endif
-#if CONFIG_ESP_WIFI_FTM_RESPONDER_SUPPORT
-	CONFIG_FEATURE_FTM_RESPONDER_BIT |
-#endif
-0;
 
 static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_start(void)
 {
@@ -428,7 +407,7 @@ static int32_t IRAM_ATTR task_ms_to_tick_wrapper(uint32_t ms)
 
 static int32_t task_get_max_priority_wrapper(void)
 {
-	return (int32_t)(CONFIG_ESP_WIFI_MAX_THREAD_PRIORITY);
+	return (int32_t)(CONFIG_ESP32_WIFI_MAX_THREAD_PRIORITY);
 }
 
 static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
@@ -649,7 +628,7 @@ int32_t nvs_erase_key(uint32_t handle, const char *key)
 
 static int coex_init_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_init();
 #else
 	return 0;
@@ -658,14 +637,14 @@ static int coex_init_wrapper(void)
 
 static void coex_deinit_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	coex_deinit();
 #endif
 }
 
 static int coex_enable_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_enable();
 #else
 	return 0;
@@ -674,14 +653,14 @@ static int coex_enable_wrapper(void)
 
 static void coex_disable_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	coex_disable();
 #endif
 }
 
 static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_status_get();
 #else
 	return 0;
@@ -690,7 +669,7 @@ static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 
 static int coex_wifi_request_wrapper(uint32_t event, uint32_t latency, uint32_t duration)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_wifi_request(event, latency, duration);
 #else
 	return 0;
@@ -699,7 +678,7 @@ static int coex_wifi_request_wrapper(uint32_t event, uint32_t latency, uint32_t 
 
 static IRAM_ATTR int coex_wifi_release_wrapper(uint32_t event)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_wifi_release(event);
 #else
 	return 0;
@@ -708,7 +687,7 @@ static IRAM_ATTR int coex_wifi_release_wrapper(uint32_t event)
 
 static int coex_wifi_channel_set_wrapper(uint8_t primary, uint8_t secondary)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_wifi_channel_set(primary, secondary);
 #else
 	return 0;
@@ -717,7 +696,7 @@ static int coex_wifi_channel_set_wrapper(uint8_t primary, uint8_t secondary)
 
 static IRAM_ATTR int coex_event_duration_get_wrapper(uint32_t event, uint32_t *duration)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_event_duration_get(event, duration);
 #else
 	return 0;
@@ -731,21 +710,21 @@ static int coex_pti_get_wrapper(uint32_t event, uint8_t *pti)
 
 static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	coex_schm_status_bit_clear(type, status);
 #endif
 }
 
 static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	coex_schm_status_bit_set(type, status);
 #endif
 }
 
 static IRAM_ATTR int coex_schm_interval_set_wrapper(uint32_t interval)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_schm_interval_set(interval);
 #else
 	return 0;
@@ -754,7 +733,7 @@ static IRAM_ATTR int coex_schm_interval_set_wrapper(uint32_t interval)
 
 static uint32_t coex_schm_interval_get_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_schm_interval_get();
 #else
 	return 0;
@@ -763,7 +742,7 @@ static uint32_t coex_schm_interval_get_wrapper(void)
 
 static uint8_t coex_schm_curr_period_get_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_schm_curr_period_get();
 #else
 	return 0;
@@ -772,7 +751,7 @@ static uint8_t coex_schm_curr_period_get_wrapper(void)
 
 static void * coex_schm_curr_phase_get_wrapper(void)
 {
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE
 	return coex_schm_curr_phase_get();
 #else
 	return NULL;
@@ -782,6 +761,18 @@ static void * coex_schm_curr_phase_get_wrapper(void)
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
 
+}
+
+static void esp_phy_enable_wrapper(void)
+{
+	esp_phy_enable(PHY_MODEM_WIFI);
+	phy_wifi_enable_set(1);
+}
+
+static void esp_phy_disable_wrapper(void)
+{
+	phy_wifi_enable_set(0);
+	esp_phy_disable(PHY_MODEM_WIFI);
 }
 
 static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
@@ -828,6 +819,23 @@ static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
 #endif
 }
 
+static int coex_schm_flexible_period_set_wrapper(uint8_t period)
+{
+#if CONFIG_ESP_COEX_POWER_MANAGEMENT
+    return coex_schm_flexible_period_set(period);
+#else
+    return 0;
+#endif
+}
+
+static uint8_t coex_schm_flexible_period_get_wrapper(void)
+{
+#if CONFIG_ESP_COEX_POWER_MANAGEMENT
+    return coex_schm_flexible_period_get();
+#else
+    return 1;
+#endif
+}
 
 wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._version = ESP_WIFI_OS_ADAPTER_VERSION,
@@ -882,8 +890,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._dport_access_stall_other_cpu_end_wrap = s_esp_dport_access_stall_other_cpu_end,
 	._wifi_apb80m_request = wifi_apb80m_request_wrapper,
 	._wifi_apb80m_release = wifi_apb80m_release_wrapper,
-	._phy_disable = esp_phy_disable,
-	._phy_enable = esp_phy_enable,
+	._phy_disable = esp_phy_disable_wrapper,
+	._phy_enable = esp_phy_enable_wrapper,
 	._phy_common_clock_enable = esp_phy_common_clock_enable,
 	._phy_common_clock_disable = esp_phy_common_clock_disable,
 	._phy_update_country_info = esp_phy_update_country_info,
@@ -946,43 +954,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._coex_register_start_cb = coex_register_start_cb_wrapper,
 	._coex_schm_process_restart = coex_schm_process_restart_wrapper,
 	._coex_schm_register_cb = coex_schm_register_cb_wrapper,
+	._coex_schm_flexible_period_set = coex_schm_flexible_period_set_wrapper,
+	._coex_schm_flexible_period_get = coex_schm_flexible_period_get_wrapper,
 	._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };
-
-esp_err_t esp_wifi_deinit(void)
-{
-	esp_err_t err = ESP_OK;
-
-	esp_supplicant_deinit();
-	err = esp_wifi_deinit_internal();
-
-	return err;
-}
-
-esp_err_t esp_wifi_init(const wifi_init_config_t *config)
-{
-	esp_wifi_power_domain_on();
-
-#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
-	coex_init();
-#endif
-
-#if CONFIG_IDF_TARGET_ESP32
-	s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
-#endif
-
-    esp_wifi_internal_set_log_level(CONFIG_WIFI_LOG_LEVEL);
-
-	esp_err_t result = esp_wifi_init_internal(config);
-	if (result == ESP_OK) {
-		esp_phy_modem_init();
-		result = esp_supplicant_init();
-		if (result != ESP_OK) {
-		LOG_ERR("Failed to init supplicant (0x%x)", result);
-			esp_wifi_deinit();
-		}
-	}
-    adc2_cal_include(); //This enables the ADC2 calibration constructor at start up.
-
-	return result;
-}
