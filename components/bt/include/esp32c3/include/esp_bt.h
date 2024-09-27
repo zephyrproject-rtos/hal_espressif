@@ -220,7 +220,7 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                              \
     .magic = ESP_BT_CTRL_CONFIG_MAGIC_VAL,                                 \
     .version = ESP_BT_CTRL_CONFIG_VERSION,                                 \
-    .controller_task_stack_size = ESP_TASK_BT_CONTROLLER_STACK,            \
+    .controller_task_stack_size = CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE,        \
     .controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                   \
     .controller_task_run_cpu = CONFIG_BT_CTRL_PINNED_TO_CORE,              \
     .bluetooth_mode = CONFIG_BT_CTRL_MODE_EFF,                             \
