@@ -12,7 +12,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
   endif()
 
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
-  
+
   zephyr_compile_definitions(CONFIG_IDF_TARGET_ARCH_RISCV)
 
   if(CONFIG_MCUBOOT)
@@ -24,6 +24,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
+    ../common/include
 
     ../../components/efuse/include
     ../../components/efuse/private_include
@@ -192,15 +193,14 @@ if(CONFIG_SOC_SERIES_ESP32C2)
       )
 
     zephyr_sources(
-      ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
-      ../../components/bootloader_support/src/bootloader_console.c
       ../../components/hal/mpu_hal.c
-      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
-      ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common_loader.c
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+      ../common/console_init.c
+      ../common/flash_init.c
+      ../common/soc_init.c
+      src/soc_init.c
+      src/soc_flash_init.c
       )
   endif()
 

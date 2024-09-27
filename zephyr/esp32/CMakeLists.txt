@@ -7,7 +7,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
   zephyr_compile_definitions_ifdef(CONFIG_ESP_SIMPLE_BOOT BOOTLOADER_BUILD)
-  
+
   zephyr_compile_definitions(CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5)
 
   if(CONFIG_MCUBOOT)
@@ -20,6 +20,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
+    ../common/include
 
     ../../components/efuse/include
     ../../components/efuse/private_include
@@ -108,8 +109,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/wpa_supplicant/src/utils
     ../../components/esp_coex/include
     ../../components/mbedtls/port/include
-
-     ../port/include/boot
     )
 
   zephyr_link_libraries(
@@ -260,18 +259,18 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
+      ../port/include/boot
       )
 
     zephyr_sources(
-      ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
-      ../../components/bootloader_support/src/bootloader_console.c
       ../../components/hal/mpu_hal.c
-      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
-      ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common.c
-      ../../components/bootloader_support/src/bootloader_common_loader.c
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
+      ../common/console_init.c
+      ../common/flash_init.c
+      ../common/soc_init.c
+      src/soc_init.c
+
       )
 
     zephyr_sources_ifdef(
@@ -286,7 +285,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/soc/${CONFIG_SOC_SERIES}/dport_access.c
 
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_efuse.c
     ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
@@ -334,7 +332,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/mmu_hal.c
     ../../components/hal/wdt_hal_iram.c
     ../../components/hal/mpu_hal.c  # TODO: maybe cache issue related
-    
+
     ../../components/hal/${CONFIG_SOC_SERIES}/cache_hal_esp32.c
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
@@ -346,6 +344,8 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../port/host_flash/cache_utils.c
 
     src/stubs.c
+    src/soc_random.c
+    src/soc_flash_init.c
   )
 
   ## shared WIFI/BT/ETH resources

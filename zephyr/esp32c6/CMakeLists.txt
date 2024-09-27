@@ -22,6 +22,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
+    ../common/include
 
     ../../components/efuse/include
     ../../components/efuse/private_include
@@ -206,15 +207,14 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       )
 
     zephyr_sources(
-      ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
-      ../../components/bootloader_support/src/bootloader_console.c
       ../../components/hal/mpu_hal.c
-      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
-      ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common_loader.c
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+      ../common/console_init.c
+      ../common/flash_init.c
+      ../common/soc_init.c
+      src/soc_init.c
+      src/soc_flash_init.c
       )
   endif()
 
@@ -225,8 +225,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
 
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
-    ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/cpu.c
@@ -289,6 +287,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/riscv/interrupt.c
 
     src/stubs.c
+    src/soc_random.c
   )
 
   zephyr_sources_ifdef(

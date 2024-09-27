@@ -25,6 +25,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
+    ../common/include
 
     ../../components/efuse/include
     ../../components/efuse/private_include
@@ -251,19 +252,16 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       )
 
     zephyr_sources(
-      ../../components/bootloader_support/src/bootloader_mem.c
       ../../components/bootloader_support/src/bootloader_clock_init.c
-      ../../components/bootloader_support/src/bootloader_console.c
       ../../components/bootloader_support/src/bootloader_console_loader.c
       ../../components/bootloader_support/src/bootloader_random.c
+      ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
       ../../components/esp_rom/patches/esp_rom_sys.c
       ../../components/hal/mpu_hal.c
-      ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_${CONFIG_SOC_SERIES}.c
-      ../../components/bootloader_support/src/bootloader_init.c
-      ../../components/bootloader_support/src/bootloader_common.c
-      ../../components/bootloader_support/src/bootloader_common_loader.c
-      ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+      ../common/console_init.c
+      ../common/flash_init.c
+      ../common/soc_init.c
+      src/soc_flash_init.c
 	  )
 
     zephyr_sources_ifdef(
@@ -276,8 +274,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
 
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
-    ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
-    ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
@@ -342,6 +338,8 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/riscv/interrupt.c
 
     src/stubs.c
+    src/soc_init.c
+    src/soc_random.c
   )
 
   ## shared WIFI/BT resources

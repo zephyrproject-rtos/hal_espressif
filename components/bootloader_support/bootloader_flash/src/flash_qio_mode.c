@@ -18,7 +18,7 @@
 #include "soc/efuse_periph.h"
 #include "soc/io_mux_reg.h"
 #include "esp_private/spi_flash_os.h"
-
+#include "soc_flash_init.h"
 
 static const char *TAG = "qio_mode";
 
@@ -107,7 +107,7 @@ static void s_flash_set_qio_pins(void)
 #if SOC_SPI_MEM_SUPPORT_CONFIG_GPIO_BY_EFUSE
 
 #if CONFIG_IDF_TARGET_ESP32
-    esp_rom_spiflash_select_qio_pins(bootloader_flash_get_wp_pin(), esp_rom_efuse_get_flash_gpio_info());
+    esp_rom_spiflash_select_qio_pins(flash_get_wp_pin(), esp_rom_efuse_get_flash_gpio_info());
 #else
     esp_rom_spiflash_select_qio_pins(esp_rom_efuse_get_flash_wp_gpio(), esp_rom_efuse_get_flash_gpio_info());
 #endif // CONFIG_IDF_TARGET_ESP32

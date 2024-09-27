@@ -34,7 +34,7 @@
 #include "esp_private/periph_ctrl.h"
 #include "bootloader_common.h"
 #include "esp_rom_gpio.h"
-#include "bootloader_flash_config.h"
+#include "soc_flash_init.h"
 #include "esp_private/esp_gpio_reserve.h"
 
 #if CONFIG_SPIRAM
@@ -907,7 +907,7 @@ esp_err_t IRAM_ATTR esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)   //psra
         psram_io.psram_spiq_sd0_io  = EFUSE_SPICONFIG_RET_SPIQ(spiconfig);
         psram_io.psram_spid_sd1_io  = EFUSE_SPICONFIG_RET_SPID(spiconfig);
         psram_io.psram_spihd_sd2_io = EFUSE_SPICONFIG_RET_SPIHD(spiconfig);
-        psram_io.psram_spiwp_sd3_io = bootloader_flash_get_wp_pin();
+        psram_io.psram_spiwp_sd3_io = flash_get_wp_pin();
     }
 
     assert(mode < PSRAM_CACHE_MAX && "we don't support any other mode for now.");
@@ -944,7 +944,17 @@ esp_err_t IRAM_ATTR esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)   //psra
     }
 
     // Rise VDDSIO for 1.8V psram.
-    bootloader_common_vddsdio_configure();
+#if CONFIG_BOOTLOADER_VDDSDIO_BOOST_1_9V
+    rtc_vddsdio_config_t cfg = rtc_vddsdio_get_config();
+    if (cfg.enable == 1 && cfg.tieh == RTC_VDDSDIO_TIEH_1_8V) {    // VDDSDIO regulator is enabled @ 1.8V
+        cfg.drefh = 3;
+        cfg.drefm = 3;
+        cfg.drefl = 3;
+        cfg.force = 1;
+        rtc_vddsdio_set_config(cfg);
+        esp_rom_delay_us(10); // wait for regulator to become stable
+    }
+#endif // CONFIG_BOOTLOADER_VDDSDIO_BOOST
     // GPIO related settings
     psram_gpio_config(&psram_io, mode);
 
