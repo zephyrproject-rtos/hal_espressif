@@ -46,11 +46,6 @@ typedef enum {
 } esp_mspi_io_t;
 
 /**
- * @brief To setup Flash chip
- */
-esp_err_t spi_flash_init_chip_state(void);
-
-/**
  * @brief To initislize the MSPI pins
  */
 void esp_mspi_pin_init(void);
