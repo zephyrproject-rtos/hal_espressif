@@ -15,7 +15,7 @@
 #ifndef OS_H
 #define OS_H
 #include <zephyr/kernel.h>
-#include <zephyr/sys/timeutil.h>
+#include <sys/_timeval.h>
 #include <strings.h>
 #include "esp_types.h"
 #include <string.h>
