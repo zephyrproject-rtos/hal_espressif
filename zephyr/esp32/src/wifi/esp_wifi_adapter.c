@@ -31,6 +31,7 @@
 #include "esp_modem_wrapper.h"
 #include "wifi/wifi_event.h"
 #include "esp_private/adc_share_hw_ctrl.h"
+#include "esp_heap_runtime.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
@@ -40,30 +41,9 @@ ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 /* Select heap to be used for WiFi adapter */
 #if defined(CONFIG_ESP_WIFI_HEAP_RUNTIME)
 
-extern struct k_heap esp_runtime_heap;
-
-static inline void *esp_wifi_malloc_func(size_t size)
-{
-	return k_heap_alloc(&esp_runtime_heap, size, K_NO_WAIT);
-}
-
-static inline void *esp_wifi_calloc_func(size_t n, size_t size)
-{
-	size_t sz;
-	if (__builtin_mul_overflow(n, size, &sz)) {
-		return NULL;
-	}
-	void *ptr = k_heap_alloc(&esp_runtime_heap, sz, K_NO_WAIT);
-	if (ptr) {
-		memset(ptr, 0, sz);
-	}
-	return ptr;
-}
-
-static inline void esp_wifi_free_func(void *mem)
-{
-	k_heap_free(&esp_runtime_heap, mem);
-}
+#define esp_wifi_malloc_func(_size) esp_heap_runtime_malloc(_size)
+#define esp_wifi_calloc_func(_nmemb, _size) esp_heap_runtime_calloc(_nmemb, _size)
+#define esp_wifi_free_func(_mem) esp_heap_runtime_free(_mem)
 
 #else
 
@@ -71,7 +51,7 @@ static inline void esp_wifi_free_func(void *mem)
 #define esp_wifi_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
 #define esp_wifi_free_func(_mem) k_free(_mem)
 
-#endif /* CONFIG_ESP_WIFI_HEAP_* */
+#endif /* CONFIG_ESP_WIFI_HEAP_RUNTIME */
 
 static void *wifi_msgq_buffer;
 

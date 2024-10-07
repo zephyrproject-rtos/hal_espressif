@@ -30,6 +30,7 @@
 #include "soc/dport_reg.h"
 #include "esp_coexist_internal.h"
 #include "esp_timer.h"
+#include "esp_heap_runtime.h"
 
 #include "esp_rom_sys.h"
 
@@ -89,6 +90,18 @@ struct bt_queue_t {
 	void *pool;
 };
 
+/* Select heap to be used for WiFi adapter */
+#if defined(CONFIG_ESP_BT_HEAP_RUNTIME)
+
+#define esp_bt_malloc_func(_size) esp_heap_runtime_malloc(_size)
+#define esp_bt_free_func(_mem) esp_heap_runtime_free(_mem)
+
+#else
+
+#define esp_bt_malloc_func(_size) k_malloc(_size)
+#define esp_bt_free_func(_mem) k_free(_mem)
+
+#endif /* CONFIG_ESP_BLUETOOTH_HEAP_RUNTIME */
 /* OSI function */
 struct osi_funcs_t {
 	uint32_t _version;
@@ -260,10 +273,10 @@ static int coex_register_wifi_channel_change_callback_wrapper(void *cb);
 static int coex_version_get_wrapper(unsigned int *major, unsigned int *minor, unsigned int *patch);
 static void set_isr_wrapper(int32_t n, void *f, void *arg);
 static void intr_on(unsigned int mask);
-static void esp_bt_free(void *mem);
 static void interrupt_l3_disable(void);
 static void interrupt_l3_restore(void);
 static void bt_controller_deinit_internal(void);
+static void esp_bt_free(void *mem);
 
 /* Local variable definition
  ***************************************************************************
@@ -445,7 +458,7 @@ static void IRAM_ATTR task_yield_from_isr(void)
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *) k_malloc(sizeof(struct k_sem));
+	struct k_sem *sem = (struct k_sem *) esp_bt_malloc_func(sizeof(struct k_sem));
 
 	if (sem == NULL) {
 		LOG_ERR("semaphore malloc failed");
@@ -510,7 +523,7 @@ static int32_t semphr_give_wrapper(void *semphr)
 
 static void *mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) k_malloc(sizeof(struct k_mutex));
+	struct k_mutex *my_mutex = (struct k_mutex *) esp_bt_malloc_func(sizeof(struct k_mutex));
 
 	if (my_mutex == NULL) {
 		LOG_ERR("mutex malloc failed");
@@ -545,14 +558,14 @@ static int32_t mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-	struct bt_queue_t *queue = k_malloc(sizeof(struct bt_queue_t));
+	struct bt_queue_t *queue = esp_bt_malloc_func(sizeof(struct bt_queue_t));
 
 	if (queue == NULL) {
 		LOG_ERR("queue malloc failed");
 		return NULL;
 	}
 
-	queue->pool = (uint8_t *)k_malloc(queue_len * item_size * sizeof(uint8_t));
+	queue->pool = (uint8_t *)esp_bt_malloc_func(queue_len * item_size * sizeof(uint8_t));
 
 	if (queue->pool == NULL) {
 		LOG_ERR("queue pool malloc failed");
@@ -674,7 +687,7 @@ static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-	return k_malloc(sizeof(uint8_t) * size);
+	return esp_bt_malloc_func(sizeof(uint8_t) * size);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -1366,6 +1379,7 @@ esp_err_t esp_ble_scan_dupilcate_list_flush(void)
 	return ESP_OK;
 }
 
-static void esp_bt_free(void *mem) {
-	k_free(mem);
+static void esp_bt_free(void *mem)
+{
+	esp_bt_free_func(mem);
 }
