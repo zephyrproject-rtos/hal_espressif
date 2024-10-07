@@ -29,6 +29,7 @@
 #include "esp32s3/rom/efuse.h"
 #include "esp_timer.h"
 #include "phy.h"
+#include "esp_heap_runtime.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
@@ -111,6 +112,19 @@ struct bt_queue_t {
 	struct k_msgq queue;
 	void *pool;
 };
+
+/* Select heap to be used for WiFi adapter */
+#if defined(CONFIG_ESP_BLUETOOTH_HEAP_RUNTIME)
+
+#define esp_bt_malloc_func(_size) esp_heap_runtime_malloc(_size)
+#define esp_bt_free_func(_mem) esp_heap_runtime_free(_mem)
+
+#else
+
+#define esp_bt_malloc_func(_size) k_malloc(_size)
+#define esp_bt_free_func(_mem) k_free(_mem)
+
+#endif /* CONFIG_ESP_BLUETOOTH_HEAP_RUNTIME */
 
 /* OSI function */
 struct osi_funcs_t {
@@ -265,7 +279,6 @@ static void btdm_hw_mac_power_down_wrapper(void);
 static void btdm_backup_dma_copy_wrapper(uint32_t reg, uint32_t mem_addr, uint32_t num,  bool to_mem);
 
 static void bt_controller_deinit_internal(void);
-
 static void esp_bt_free(void *mem);
 
 /* Local variable definition
@@ -352,11 +365,6 @@ K_THREAD_STACK_DEFINE(bt_stack, ESP_TASK_BT_CONTROLLER_STACK);
 static struct k_thread bt_task_handle;
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
-
-static void esp_bt_free(void *mem)
-{
-	k_free(mem);
-}
 
 void IRAM_ATTR btdm_hw_mac_power_down_wrapper(void)
 {
@@ -471,7 +479,7 @@ static bool IRAM_ATTR is_in_isr_wrapper(void)
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *) k_malloc(sizeof(struct k_sem));
+	struct k_sem *sem = (struct k_sem *) esp_bt_malloc_func(sizeof(struct k_sem));
 
 	if (sem == NULL) {
 		LOG_ERR("semaphore malloc failed");
@@ -536,7 +544,7 @@ static int32_t semphr_give_wrapper(void *semphr)
 
 static void *mutex_create_wrapper(void)
 {
-	struct k_mutex *my_mutex = (struct k_mutex *) k_malloc(sizeof(struct k_mutex));
+	struct k_mutex *my_mutex = (struct k_mutex *) esp_bt_malloc_func(sizeof(struct k_mutex));
 
 	if (my_mutex == NULL) {
 		LOG_ERR("mutex malloc failed");
@@ -571,14 +579,14 @@ static int32_t mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-	struct bt_queue_t *queue = k_malloc(sizeof(struct bt_queue_t));
+	struct bt_queue_t *queue = esp_bt_malloc_func(sizeof(struct bt_queue_t));
 
 	if (queue == NULL) {
 		LOG_ERR("queue malloc failed");
 		return NULL;
 	}
 
-	queue->pool = (uint8_t *)k_malloc(queue_len * item_size * sizeof(uint8_t));
+	queue->pool = (uint8_t *)esp_bt_malloc_func(queue_len * item_size * sizeof(uint8_t));
 
 	if (queue->pool == NULL) {
 		LOG_ERR("queue pool malloc failed");
@@ -686,7 +694,7 @@ static void task_delete_wrapper(void *task_handle)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-	return k_malloc(sizeof(uint8_t) * size);
+	return esp_bt_malloc_func(sizeof(uint8_t) * size);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -1497,4 +1505,9 @@ uint16_t esp_bt_get_tx_buf_num(void)
 static void coex_wifi_sleep_set_hook(bool sleep)
 {
 
+}
+
+static void esp_bt_free(void *mem)
+{
+	esp_bt_free_func(mem);
 }
