@@ -43,6 +43,7 @@ extern "C" {
 #define REGDMA_BLE_MAC_LINK(_pri)           ((0x15 << 8) | _pri)
 #define REGDMA_MODEM_BT_BB_LINK(_pri)       ((0x16 << 8) | _pri)
 #define REGDMA_MODEM_IEEE802154_LINK(_pri)  ((0x17 << 8) | _pri)
+#define REGDMA_MODEM_GDMA_LINK(_pri)        ((0x18 << 8) | _pri)
 #define REGDMA_MODEM_FE_LINK(_pri)          ((0xFF << 8) | _pri)
 
 typedef enum {
@@ -185,13 +186,7 @@ typedef struct regdma_link_config {
     int id; /* REGDMA linked list node unique identifier */
 } regdma_link_config_t;
 
-
 #define REGDMA_LINK_HEAD(plink)  (((regdma_link_config_t *)plink)->head)
-
-
-#ifndef ARRAY_SIZE
-# define ARRAY_SIZE(a)  (sizeof(a) / sizeof((a)[0]))
-#endif
 
 #define REGDMA_LINK_HEAD_INIT(_l, _m, _b, _sr, _sb) \
     {                       \
@@ -577,11 +572,11 @@ void regdma_link_stats(void *link, int entry);
 void regdma_link_set_write_wait_content(void *link, uint32_t value, uint32_t mask);
 
 /**
- * @brief Print all node information of the REGDMA linked list indicated by the entry argument
+ * @brief Dump all node information of the REGDMA linked list indicated by the entry argument
  * @param link  The REGDMA linkded list head pointer
  * @param entry For nodes that support branching, use the branch specified by entry argument recursively
  */
-void regdma_link_show_memories(void *link, int entry);
+void regdma_link_dump(FILE *out, void *link, int entry);
 
 /**
  * @brief Update REGDMA linked list node next pointers
@@ -624,7 +619,7 @@ void *regdma_find_module_link_tail(void *link, void *tail, int entry, uint32_t m
 
 /**
  * @brief Find the tail node of the previous module of the specified module in the REGDMA linked list
- * indicated by the entry argument starting from the link argment to the end of the tail argument
+ * indicated by the entry argument starting from the link argument to the end of the tail argument
  * @param  link   The REGDMA linkded list head pointer
  * @param  tail   The REGDMA linkded list tail pointer
  * @param  entry  For nodes that support branching, use the branch specified by entry argument recursively
@@ -635,7 +630,7 @@ void *regdma_find_prev_module_link_tail(void *link, void *tail, int entry, uint3
 
 /**
  * @brief Find the head node of the next module of the specified module in the REGDMA linked list
- * indicated by the entry argument starting from the link argment to the end of the tail argument
+ * indicated by the entry argument starting from the link argument to the end of the tail argument
  * @param  link   The REGDMA linkded list head pointer
  * @param  tail   The REGDMA linkded list tail pointer
  * @param  entry  For nodes that support branching, use the branch specified by entry argument recursively

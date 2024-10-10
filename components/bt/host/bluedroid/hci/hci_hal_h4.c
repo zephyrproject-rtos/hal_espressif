@@ -31,14 +31,11 @@
 #include "esp_bt.h"
 #include "stack/hcimsgs.h"
 
-#if SOC_ESP_NIMBLE_CONTROLLER
-#include "nimble/ble_hci_trans.h"
-#endif
-
 #if (C2H_FLOW_CONTROL_INCLUDED == TRUE)
 #include "l2c_int.h"
 #endif ///C2H_FLOW_CONTROL_INCLUDED == TRUE
 #include "stack/hcimsgs.h"
+#include "hci_log/bt_hci_log.h"
 
 #define HCI_BLE_EVENT 0x3e
 #define PACKET_TYPE_TO_INBOUND_INDEX(type) ((type) - 2)
@@ -138,14 +135,19 @@ static bool hci_hal_env_init(const hci_hal_callbacks_t *upper_callbacks, osi_thr
 
 static void hci_hal_env_deinit(void)
 {
-    fixed_queue_free(hci_hal_env.rx_q, osi_free_func);
+    fixed_queue_t *rx_q = hci_hal_env.rx_q;
+    struct pkt_queue *adv_rpt_q = hci_hal_env.adv_rpt_q;
+    struct osi_event *upstream_data_ready = hci_hal_env.upstream_data_ready;
+
     hci_hal_env.rx_q = NULL;
-
-    pkt_queue_destroy(hci_hal_env.adv_rpt_q, NULL);
     hci_hal_env.adv_rpt_q = NULL;
-
-    osi_event_delete(hci_hal_env.upstream_data_ready);
     hci_hal_env.upstream_data_ready = NULL;
+
+    fixed_queue_free(rx_q, osi_free_func);
+
+    pkt_queue_destroy(adv_rpt_q, NULL);
+
+    osi_event_delete(upstream_data_ready);
 
 #if (BLE_ADV_REPORT_FLOW_CONTROL == TRUE)
     hci_hal_env.cmd_buf_in_use = true;
@@ -206,6 +208,9 @@ static uint16_t transmit_data(serial_data_type_t type,
 
     BTTRC_DUMP_BUFFER("Transmit Pkt", data, length);
 
+#if (BT_HCI_LOG_INCLUDED == TRUE)
+        bt_hci_log_record_hci_data(data[0], &data[1], length - 1);
+#endif
     // TX Data to target
     esp_vhci_host_send_packet(data, length);
 
@@ -432,7 +437,7 @@ static void hci_hal_h4_hdl_rx_packet(BT_HDR *packet)
         uint8_t len = 0;
         STREAM_TO_UINT8(len, stream);
 #endif
-        HCI_TRACE_ERROR("Workround stream corrupted during LE SCAN: pkt_len=%d ble_event_len=%d\n",
+        HCI_TRACE_ERROR("Workaround stream corrupted during LE SCAN: pkt_len=%d ble_event_len=%d\n",
                   packet->len, len);
         osi_free(packet);
         return;
@@ -531,6 +536,26 @@ static void host_send_pkt_available_cb(void)
     hci_downstream_data_post(OSI_THREAD_MAX_TIMEOUT);
 }
 
+
+void bt_record_hci_data(uint8_t *data, uint16_t len)
+{
+#if (BT_HCI_LOG_INCLUDED == TRUE)
+    if ((data[0] == DATA_TYPE_EVENT) && (data[1] == HCI_BLE_EVENT) && ((data[3] ==  HCI_BLE_ADV_PKT_RPT_EVT) || (data[3] == HCI_BLE_DIRECT_ADV_EVT)
+#if (BLE_ADV_REPORT_FLOW_CONTROL == TRUE)
+        || (data[3] ==  HCI_BLE_ADV_DISCARD_REPORT_EVT)
+#endif // (BLE_ADV_REPORT_FLOW_CONTROL == TRUE)
+ #if (BLE_50_FEATURE_SUPPORT == TRUE)
+        || (data[3] == HCI_BLE_EXT_ADV_REPORT_EVT) || (data[3] == HCI_BLE_PERIOD_ADV_REPORT_EVT)
+#endif // (BLE_50_FEATURE_SUPPORT == TRUE)
+    )) {
+        bt_hci_log_record_hci_adv(HCI_LOG_DATA_TYPE_ADV, &data[2], len - 2);
+    } else {
+        uint8_t data_type = ((data[0] == 2) ? HCI_LOG_DATA_TYPE_C2H_ACL : data[0]);
+        bt_hci_log_record_hci_data(data_type, &data[1], len - 1);
+    }
+#endif // (BT_HCI_LOG_INCLUDED == TRUE)
+}
+
 static int host_recv_pkt_cb(uint8_t *data, uint16_t len)
 {
     //Target has packet to host, malloc new buffer for packet
@@ -542,13 +567,15 @@ static int host_recv_pkt_cb(uint8_t *data, uint16_t len)
         return 0;
     }
 
+    bt_record_hci_data(data, len);
+
     bool is_adv_rpt = host_recv_adv_packet(data);
 
     if (!is_adv_rpt) {
         pkt_size = BT_HDR_SIZE + len;
         pkt = (BT_HDR *) osi_calloc(pkt_size);
         if (!pkt) {
-            HCI_TRACE_ERROR("%s couldn't aquire memory for inbound data buffer.\n", __func__);
+            HCI_TRACE_ERROR("%s couldn't acquire memory for inbound data buffer.\n", __func__);
             assert(0);
         }
 
@@ -590,39 +617,7 @@ static int host_recv_pkt_cb(uint8_t *data, uint16_t len)
 
     return 0;
 }
-#if SOC_ESP_NIMBLE_CONTROLLER
 
-int
-ble_hs_hci_rx_evt(uint8_t *hci_ev, void *arg)
-{
-    if(esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_UNINITIALIZED) {
-	return 0;
-    }
-    uint16_t len = hci_ev[1] + 3;
-    uint8_t *data = (uint8_t *)malloc(len);
-    data[0] = 0x04;
-    memcpy(&data[1], hci_ev, len - 1);
-    ble_hci_trans_buf_free(hci_ev);
-    host_recv_pkt_cb(data, len);
-    free(data);
-    return 0;
-}
-
-
-int
-ble_hs_rx_data(struct os_mbuf *om, void *arg)
-{
-    uint16_t len = om->om_len + 1;
-    uint8_t *data = (uint8_t *)malloc(len);
-    data[0] = 0x02;
-    os_mbuf_copydata(om, 0, len - 1, &data[1]);
-    host_recv_pkt_cb(data, len);
-    free(data);
-    os_mbuf_free_chain(om);
-    return 0;
-}
-
-#endif
 static const esp_vhci_host_callback_t vhci_host_cb = {
     .notify_host_send_available = host_send_pkt_available_cb,
     .notify_host_recv = host_recv_pkt_cb,

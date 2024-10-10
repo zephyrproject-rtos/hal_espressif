@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "esp_macros.h"
 #include "soc/soc_caps.h"
 
 #include "sdkconfig.h"
@@ -19,7 +20,7 @@ extern "C" {
 #endif
 
 extern bool g_panic_abort;
-
+extern char *g_panic_abort_details;
 extern void *g_exc_frames[SOC_CPU_CORES_NUM];
 
 // Function to print longer amounts of information such as the details
@@ -62,10 +63,10 @@ void panic_print_str(const char *str);
 void panic_print_dec(int d);
 void panic_print_hex(int h);
 #else
-#define panic_print_char(c)
-#define panic_print_str(str)
-#define panic_print_dec(d)
-#define panic_print_hex(h)
+#define panic_print_char(c)     ESP_UNUSED(c)
+#define panic_print_str(str)    ESP_UNUSED(str)
+#define panic_print_dec(d)      ESP_UNUSED(d)
+#define panic_print_hex(h)      ESP_UNUSED(h)
 #endif
 
 void __attribute__((__noreturn__)) panic_abort(const char *details);

@@ -110,9 +110,13 @@ list(REMOVE_ITEM src_x509 x509_crt.c)
 set_property(TARGET mbedx509 PROPERTY SOURCES ${src_x509})
 endif()
 
+# Core libraries from the mbedTLS project
 set(mbedtls_targets mbedtls mbedcrypto mbedx509)
+# 3rd party libraries from the mbedTLS project
+list(APPEND mbedtls_targets everest p256m)
 
-set(mbedtls_target_sources "${COMPONENT_DIR}/port/mbedtls_debug.c")
+set(mbedtls_target_sources "${COMPONENT_DIR}/port/mbedtls_debug.c"
+                           "${COMPONENT_DIR}/port/esp_platform_time.c")
 
 if(CONFIG_MBEDTLS_DYNAMIC_BUFFER)
 set(mbedtls_target_sources ${mbedtls_target_sources}
@@ -232,7 +236,7 @@ if(CONFIG_MBEDTLS_HARDWARE_SHA)
     )
 endif()
 
-if(CONFIG_MBEDTLS_HARDWARE_GCM OR (NOT CONFIG_SOC_AES_SUPPORT_GCM AND CONFIG_MBEDTLS_HARDWARE_AES))
+if(CONFIG_MBEDTLS_HARDWARE_GCM OR CONFIG_MBEDTLS_HARDWARE_AES)
     target_sources(mbedcrypto PRIVATE  "${COMPONENT_DIR}/port/aes/esp_aes_gcm.c")
 endif()
 
@@ -246,6 +250,9 @@ if(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN OR CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY)
 
     if(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN)
         target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=mbedtls_ecdsa_sign")
+        target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=mbedtls_ecdsa_sign_restartable")
+        target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=mbedtls_ecdsa_write_signature")
+        target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=mbedtls_ecdsa_write_signature_restartable")
     endif()
 
     if(CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY)
@@ -255,6 +262,11 @@ endif()
 
 if(CONFIG_MBEDTLS_ROM_MD5)
     target_sources(mbedcrypto PRIVATE  "${COMPONENT_DIR}/port/md/esp_md.c")
+endif()
+
+if(CONFIG_MBEDTLS_USE_CRYPTO_ROM_IMPL)
+    target_sources(mbedcrypto PRIVATE  "${COMPONENT_DIR}/port/mbedtls_rom/mbedtls_rom_osi.c")
+    target_link_libraries(${COMPONENT_LIB} PRIVATE "-u mbedtls_rom_osi_functions_init")
 endif()
 
 foreach(target ${mbedtls_targets})

@@ -143,9 +143,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/spi_flash/spi_flash_chip_th.c
     ../../components/spi_flash/spi_flash_chip_winbond.c
     ../../components/spi_flash/spi_flash_hpm_enable.c
+    ../../components/spi_flash/spi_flash_wrap.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
     ../../components/spi_flash/spi_flash_os_func_app.c
-    # todo: ../../components/spi_flash/spi_flash_wrap.c
     )
   endif()
 
@@ -248,6 +248,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     zephyr_sources(
       ../../components/driver/gpio/gpio.c
       ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/esp_hw_support/sleep_event.c
+      ../../components/esp_hw_support/sleep_console.c
       ../../components/driver/gpio/rtc_io.c
       ../../components/esp_hw_support/sleep_modem.c
       ../../components/hal/rtc_io_hal.c
@@ -267,6 +269,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/efuse/src/esp_efuse_api.c
     ../../components/efuse/src/esp_efuse_utility.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/esp_hw_support/adc_share_hw_ctrl.c
     )
 
   if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
@@ -313,7 +316,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_cpu_intr.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_cpu_intr.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
@@ -343,6 +348,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
+    ../../components/esp_timer/src/esp_timer_impl_common.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
 
     ../../components/hal/efuse_hal.c
@@ -371,6 +377,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
+      ../../components/esp_phy/src/phy_common.c
       )
 
     zephyr_sources(
@@ -473,10 +480,12 @@ if(CONFIG_SOC_SERIES_ESP32S3)
         )
     endif()
 
-    set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2.c"
+    set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_eap_client.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2_api_port.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa_main.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpas_glue.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wps.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa3.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_owe.c"
       )
@@ -505,6 +514,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     if(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO)
       set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/fastpbkdf2.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
@@ -565,6 +575,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
+      ../port/wifi/wifi_init.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
       ${TLS_SRCS}

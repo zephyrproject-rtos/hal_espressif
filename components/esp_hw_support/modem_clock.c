@@ -11,17 +11,20 @@
 #include "esp_attr.h"
 #include "soc/soc.h"
 #include "soc/soc_caps.h"
-#include "freertos/FreeRTOS.h"
 #include "hal/clk_gate_ll.h"
 #include "esp_private/esp_modem_clock.h"
 #include "esp_private/esp_pmu.h"
 #include "esp_sleep.h"
 #include "hal/efuse_hal.h"
+#include "hal/clk_tree_ll.h"
+
+#include <zephyr/kernel.h>
 
 // Please define the frequently called modules in the low bit,
 // which will improve the execution efficiency
 typedef enum {
-    MODEM_CLOCK_FE,
+    MODEM_CLOCK_MODEM_ADC_COMMON_FE,
+    MODEM_CLOCK_MODEM_PRIVATE_FE,
     MODEM_CLOCK_COEXIST,
     MODEM_CLOCK_I2C_MASTER,
 #if SOC_WIFI_SUPPORTED
@@ -43,7 +46,7 @@ typedef enum {
 
 typedef struct modem_clock_context {
     modem_clock_hal_context_t *hal;
-    portMUX_TYPE              lock;
+    unsigned int              lock;
     struct {
         int16_t     refs;
         uint16_t    reserved;   /* reserved for 4 bytes aligned */
@@ -74,7 +77,6 @@ static void IRAM_ATTR modem_clock_wifi_bb_configure(modem_clock_context_t *ctx, 
 #if SOC_BT_SUPPORTED
 static void IRAM_ATTR modem_clock_ble_mac_configure(modem_clock_context_t *ctx, bool enable)
 {
-    modem_syscon_ll_enable_etm_clock(ctx->hal->syscon_dev, enable);
     modem_syscon_ll_enable_modem_sec_clock(ctx->hal->syscon_dev, enable);
     modem_syscon_ll_enable_ble_timer_clock(ctx->hal->syscon_dev, enable);
 }
@@ -90,7 +92,6 @@ static void IRAM_ATTR modem_clock_ble_bb_configure(modem_clock_context_t *ctx, b
 #if SOC_IEEE802154_SUPPORTED
 static void IRAM_ATTR modem_clock_ieee802154_mac_configure(modem_clock_context_t *ctx, bool enable)
 {
-    modem_syscon_ll_enable_etm_clock(ctx->hal->syscon_dev, enable);
     modem_syscon_ll_enable_ieee802154_apb_clock(ctx->hal->syscon_dev, enable);
     modem_syscon_ll_enable_ieee802154_mac_clock(ctx->hal->syscon_dev, enable);
 }
@@ -101,9 +102,14 @@ static void IRAM_ATTR modem_clock_coex_configure(modem_clock_context_t *ctx, boo
     modem_lpcon_ll_enable_coex_clock(ctx->hal->lpcon_dev, enable);
 }
 
-static void IRAM_ATTR modem_clock_fe_configure(modem_clock_context_t *ctx, bool enable)
+static void IRAM_ATTR modem_clock_modem_adc_common_fe_configure(modem_clock_context_t *ctx, bool enable)
 {
-    modem_clock_hal_enable_fe_clock(ctx->hal, enable);
+    modem_clock_hal_enable_modem_adc_common_fe_clock(ctx->hal, enable);
+}
+
+static void IRAM_ATTR modem_clock_modem_private_fe_configure(modem_clock_context_t *ctx, bool enable)
+{
+    modem_clock_hal_enable_modem_private_fe_clock(ctx->hal, enable);
 }
 
 static void IRAM_ATTR modem_clock_i2c_master_configure(modem_clock_context_t *ctx, bool enable)
@@ -127,24 +133,25 @@ modem_clock_context_t * __attribute__((weak)) IRAM_ATTR MODEM_CLOCK_instance(voi
     /* It should be explicitly defined in the internal RAM */
     static DRAM_ATTR modem_clock_hal_context_t modem_clock_hal = { .syscon_dev = &MODEM_SYSCON, .lpcon_dev = &MODEM_LPCON };
     static DRAM_ATTR modem_clock_context_t modem_clock_context = {
-        .hal = &modem_clock_hal, .lock = portMUX_INITIALIZER_UNLOCKED,
+        .hal = &modem_clock_hal, .lock = 0,
         .dev = {
-            [MODEM_CLOCK_FE]            = { .refs = 0, .configure = modem_clock_fe_configure             },
-            [MODEM_CLOCK_COEXIST]       = { .refs = 0, .configure = modem_clock_coex_configure           },
-            [MODEM_CLOCK_I2C_MASTER]    = { .refs = 0, .configure = modem_clock_i2c_master_configure     },
+            [MODEM_CLOCK_MODEM_ADC_COMMON_FE]   = { .refs = 0, .configure = modem_clock_modem_adc_common_fe_configure },
+            [MODEM_CLOCK_MODEM_PRIVATE_FE]      = { .refs = 0, .configure = modem_clock_modem_private_fe_configure },
+            [MODEM_CLOCK_COEXIST]               = { .refs = 0, .configure = modem_clock_coex_configure },
+            [MODEM_CLOCK_I2C_MASTER]            = { .refs = 0, .configure = modem_clock_i2c_master_configure },
 #if SOC_WIFI_SUPPORTED
-            [MODEM_CLOCK_WIFI_MAC]      = { .refs = 0, .configure = modem_clock_wifi_mac_configure       },
-            [MODEM_CLOCK_WIFI_BB]       = { .refs = 0, .configure = modem_clock_wifi_bb_configure        },
+            [MODEM_CLOCK_WIFI_MAC]              = { .refs = 0, .configure = modem_clock_wifi_mac_configure },
+            [MODEM_CLOCK_WIFI_BB]               = { .refs = 0, .configure = modem_clock_wifi_bb_configure },
 #endif
-            [MODEM_CLOCK_ETM]           = { .refs = 0, .configure = modem_clock_etm_configure            },
+            [MODEM_CLOCK_ETM]                   = { .refs = 0, .configure = modem_clock_etm_configure },
 #if SOC_BT_SUPPORTED
-            [MODEM_CLOCK_BLE_MAC]       = { .refs = 0, .configure = modem_clock_ble_mac_configure        },
-            [MODEM_CLOCK_BLE_BB]        = { .refs = 0, .configure = modem_clock_ble_bb_configure         },
+            [MODEM_CLOCK_BLE_MAC]               = { .refs = 0, .configure = modem_clock_ble_mac_configure },
+            [MODEM_CLOCK_BLE_BB]                = { .refs = 0, .configure = modem_clock_ble_bb_configure },
 #endif
 #if SOC_IEEE802154_SUPPORTED
-            [MODEM_CLOCK_802154_MAC]    = { .refs = 0, .configure = modem_clock_ieee802154_mac_configure },
+            [MODEM_CLOCK_802154_MAC]            = { .refs = 0, .configure = modem_clock_ieee802154_mac_configure },
 #endif
-            [MODEM_CLOCK_DATADUMP]      = { .refs = 0, .configure = modem_clock_data_dump_configure      }
+            [MODEM_CLOCK_DATADUMP]              = { .refs = 0, .configure = modem_clock_data_dump_configure }
         },
         .lpclk_src = { [0 ... PERIPH_MODEM_MODULE_NUM - 1] = MODEM_CLOCK_LPCLK_SRC_INVALID }
     };
@@ -152,36 +159,6 @@ modem_clock_context_t * __attribute__((weak)) IRAM_ATTR MODEM_CLOCK_instance(voi
 }
 
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE
-static void IRAM_ATTR modem_clock_domain_power_state_icg_map_init(modem_clock_context_t *ctx)
-{
-    #define ICG_NOGATING_SLEEP  (BIT(PMU_HP_ICG_MODEM_CODE_SLEEP))
-    #define ICG_NOGATING_MODEM  (BIT(PMU_HP_ICG_MODEM_CODE_MODEM))
-    #define ICG_NOGATING_ACTIVE (BIT(PMU_HP_ICG_MODEM_CODE_ACTIVE))
-
-    /* the ICG code's bit 0, 1 and 2 indicates the ICG state
-     * of pmu SLEEP, MODEM and ACTIVE mode respectively */
-    const uint32_t code[MODEM_CLOCK_DOMAIN_MAX] = {
-        [MODEM_CLOCK_DOMAIN_MODEM_APB]      = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_MODEM_PERIPH]   = ICG_NOGATING_ACTIVE,
-        [MODEM_CLOCK_DOMAIN_WIFI]           = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_BT]             = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_FE]             = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_IEEE802154]     = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_LP_APB]         = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_I2C_MASTER]     = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_COEX]           = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-        [MODEM_CLOCK_DOMAIN_WIFIPWR]        = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
-    };
-    for (modem_clock_domain_t domain = MODEM_CLOCK_DOMAIN_MODEM_APB; domain < MODEM_CLOCK_DOMAIN_MAX; domain++) {
-        modem_clock_hal_set_clock_domain_icg_bitmap(ctx->hal, domain, code[domain]);
-    }
-}
-
-void modem_clock_domain_pmu_state_icg_map_init(void)
-{
-    modem_clock_domain_power_state_icg_map_init(MODEM_CLOCK_instance());
-}
-
 esp_err_t modem_clock_domain_clk_gate_enable(modem_clock_domain_t domain, pmu_hp_icg_modem_mode_t mode)
 {
     if (domain >= MODEM_CLOCK_DOMAIN_MAX || domain < MODEM_CLOCK_DOMAIN_MODEM_APB) {
@@ -191,10 +168,10 @@ esp_err_t modem_clock_domain_clk_gate_enable(modem_clock_domain_t domain, pmu_hp
         return ESP_ERR_INVALID_ARG;
     }
 
-    portENTER_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    MODEM_CLOCK_instance()->lock = irq_lock();
     uint32_t code = modem_clock_hal_get_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain);
     modem_clock_hal_set_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain, (code & ~BIT(mode)));
-    portEXIT_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    irq_unlock(MODEM_CLOCK_instance()->lock);
     return ESP_OK;
 }
 
@@ -207,10 +184,10 @@ esp_err_t modem_clock_domain_clk_gate_disable(modem_clock_domain_t domain, pmu_h
         return ESP_ERR_INVALID_ARG;
     }
 
-    portENTER_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    MODEM_CLOCK_instance()->lock = irq_lock();
     uint32_t code = modem_clock_hal_get_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain);
     modem_clock_hal_set_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain, (code | BIT(mode)));
-    portEXIT_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    irq_unlock(MODEM_CLOCK_instance()->lock);
     return ESP_OK;
 }
 #endif // #if SOC_PM_SUPPORT_PMU_MODEM_STATE
@@ -218,8 +195,9 @@ esp_err_t modem_clock_domain_clk_gate_disable(modem_clock_domain_t domain, pmu_h
 static void IRAM_ATTR modem_clock_device_enable(modem_clock_context_t *ctx, uint32_t dev_map)
 {
     int16_t refs = 0;
-    portENTER_CRITICAL_SAFE(&ctx->lock);
-    for (int i = 0; dev_map; dev_map >>= 1, i++) {
+    ctx->lock = irq_lock();
+    for (int i = 0; dev_map; dev_map >>= 1, i++)
+    {
         if (dev_map & BIT(0)) {
             refs = ctx->dev[i].refs++;
             if (refs == 0) {
@@ -227,14 +205,14 @@ static void IRAM_ATTR modem_clock_device_enable(modem_clock_context_t *ctx, uint
             }
         }
     }
-    portEXIT_CRITICAL_SAFE(&ctx->lock);
+    irq_unlock(ctx->lock);
     assert(refs >= 0);
 }
 
 static void IRAM_ATTR modem_clock_device_disable(modem_clock_context_t *ctx, uint32_t dev_map)
 {
     int16_t refs = 0;
-    portENTER_CRITICAL_SAFE(&ctx->lock);
+    ctx->lock = irq_lock();
     for (int i = 0; dev_map; dev_map >>= 1, i++) {
         if (dev_map & BIT(0)) {
             refs = --ctx->dev[i].refs;
@@ -243,14 +221,14 @@ static void IRAM_ATTR modem_clock_device_disable(modem_clock_context_t *ctx, uin
             }
         }
     }
-    portEXIT_CRITICAL_SAFE(&ctx->lock);
+    irq_unlock(ctx->lock);
     assert(refs >= 0);
 }
 
 void IRAM_ATTR modem_clock_module_mac_reset(periph_module_t module)
 {
     modem_clock_context_t *ctx = MODEM_CLOCK_instance();
-    portENTER_CRITICAL_SAFE(&ctx->lock);
+    ctx->lock = irq_lock();
     switch (module)
     {
 #if SOC_WIFI_SUPPORTED
@@ -274,35 +252,83 @@ void IRAM_ATTR modem_clock_module_mac_reset(periph_module_t module)
 #endif
             assert(0);
     }
-    portEXIT_CRITICAL_SAFE(&ctx->lock);
+    irq_unlock(ctx->lock);
 }
 
-#define WIFI_CLOCK_DEPS       (BIT(MODEM_CLOCK_WIFI_MAC) | BIT(MODEM_CLOCK_FE) | BIT(MODEM_CLOCK_WIFI_BB) | BIT(MODEM_CLOCK_COEXIST))
-#define BLE_CLOCK_DEPS        (BIT(MODEM_CLOCK_BLE_MAC) | BIT(MODEM_CLOCK_FE) | BIT(MODEM_CLOCK_BLE_BB) | BIT(MODEM_CLOCK_ETM) | BIT(MODEM_CLOCK_COEXIST))
-#define IEEE802154_CLOCK_DEPS (BIT(MODEM_CLOCK_802154_MAC) | BIT(MODEM_CLOCK_FE) | BIT(MODEM_CLOCK_BLE_BB) | BIT(MODEM_CLOCK_ETM) | BIT(MODEM_CLOCK_COEXIST))
-#define COEXIST_CLOCK_DEPS    (BIT(MODEM_CLOCK_COEXIST))
-#define PHY_CLOCK_DEPS        (BIT(MODEM_CLOCK_I2C_MASTER) | BIT(MODEM_CLOCK_FE))
+#define WIFI_CLOCK_DEPS         (BIT(MODEM_CLOCK_WIFI_MAC) | BIT(MODEM_CLOCK_WIFI_BB) | BIT(MODEM_CLOCK_COEXIST))
+#define BLE_CLOCK_DEPS          (BIT(MODEM_CLOCK_BLE_MAC) | BIT(MODEM_CLOCK_BLE_BB) | BIT(MODEM_CLOCK_ETM) | BIT(MODEM_CLOCK_COEXIST))
+#define IEEE802154_CLOCK_DEPS   (BIT(MODEM_CLOCK_802154_MAC) | BIT(MODEM_CLOCK_BLE_BB) | BIT(MODEM_CLOCK_ETM) | BIT(MODEM_CLOCK_COEXIST))
+#define COEXIST_CLOCK_DEPS      (BIT(MODEM_CLOCK_COEXIST))
+#define PHY_CLOCK_DEPS          (BIT(MODEM_CLOCK_I2C_MASTER) | BIT(MODEM_CLOCK_MODEM_ADC_COMMON_FE) | BIT(MODEM_CLOCK_MODEM_PRIVATE_FE))
+#define I2C_ANA_MST_CLOCK_DEPS  (BIT(MODEM_CLOCK_I2C_MASTER))
+#define MODEM_ETM_CLOCK_DEPS    (BIT(MODEM_CLOCK_ETM))
+#define MODEM_ADC_COMMON_FE_CLOCK_DEPS  (BIT(MODEM_CLOCK_MODEM_ADC_COMMON_FE))
 
-static inline uint32_t modem_clock_get_module_deps(periph_module_t module)
+static IRAM_ATTR uint32_t modem_clock_get_module_deps(periph_module_t module)
 {
     uint32_t deps = 0;
-    if (module == PERIPH_PHY_MODULE) {deps = PHY_CLOCK_DEPS;}
-    else if (module == PERIPH_COEX_MODULE) { deps = COEXIST_CLOCK_DEPS; }
+    switch (module) {
+        case PERIPH_ANA_I2C_MASTER_MODULE:      deps = I2C_ANA_MST_CLOCK_DEPS;          break;
+        case PERIPH_PHY_MODULE:                 deps = PHY_CLOCK_DEPS;                  break;
+        case PERIPH_MODEM_ADC_COMMON_FE_MODULE: deps = MODEM_ADC_COMMON_FE_CLOCK_DEPS;  break;
+#if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED || SOC_IEEE802154_SUPPORTED
+        case PERIPH_COEX_MODULE:                deps = COEXIST_CLOCK_DEPS;              break;
+#endif
 #if SOC_WIFI_SUPPORTED
-    else if (module == PERIPH_WIFI_MODULE) { deps = WIFI_CLOCK_DEPS; }
+        case PERIPH_WIFI_MODULE:                deps = WIFI_CLOCK_DEPS;                 break;
 #endif
 #if SOC_BT_SUPPORTED
-    else if (module == PERIPH_BT_MODULE) { deps = BLE_CLOCK_DEPS; }
+        case PERIPH_BT_MODULE:                  deps = BLE_CLOCK_DEPS;                  break;
 #endif
 #if SOC_IEEE802154_SUPPORTED
-    else if (module == PERIPH_IEEE802154_MODULE) { deps = IEEE802154_CLOCK_DEPS; }
+        case PERIPH_IEEE802154_MODULE:          deps = IEEE802154_CLOCK_DEPS;           break;
 #endif
+#if SOC_BT_SUPPORTED || SOC_IEEE802154_SUPPORTED
+        case PERIPH_MODEM_ETM_MODULE:           deps = MODEM_ETM_CLOCK_DEPS;            break;
+#endif
+        default:
+            assert(0);
+    }
     return deps;
 }
+
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE
+/* the ICG code's bit 0, 1 and 2 indicates the ICG state
+ * of pmu SLEEP, MODEM and ACTIVE mode respectively */
+#define ICG_NOGATING_SLEEP  (BIT(PMU_HP_ICG_MODEM_CODE_SLEEP))
+#define ICG_NOGATING_MODEM  (BIT(PMU_HP_ICG_MODEM_CODE_MODEM))
+#define ICG_NOGATING_ACTIVE (BIT(PMU_HP_ICG_MODEM_CODE_ACTIVE))
+
+static const DRAM_ATTR uint32_t initial_gating_mode[MODEM_CLOCK_DOMAIN_MAX] = {
+    [MODEM_CLOCK_DOMAIN_MODEM_APB]      = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_MODEM_PERIPH]   = ICG_NOGATING_ACTIVE,
+    [MODEM_CLOCK_DOMAIN_WIFI]           = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_BT]             = ICG_NOGATING_ACTIVE,
+    [MODEM_CLOCK_DOMAIN_MODEM_FE]       = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_IEEE802154]     = ICG_NOGATING_ACTIVE,
+    [MODEM_CLOCK_DOMAIN_LP_APB]         = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_I2C_MASTER]     = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_COEX]           = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+    [MODEM_CLOCK_DOMAIN_WIFIPWR]        = ICG_NOGATING_ACTIVE | ICG_NOGATING_MODEM,
+};
+
+static IRAM_ATTR void modem_clock_module_icg_map_init_all(void)
+{
+    MODEM_CLOCK_instance()->lock = irq_lock();
+    for (int domain = 0; domain < MODEM_CLOCK_DOMAIN_MAX; domain++) {
+        uint32_t code = modem_clock_hal_get_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain);
+        modem_clock_hal_set_clock_domain_icg_bitmap(MODEM_CLOCK_instance()->hal, domain, initial_gating_mode[domain] | code);
+    }
+    irq_unlock(MODEM_CLOCK_instance()->lock);
+}
+#endif // SOC_PM_SUPPORT_PMU_MODEM_STATE
 
 void IRAM_ATTR modem_clock_module_enable(periph_module_t module)
 {
     assert(IS_MODEM_MODULE(module));
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE
+    modem_clock_module_icg_map_init_all();
+#endif
     uint32_t deps = modem_clock_get_module_deps(module);
     modem_clock_device_enable(MODEM_CLOCK_instance(), deps);
 }
@@ -317,7 +343,7 @@ void IRAM_ATTR modem_clock_module_disable(periph_module_t module)
 void modem_clock_select_lp_clock_source(periph_module_t module, modem_clock_lpclk_src_t src, uint32_t divider)
 {
     assert(IS_MODEM_MODULE(module));
-    portENTER_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    MODEM_CLOCK_instance()->lock = irq_lock();
     switch (module)
     {
 #if SOC_WIFI_SUPPORTED
@@ -331,17 +357,36 @@ void modem_clock_select_lp_clock_source(periph_module_t module, modem_clock_lpcl
 
 #if SOC_BT_SUPPORTED
     case PERIPH_BT_MODULE:
+#if CONFIG_IDF_TARGET_ESP32H2
+        bool rc_clk_en = true;
+        bool selected = (src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) ||
+                        (src == MODEM_CLOCK_LPCLK_SRC_RC_SLOW);
+        if (selected) {
+            rc_clk_en = clk_ll_rc32k_is_enabled();
+            if (!rc_clk_en) {
+                clk_ll_rc32k_enable();
+            }
+            modem_clock_hal_select_ble_rtc_timer_lpclk_source(MODEM_CLOCK_instance()->hal, MODEM_CLOCK_LPCLK_SRC_RC32K);
+        }
+#endif // CONFIG_IDF_TARGET_ESP32H2
         modem_clock_hal_deselect_all_ble_rtc_timer_lpclk_source(MODEM_CLOCK_instance()->hal);
         modem_clock_hal_select_ble_rtc_timer_lpclk_source(MODEM_CLOCK_instance()->hal, src);
         modem_clock_hal_set_ble_rtc_timer_divisor_value(MODEM_CLOCK_instance()->hal, divider);
         modem_clock_hal_enable_ble_rtc_timer_clock(MODEM_CLOCK_instance()->hal, true);
+#if CONFIG_IDF_TARGET_ESP32H2
+        if (!rc_clk_en) {
+            extern void r_esp_ble_rtc_ticks_delay(uint32_t ticks);
+            r_esp_ble_rtc_ticks_delay(2);
+            clk_ll_rc32k_disable();
+        }
+#endif // CONFIG_IDF_TARGET_ESP32H2
 #if SOC_BLE_USE_WIFI_PWR_CLK_WORKAROUND
         if (efuse_hal_chip_revision() != 0) {
             if (src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
                 pmu_sleep_enable_hp_sleep_sysclk(true);
+                modem_clock_hal_enable_wifipwr_clock(MODEM_CLOCK_instance()->hal, true);
+                modem_clock_domain_clk_gate_disable(MODEM_CLOCK_DOMAIN_WIFIPWR, PMU_HP_ICG_MODEM_CODE_SLEEP);
             }
-            modem_clock_hal_enable_wifipwr_clock(MODEM_CLOCK_instance()->hal, true);
-            modem_clock_domain_clk_gate_disable(MODEM_CLOCK_DOMAIN_WIFIPWR, PMU_HP_ICG_MODEM_CODE_SLEEP);
         }
 #endif
         break;
@@ -358,7 +403,7 @@ void modem_clock_select_lp_clock_source(periph_module_t module, modem_clock_lpcl
     }
     modem_clock_lpclk_src_t last_src = MODEM_CLOCK_instance()->lpclk_src[module - PERIPH_MODEM_MODULE_MIN];
     MODEM_CLOCK_instance()->lpclk_src[module - PERIPH_MODEM_MODULE_MIN] = src;
-    portEXIT_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    irq_unlock(MODEM_CLOCK_instance()->lock);
 
     /* The power domain of the low-power clock source required by the modem
      * module remains powered on during sleep */
@@ -381,7 +426,7 @@ void modem_clock_select_lp_clock_source(periph_module_t module, modem_clock_lpcl
 void modem_clock_deselect_lp_clock_source(periph_module_t module)
 {
     assert(IS_MODEM_MODULE(module));
-    portENTER_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    MODEM_CLOCK_instance()->lock = irq_lock();
     modem_clock_lpclk_src_t last_src = MODEM_CLOCK_instance()->lpclk_src[module - PERIPH_MODEM_MODULE_MIN];
     MODEM_CLOCK_instance()->lpclk_src[module - PERIPH_MODEM_MODULE_MIN] = MODEM_CLOCK_LPCLK_SRC_INVALID;
     switch (module)
@@ -401,9 +446,9 @@ void modem_clock_deselect_lp_clock_source(periph_module_t module)
         if (efuse_hal_chip_revision() != 0) {
             if (last_src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
                 pmu_sleep_enable_hp_sleep_sysclk(false);
+                modem_clock_hal_enable_wifipwr_clock(MODEM_CLOCK_instance()->hal, false);
+                modem_clock_domain_clk_gate_enable(MODEM_CLOCK_DOMAIN_WIFIPWR, PMU_HP_ICG_MODEM_CODE_SLEEP);
             }
-            modem_clock_hal_enable_wifipwr_clock(MODEM_CLOCK_instance()->hal, false);
-            modem_clock_domain_clk_gate_enable(MODEM_CLOCK_DOMAIN_WIFI, PMU_HP_ICG_MODEM_CODE_SLEEP);
         }
 #endif
         break;
@@ -415,7 +460,7 @@ void modem_clock_deselect_lp_clock_source(periph_module_t module)
     default:
         break;
     }
-    portEXIT_CRITICAL_SAFE(&MODEM_CLOCK_instance()->lock);
+    irq_unlock(MODEM_CLOCK_instance()->lock);
 
     esp_sleep_pd_domain_t pd_domain = (esp_sleep_pd_domain_t) ( \
               (last_src == MODEM_CLOCK_LPCLK_SRC_RC_FAST)  ? ESP_PD_DOMAIN_RC_FAST  \

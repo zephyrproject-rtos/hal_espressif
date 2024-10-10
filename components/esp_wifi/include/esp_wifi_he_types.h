@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -54,7 +54,8 @@ typedef struct {
                                                  1- acquire the complete HE-LTF2
                                                  2- sample evenly among the HE-LTF1 and HE-LTF2 */
     uint32_t val_scale_cfg : 2;             /**< value 0-3 */
-    uint32_t reserved : 20;                 /**< reserved */
+    uint32_t dump_ack_en : 1;               /**< enable to dump 802.11 ACK frame, default disabled */
+    uint32_t reserved : 19;                 /**< reserved */
 } wifi_csi_acquire_config_t;
 
 /**
@@ -157,13 +158,12 @@ typedef struct {
     unsigned : 15;                                /**< reserved */
     unsigned : 15;                                /**< reserved */
     unsigned : 2;                                 /**< reserved */
-    unsigned noise_floor : 8;                     /**< the noise floor of the reception frame */
-    signed data_rssi : 8;                         /**< the RSSI of the DATA field */
-    unsigned : 8;                                 /**< reserved */
-    unsigned : 8;                                 /**< reserved */
+    signed noise_floor : 8;                       /**< the noise floor of the reception frame */
     unsigned channel : 4;                         /**< the primary channel */
     unsigned second : 4;                          /**< the second channel if in HT40 */
-    unsigned : 24;                                /**< reserved */
+    unsigned : 8;                                 /**< reserved */
+    unsigned : 8;                                 /**< reserved */
+    unsigned : 32;                                /**< reserved */
     unsigned : 32;                                /**< reserved */
     unsigned : 2;                                 /**< reserved */
     unsigned : 4;                                 /**< reserved */
@@ -239,6 +239,26 @@ typedef struct {
     uint8_t flow_id_bitmap;              /**< bitmap of the suspended flow id */
     uint32_t actual_suspend_time_ms[8];  /**< the actual suspend time for each flow id, unit: ms */
 } wifi_event_sta_itwt_suspend_t;
+
+/**
+  * @brief TWT types
+  */
+typedef enum {
+    TWT_TYPE_INDIVIDUAL,                 /**< individual twt */
+    TWT_TYPE_BROADCAST,                  /**< broadcast twt */
+    TWT_TYPE_MAX,                        /**< the max value */
+} wifi_twt_type_t;
+
+/** Argument structure for twt configuration */
+typedef struct {
+    bool post_wakeup_event;              /**< post twt wakeup event */
+} wifi_twt_config_t;
+
+/** Argument structure for WIFI_EVENT_TWT_WAKEUP event */
+typedef struct {
+    wifi_twt_type_t twt_type;           /**< twt type */
+    uint8_t flow_id;                    /**< flow id */
+} wifi_event_sta_twt_wakeup_t;
 
 #ifdef __cplusplus
 }

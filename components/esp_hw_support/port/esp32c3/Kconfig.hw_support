@@ -19,6 +19,8 @@ choice ESP32C3_REV_MIN
         bool "Rev v0.3 (ECO3)"
     config ESP32C3_REV_MIN_4
         bool "Rev v0.4 (ECO4)"
+    config ESP32C3_REV_MIN_101
+        bool "Rev v1.1"
 endchoice
 
 config ESP32C3_REV_MIN_FULL
@@ -28,6 +30,7 @@ config ESP32C3_REV_MIN_FULL
     default 2 if ESP32C3_REV_MIN_2
     default 3 if ESP32C3_REV_MIN_3
     default 4 if ESP32C3_REV_MIN_4
+    default 101 if ESP32C3_REV_MIN_101
 
 config ESP_REV_MIN_FULL
     int
@@ -37,7 +40,7 @@ config ESP_REV_MIN_FULL
     # MAX Revision
     #
 
-    comment "Maximum Supported ESP32-C3 Revision (Rev v0.99)"
+    comment "Maximum Supported ESP32-C3 Revision (Rev v1.99)"
     # Maximum revision that IDF supports.
     # It can not be changed by user.
     # Only Espressif can change it when a new version will be supported in IDF.
@@ -45,7 +48,7 @@ config ESP_REV_MIN_FULL
 
 config ESP32C3_REV_MAX_FULL
     int
-    default 99
+    default 199
     # keep in sync the "Maximum Supported Revision" description with this value
 
 config ESP_REV_MAX_FULL

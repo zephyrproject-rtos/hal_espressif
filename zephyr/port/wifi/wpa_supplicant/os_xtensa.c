@@ -53,6 +53,16 @@ int os_get_random(unsigned char *buf, size_t len)
 	return 0;
 }
 
+void os_sleep(os_time_t sec, os_time_t usec)
+{
+    if (sec) {
+        k_sleep(K_SECONDS(sec));
+    }
+    if (usec) {
+        k_sleep(K_USEC(usec));
+    }
+}
+
 #ifdef CONFIG_CRYPTO_MBEDTLS
 void forced_memzero(void *ptr, size_t len)
 {

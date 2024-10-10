@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -18,19 +18,19 @@ static void configure_ecdsa_periph(ecdsa_hal_config_t *conf)
 
     ecdsa_ll_set_mode(conf->mode);
     ecdsa_ll_set_curve(conf->curve);
-    ecdsa_ll_set_k_mode(conf->k_mode);
     ecdsa_ll_set_z_mode(conf->sha_mode);
 }
 
-void ecdsa_hal_gen_signature(ecdsa_hal_config_t *conf, const uint8_t *k, const uint8_t *hash,
+bool ecdsa_hal_get_operation_result(void)
+{
+    return ecdsa_ll_get_operation_result();
+}
+
+void ecdsa_hal_gen_signature(ecdsa_hal_config_t *conf, const uint8_t *hash,
                             uint8_t *r_out, uint8_t *s_out, uint16_t len)
 {
     if (len != ECDSA_HAL_P192_COMPONENT_LEN && len != ECDSA_HAL_P256_COMPONENT_LEN) {
         HAL_ASSERT(false && "Incorrect length");
-    }
-
-    if (conf->k_mode == ECDSA_K_USER_PROVIDED && k == NULL) {
-        HAL_ASSERT(false && "Mismatch in K configuration");
     }
 
     if (conf->sha_mode == ECDSA_Z_USER_PROVIDED && hash == NULL) {
@@ -98,7 +98,7 @@ int ecdsa_hal_verify_signature(ecdsa_hal_config_t *conf, const uint8_t *hash, co
         ;
     }
 
-    int res = ecdsa_ll_get_verification_result();
+    bool res = ecdsa_hal_get_operation_result();
 
     return (res ? 0 : -1);
 }

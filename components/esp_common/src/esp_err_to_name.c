@@ -131,6 +131,12 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_NOT_FINISHED
     ERR_TBL_IT(ESP_ERR_NOT_FINISHED),                           /*   268 0x10c There are items remained to retrieve */
 #   endif
+#   ifdef      ESP_ERR_NOT_ALLOWED
+    ERR_TBL_IT(ESP_ERR_NOT_ALLOWED),                            /*   269 0x10d Operation is not allowed */
+#   endif
+#   ifdef      ESP_ERR_ROC_IN_PROGRESS
+    ERR_TBL_IT(ESP_ERR_ROC_IN_PROGRESS),                        /*   270 0x10e ROC Operation is in progress */
+#   endif
     // components/nvs_flash/include/nvs.h
 #   ifdef      ESP_ERR_NVS_BASE
     ERR_TBL_IT(ESP_ERR_NVS_BASE),                               /*  4352 0x1100 Starting number of error codes */
@@ -408,6 +414,9 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_WIFI_TWT_SETUP_REJECT
     ERR_TBL_IT(ESP_ERR_WIFI_TWT_SETUP_REJECT),                  /* 12314 0x301a The twt setup request was rejected by the AP */
 #   endif
+#   ifdef      ESP_ERR_WIFI_DISCARD
+    ERR_TBL_IT(ESP_ERR_WIFI_DISCARD),                           /* 12315 0x301b Discard frame */
+#   endif
     // components/wpa_supplicant/esp_supplicant/include/esp_wps.h
 #   ifdef      ESP_ERR_WIFI_REGISTRAR
     ERR_TBL_IT(ESP_ERR_WIFI_REGISTRAR),                         /* 12339 0x3033 WPS registrar is not supported */
@@ -455,6 +464,9 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   endif
 #   ifdef      ESP_ERR_DPP_INVALID_ATTR
     ERR_TBL_IT(ESP_ERR_DPP_INVALID_ATTR),                       /* 12441 0x3099 Encountered invalid DPP Attribute */
+#   endif
+#   ifdef      ESP_ERR_DPP_AUTH_TIMEOUT
+    ERR_TBL_IT(ESP_ERR_DPP_AUTH_TIMEOUT),                       /* 12442 0x309a DPP Auth response was not recieved in time */
 #   endif
     // components/esp_common/include/esp_err.h
 #   ifdef      ESP_ERR_MESH_BASE

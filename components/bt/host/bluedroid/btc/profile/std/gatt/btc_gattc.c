@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
 
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -15,6 +15,8 @@
 #include "common/bt_trace.h"
 #include "osi/allocator.h"
 #include "esp_gattc_api.h"
+#include "btc/btc_storage.h"
+#include "common/bt_defs.h"
 
 #if (GATTC_INCLUDED == TRUE)
 static inline void btc_gattc_cb_to_app(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
@@ -122,7 +124,8 @@ static void btc_gattc_copy_req_data(btc_msg_t *msg, void *p_dest, void *p_src)
     switch (msg->act) {
         case BTA_GATTC_READ_DESCR_EVT:
         case BTA_GATTC_READ_CHAR_EVT:
-        case BTA_GATTC_READ_MULTIPLE_EVT: {
+        case BTA_GATTC_READ_MULTIPLE_EVT:
+        case BTA_GATTC_READ_MULTI_VAR_EVT: {
             if (p_src_data->read.p_value && p_src_data->read.p_value->p_value) {
                 p_dest_data->read.p_value = (tBTA_GATT_UNFMT  *)osi_malloc(sizeof(tBTA_GATT_UNFMT) + p_src_data->read.p_value->len);
                 p_dest_data->read.p_value->p_value = (uint8_t *)(p_dest_data->read.p_value + 1);
@@ -158,7 +161,8 @@ static void btc_gattc_free_req_data(btc_msg_t *msg)
     switch (msg->act) {
         case BTA_GATTC_READ_DESCR_EVT:
         case BTA_GATTC_READ_CHAR_EVT:
-        case BTA_GATTC_READ_MULTIPLE_EVT: {
+        case BTA_GATTC_READ_MULTIPLE_EVT:
+        case BTA_GATTC_READ_MULTI_VAR_EVT: {
             if (arg->read.p_value) {
                 osi_free(arg->read.p_value);
             }
@@ -604,6 +608,14 @@ static void btc_gattc_read_multiple_char(btc_ble_gattc_args_t *arg)
     BTA_GATTC_ReadMultiple(arg->read_multiple.conn_id, &bta_multi, arg->read_multiple.auth_req);
 }
 
+static void btc_gattc_read_multiple_variable_char(btc_ble_gattc_args_t *arg)
+{
+    tBTA_GATTC_MULTI bta_multi;
+    bta_multi.num_attr = arg->read_multiple.num_attr;
+    memcpy(bta_multi.handles, arg->read_multiple.handles, BTA_GATTC_MULTI_MAX);
+    BTA_GATTC_ReadMultipleVariable(arg->read_multiple.conn_id, &bta_multi, arg->read_multiple.auth_req);
+}
+
 static void btc_gattc_read_char_descr(btc_ble_gattc_args_t *arg)
 {
     BTA_GATTC_ReadCharDescr(arg->read_descr.conn_id, arg->read_descr.handle, arg->read_descr.auth_req);
@@ -726,6 +738,9 @@ void btc_gattc_call_handler(btc_msg_t *msg)
         break;
     case BTC_GATTC_ACT_READ_MULTIPLE_CHAR:
         btc_gattc_read_multiple_char(arg);
+        break;
+    case BTC_GATTC_ACT_READ_MULTIPLE_VARIABLE_CHAR:
+        btc_gattc_read_multiple_variable_char(arg);
         break;
     case BTC_GATTC_ACT_READ_CHAR_DESCR:
         btc_gattc_read_char_descr(arg);
@@ -864,6 +879,11 @@ void btc_gattc_cb_handler(btc_msg_t *msg)
         btc_gattc_cb_to_app(ESP_GATTC_READ_MULTIPLE_EVT, gattc_if, &param);
         break;
     }
+    case BTA_GATTC_READ_MULTI_VAR_EVT: {
+        set_read_value(&gattc_if, &param, &arg->read);
+        btc_gattc_cb_to_app(ESP_GATTC_READ_MULTI_VAR_EVT, gattc_if, &param);
+        break;
+    }
     case BTA_GATTC_WRITE_DESCR_EVT: {
         tBTA_GATTC_WRITE *write = &arg->write;
 
@@ -906,7 +926,17 @@ void btc_gattc_cb_handler(btc_msg_t *msg)
     }
     case BTA_GATTC_CONNECT_EVT: {
         tBTA_GATTC_CONNECT *connect = &arg->connect;
+#if (SMP_INCLUDED == TRUE)
+        bt_bdaddr_t bt_addr;
 
+        memcpy(bt_addr.address, connect->remote_bda, sizeof(bt_addr.address));
+        if (btc_storage_update_active_device(&bt_addr)) {
+            BTC_TRACE_EVENT("Device: %02x:%02x:%02x:%02x:%02x:%02x, is not in bond list",
+                            bt_addr.address[0], bt_addr.address[1],
+                            bt_addr.address[2], bt_addr.address[3],
+                            bt_addr.address[4], bt_addr.address[5]);
+        }
+#endif  ///SMP_INCLUDED == TRUE
         gattc_if = connect->client_if;
         param.connect.conn_id = BTC_GATT_GET_CONN_ID(connect->conn_id);
         param.connect.link_role = connect->link_role;

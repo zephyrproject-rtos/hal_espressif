@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,7 +41,6 @@
 
 __attribute__((unused)) static struct timeval tv_start, tv_stop;
 
-#if !TEMPORARY_DISABLED_FOR_TARGETS(ESP32H2)
 
 static void check_sleep_reset(void)
 {
@@ -411,7 +410,7 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is off (13 high)", "[deepsleep][ig
 {
     // This test needs external pulldown
     ESP_ERROR_CHECK(rtc_gpio_init(GPIO_NUM_13));
-    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_HIGH));
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_HIGH));
     esp_deep_sleep_start();
 }
 
@@ -419,7 +418,11 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is off (13 low)", "[deepsleep][ign
 {
     // This test needs external pullup
     ESP_ERROR_CHECK(rtc_gpio_init(GPIO_NUM_13));
-    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#if CONFIG_IDF_TARGET_ESP32
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#else
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_LOW));
+#endif
     esp_deep_sleep_start();
 }
 
@@ -429,7 +432,7 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is on (13 high)", "[deepsleep][ign
     ESP_ERROR_CHECK(gpio_pullup_dis(GPIO_NUM_13));
     ESP_ERROR_CHECK(gpio_pulldown_en(GPIO_NUM_13));
     ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON));
-    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_HIGH));
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_HIGH));
     esp_deep_sleep_start();
 }
 
@@ -439,7 +442,11 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is on (13 low)", "[deepsleep][igno
     ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_13));
     ESP_ERROR_CHECK(gpio_pulldown_dis(GPIO_NUM_13));
     ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON));
-    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#if CONFIG_IDF_TARGET_ESP32
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#else
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_LOW));
+#endif
     esp_deep_sleep_start();
 }
 #endif // SOC_PM_SUPPORT_EXT1_WAKEUP
@@ -658,4 +665,3 @@ TEST_CASE("wake up using GPIO (2 or 4 low)", "[deepsleep][ignore]")
     esp_deep_sleep_start();
 }
 #endif // SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
-#endif //!TEMPORARY_DISABLED_FOR_TARGETS(ESP32H2) TODO: IDF-6268

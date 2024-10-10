@@ -275,6 +275,14 @@ void btm_ble_add_resolving_list_entry_complete(UINT8 *p, UINT16 evt_len)
 {
     UINT8 status;
     STREAM_TO_UINT8(status, p);
+    if (btm_cb.devcb.p_add_dev_to_resolving_list_cmpl_cb) {
+        tBTM_ADD_DEV_TO_RESOLVING_LIST_CMPL_CBACK   *p_cb = btm_cb.devcb.p_add_dev_to_resolving_list_cmpl_cb;
+        if (p_cb) {
+            (*p_cb)(status);
+        }
+    } else {
+        BTM_TRACE_DEBUG("no resolving list callback");
+    }
 
     BTM_TRACE_DEBUG("%s status = %d", __func__, status);
 
@@ -322,7 +330,7 @@ void btm_ble_remove_resolving_list_entry_complete(UINT8 *p, UINT16 evt_len)
     BTM_TRACE_DEBUG("%s status = %d", __func__, status);
 
     if (!btm_ble_deq_resolving_pending(pseudo_bda)) {
-        BTM_TRACE_ERROR("%s no pending resolving list operation", __func__);
+        BTM_TRACE_DEBUG("%s no pending resolving list operation", __func__);
         return;
     }
 
@@ -377,6 +385,103 @@ void btm_ble_read_resolving_list_entry_complete(UINT8 *p, UINT16 evt_len)
         btm_ble_refresh_peer_resolvable_private_addr(pseudo_bda, rra, rra_type);
     }
 }
+
+/*******************************************************************************
+**
+** Function         btm_ble_set_addr_resolution_enable_complete
+**
+** Description      This function is called when the command to set address
+**                  resolution enable completes.
+**
+** Parameters       p: Pointer to the command complete event data.
+**                  evt_len: Length of the event data.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_ble_set_addr_resolution_enable_complete(UINT8 *p, UINT16 evt_len)
+{
+    UINT8 status;
+
+    STREAM_TO_UINT8(status, p);
+
+    BTM_TRACE_DEBUG("%s status = %d", __func__, status);
+
+    tBTM_LE_RANDOM_CB *random_cb = &btm_cb.ble_ctr_cb.addr_mgnt_cb;
+
+    if (!(random_cb && random_cb->set_local_privacy_cback)) {
+        return;
+    }
+
+    if (status == HCI_SUCCESS) {
+        random_cb->set_local_privacy_cback(BTM_SUCCESS);
+        return;
+    } else if (status == HCI_ERR_COMMAND_DISALLOWED) {
+        BTM_TRACE_ERROR("a non-connected activity is ongoing, such as advertising and scanning");
+    } else {
+        BTM_TRACE_ERROR("set local privacy failed");
+    }
+    random_cb->set_local_privacy_cback(BTM_ILLEGAL_VALUE);
+}
+
+/*******************************************************************************
+**
+** Function         btm_ble_set_rpa_timeout_complete
+**
+** Description      This function is called when the LE Set Resolvable Private
+**                  Address Timeout command completes.
+**
+** Parameters       p: Pointer to the command complete event data.
+**                  evt_len: Length of the event data.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_ble_set_rpa_timeout_complete(UINT8 *p, UINT16 evt_len)
+{
+    UINT8 status;
+
+    // Extract the status of the command completion from the event data
+    STREAM_TO_UINT8(status, p);
+
+    BTM_TRACE_DEBUG("%s status = %d", __func__, status);
+
+    tBTM_SET_RPA_TIMEOUT_CMPL_CBACK   *p_cb = btm_cb.devcb.p_ble_set_rpa_timeout_cmpl_cb;
+
+    if (p_cb) {
+        (*p_cb)(status);
+    }
+
+}
+
+/*******************************************************************************
+**
+** Function         btm_ble_set_privacy_mode_complete
+**
+** Description      This function is called when the LE Set Privacy Mode command completes.
+**
+** Parameters       p: Pointer to the command complete event data.
+**                  evt_len: Length of the event data.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_ble_set_privacy_mode_complete(UINT8 *p, UINT16 evt_len)
+{
+    UINT8 status;
+
+    // Extract the status of the command completion from the event data
+    STREAM_TO_UINT8(status, p);
+
+    BTM_TRACE_DEBUG("%s status = 0x%x", __func__, status);
+
+    tBTM_SET_PRIVACY_MODE_CMPL_CBACK *p_cb = btm_cb.devcb.p_set_privacy_mode_cmpl_cb;
+
+    if (p_cb) {
+        (*p_cb)(status);
+    }
+}
+
 /*******************************************************************************
                 VSC that implement controller based privacy
 ********************************************************************************/
@@ -420,7 +525,7 @@ void btm_ble_resolving_list_vsc_op_cmpl (tBTM_VSC_CMPL *p_params)
 ** Description      This function to remove an IRK entry from the list
 **
 ** Parameters       ble_addr_type: address type
-**                  ble_addr: LE adddress
+**                  ble_addr: LE address
 **
 ** Returns          status
 **
@@ -434,10 +539,18 @@ tBTM_STATUS btm_ble_remove_resolving_list_entry(tBTM_SEC_DEV_REC *p_dev_rec)
 
     tBTM_STATUS st = BTM_NO_RESOURCES;
     if (controller_get_interface()->supports_ble_privacy()) {
+        #if CONTROLLER_RPA_LIST_ENABLE
         if (btsnd_hcic_ble_rm_device_resolving_list(p_dev_rec->ble.static_addr_type,
                 p_dev_rec->ble.static_addr)) {
             st =  BTM_CMD_STARTED;
         }
+        #else
+            // do nothing
+            /* It will cause that scanner doesn't send scan request to advertiser
+            * which has sent IRK to us and we have stored the IRK in controller.
+            * It is a hardware limitation. The preliminary solution is not to
+            * send key to the controller, but to resolve the random address in host. */
+        #endif
     } else {
         UINT8 param[20] = {0};
         UINT8 *p = param;
@@ -902,7 +1015,7 @@ void btm_ble_enable_resolving_list(UINT8 rl_mask)
 **
 ** Function         btm_ble_resolving_list_empty
 **
-** Description      check to see if resoving list is empty or not
+** Description      check to see if resolving list is empty or not
 **
 ** Returns          TRUE: empty; FALSE non-empty
 **
@@ -1027,12 +1140,15 @@ void btm_ble_add_default_entry_to_resolving_list(void)
     /*
      * Add local IRK entry with 00:00:00:00:00:00 address. This entry will
      * be used to generate RPA for non-directed advertising if own_addr_type
-     * is set to rpa_pub since we use all-zero address as peer addres in
+     * is set to rpa_pub since we use all-zero address as peer address in
      * such case. Peer IRK should be left all-zero since this is not for an
      * actual peer.
      */
     BD_ADDR peer_addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
     BT_OCTET16 peer_irk = {0x0};
+
+    // Remove the existing entry in resolving list When resetting the device identity
+    btsnd_hcic_ble_rm_device_resolving_list(BLE_ADDR_PUBLIC, peer_addr);
 
     btsnd_hcic_ble_add_device_resolving_list (BLE_ADDR_PUBLIC, peer_addr, peer_irk, btm_cb.devcb.id_keys.irk);
 }

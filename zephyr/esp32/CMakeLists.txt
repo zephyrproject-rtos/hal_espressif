@@ -7,6 +7,8 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
   zephyr_compile_definitions_ifdef(CONFIG_ESP_SIMPLE_BOOT BOOTLOADER_BUILD)
+  
+  zephyr_compile_definitions(CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5)
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
@@ -125,8 +127,6 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
-    ../../components/spi_flash/flash_ops.c
-    ../../components/spi_flash/esp_flash_api.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
     ../../components/esp_mm/cache_esp32.c
@@ -134,6 +134,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/spi_flash_encrypt_hal_iram.c
     ../../components/hal/spi_flash_hal.c
     ../../components/hal/spi_flash_hal_iram.c
+    ../../components/hal/${CONFIG_SOC_SERIES}/cache_hal_esp32.c
     ../../components/spi_flash/esp_flash_api.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/spi_flash/flash_mmap.c
@@ -216,6 +217,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     zephyr_sources(
       ../../components/driver/gpio/gpio.c
       ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/esp_hw_support/sleep_event.c
       ../../components/driver/gpio/rtc_io.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
       ../../components/esp_hw_support/sleep_modem.c
@@ -290,6 +292,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_cpu_intr.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
@@ -312,6 +315,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_system/esp_err.c
 
     ../../components/esp_timer/src/ets_timer_legacy.c
+    ../../components/esp_timer/src/esp_timer_impl_common.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
     ../../components/esp_timer/src/esp_timer.c
 
@@ -319,7 +323,8 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/mmu_hal.c
     ../../components/hal/wdt_hal_iram.c
     ../../components/hal/mpu_hal.c  # TODO: maybe cache issue related
-
+    
+    ../../components/hal/${CONFIG_SOC_SERIES}/cache_hal_esp32.c
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
 
@@ -349,6 +354,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
+      ../../components/esp_phy/src/phy_common.c
       )
 
     zephyr_link_libraries(
@@ -445,10 +451,12 @@ if(CONFIG_SOC_SERIES_ESP32)
         )
     endif()
 
-    set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2.c"
+    set(ESP_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_eap_client.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa2_api_port.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa_main.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpas_glue.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_common.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wps.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa3.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_owe.c"
       )
@@ -476,6 +484,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     if(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO)
       set(CRYPTO_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/fastpbkdf2.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
@@ -536,6 +545,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
+      ../port/wifi/wifi_init.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}
       ${TLS_SRCS}
@@ -558,6 +568,7 @@ if(CONFIG_SOC_SERIES_ESP32)
       CONFIG_IEEE80211W
       CONFIG_SHA256
       CONFIG_NO_RADIUS
+      CONFIG_FAST_PBKDF2
       CONFIG_CRYPTO_INTERNAL
       )
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,6 +27,7 @@
 #include "esp_newlib.h"
 #include "esp_timer.h"
 #include "esp_efuse.h"
+#include "esp_efuse_table.h"
 #include "esp_flash_encrypt.h"
 #include "esp_secure_boot.h"
 #include "esp_xt_wdt.h"
@@ -37,7 +38,7 @@
 /***********************************************/
 // Headers for other components init functions
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
-#include "esp_coexist_internal.h"
+#include "private/esp_coexist_internal.h"
 #endif
 
 #if __has_include("esp_app_desc.h")
@@ -68,6 +69,10 @@
 
 #include "esp_rom_caps.h"
 #include "esp_rom_sys.h"
+
+#if SOC_BOD_SUPPORTED
+#include "hal/brownout_ll.h"
+#endif
 
 #if CONFIG_SPIRAM
 #include "esp_psram.h"
@@ -292,7 +297,11 @@ static void do_core_init(void)
     // [refactor-todo] leads to call chain rtc_is_register (driver) -> esp_intr_alloc (esp32/esp32s2) ->
     // malloc (newlib) -> heap_caps_malloc (heap), so heap must be at least initialized
     esp_brownout_init();
-#endif
+#else
+#if SOC_CAPS_NO_RESET_BY_ANA_BOD
+    brownout_ll_ana_reset_enable(false);
+#endif // SOC_CAPS_NO_RESET_BY_ANA_BOD
+#endif // CONFIG_ESP_BROWNOUT_DET
 
     esp_newlib_time_init();
 
@@ -355,6 +364,29 @@ static void do_core_init(void)
 #endif
 #endif
 
+#if CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+    // For anti-rollback case, recheck security version before we boot-up the current application
+    assert(esp_efuse_check_secure_version(esp_app_get_description()->secure_version) == true && "Incorrect secure version of app");
+#endif
+
+#ifdef CONFIG_SECURE_FLASH_ENC_ENABLED
+    esp_flash_encryption_init_checks();
+#endif
+
+#if defined(CONFIG_SECURE_BOOT) || defined(CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT)
+    // Note: in some configs this may read flash, so placed after flash init
+    esp_secure_boot_init_checks();
+#endif
+
+#if SOC_EFUSE_ECDSA_USE_HARDWARE_K
+    if (esp_efuse_find_purpose(ESP_EFUSE_KEY_PURPOSE_ECDSA_KEY, NULL)) {
+        // ECDSA key purpose block is present and hence permanently enable
+        // the hardware TRNG supplied k mode (most secure mode)
+        err = esp_efuse_write_field_bit(ESP_EFUSE_ECDSA_FORCE_USE_HARDWARE_K);
+        assert(err == ESP_OK && "Failed to enable ECDSA hardware k mode");
+    }
+#endif
+
 #if CONFIG_SECURE_DISABLE_ROM_DL_MODE
     err = esp_efuse_disable_rom_download_mode();
     assert(err == ESP_OK && "Failed to disable ROM download mode");
@@ -367,15 +399,6 @@ static void do_core_init(void)
 
 #if CONFIG_ESP32_DISABLE_BASIC_ROM_CONSOLE
     esp_efuse_disable_basic_rom_console();
-#endif
-
-#ifdef CONFIG_SECURE_FLASH_ENC_ENABLED
-    esp_flash_encryption_init_checks();
-#endif
-
-#if defined(CONFIG_SECURE_BOOT) || defined(CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT)
-    // Note: in some configs this may read flash, so placed after flash init
-    esp_secure_boot_init_checks();
 #endif
 
 #ifdef ROM_LOG_MODE

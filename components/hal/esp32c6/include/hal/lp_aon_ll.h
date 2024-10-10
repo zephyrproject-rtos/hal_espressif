@@ -39,29 +39,22 @@ static inline void lp_aon_ll_ext1_clear_wakeup_status(void)
 
 /**
  * @brief Set the wake-up LP_IO of the ext1 wake-up source
- * @param mask wakeup LP_IO bitmap, bit 0~7 corresponds to LP_IO 0~7
- * @param mode 0: Wake the chip when all selected GPIOs go low
- *             1: Wake the chip when any of the selected GPIOs go high
+ * @param io_mask     wakeup LP_IO bitmap, bit 0~7 corresponds to LP_IO 0~7
+ * @param level_mask  LP_IO wakeup level bitmap, bit 0~7 corresponds to LP_IO 0~7 wakeup level
+ *                    each bit's corresponding position is set to 0, the wakeup level will be low
+ *                    on the contrary, each bit's corresponding position is set to 1, the wakeup
+ *                    level will be high
  */
-static inline  void lp_aon_ll_ext1_set_wakeup_pins(uint32_t mask, int mode)
+static inline void lp_aon_ll_ext1_set_wakeup_pins(uint32_t io_mask, uint32_t level_mask)
 {
-    uint32_t wakeup_sel_mask = HAL_FORCE_READ_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_sel);
-    wakeup_sel_mask |= mask;
-    HAL_FORCE_MODIFY_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_sel, wakeup_sel_mask);
-
-    uint32_t wakeup_level_mask = HAL_FORCE_READ_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_lv);
-    if (mode) {
-        wakeup_level_mask |= mask;
-    } else {
-        wakeup_level_mask &= ~mask;
-    }
-    HAL_FORCE_MODIFY_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_lv, wakeup_level_mask);
+    HAL_FORCE_MODIFY_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_sel, io_mask);
+    HAL_FORCE_MODIFY_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_lv, level_mask);
 }
 
 /**
  * @brief Clear all ext1 wakup-source setting
  */
-static inline  void lp_aon_ll_ext1_clear_wakeup_pins(void)
+static inline void lp_aon_ll_ext1_clear_wakeup_pins(void)
 {
     HAL_FORCE_MODIFY_U32_REG_FIELD(LP_AON.ext_wakeup_cntl, ext_wakeup_sel, 0);
 }
@@ -90,6 +83,24 @@ static inline  void lp_aon_ll_inform_wakeup_type(bool dslp)
     } else {
         REG_CLR_BIT(SLEEP_MODE_REG, BIT(0));    /* Tell rom to run light sleep wake stub */
     }
+}
+
+/**
+ * @brief Get the flag that marks whether LP CPU is awakened by ETM
+ *
+ * @return Return true if lpcore is woken up by soc_etm
+ */
+static inline bool lp_aon_ll_get_lpcore_etm_wakeup_flag(void)
+{
+    return REG_GET_BIT(LP_AON_LPCORE_REG, LP_AON_LPCORE_ETM_WAKEUP_FLAG);
+}
+
+/**
+ * @brief Clear the flag that marks whether LP CPU is awakened by soc_etm
+ */
+static inline void lp_aon_ll_clear_lpcore_etm_wakeup_flag(void)
+{
+    REG_SET_BIT(LP_AON_LPCORE_REG, LP_AON_LPCORE_ETM_WAKEUP_FLAG_CLR);
 }
 
 #ifdef __cplusplus

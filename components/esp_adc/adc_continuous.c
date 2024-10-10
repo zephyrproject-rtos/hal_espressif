@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2016-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2016-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -67,7 +67,7 @@ static void adc_dma_intr_handler(void *arg);
 
 static int8_t adc_digi_get_io_num(adc_unit_t adc_unit, uint8_t adc_channel)
 {
-    assert(adc_unit <= SOC_ADC_PERIPH_NUM);
+    assert(adc_unit < SOC_ADC_PERIPH_NUM);
     uint8_t adc_n = (adc_unit == ADC_UNIT_1) ? 0 : 1;
     return adc_channel_io_map[adc_n][adc_channel];
 }
@@ -236,10 +236,7 @@ esp_err_t adc_continuous_new_handle(const adc_continuous_handle_cfg_t *hdl_confi
     adc_ctx->fsm = ADC_FSM_INIT;
     *ret_handle = adc_ctx;
 
-    //enable ADC digital part
-    periph_module_enable(PERIPH_SARADC_MODULE);
-    //reset ADC digital part
-    periph_module_reset(PERIPH_SARADC_MODULE);
+    adc_apb_periph_claim();
 
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
     adc_hal_calibration_init(ADC_UNIT_1);
@@ -331,6 +328,9 @@ esp_err_t adc_continuous_start(adc_continuous_handle_t handle)
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_STATE, ADC_TAG, "The driver isn't initialised");
     ESP_RETURN_ON_FALSE(handle->fsm == ADC_FSM_INIT, ESP_ERR_INVALID_STATE, ADC_TAG, "ADC continuous mode isn't in the init state, it's started already");
 
+    //reset ADC digital part to reset ADC sampling EOF counter
+    periph_module_reset(PERIPH_SARADC_MODULE);
+
     if (handle->pm_lock) {
         ESP_RETURN_ON_ERROR(esp_pm_lock_acquire(handle->pm_lock), ADC_TAG, "acquire pm_lock failed");
     }
@@ -389,6 +389,11 @@ esp_err_t adc_continuous_stop(adc_continuous_handle_t handle)
     adc_hal_digi_clr_intr(&handle->hal, ADC_HAL_DMA_INTR_MASK);
     //stop ADC
     adc_hal_digi_stop(&handle->hal);
+
+#if ADC_LL_WORKAROUND_CLEAR_EOF_COUNTER
+    periph_module_reset(PERIPH_SARADC_MODULE);
+    adc_hal_digi_clr_eof();
+#endif
 
     adc_hal_digi_deinit(&handle->hal);
 
@@ -472,7 +477,7 @@ esp_err_t adc_continuous_deinit(adc_continuous_handle_t handle)
     free(handle);
     handle = NULL;
 
-    periph_module_disable(PERIPH_SARADC_MODULE);
+    adc_apb_periph_free();
 
     return ESP_OK;
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -32,10 +32,10 @@ TEST_CASE("test atoX functions", "[newlib]")
     TEST_ASSERT_EQUAL_INT(2147483647, atoi("2147483647"));
     TEST_ASSERT_EQUAL_INT(42, atoi("000000042"));
     TEST_ASSERT_EQUAL_INT(0, strtol("foo", NULL, 10));
-    TEST_ASSERT_EQUAL(0.123443, atof("0.123443"));
-    TEST_ASSERT_EQUAL(0.123443f, atoff("0.123443"));
-    TEST_ASSERT_EQUAL(31.41238, strtod("0.3141238e2", NULL));
-    TEST_ASSERT_EQUAL(0.025f, strtof("0.025", NULL));
+    TEST_ASSERT_EQUAL_DOUBLE(0.123443, atof("0.123443"));
+    TEST_ASSERT_EQUAL_FLOAT(0.123443f, atoff("0.123443"));
+    TEST_ASSERT_EQUAL_DOUBLE(31.41238, strtod("0.3141238e2", NULL));
+    TEST_ASSERT_EQUAL_FLOAT(0.025f, strtof("0.025", NULL));
 }
 
 TEST_CASE("test sprintf function", "[newlib]")
@@ -132,7 +132,7 @@ static bool fn_in_rom(void *fn)
 /* Older chips have newlib nano in rom as well, but this is not linked in due to us now using 64 bit time_t
    and the ROM code was compiled for 32 bit.
  */
-#define PRINTF_NANO_IN_ROM (CONFIG_NEWLIB_NANO_FORMAT && (CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32H2))
+#define PRINTF_NANO_IN_ROM (CONFIG_NEWLIB_NANO_FORMAT && CONFIG_IDF_TARGET_ESP32C2)
 #define SSCANF_NANO_IN_ROM (CONFIG_NEWLIB_NANO_FORMAT && CONFIG_IDF_TARGET_ESP32C2)
 
 TEST_CASE("check if ROM or Flash is used for functions", "[newlib]")
@@ -232,4 +232,11 @@ TEST_CASE("newlib: rom and toolchain localtime func gives the same result", "[ne
     sprintf(test_result, "%s (tm_isdst = %d)", buf, tm->tm_isdst);
     printf("%s\n", test_result);
     TEST_ASSERT_EQUAL_STRING("2020-03-12 15:00:00 EDT (tm_isdst = 1)", test_result);
+}
+
+TEST_CASE("newlib: printf float as expected", "[newlib]")
+{
+    const float val = 1.23;
+    int len = printf("test printf float val is %1.2f\n", val);
+    TEST_ASSERT_EQUAL_INT(30, len);
 }

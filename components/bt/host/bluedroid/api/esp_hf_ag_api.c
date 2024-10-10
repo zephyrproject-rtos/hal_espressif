@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -171,6 +171,9 @@ esp_err_t esp_hf_ag_volume_control(esp_bd_addr_t remote_addr, esp_hf_volume_cont
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
         return ESP_ERR_INVALID_STATE;
     }
+    if (volume < 0 || volume > 15) {
+        return ESP_ERR_INVALID_ARG;
+    }
     btc_msg_t msg;
     msg.sig = BTC_SIG_API_CALL;
     msg.pid = BTC_PID_HF;
@@ -237,6 +240,9 @@ esp_err_t esp_hf_ag_devices_status_indchange(esp_bd_addr_t remote_addr,
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
         return ESP_ERR_INVALID_STATE;
     }
+    if (signal < 0 || signal > 5) {
+        return ESP_ERR_INVALID_ARG;
+    }
     btc_msg_t msg;
     msg.sig = BTC_SIG_API_CALL;
     msg.pid = BTC_PID_HF;
@@ -255,6 +261,27 @@ esp_err_t esp_hf_ag_devices_status_indchange(esp_bd_addr_t remote_addr,
     return (state == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
+esp_err_t esp_hf_ag_ciev_report(esp_bd_addr_t remote_addr, esp_hf_ciev_report_type_t ind_type, int value)
+{
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    btc_msg_t msg;
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_HF;
+    msg.act = BTC_HF_CIEV_REPORT_EVT;
+
+    btc_hf_args_t arg;
+    memset(&arg, 0, sizeof(btc_hf_args_t));
+    memcpy(&(arg.ciev_rep.remote_addr), remote_addr, sizeof(esp_bd_addr_t));
+    arg.ciev_rep.ind.type = ind_type;
+    arg.ciev_rep.ind.value = value;
+
+    /* Switch to BTC context */
+    bt_status_t state = btc_transfer_context(&msg, &arg, sizeof(btc_hf_args_t), NULL, NULL);
+    return (state == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
+}
+
 esp_err_t esp_hf_ag_cind_response(esp_bd_addr_t remote_addr,
                                 esp_hf_call_status_t call_state,
                                 esp_hf_call_setup_status_t call_setup_state,
@@ -264,6 +291,10 @@ esp_err_t esp_hf_ag_cind_response(esp_bd_addr_t remote_addr,
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
         return ESP_ERR_INVALID_STATE;
     }
+    if (signal < 0 || signal > 5 || batt_lev < 0 || batt_lev > 5) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     btc_msg_t msg;
     msg.sig = BTC_SIG_API_CALL;
     msg.pid = BTC_PID_HF;
@@ -337,10 +368,13 @@ esp_err_t esp_hf_ag_clcc_response(esp_bd_addr_t remote_addr, int index, esp_hf_c
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t esp_hf_ag_cnum_response(esp_bd_addr_t remote_addr, char *number, esp_hf_subscriber_service_type_t type)
+esp_err_t esp_hf_ag_cnum_response(esp_bd_addr_t remote_addr, char *number, int number_type, esp_hf_subscriber_service_type_t service_type)
 {
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
         return ESP_ERR_INVALID_STATE;
+    }
+    if (number == NULL || number_type < 128 || number_type > 175) {
+        return ESP_ERR_INVALID_ARG;
     }
     btc_msg_t msg;
     msg.sig = BTC_SIG_API_CALL;
@@ -351,7 +385,8 @@ esp_err_t esp_hf_ag_cnum_response(esp_bd_addr_t remote_addr, char *number, esp_h
     memset(&arg, 0, sizeof(btc_hf_args_t));
     memcpy(&(arg.cnum_rep), remote_addr, sizeof(esp_bd_addr_t));
     arg.cnum_rep.number = number; //deep_copy
-    arg.cnum_rep.type = type;
+    arg.cnum_rep.number_type = number_type;
+    arg.cnum_rep.service_type = service_type;
 
     /* Switch to BTC context */
     bt_status_t status = btc_transfer_context(&msg, &arg, sizeof(btc_hf_args_t),
@@ -512,10 +547,30 @@ esp_err_t esp_hf_ag_register_data_callback(esp_hf_incoming_data_cb_t recv, esp_h
 }
 
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
+esp_err_t esp_hf_ag_pkt_stat_nums_get(uint16_t sync_conn_handle)
+{
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    btc_msg_t msg;
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_HF;
+    msg.act = BTC_HF_REQUEST_PKT_STAT_EVT;
+
+    btc_hf_args_t arg;
+    memset(&arg, 0, sizeof(btc_hf_args_t));
+    arg.pkt_sync_hd.sync_conn_handle = sync_conn_handle;
+
+    /* Switch to BTC context */
+    bt_status_t status = btc_transfer_context(&msg, &arg, sizeof(btc_hf_args_t), NULL, NULL);
+    return (status == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
+}
+
 void esp_hf_ag_outgoing_data_ready(void)
 {
     btc_hf_ci_sco_data();
 }
-#endif /* #if (BTM_SCO_HCI_INCLUDED == TRUE ) */
+#endif /* #if (BTM_SCO_HCI_INCLUDED == TRUE) */
 
 #endif // BTC_HF_INCLUDED

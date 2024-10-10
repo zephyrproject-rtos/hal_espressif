@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,6 +8,10 @@
 #define ESP_WIFI_OS_ADAPTER_H_
 
 #include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -148,9 +152,9 @@ typedef struct {
 #if CONFIG_IDF_TARGET_ESP32C6
     void (* _regdma_link_set_write_wait_content)(void *, uint32_t, uint32_t);
     void * (* _sleep_retention_find_link_by_id)(int);
-    int (* _sleep_retention_entries_create)(const void *, int, int, int);
-    void (* _sleep_retention_entries_destroy)(int);
 #endif
+    int (*_coex_schm_flexible_period_set)(uint8_t);
+    uint8_t (*_coex_schm_flexible_period_get)(void);
     int32_t _magic;
 } wifi_osi_funcs_t;
 

@@ -59,7 +59,7 @@ IRAM_ATTR void wifi_bt_common_module_enable(void)
 #else
     ENTER_CRITICAL_SECTION();
     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
-        periph_ll_wifi_bt_module_enable_clk_clear_rst();
+        periph_ll_wifi_bt_module_enable_clk();
     }
     ref_counts[PERIPH_WIFI_BT_COMMON_MODULE]++;
     LEAVE_CRITICAL_SECTION();
@@ -74,7 +74,7 @@ IRAM_ATTR void wifi_bt_common_module_disable(void)
     ENTER_CRITICAL_SECTION();
     ref_counts[PERIPH_WIFI_BT_COMMON_MODULE]--;
     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
-        periph_ll_wifi_bt_module_disable_clk_set_rst();
+        periph_ll_wifi_bt_module_disable_clk();
     }
     LEAVE_CRITICAL_SECTION();
 #endif

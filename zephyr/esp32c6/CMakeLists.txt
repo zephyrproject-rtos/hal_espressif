@@ -6,6 +6,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
 
+  zephyr_compile_definitions(CONFIG_IDF_TARGET_ARCH_RISCV)
+
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
   endif()
@@ -93,7 +95,9 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../tools/esptool_py/flasher_stub/ld/rom_32c6.ld
   )
 
-    zephyr_sources_ifdef(
+  zephyr_compile_definitions(ESP_PLATFORM)
+
+  zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
     ../../components/hal/spi_hal.c
     ../../components/hal/spi_hal_iram.c
@@ -141,6 +145,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/sleep_cpu.c
     ../../components/esp_hw_support/sleep_cpu_asm.S
     ../../components/esp_hw_support/sleep_gpio.c
+    ../../components/esp_hw_support/sleep_event.c
+    ../../components/esp_hw_support/sleep_console.c
     ../../components/esp_hw_support/sleep_modem.c
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_retention.c
@@ -189,16 +195,25 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
 
     ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
     ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
+    ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/mac_addr.c
+    ../../components/esp_hw_support/modem_clock.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hw_support/sar_periph_ctrl_common.c
+    ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
+    ../../components/esp_hw_support/port/regdma_link.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_cpu_intr.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
@@ -216,7 +231,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_rom/patches/esp_rom_spiflash.c
     ../../components/esp_rom/patches/esp_rom_efuse.c
     ../../components/esp_rom/patches/esp_rom_systimer.c
-    ../../components/esp_rom/patches/esp_rom_regi2c_esp32c6.c
+    ../../components/esp_rom/patches/esp_rom_hp_regi2c_esp32c6.c
 
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
@@ -225,6 +240,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
+    ../../components/esp_timer/src/esp_timer_etm.c
+    ../../components/esp_timer/src/esp_timer_impl_common.c
     ../../components/esp_timer/src/esp_timer_impl_systimer.c
 
     ../../components/hal/efuse_hal.c
@@ -232,6 +249,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/hal/wdt_hal_iram.c
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
+    ../../components/hal/${CONFIG_SOC_SERIES}/modem_clock_hal.c
     ../../components/hal/lp_timer_hal.c
 
     ../../components/log/log_noos.c
@@ -246,20 +264,19 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     src/stubs.c
   )
 
-  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
-
-  zephyr_compile_definitions(ESP_PLATFORM)
-
+  
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
     )
-
+    
   zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
     )
+
+  zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
