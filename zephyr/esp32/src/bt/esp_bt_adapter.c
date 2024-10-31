@@ -1260,6 +1260,9 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
 
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_ENABLED;
 
+	/* set default TX power level */
+	esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP32_RADIO_TXP_DEFAULT);
+
 	return ESP_OK;
 }
 

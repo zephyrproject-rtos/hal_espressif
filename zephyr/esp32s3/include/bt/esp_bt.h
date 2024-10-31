@@ -23,6 +23,42 @@ extern "C" {
 #define ESP_BT_HCI_TL_MAGIC_VALUE   0xfadebead
 #define ESP_BT_HCI_TL_VERSION       0x00010000
 
+#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P21
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_18)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_15)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_12)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N0
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_15)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_18)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_21)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N21
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_24)
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N24
+#else
+#error "Invalid ESP32 BLE TX Power"
+#endif
+
 /**
  * @brief Bluetooth mode for controller enable/disable
  */
@@ -249,7 +285,7 @@ typedef void (* btdm_vnd_ol_task_func_t)(void *param);
     .hci_tl_funcs = NULL,                                                  \
     .txant_dft = 0,                      \
     .rxant_dft = 0,                      \
-    .txpwr_dft = 8,                    \
+    .txpwr_dft = ESP32_RADIO_TXP_DEFAULT, \
     .cfg_mask = CFG_MASK,                                                  \
     .scan_duplicate_mode = SCAN_DUPLICATE_MODE,                            \
     .scan_duplicate_type = SCAN_DUPLICATE_TYPE_VALUE,                      \
