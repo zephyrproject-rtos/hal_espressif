@@ -20,7 +20,6 @@ static int mux;
 
 static DRAM_ATTR __attribute__((unused)) const char *TAG = "REGI2C";
 
-#ifdef CONFIG_BOOTLOADER_MCUBOOT
 uint8_t IRAM_ATTR regi2c_ctrl_read_reg(uint8_t block, uint8_t host_id, uint8_t reg_add)
 {
     ENTER_CRITICAL_SECTION();
@@ -50,7 +49,6 @@ void IRAM_ATTR regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_
     regi2c_write_reg_mask_raw(block, host_id, reg_add, msb, lsb, data);
     LEAVE_CRITICAL_SECTION();
 }
-#endif /* CONFIG_BOOTLOADER_MCUBOOT */
 
 void IRAM_ATTR regi2c_enter_critical(void)
 {

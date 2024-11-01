@@ -4,12 +4,12 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
-  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
+#  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
 
-  if(CONFIG_ESP_SIMPLE_BOOT)
-    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QIO BOOTLOADER_BUILD)
-    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QOUT BOOTLOADER_BUILD)
-  endif()
+#  if(CONFIG_ESP_SIMPLE_BOOT)
+#    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QIO BOOTLOADER_BUILD)
+#    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QOUT BOOTLOADER_BUILD)
+#  endif()
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
@@ -312,6 +312,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       )
   endif()
 
+  zephyr_sources_ifndef(
+    CONFIG_MCUBOOT
+    ../../components/esp_hw_support/regi2c_ctrl.c
+  )
+
   zephyr_sources(
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
@@ -323,7 +328,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/esp_clk.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/mspi_timing_tuning.c

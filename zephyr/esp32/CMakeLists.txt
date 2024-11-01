@@ -277,6 +277,11 @@ if(CONFIG_SOC_SERIES_ESP32)
       )
   endif()
 
+  zephyr_sources_ifndef(
+    CONFIG_MCUBOOT
+    ../../components/esp_hw_support/regi2c_ctrl.c
+  )
+
   zephyr_sources(
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
@@ -293,7 +298,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/sleep_modes.c

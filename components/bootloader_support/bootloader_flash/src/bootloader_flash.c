@@ -267,6 +267,16 @@ static esp_err_t spi_to_esp_err(esp_rom_spiflash_result_t r)
     }
 }
 
+
+#if 0//defined(CONFIG_ESPTOOLPY_FLASHMODE_QIO) || defined(CONFIG_ESPTOOLPY_FLASHMODE_QOUT)
+
+esp_err_t bootloader_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt)
+{
+    return sys_flash_read(src_addr, dest, size, allow_decrypt);
+}
+
+#else
+
 static esp_err_t bootloader_flash_read_no_decrypt(size_t src_addr, void *dest, size_t size)
 {
 #if CONFIG_IDF_TARGET_ESP32
@@ -357,6 +367,8 @@ esp_err_t bootloader_flash_read(size_t src_addr, void *dest, size_t size, bool a
         return bootloader_flash_read_no_decrypt(src_addr, dest, size);
     }
 }
+
+#endif /* defined(CONFIG_ESPTOOLPY_FLASHMODE_QIO) || defined(CONFIG_ESPTOOLPY_FLASHMODE_QOUT) */
 
 esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
 {
