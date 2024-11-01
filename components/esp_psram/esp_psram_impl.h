@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#define PSRAM_SIZE_1MB                  (1 * 1024 * 1024)
 #define PSRAM_SIZE_2MB                  (2 * 1024 * 1024)
 #define PSRAM_SIZE_4MB                  (4 * 1024 * 1024)
 #define PSRAM_SIZE_8MB                  (8 * 1024 * 1024)

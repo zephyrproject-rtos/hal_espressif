@@ -36,11 +36,13 @@ static const char* TAG = "quad_psram";
 #define PSRAM_RESET                0x99
 #define PSRAM_SET_BURST_LEN        0xC0
 #define PSRAM_DEVICE_ID            0x9F
+#define PSRAM_MFR_ISSI_ID          0x9D
 
 #define PSRAM_FAST_READ_DUMMY      4
 #define PSRAM_FAST_READ_QUAD_DUMMY 6
 
 // ID
+#define PSRAM_ID_MFR_M          0xff
 #define PSRAM_ID_KGD_M          0xff
 #define PSRAM_ID_KGD_S             8
 #define PSRAM_ID_KGD            0x5d
@@ -54,9 +56,17 @@ static const char* TAG = "quad_psram";
 //    0    |   0    |   0    |     16
 //    0    |   0    |   1    |     32
 //    0    |   1    |   0    |     64
+//
+//   For ISSI Manufacturer the below table is used instead:
+//   BIT7  |  BIT6  |  BIT5  |  SIZE(MBIT)
+//   -------------------------------------
+//    0    |   0    |   0    |     8
+//    0    |   0    |   1    |     16
+//    0    |   1    |   0    |     32
 #define PSRAM_EID_SIZE_M         0x07
 #define PSRAM_EID_SIZE_S            5
 
+#define PSRAM_MFR(id)         ((id) & PSRAM_ID_MFR_M)
 #define PSRAM_KGD(id)         (((id) >> PSRAM_ID_KGD_S) & PSRAM_ID_KGD_M)
 #define PSRAM_EID(id)         (((id) >> PSRAM_ID_EID_S) & PSRAM_ID_EID_M)
 #define PSRAM_SIZE_ID(id)     ((PSRAM_EID(id) >> PSRAM_EID_SIZE_S) & PSRAM_EID_SIZE_M)
@@ -91,6 +101,12 @@ typedef enum {
 
 typedef esp_rom_spi_cmd_t psram_cmd_t;
 
+enum psram_manufacturer {
+	PSRAM_MNF_GENERIC = 0,
+	PSRAM_MNF_ISSI,
+};
+
+static enum psram_manufacturer s_psram_manufacturer;
 static uint32_t s_psram_id = 0;
 static uint32_t s_psram_size = 0;   //this stands for physical psram size in bytes
 static void config_psram_spi_phases(void);
@@ -305,6 +321,21 @@ static void psram_gpio_config(void)
 
 esp_err_t esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)   //psram init
 {
+    const uint32_t psram_size_lut[][3] = {
+        [PSRAM_MNF_GENERIC] =
+            {
+                PSRAM_SIZE_2MB,
+                PSRAM_SIZE_4MB,
+                PSRAM_SIZE_8MB,
+            },
+        [PSRAM_MNF_ISSI] =
+            {
+                PSRAM_SIZE_1MB,
+                PSRAM_SIZE_2MB,
+                PSRAM_SIZE_4MB,
+            },
+    };
+
     psram_gpio_config();
     psram_set_cs_timing();
 
@@ -326,13 +357,21 @@ esp_err_t esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)   //psram init
         }
     }
 
+    if (PSRAM_MFR(s_psram_id) == PSRAM_MFR_ISSI_ID) {
+        s_psram_manufacturer = PSRAM_MNF_ISSI;
+    } else {
+        s_psram_manufacturer = PSRAM_MNF_GENERIC;
+    }
+
     if (PSRAM_IS_64MBIT_TRIAL(s_psram_id)) {
         s_psram_size = PSRAM_SIZE_8MB;
     } else {
         uint8_t density = PSRAM_SIZE_ID(s_psram_id);
-        s_psram_size = density == 0x0 ? PSRAM_SIZE_2MB :
-                       density == 0x1 ? PSRAM_SIZE_4MB :
-                       density == 0x2 ? PSRAM_SIZE_8MB : 0;
+        if (density >= 0b11) {
+            s_psram_size = 0;
+        } else {
+            s_psram_size = psram_size_lut[s_psram_manufacturer][density];
+        }
     }
 
     //SPI1: send psram reset command
