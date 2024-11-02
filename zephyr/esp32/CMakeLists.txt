@@ -368,7 +368,14 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_phy/src/phy_common.c
       )
 
-    zephyr_link_libraries(
+    zephyr_sources_ifdef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
       net80211
       core
       pp
