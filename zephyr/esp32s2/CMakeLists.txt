@@ -573,12 +573,20 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
 
-    zephyr_link_libraries(
+    zephyr_link_libraries(mbedTLS)
+
+    zephyr_sources_ifdef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
       net80211
       core
       pp
       phy
-      mbedTLS
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s2

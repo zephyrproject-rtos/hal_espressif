@@ -359,7 +359,14 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
       )
 
-    zephyr_link_libraries(
+    zephyr_sources_ifdef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_WIFI_BUILD_ONLY_MODE
       net80211
       core
       pp
