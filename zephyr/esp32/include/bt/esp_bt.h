@@ -483,6 +483,8 @@ typedef struct esp_vhci_host_callback {
     int (*notify_host_recv)(uint8_t *data, uint16_t len);   /*!< Callback to notify the Host that the Controller has a packet to send */
 } esp_vhci_host_callback_t;
 
+typedef void (*workitem_handler_t)(void *arg);
+
 /**
  * @brief Check whether the Controller is ready to receive the packet
  *

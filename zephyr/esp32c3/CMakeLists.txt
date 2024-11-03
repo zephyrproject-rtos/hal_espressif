@@ -367,12 +367,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
       )
 
-    zephyr_sources_ifdef(
-      CONFIG_BUILD_ONLY_NO_BLOBS
-      ../port/wifi/wifi_stubs.c
-      ../port/phy/phy_stubs.c
-      )
-
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       net80211
@@ -388,10 +382,18 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   ## BT definitions
   if (CONFIG_BT)
+
     zephyr_sources(src/bt/esp_bt_adapter.c)
     zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
-    zephyr_link_libraries(
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
       btbb
       btdm_app
@@ -401,6 +403,12 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
 
     zephyr_sources(
       ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c

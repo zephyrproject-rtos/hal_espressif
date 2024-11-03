@@ -92,14 +92,6 @@ typedef union {
 
 #define BLE_PWR_HDL_INVL 0xFFFF
 
-typedef enum {
-	BTDM_VND_OL_SIG_WAKEUP_TMR = 0,
-	BTDM_VND_OL_SIG_NUM,
-} btdm_vnd_ol_sig_t;
-
-/* prototype of function to handle vendor dependent signals */
-typedef void (* btdm_vnd_ol_task_func_t)(void *param);
-
 typedef void (* irq_handler_t)(const void *param);
 
 /* VHCI function interface */
@@ -235,7 +227,7 @@ extern int btdm_hci_tl_io_event_post(int event);
 /* VHCI */
 extern bool API_vhci_host_check_send_available(void);
 extern void API_vhci_host_send_packet(uint8_t *data, uint16_t len);
-extern int API_vhci_host_register_callback(const vhci_host_callback_t *callback);
+extern int API_vhci_host_register_callback(const esp_vhci_host_callback_t *callback);
 /* TX power */
 extern int ble_txpwr_set(int power_type, int power_level);
 extern int ble_txpwr_get(int power_type);
@@ -1013,7 +1005,7 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
 		return ESP_FAIL;
 	}
 
-	return API_vhci_host_register_callback((const vhci_host_callback_t *)callback) == 0 ? ESP_OK : ESP_FAIL;
+	return API_vhci_host_register_callback((const esp_vhci_host_callback_t *)callback) == 0 ? ESP_OK : ESP_FAIL;
 }
 
 
