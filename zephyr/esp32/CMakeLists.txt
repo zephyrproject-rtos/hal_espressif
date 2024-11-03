@@ -364,12 +364,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_phy/src/phy_common.c
       )
 
-    zephyr_sources_ifdef(
-      CONFIG_BUILD_ONLY_NO_BLOBS
-      ../port/wifi/wifi_stubs.c
-      ../port/phy/phy_stubs.c
-      )
-
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       net80211
@@ -380,16 +374,23 @@ if(CONFIG_SOC_SERIES_ESP32)
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
-    )
-
+      )
   endif()
 
   ## BT definitions
   if (CONFIG_BT)
+
     zephyr_sources(src/bt/esp_bt_adapter.c)
     zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
-    zephyr_link_libraries(
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
       btdm_app
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
@@ -399,6 +400,12 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   ## WIFI definitions
   if (CONFIG_WIFI_ESP32)
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
 
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
     #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.

@@ -85,12 +85,21 @@ enum {
     ESP_BT_COEX_PHY_CODED_TX_RX_TIME_LIMIT_FORCE_ENABLE,         /*!< Always Enable the limit */
 };
 
+/* vendor dependent signals to be posted to controller task */
+typedef enum {
+    BTDM_VND_OL_SIG_WAKEUP_TMR = 0,
+    BTDM_VND_OL_SIG_NUM,
+} btdm_vnd_ol_sig_t;
+
 #define ESP_BT_HCI_TL_STATUS_OK            (0)   /*!< HCI_TL Tx/Rx operation status OK */
 
 /**
  * @brief callback function for HCI Transport Layer send/receive operations
  */
 typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
+
+/* prototype of function to handle vendor dependent signals */
+typedef void (* btdm_vnd_ol_task_func_t)(void *param);
 
 #ifdef CONFIG_BT_ENABLED
 

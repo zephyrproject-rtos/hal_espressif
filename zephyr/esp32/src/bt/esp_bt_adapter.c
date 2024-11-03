@@ -170,8 +170,6 @@ struct osi_funcs_t {
 	uint32_t _magic;
 };
 
-typedef void (*workitem_handler_t)(void *arg);
-
 /* OSI */
 extern int btdm_osi_funcs_register(void *osi_funcs);
 /* Initialise and De-initialise */
