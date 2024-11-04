@@ -10,7 +10,7 @@
 #include "esp_cpu.h"
 #include "esp_fault.h"
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 // Without L bit set
 #define CONDITIONAL_NONE        0x0
 #define CONDITIONAL_R           PMP_R
@@ -135,7 +135,7 @@ void esp_cpu_configure_region_protection(void)
         PMP_ENTRY_SET(6, SOC_IRAM_HIGH, PMP_TOR | RWX);
         _Static_assert(SOC_IRAM_LOW < SOC_IRAM_HIGH, "Invalid RAM region");
     } else {
-#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !BOOTLOADER_BUILD
+#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !CONFIG_MCUBOOT
         extern int _iram_end;
         // 5. IRAM and DRAM
         /* Reset the corresponding PMP config because PMP_ENTRY_SET only sets the given bits
@@ -155,7 +155,7 @@ void esp_cpu_configure_region_protection(void)
 #endif
     }
 
-#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !BOOTLOADER_BUILD
+#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !CONFIG_MCUBOOT
     extern int _instruction_reserved_end;
     extern int _rodata_reserved_end;
 
@@ -177,7 +177,7 @@ void esp_cpu_configure_region_protection(void)
 #endif
 
     // 6. LP memory
-#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !BOOTLOADER_BUILD
+#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !CONFIG_MCUBOOT
     extern int _rtc_text_end;
     /* Reset the corresponding PMP config because PMP_ENTRY_SET only sets the given bits
      * Bootloader might have given extra permissions and those won't be cleared

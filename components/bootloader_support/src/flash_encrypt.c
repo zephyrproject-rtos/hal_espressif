@@ -22,7 +22,7 @@
 #endif
 
 static const char *TAG = "flash_encrypt";
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 
 void esp_flash_encryption_init_checks()
 {
@@ -71,7 +71,7 @@ void esp_flash_encryption_init_checks()
         ESP_LOGI(TAG, "Flash encryption mode is RELEASE");
     }
 }
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 
 /**
  * This former inlined function must not be defined in the header file anymore.

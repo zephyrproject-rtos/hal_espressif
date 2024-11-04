@@ -12,7 +12,7 @@
 #include "hal/lp_timer_hal.h"
 #endif
 
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 #include "esp_random.h"
 #include "esp_private/periph_ctrl.h"
 
@@ -100,4 +100,4 @@ void bootloader_random_disable()
 
 #endif // CONFIG_IDF_ENV_FPGA
 
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT

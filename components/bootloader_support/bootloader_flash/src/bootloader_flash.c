@@ -47,7 +47,6 @@
 #define ESP_BOOTLOADER_SPIFLASH_QE_GD_SR2        BIT1   // QE position when you write 8 bits(for SR2) at one time.
 #define ESP_BOOTLOADER_SPIFLASH_QE_SR1_2BYTE     BIT9   // QE position when you write 16 bits at one time.
 
-/* #ifndef BOOTLOADER_BUILD */
 /* Normal app version maps to spi_flash_mmap.h operations...
  */
 static const char *ZTAG = "sys_mmap";
@@ -114,7 +113,6 @@ esp_err_t sys_flash_erase_range(uint32_t start_addr, uint32_t size)
     return esp_flash_erase_region(NULL, start_addr, size);
 }
 
-/* #else //BOOTLOADER_BUILD  */
 /* Bootloader version, uses ROM functions only */
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/cache.h"
@@ -456,8 +454,6 @@ void bootloader_flash_32bits_address_map_enable(esp_rom_spiflash_read_mode_t fla
 }
 #endif
 
-/* #endif // BOOTLOADER_BUILD */
-
 
 FORCE_INLINE_ATTR bool is_issi_chip(const esp_rom_spiflash_chip_t* chip)
 {
@@ -661,12 +657,8 @@ void bootloader_spi_flash_reset(void)
 #define XMC_SUPPORT CONFIG_BOOTLOADER_FLASH_XMC_SUPPORT
 #define XMC_VENDOR_ID 0x20
 
-// #if BOOTLOADER_BUILD
-//#define BOOTLOADER_FLASH_LOG(level, ...)    ESP_EARLY_LOG##level(TAG, ##__VA_ARGS__)
-//#else
 static DRAM_ATTR char bootloader_flash_tag[] = "bootloader_flash";
 #define BOOTLOADER_FLASH_LOG(level, ...)    ESP_DRAM_LOG##level(bootloader_flash_tag, ##__VA_ARGS__)
-//#endif
 
 #if XMC_SUPPORT
 //strictly check the model

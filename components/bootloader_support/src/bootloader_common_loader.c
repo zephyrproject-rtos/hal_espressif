@@ -212,14 +212,14 @@ void bootloader_common_update_rtc_retain_mem(esp_partition_pos_t* partition, boo
 
 rtc_retain_mem_t* bootloader_common_get_rtc_retain_mem(void)
 {
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     #define RTC_RETAIN_MEM_ADDR (SOC_RTC_DRAM_HIGH - sizeof(rtc_retain_mem_t))
     static rtc_retain_mem_t *const s_bootloader_retain_mem = (rtc_retain_mem_t *)RTC_RETAIN_MEM_ADDR;
     return s_bootloader_retain_mem;
 #else
     static __attribute__((section(".bootloader_data_rtc_mem"))) rtc_retain_mem_t s_bootloader_retain_mem;
     return &s_bootloader_retain_mem;
-#endif // !BOOTLOADER_BUILD
+#endif // !CONFIG_MCUBOOT
 }
 
 #endif // CONFIG_BOOTLOADER_RESERVE_RTC_MEM

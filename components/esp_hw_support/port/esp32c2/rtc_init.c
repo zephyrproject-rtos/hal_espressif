@@ -19,7 +19,7 @@
 #include "soc/regi2c_dig_reg.h"
 #include "soc/regi2c_lp_bias.h"
 #include "esp_hw_log.h"
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 #include "esp_private/sar_periph_ctrl.h"
 #endif
 
@@ -123,7 +123,7 @@ void rtc_init(rtc_config_t cfg)
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_XPD_CK, 1);
 
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
     //initialise SAR related peripheral register settings
     sar_periph_ctrl_init();
 #endif

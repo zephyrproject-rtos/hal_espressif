@@ -12,7 +12,7 @@
 #include "esp_secure_boot.h"
 #include "hal/efuse_hal.h"
 
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 static __attribute__((unused)) const char *TAG = "secure_boot";
 
 #ifdef CONFIG_SECURE_BOOT
@@ -409,4 +409,4 @@ bool esp_secure_boot_cfg_verify_release_mode(void)
 }
 #endif // not CONFIG_IDF_TARGET_ESP32
 
-#endif // not BOOTLOADER_BUILD
+#endif // not CONFIG_MCUBOOT

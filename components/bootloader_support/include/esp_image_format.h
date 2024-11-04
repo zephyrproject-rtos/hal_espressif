@@ -39,7 +39,7 @@ typedef struct {
 typedef enum {
     ESP_IMAGE_VERIFY,            /* Verify image contents, not load to memory, load metadata. Print errors. */
     ESP_IMAGE_VERIFY_SILENT,     /* Verify image contents, not load to memory, load metadata. Don't print errors. */
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     ESP_IMAGE_LOAD,              /* Verify image contents, load to memory, load metadata. Print errors. */
     ESP_IMAGE_LOAD_NO_VALIDATE,  /* Not verify image contents, load to memory, load metadata. Print errors. */
 #endif

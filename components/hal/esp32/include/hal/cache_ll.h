@@ -89,7 +89,7 @@ static inline bool cache_ll_l1_is_cache_enabled(uint32_t cache_id, cache_type_t 
  * @param vaddr_start       virtual address start
  * @param len               vaddr length
  */
-#if !BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 __attribute__((always_inline))
 #endif
 static inline cache_bus_mask_t cache_ll_l1_get_bus(uint32_t cache_id, uint32_t vaddr_start, uint32_t len)
@@ -129,7 +129,7 @@ static inline cache_bus_mask_t cache_ll_l1_get_bus(uint32_t cache_id, uint32_t v
  * @param mask        To know which buses should be enabled
  * @param enable      1: enable; 0: disable
  */
-#if !BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 __attribute__((always_inline))
 #endif
 static inline void cache_ll_l1_enable_bus(uint32_t cache_id, cache_bus_mask_t mask)

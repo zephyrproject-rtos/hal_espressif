@@ -234,7 +234,7 @@ typedef struct {
  */
 void esp_secure_boot_init_checks(void);
 
-#if !BOOTLOADER_BUILD && (CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME || CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
+#if !CONFIG_MCUBOOT && (CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME || CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
 
 /** @brief Scan the current running app for signature blocks
  *
@@ -260,7 +260,7 @@ void esp_secure_boot_init_checks(void);
  */
 esp_err_t esp_secure_boot_get_signature_blocks_for_running_app(bool digest_public_keys, esp_image_sig_public_key_digests_t *public_key_digests);
 
-#endif // !BOOTLOADER_BUILD && (CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME || CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
+#endif // !CONFIG_MCUBOOT && (CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME || CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
 
 /** @brief Set all secure eFuse features related to secure_boot
  *
@@ -283,7 +283,7 @@ esp_err_t esp_secure_boot_enable_secure_features(void);
 bool esp_secure_boot_cfg_verify_release_mode(void);
 
 
-#if !defined(BOOTLOADER_BUILD) && SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY && CONFIG_SECURE_BOOT_V2_ENABLED
+#if !defined(CONFIG_MCUBOOT) && SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY && CONFIG_SECURE_BOOT_V2_ENABLED
 
 /** @brief Returns the verification status of the image pointed by the part_pos argument against the public key digest present at index `efuse_digest_index`
  *
@@ -297,7 +297,7 @@ bool esp_secure_boot_cfg_verify_release_mode(void);
  */
 esp_err_t esp_secure_boot_verify_with_efuse_digest_index(int efuse_digest_index, esp_partition_pos_t *part_pos);
 
-#endif // !defined(BOOTLOADER_BUILD) && SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY && CONFIG_SECURE_BOOT_V2_ENABLED
+#endif // !defined(CONFIG_MCUBOOT) && SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY && CONFIG_SECURE_BOOT_V2_ENABLED
 
 #ifdef __cplusplus
 }

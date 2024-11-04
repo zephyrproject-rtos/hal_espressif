@@ -22,7 +22,7 @@ extern void abort(void);
 #endif
 #endif
 
-#if BOOTLOADER_BUILD
+#if CONFIG_MCUBOOT
 // Bootloader has very limited size, while full assertion takes up quite a lot bytes as it prints file, line, and
 // function info. Therefore, we set the HAL assertion level in bootloader to be no larger than 1 (silent).
 #if CONFIG_HAL_DEFAULT_ASSERTION_LEVEL == 2

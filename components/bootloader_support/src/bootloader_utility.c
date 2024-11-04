@@ -452,7 +452,7 @@ static bool try_load_partition(const esp_partition_pos_t *partition, esp_image_m
         ESP_LOGD(TAG, "Can't boot from zero-length partition");
         return false;
     }
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     if (bootloader_load_image(partition, data) == ESP_OK) {
         ESP_LOGI(TAG, "Loaded app from partition at offset 0x%x",
                  partition->offset);
@@ -916,7 +916,7 @@ static void set_cache_and_start_app(
 
 void bootloader_reset(void)
 {
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     bootloader_atexit();
     esp_rom_delay_us(1000); /* Allow last byte to leave FIFO */
     esp_rom_software_reset_system();
@@ -928,7 +928,7 @@ void bootloader_reset(void)
 
 void bootloader_atexit(void)
 {
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     bootloader_console_deinit();
 #else
     abort();

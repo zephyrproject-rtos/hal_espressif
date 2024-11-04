@@ -10,7 +10,7 @@
 #include "esp_cpu.h"
 #include "esp_fault.h"
 
-#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !BOOTLOADER_BUILD
+#if CONFIG_ESP_SYSTEM_PMP_IDRAM_SPLIT && !CONFIG_MCUBOOT
 extern int _iram_end;
 extern int _data_start;
 #define IRAM_END        (int)&_iram_end
@@ -20,7 +20,7 @@ extern int _data_start;
 #define DRAM_START      SOC_DIRAM_DRAM_LOW
 #endif
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 // Without L bit set
 #define CONDITIONAL_NONE        0x0
 #define CONDITIONAL_RX          PMP_R | PMP_X

@@ -6,11 +6,11 @@
 
 #include "soc/rtc.h"
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 
 int esp_clk_apb_freq(void)
 {
     return rtc_clk_apb_freq_get();
 }
 
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT

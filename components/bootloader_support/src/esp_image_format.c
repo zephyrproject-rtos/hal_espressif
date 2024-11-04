@@ -48,13 +48,13 @@
    - Always if secure boot is enabled
    - Differently in bootloader and/or app, depending on kconfig
 */
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 #ifdef CONFIG_SECURE_SIGNED_ON_BOOT
 #define SECURE_BOOT_CHECK_SIGNATURE 1
 #else
 #define SECURE_BOOT_CHECK_SIGNATURE 0
 #endif
-#else /* !BOOTLOADER_BUILD */
+#else /* !CONFIG_MCUBOOT */
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
 #define SECURE_BOOT_CHECK_SIGNATURE 1
 #else
@@ -72,7 +72,7 @@ static const char *TAG = "esp_image";
 /* Headroom to ensure between stack SP (at time of checking) and data loaded from flash */
 #define STACK_LOAD_HEADROOM 32768
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 /* 64 bits of random data to obfuscate loaded RAM with, until verification is complete
    (Means loaded code isn't executable until after the secure boot check.)
 */
@@ -123,7 +123,7 @@ static esp_err_t __attribute__((unused)) verify_simple_hash(bootloader_sha256_ha
 
 static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_t *part, esp_image_metadata_t *data)
 {
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     bool do_load   = (mode == ESP_IMAGE_LOAD) || (mode == ESP_IMAGE_LOAD_NO_VALIDATE);
     bool do_verify = (mode == ESP_IMAGE_LOAD) || (mode == ESP_IMAGE_VERIFY) || (mode == ESP_IMAGE_VERIFY_SILENT);
 #else
@@ -171,7 +171,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
     if (verify_sha) {
 #if (SECURE_BOOT_CHECK_SIGNATURE == 1)
         // secure boot images have a signature appended
-#if defined(BOOTLOADER_BUILD) && !defined(CONFIG_SECURE_BOOT)
+#if defined(CONFIG_MCUBOOT) && !defined(CONFIG_SECURE_BOOT)
         // If secure boot is not enabled in hardware, then
         // skip the signature check in bootloader when the debugger is attached.
         // This is done to allow for breakpoints in Flash.
@@ -202,7 +202,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
         goto err;
     }
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 
 #if (SECURE_BOOT_CHECK_SIGNATURE == 1)
     /* If signature was checked in bootloader build, verified_digest should equal image_digest
@@ -250,7 +250,7 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
     ESP_FAULT_ASSERT(!do_load || sec_ver == true);
 #endif // CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
 
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 
     // Success!
     return ESP_OK;
@@ -270,7 +270,7 @@ err:
 
 esp_err_t bootloader_load_image(const esp_partition_pos_t *part, esp_image_metadata_t *data)
 {
-#if !defined(BOOTLOADER_BUILD)
+#if !defined(CONFIG_MCUBOOT)
     return ESP_FAIL;
 #else
     esp_image_load_mode_t mode = ESP_IMAGE_LOAD;
@@ -291,12 +291,12 @@ esp_err_t bootloader_load_image(const esp_partition_pos_t *part, esp_image_metad
 #endif // CONFIG_SECURE_BOOT
 
  return image_load(mode, part, data);
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 }
 
 esp_err_t bootloader_load_image_no_verify(const esp_partition_pos_t *part, esp_image_metadata_t *data)
 {
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     return image_load(ESP_IMAGE_LOAD_NO_VALIDATE, part, data);
 #else
     return ESP_FAIL;
@@ -359,7 +359,7 @@ err:
     return err;
 }
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
 /* Check the region load_addr - load_end doesn't overlap any memory used by the bootloader, registers, or other invalid memory
  */
 static bool verify_load_addresses(int segment_index, intptr_t load_addr, intptr_t load_end, bool print_error, bool no_recurse)
@@ -488,7 +488,7 @@ static bool verify_load_addresses(int segment_index, intptr_t load_addr, intptr_
     }
     return false;
 }
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 
 static esp_err_t process_image_header(esp_image_metadata_t *data, uint32_t part_offset, bootloader_sha256_handle_t *sha_handle, bool do_verify, bool silent)
 {
@@ -584,21 +584,21 @@ static esp_err_t process_segment(int index, uint32_t flash_addr, esp_image_segme
     }
 
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     /* Before loading segment, check it doesn't clobber bootloader RAM. */
     if (do_load && data_len > 0) {
         if (!verify_load_addresses(index, load_addr, load_addr + data_len, true, false)) {
             return ESP_ERR_IMAGE_INVALID;
         }
     }
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 
     uint32_t free_page_count = bootloader_mmap_get_free_pages();
     ESP_LOGD(TAG, "free data page_count 0x%08"PRIx32, free_page_count);
 
     uint32_t data_len_remain = data_len;
     while (data_len_remain > 0) {
-#if (SECURE_BOOT_CHECK_SIGNATURE == 1) && defined(BOOTLOADER_BUILD)
+#if (SECURE_BOOT_CHECK_SIGNATURE == 1) && defined(CONFIG_MCUBOOT)
         /* Double check the address verification done above */
         ESP_FAULT_ASSERT(!do_load || verify_load_addresses(0, load_addr, load_addr + data_len_remain, false, false));
 #endif
@@ -677,7 +677,7 @@ static esp_err_t process_segment_data(int segment, intptr_t load_addr, uint32_t 
         return ESP_OK;
     }
 
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
     // Set up the obfuscation value to use for loading
     while (ram_obfs_value[0] == 0 || ram_obfs_value[1] == 0) {
         bootloader_fill_random(ram_obfs_value, sizeof(ram_obfs_value));
@@ -688,7 +688,7 @@ static esp_err_t process_segment_data(int segment, intptr_t load_addr, uint32_t 
 #endif
     }
     uint32_t *dest = (uint32_t *)load_addr;
-#endif // BOOTLOADER_BUILD
+#endif // CONFIG_MCUBOOT
 
     const uint32_t *src = data;
 
@@ -702,7 +702,7 @@ static esp_err_t process_segment_data(int segment, intptr_t load_addr, uint32_t 
         size_t len = process_esp_app_desc_data(src, sha_handle, checksum, metadata);
         data_len -= len;
         src += len / 4;
-        // In BOOTLOADER_BUILD, for DROM (segment #0) we do not load it into dest (only map it), do_load = false.
+        // In CONFIG_MCUBOOT, for DROM (segment #0) we do not load it into dest (only map it), do_load = false.
     }
 #endif // CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
 
@@ -712,7 +712,7 @@ static esp_err_t process_segment_data(int segment, intptr_t load_addr, uint32_t 
         if (checksum != NULL) {
             *checksum ^= w;
         }
-#ifdef BOOTLOADER_BUILD
+#ifdef CONFIG_MCUBOOT
         if (do_load) {
             dest[w_i] = w ^ ((w_i & 1) ? ram_obfs_value[0] : ram_obfs_value[1]);
         }

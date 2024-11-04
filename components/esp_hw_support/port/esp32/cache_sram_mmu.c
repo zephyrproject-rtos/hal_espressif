@@ -45,7 +45,7 @@
 unsigned int cache_sram_mmu_set_rom(int cpu_no, int pid, unsigned int vaddr, unsigned int paddr, int psize, int num);
 
 
-#ifndef BOOTLOADER_BUILD
+#ifndef CONFIG_MCUBOOT
 
 /*
 Note that this function is a replacement for the ROM function with the same name, with these differences:
