@@ -109,6 +109,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/wpa_supplicant/src/utils
     ../../components/wpa_supplicant/src/eap_peer
     ../../components/mbedtls/port/include
+
+    ../port/include/boot
     )
 
   zephyr_link_libraries(
@@ -290,7 +292,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
-      ../port/include/boot
       )
 
     zephyr_sources(
