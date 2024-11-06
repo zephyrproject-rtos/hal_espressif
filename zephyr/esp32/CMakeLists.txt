@@ -124,7 +124,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources(src/hal/windowspill_asm.S)
 
-  if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
+  if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_MCUBOOT)
     zephyr_sources(
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
