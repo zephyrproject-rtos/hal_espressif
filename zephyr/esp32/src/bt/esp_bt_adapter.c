@@ -389,10 +389,10 @@ static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
 /* number of fractional bit for btdm_lpcycle_us */
 static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
 
-#if CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG
+#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
 // used low power clock
 static DRAM_ATTR uint8_t btdm_lpclk_sel;
-#endif /* #ifdef CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG */
+#endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
@@ -1098,7 +1098,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
 	btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
 
-#if CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG
+#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
 
 	btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
 #if CONFIG_BTDM_LPCLK_SEL_EXT_32K_XTAL
