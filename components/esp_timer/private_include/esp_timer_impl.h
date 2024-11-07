@@ -19,7 +19,15 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-typedef void (*intr_handler_t)(void *arg);
+#if defined(CONFIG_SOC_SERIES_ESP32C2) || \
+	defined(CONFIG_SOC_SERIES_ESP32C3) || \
+	defined(CONFIG_SOC_SERIES_ESP32C6)
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#define ISR_HANDLER isr_handler_t
+#else
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#define ISR_HANDLER intr_handler_t
+#endif
 
 /**
  * @brief Minimal initialization of platform specific layer of esp_timer
@@ -37,7 +45,7 @@ esp_err_t esp_timer_impl_early_init(void);
  * Before calling this function, esp_timer_impl_early_init must be called.
  * @return ESP_OK, ESP_ERR_NO_MEM, or one of the errors from interrupt allocator
  */
-esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler);
+esp_err_t esp_timer_impl_init(ISR_HANDLER alarm_handler);
 
 /**
  * @brief Deinitialize platform specific layer of esp_timer
