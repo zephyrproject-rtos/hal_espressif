@@ -22,7 +22,9 @@
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
 
-#ifdef CONFIG_SOC_SERIES_ESP32C3
+#if defined(CONFIG_SOC_SERIES_ESP32C2) || \
+	defined(CONFIG_SOC_SERIES_ESP32C3) || \
+	defined(CONFIG_SOC_SERIES_ESP32C6)
 #include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
 #define ISR_HANDLER isr_handler_t
 #else
@@ -48,7 +50,7 @@ static const char *TAG = "esp_timer_systimer";
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
  */
-static intr_handler_t s_alarm_handler = NULL;
+static ISR_HANDLER s_alarm_handler = NULL;
 
 /* Systimer HAL layer object */
 static systimer_hal_context_t systimer_hal;
@@ -143,7 +145,7 @@ esp_err_t esp_timer_impl_early_init(void)
     return ESP_OK;
 }
 
-esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
+esp_err_t esp_timer_impl_init(ISR_HANDLER alarm_handler)
 {
     int isr_flags = 0  /* ZEP-795 (GH #74368): esp_timer ISR priority relaxed to avoid
                         * IRQ not being allocated when several peripherals are enabled
