@@ -19,6 +19,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   zephyr_include_directories(
     include
+    include/bt
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
