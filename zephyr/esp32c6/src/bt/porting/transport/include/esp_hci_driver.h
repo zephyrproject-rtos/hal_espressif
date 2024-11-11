@@ -37,8 +37,9 @@ typedef struct hci_driver_ops {
     void (*hci_driver_deinit)(void);
 } hci_driver_ops_t;
 
-#if CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
-extern hci_driver_ops_t hci_driver_vhci_ops;
-#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
 
-#endif // H_ESP_HCI_DRIVER_
+#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
+extern hci_driver_ops_t hci_driver_vhci_ops;
+#endif /* CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM */
+
+#endif /* H_ESP_HCI_DRIVER_ */

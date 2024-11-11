@@ -121,16 +121,6 @@ esp_err_t esp_phy_erase_cal_data_in_nvs(void)
 	return ESP_OK;
 }
 
-void esp_btbb_enable(void)
-{
-	return;
-}
-
-void esp_btbb_disable(void)
-{
-	return;
-}
-
 #if CONFIG_MAC_BB_PD
 void esp_mac_bb_pd_mem_init(void)
 {

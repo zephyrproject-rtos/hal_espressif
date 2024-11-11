@@ -14,8 +14,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   zephyr_include_directories(
     include
-    ../esp_shared/include
-    ../esp_shared/components/include
+    include/bt
     ../port/include
     ../common/include
 
@@ -112,6 +111,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/ulp/lp_core/lp_core/include
     ../../components/ulp/lp_core/shared/include
     ../../components/ulp/ulp_common/include
+
+    src/bt/porting/include
+    src/bt/porting/npl/zephyr/include
+    src/bt/porting/transport/include
   )
 
   zephyr_link_libraries(
@@ -232,6 +235,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
+    ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/modem_clock.c
@@ -436,12 +440,32 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   ## BT definitions
   if (CONFIG_BT)
-    zephyr_sources(src/bt/esp_bt_adapter.c)
-    zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
-    zephyr_link_libraries(
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      src/bt/esp_bt_adapter.c
+      src/bt/esp_ble_adapter.c
+      src/bt/porting/npl/zephyr/src/npl_os_zephyr.c
+      src/bt/porting/mem/bt_osi_mem.c
+      src/bt/porting/mem/os_msys_init.c
+      src/bt/porting/transport/src/hci_transport.c
+      src/bt/porting/transport/driver/vhci/hci_driver_standard.c
+      )
+
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
+    zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED)
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
       btbb
+      ble_app
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
       )
 
