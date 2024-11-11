@@ -126,11 +126,11 @@ hci_transport_init(uint8_t hci_transport_mode)
     memset(&s_hci_transport_env, 0, sizeof(hci_transport_env_t));
 
     switch(hci_transport_mode) {
-#if CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
         case HCI_TRANSPORT_VHCI:
             ops = &hci_driver_vhci_ops;
             break;
-#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#endif /* CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM */
         default:
             assert(0);
     }
