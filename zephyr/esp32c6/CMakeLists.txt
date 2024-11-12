@@ -284,8 +284,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/log/log_noos.c
     ../../components/log/log.c
 
-    ../esp_shared/src/common/esp_system_api.c
-
     ../port/heap/heap_caps_zephyr.c
     ../port/host_flash/cache_utils.c
     ../../components/riscv/interrupt.c
