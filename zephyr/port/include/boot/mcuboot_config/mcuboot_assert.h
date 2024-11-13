@@ -6,7 +6,7 @@
 
 #pragma once
 
-extern void mcuboot_assert_handler(const char *file, int line, const char *func);
+#include <stdlib.h>
 
 #ifdef assert
 #undef assert
@@ -14,6 +14,7 @@ extern void mcuboot_assert_handler(const char *file, int line, const char *func)
 #define assert(arg)                                                 \
     do {                                                            \
         if (!(arg)) {                                               \
-            mcuboot_assert_handler(__FILE__, __LINE__, __func__);   \
+            ets_printf("ASSERTION FAIL @ %s:%d in function %s\n", __FILE__, __LINE__, __func__); \
+            abort();                                                \
         }                                                           \
     } while(0)
