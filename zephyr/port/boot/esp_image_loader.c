@@ -187,9 +187,3 @@ void start_cpu1_image(int image_index, int slot, unsigned int hdr_offset)
     appcpu_start(entry_addr);
 }
 #endif
-
-void mcuboot_assert_handler(const char *file, int line, const char *func)
-{
-    ets_printf("ASSERTION FAIL @ %s:%d in function %s\n", file, line, func);
-    abort();
-}
