@@ -273,7 +273,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../common/flash_init.c
       ../common/soc_init.c
       src/soc_init.c
-      src/soc_random.c
       src/soc_flash_init.c
       )
 
@@ -355,6 +354,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../port/host_flash/cache_utils.c
 
     src/stubs.c
+    src/soc_random.c
   )
 
   ## WIFI definitions
