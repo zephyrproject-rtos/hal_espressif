@@ -197,6 +197,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_sources(
         ../port/boot/esp_image_loader.c
+        ../port/boot/bootloader_wdt.c
         )
   endif()
 
