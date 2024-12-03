@@ -94,3 +94,50 @@ ledc:
   ch5:
     sigo: ledc_ls_sig_out5
     gpio: [[0, 23]]
+
+mcpwm0:
+  out0a:
+    sigo: pwm0_out0a
+    gpio: [[0, 23]]
+  out0b:
+    sigo: pwm0_out0b
+    gpio: [[0, 23]]
+  out1a:
+    sigo: pwm0_out1a
+    gpio: [[0, 23]]
+  out1b:
+    sigo: pwm0_out1b
+    gpio: [[0, 23]]
+  out2a:
+    sigo: pwm0_out2a
+    gpio: [[0, 23]]
+  out2b:
+    sigo: pwm0_out2b
+    gpio: [[0, 23]]
+  sync0:
+    sigi: pwm0_sync0_in
+    gpio: [[0, 23]]
+  sync1:
+    sigi: pwm0_sync1_in
+    gpio: [[0, 23]]
+  sync2:
+    sigi: pwm0_sync2_in
+    gpio: [[0, 23]]
+  fault0:
+    sigi: pwm0_f0_in
+    gpio: [[0, 23]]
+  fault1:
+    sigi: pwm0_f1_in
+    gpio: [[0, 23]]
+  fault2:
+    sigi: pwm0_f2_in
+    gpio: [[0, 23]]
+  cap0:
+    sigi: pwm0_cap0_in
+    gpio: [[0, 23]]
+  cap1:
+    sigi: pwm0_cap1_in
+    gpio: [[0, 23]]
+  cap2:
+    sigi: pwm0_cap2_in
+    gpio: [[0, 23]]
