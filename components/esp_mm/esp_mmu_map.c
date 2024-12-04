@@ -548,10 +548,10 @@ esp_err_t esp_mmu_map(esp_paddr_t paddr_start, size_t size, mmu_target_t target,
 
 err:
     if (dummy_tail) {
-        free(dummy_tail);
+        heap_caps_free(dummy_tail);
     }
     if (dummy_head) {
-        free(dummy_head);
+        heap_caps_free(dummy_head);
     }
 
     return ret;
@@ -619,7 +619,7 @@ esp_err_t esp_mmu_unmap(void *ptr)
     s_do_unmapping(mem_block->vaddr_start, mem_block->size);
     //remove the already unmapped block from the list
     TAILQ_REMOVE(&region->mem_block_head, found_block, entries);
-    free(found_block);
+    heap_caps_free(found_block);
 
     return ESP_OK;
 }
