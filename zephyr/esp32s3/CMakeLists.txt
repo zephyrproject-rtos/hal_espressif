@@ -234,6 +234,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/esp_psram.c
+      ../../components/esp_psram/mmu_psram_flash.c
       ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hw_support/esp_gpio_reserve.c
       )
