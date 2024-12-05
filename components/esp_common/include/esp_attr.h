@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 #include "sdkconfig.h"
+#include "soc/soc_caps.h"
 
 #define ROMFN_ATTR
 
@@ -61,7 +62,7 @@ extern "C" {
 // Use as esp_rom_printf(DRAM_STR("Hello world!\n"));
 #define DRAM_STR(str) (__extension__({static const DRAM_ATTR char __c[] = (str); (const char *)&__c;}))
 
-#if CONFIG_SOC_RTC_FAST_MEM_SUPPORTED || CONFIG_SOC_RTC_SLOW_MEM_SUPPORTED
+#if SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED
 // Forces data into RTC memory. See "docs/deep-sleep-stub.rst"
 // Any variable marked with this attribute will keep its value
 // during a deep sleep / wake cycle.
