@@ -197,11 +197,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     )
 
   zephyr_sources_ifdef(
-    CONFIG_MCPWM_ESP32
-    ../../components/hal/mcpwm_hal.c
-    )
-
-  zephyr_sources_ifdef(
     CONFIG_PCNT_ESP32
     ../../components/hal/pcnt_hal.c
     )
