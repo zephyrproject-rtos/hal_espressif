@@ -109,6 +109,9 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/wpa_supplicant/src/eap_peer
     ../../components/mbedtls/port/include
 
+    ../../components/ieee802154/include
+    ../../components/ieee802154/private_include
+
     ../port/include/boot
   )
 
@@ -316,8 +319,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/hal/ledc_hal.c
     )
 
-  ## shared WIFI/BT resources
-  if (CONFIG_BT OR CONFIG_WIFI_ESP32)
+  ## shared WIFI/BT/IEEE802154 resources
+  if (CONFIG_BT OR CONFIG_WIFI_ESP32 OR CONFIG_IEEE802154)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
@@ -566,6 +569,30 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_link_libraries(mbedTLS)
 
+  endif()
+
+  ## IEEE 802.15.4 definitions
+  if (CONFIG_IEEE802154)
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      ../../components/soc/${CONFIG_SOC_SERIES}/ieee802154_periph.c
+      ../../components/ieee802154/esp_ieee802154.c
+      ../../components/ieee802154/driver/esp_ieee802154_ack.c
+      ../../components/ieee802154/driver/esp_ieee802154_dev.c
+      ../../components/ieee802154/driver/esp_ieee802154_frame.c
+      ../../components/ieee802154/driver/esp_ieee802154_pib.c
+      ../../components/ieee802154/driver/esp_ieee802154_util.c
+      ../../components/ieee802154/driver/esp_ieee802154_sec.c
+      ../../components/ieee802154/driver/esp_ieee802154_timer.c
+    )
+
+    zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
+    zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
+
+    zephyr_link_libraries(
+      btbb
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+      )
   endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)

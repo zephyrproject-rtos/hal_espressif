@@ -6,7 +6,6 @@
 
 #include <string.h>
 #include "sdkconfig.h"
-#include "freertos/portmacro.h"
 #include "soc/periph_defs.h"
 #include "soc/soc.h"
 #include "soc/ieee802154_periph.h"
@@ -39,6 +38,9 @@
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG
 #endif // CONFIG_PM_ENABLE
 
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+
 static bool s_rf_closed = true;
 #define CCA_DETECTION_TIME 8
 
@@ -68,8 +70,8 @@ static bool s_needs_next_operation = false;
 static uint8_t s_rx_index = 0;
 static uint8_t s_enh_ack_frame[128];
 static uint8_t s_recent_rx_frame_info_index;
-static portMUX_TYPE s_ieee802154_spinlock = portMUX_INITIALIZER_UNLOCKED;
-static intr_handle_t s_ieee802154_isr_handle = NULL;
+static struct k_spinlock s_ieee802154_spinlock;
+static k_spinlock_key_t s_ieee802154_key;
 
 static esp_err_t ieee802154_sleep_init(void);
 static esp_err_t ieee802154_sleep_deinit(void);
@@ -640,15 +642,15 @@ static IRAM_ATTR void isr_handle_ed_done(void)
 
 IEEE802154_STATIC IRAM_ATTR void ieee802154_enter_critical(void)
 {
-    portENTER_CRITICAL(&s_ieee802154_spinlock);
+    s_ieee802154_key = k_spin_lock(&s_ieee802154_spinlock);
 }
 
 IEEE802154_STATIC IRAM_ATTR void ieee802154_exit_critical(void)
 {
-    portEXIT_CRITICAL(&s_ieee802154_spinlock);
+    k_spin_unlock(&s_ieee802154_spinlock, s_ieee802154_key);
 }
 
-IEEE802154_NOINLINE static void ieee802154_isr(void *arg)
+IEEE802154_NOINLINE static void ieee802154_isr(const void *arg)
 {
     ieee802154_enter_critical();
     ieee802154_ll_events events = ieee802154_ll_get_events();
@@ -810,7 +812,7 @@ esp_err_t ieee802154_mac_init(void)
     ieee802154_set_state(IEEE802154_STATE_IDLE);
 
     // TODO: Add flags for IEEE802154 ISR allocating. TZ-102
-    ret = esp_intr_alloc(ieee802154_periph.irq_id, 0, ieee802154_isr, NULL, &s_ieee802154_isr_handle);
+    ret = esp_intr_alloc(ieee802154_periph.irq_id, 0, ieee802154_isr, NULL, NULL);
     ESP_RETURN_ON_FALSE(ret == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC init failed");
 
     ESP_RETURN_ON_FALSE(ieee802154_sleep_init() == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC sleep init failed");
@@ -820,12 +822,8 @@ esp_err_t ieee802154_mac_init(void)
 
 esp_err_t ieee802154_mac_deinit(void)
 {
-    esp_err_t ret = ESP_OK;
-    if (s_ieee802154_isr_handle) {
-        ret = esp_intr_free(s_ieee802154_isr_handle);
-        s_ieee802154_isr_handle = NULL;
-        ESP_RETURN_ON_FALSE(ret == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC ISR deinit failed");
-    }
+    esp_err_t ret = esp_intr_disable(ieee802154_periph.irq_id);
+    ESP_RETURN_ON_FALSE(ret == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC ISR deinit failed");
     ESP_RETURN_ON_FALSE(ieee802154_sleep_deinit() == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC sleep deinit failed");
     return ret;
 }

@@ -7,12 +7,13 @@
 #include <stdint.h>
 #include "esp_check.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/btbb.h"
+
+#include <zephyr/kernel.h>
 
 #define BTBB_ENABLE_VERSION_PRINT 1
 
-static _lock_t s_btbb_access_lock;
+static struct k_spinlock s_btbb_access_lock;
 /* Reference count of enabling BT BB */
 static uint8_t s_btbb_access_ref = 0;
 
@@ -57,7 +58,7 @@ static void btbb_sleep_retention_deinit(void)
 
 void esp_btbb_enable(void)
 {
-    _lock_acquire(&s_btbb_access_lock);
+    k_spinlock_key_t key = k_spin_lock(&s_btbb_access_lock);
     if (s_btbb_access_ref == 0) {
         bt_bb_v2_init_cmplx(BTBB_ENABLE_VERSION_PRINT);
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
@@ -77,16 +78,16 @@ void esp_btbb_enable(void)
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     }
     s_btbb_access_ref++;
-    _lock_release(&s_btbb_access_lock);
+    k_spin_unlock(&s_btbb_access_lock, key);
 }
 
 void esp_btbb_disable(void)
 {
-    _lock_acquire(&s_btbb_access_lock);
+    k_spinlock_key_t key = k_spin_lock(&s_btbb_access_lock);
     if (s_btbb_access_ref && (--s_btbb_access_ref == 0)) {
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
         btbb_sleep_retention_deinit();
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     }
-    _lock_release(&s_btbb_access_lock);
+    k_spin_unlock(&s_btbb_access_lock, key);
 }

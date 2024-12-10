@@ -586,7 +586,7 @@ esp_err_t esp_timer_init(void)
     return err;
 }
 
-#if defined(CONFIG_WIFI_ESP32) || defined(CONFIG_BT_ESP32)
+#if defined(CONFIG_WIFI_ESP32) || defined(CONFIG_BT_ESP32) || defined(CONFIG_IEEE802154_ESP32)
 SYS_INIT(esp_timer_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
 #endif
 
