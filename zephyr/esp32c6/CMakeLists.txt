@@ -299,6 +299,11 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_COUNTER_TMR_ESP32
+    ../../components/hal/timer_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
