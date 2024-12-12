@@ -229,6 +229,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/cpu.c
+    ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/modem_clock.c
@@ -290,6 +291,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     src/stubs.c
     src/soc_random.c
   )
+
+  zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
 
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
