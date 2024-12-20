@@ -36,6 +36,7 @@
 #include "wifi/wifi_event.h"
 #include "esp_private/esp_clk.h"
 #include "esp_heap_runtime.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
@@ -174,8 +175,10 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	irq_disable(0);
-	irq_connect_dynamic(0, 0, f, arg, 0);
+	ARG_UNUSED(n);
+
+	esp_intr_alloc(0, 0, f, arg, NULL);
+	esp_intr_alloc(2, 0, f, arg, NULL);
 }
 
 static void intr_on(unsigned int mask)
