@@ -41,27 +41,6 @@ ANSI_YELLOW = '\033[0;33m'
 ANSI_NORMAL = '\033[0m'
 
 
-def get_build_dir(args, die_if_none=True):
-    # Get the build directory for the given argument list and environment.
-
-    guess = config.get('build', 'guess-dir', fallback='never')
-    guess = guess == 'runners'
-    dir = find_build_dir(None, guess)
-
-    if dir and is_zephyr_build(dir):
-        return dir
-    elif die_if_none:
-        msg = 'could not find build directory and '
-        if dir:
-            msg = msg + 'neither {} nor {} are zephyr build directories.'
-        else:
-            msg = msg + ('{} is not a build directory and the default build '
-                         'directory cannot be determined. ')
-        log.die(msg.format(os.getcwd(), dir))
-    else:
-        return None
-
-
 def color_print(message, color, newline='\n'):  # type: (str, str, Optional[str]) -> None
     """ Print a message to stderr with colored highlighting """
     sys.stderr.write('%s%s%s%s' % (color, message, ANSI_NORMAL, newline))
@@ -82,13 +61,14 @@ def red_print(message, newline='\n'):  # type: (str, Optional[str]) -> None
 def lookup_pc_address(pc_addr, toolchain_prefix, elf_file):  # type: (str, str, str) -> Optional[str]
     # cmd = ['%saddr2line' % toolchain_prefix, '-pfiaC', '-e', elf_file, pc_addr]
 
-    # build dir differs when sysbuild is used
-    build_dir = get_build_dir(None)
+    build_dir = find_build_dir(None, True)
     domain = load_domains(build_dir).get_default_domain()
-    if domain.name == 'app':
-        cache = CMakeCache.from_build_dir(build_dir)
-    else:
-        cache = CMakeCache.from_build_dir(Path(build_dir) / domain.name)
+
+    # build dir differs when sysbuild is used
+    if domain.build_dir:
+        build_dir = domain.build_dir
+
+    cache = CMakeCache.from_build_dir(build_dir)
 
     # Zephyr: set toolchain from environment path
     toolchain_path = cache['CMAKE_ADDR2LINE']
