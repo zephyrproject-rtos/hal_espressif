@@ -328,16 +328,18 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_rom/patches/esp_rom_regi2c_esp32s2.c
     ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
 
+    ../../components/esp_system/esp_err.c
+    ../../components/esp_system/port/brownout.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
-    ../../components/esp_system/esp_err.c
 
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_common.c
     ../../components/esp_timer/src/esp_timer_impl_lac.c
 
+    ../../components/hal/brownout_hal.c
     ../../components/hal/efuse_hal.c
     ../../components/hal/cache_hal.c
     ../../components/hal/mmu_hal.c
