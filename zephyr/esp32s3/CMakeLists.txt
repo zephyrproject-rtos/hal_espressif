@@ -40,6 +40,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}
     ../../components/esp_hw_support/port/include
 
+    ../../components/esp_psram/include
+
     ../../components/esp_rom/${CONFIG_SOC_SERIES}
     ../../components/esp_rom/${CONFIG_SOC_SERIES}/ld
     ../../components/esp_rom/include/
@@ -340,6 +342,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     ../../components/esp_mm/esp_mmu_map.c
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
+
+    ../../components/esp_psram/mmu_psram_flash.c
 
     ../../components/esp_rom/patches/esp_rom_crc.c
     ../../components/esp_rom/patches/esp_rom_sys.c
