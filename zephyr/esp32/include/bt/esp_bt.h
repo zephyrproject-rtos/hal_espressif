@@ -73,7 +73,8 @@ extern "C" {
 #elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
 #define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N12
 #else
-#error "Invalid ESP32 BLE TX Power"
+/* use 0dB TX power as default */
+#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N0
 #endif
 
 /**
