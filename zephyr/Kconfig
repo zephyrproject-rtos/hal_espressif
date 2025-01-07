@@ -85,8 +85,8 @@ config IDF_TARGET_ESP32S3
 	default y if SOC_SERIES_ESP32S3
 
 config IDF_TARGET_ESP32C2
-		bool
-		default y if SOC_SERIES_ESP32C2
+	bool
+	default y if SOC_SERIES_ESP32C2
 
 config IDF_TARGET_ESP32C3
 	bool
@@ -95,6 +95,10 @@ config IDF_TARGET_ESP32C3
 config IDF_TARGET_ESP32C6
 	bool
 	default y if SOC_SERIES_ESP32C6
+
+config RESERVE_RTC_MEM
+	int
+	default 0
 
 menu "Sleep config"
 
