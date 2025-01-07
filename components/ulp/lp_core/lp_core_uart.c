@@ -52,6 +52,8 @@ static esp_err_t lp_core_uart_param_config(const lp_core_uart_cfg_t *cfg)
 
     // LP UART clock source is mixed with other peripherals in the same register
     LP_UART_SRC_CLK_ATOMIC() {
+        (void)__DECLARE_RCC_ATOMIC_ENV; // Avoid warnings for unused variable __DECLARE_RCC_ATOMIC_ENV
+
         /* Enable LP UART bus clock */
         lp_uart_ll_enable_bus_clock(0, true);
         lp_uart_ll_set_source_clk(hal.dev, clk_src);

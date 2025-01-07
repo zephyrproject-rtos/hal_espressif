@@ -339,7 +339,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
-  
+
   if(CONFIG_SOC_ESP32C6_LPCORE)
     zephyr_compile_definitions(IS_ULP_COCPU)
     zephyr_ld_options("-nostartfiles")
@@ -353,7 +353,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/ulp/lp_core/lp_core.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-      ../../components/driver/gpio/rtc_io.c
       ../../components/hal/rtc_io_hal.c
       )
 
@@ -364,6 +363,16 @@ if(CONFIG_SOC_SERIES_ESP32C6)
         ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
         ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
         ../../components/hal/uart_hal_iram.c
+        # ../../components/hal/uart_hal.c
+        # ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+        # ../../components/hal/rtc_io_hal.c
+        # ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
+        # ../../components/esp_hw_support/port/esp_clk_tree_common.c
+        # ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
+        # ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
+        # ../../components/hal/efuse_hal.c
+        # ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
+
       )
   endif()
 

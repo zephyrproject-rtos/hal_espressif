@@ -125,7 +125,7 @@ FORCE_INLINE_ATTR void lp_uart_ll_get_sclk(uart_dev_t *hw, uart_sclk_t *source_c
  * @param  hw Address offset of the LP UART peripheral registers
  * @param  src_clk Source clock for the LP UART peripheral
  */
-static inline void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_uart_clk_src_t src_clk)
+FORCE_INLINE_ATTR void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_uart_clk_src_t src_clk)
 {
     (void)hw;
     switch (src_clk) {
@@ -142,7 +142,7 @@ static inline void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_uart_
 }
 
 /// LP_CLKRST.lpperi is a shared register, so this function must be used in an atomic way
-#define lp_uart_ll_set_source_clk(...) (void)__DECLARE_RCC_ATOMIC_ENV; lp_uart_ll_set_source_clk(__VA_ARGS__)
+// #define lp_uart_ll_set_source_clk(...) (void)__DECLARE_RCC_ATOMIC_ENV; lp_uart_ll_set_source_clk(__VA_ARGS__)
 
 /**
  * @brief  Configure the lp uart baud-rate.
@@ -155,18 +155,28 @@ static inline void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_uart_
  */
 FORCE_INLINE_ATTR void lp_uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
 {
-#define DIV_UP(a, b)    (((a) + (b) - 1) / (b))
-    const uint32_t max_div = BIT(12) - 1;   // UART divider integer part only has 12 bits
-    uint32_t sclk_div = DIV_UP(sclk_freq, (uint64_t)max_div * baud);
+    // Constants
+    const uint32_t MAX_DIV_BITS = 12;  // UART divider integer part bits
+    const uint32_t MAX_DIV = (1U << MAX_DIV_BITS) - 1;  // Maximum divider value
 
-    if (sclk_div == 0) abort();
+    // Ensure baud rate and sclk_freq are valid
+    if (baud == 0 || sclk_freq == 0) abort();
 
-    uint32_t clk_div = ((sclk_freq) << 4) / (baud * sclk_div);
-    // The baud rate configuration register is divided into
-    // an integer part and a fractional part.
-    hw->clkdiv_sync.clkdiv_int = clk_div >> 4;
-    hw->clkdiv_sync.clkdiv_frag = clk_div & 0xf;
+    // Calculate sclk divider
+    uint32_t sclk_div = (sclk_freq + MAX_DIV * baud - 1) / (MAX_DIV * baud);
+    if (sclk_div == 0) abort();  // Handle invalid sclk_div
+
+    // Calculate clk_div with integer and fractional parts
+    uint32_t clk_div = (sclk_freq * 16) / (baud * sclk_div);
+    uint32_t clk_div_int = clk_div >> 4;  // Integer part
+    uint32_t clk_div_frac = clk_div & 0xF;  // Fractional part
+
+    // Configure hardware registers
+    hw->clkdiv_sync.clkdiv_int = clk_div_int;
+    hw->clkdiv_sync.clkdiv_frag = clk_div_frac;
     HAL_FORCE_MODIFY_U32_REG_FIELD(hw->clk_conf, sclk_div_num, sclk_div - 1);
+
+    // Update UART hardware
     uart_ll_update(hw);
 }
 
@@ -176,14 +186,14 @@ FORCE_INLINE_ATTR void lp_uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, ui
  * @param hw_id LP UART instance ID
  * @param enable True to enable, False to disable
  */
-static inline void _lp_uart_ll_enable_bus_clock(int hw_id, bool enable)
+FORCE_INLINE_ATTR void lp_uart_ll_enable_bus_clock(int hw_id, bool enable)
 {
     (void)hw_id;
     LPPERI.clk_en.lp_uart_ck_en = enable;
 }
 
 /// LPPERI.clk_en is a shared register, so this function must be used in an atomic way
-#define lp_uart_ll_enable_bus_clock(...) (void)__DECLARE_RCC_ATOMIC_ENV; _lp_uart_ll_enable_bus_clock(__VA_ARGS__)
+// #define lp_uart_ll_enable_bus_clock(...) (void)__DECLARE_RCC_ATOMIC_ENV; _lp_uart_ll_enable_bus_clock(__VA_ARGS__)
 
 /**
  * @brief  Enable the UART clock.

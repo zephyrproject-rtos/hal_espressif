@@ -112,7 +112,7 @@ esp_err_t lp_core_uart_write_bytes(uart_port_t lp_uart_num, const void *src, siz
     while (remaining_bytes > 0) {
         /* Write to the Tx FIFO */
         tx_len = 0;
-        uart_hal_write_txfifo(&hal, src + bytes_sent, remaining_bytes, &tx_len);
+        uart_hal_write_txfifo(&hal, (uint8_t*)((uint32_t*)src + bytes_sent), remaining_bytes, &tx_len);
 
         if (tx_len) {
             /* We have managed to write some data to the Tx FIFO. Check Tx interrupt status */
@@ -194,7 +194,7 @@ int lp_core_uart_read_bytes(uart_port_t lp_uart_num, void *buf, size_t size, int
          * We set rx_len to -1 to read all bytes in the Rx FIFO
          */
         rx_len = -1;
-        uart_hal_read_rxfifo(&hal, (uint8_t *)(buf + bytes_rcvd), &rx_len);
+        uart_hal_read_rxfifo(&hal, (uint8_t *)((uint32_t*)buf + bytes_rcvd), &rx_len);
 
         if (rx_len) {
             /* We have some data to read from the Rx FIFO. Check Rx interrupt status */
