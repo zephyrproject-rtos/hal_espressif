@@ -353,7 +353,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
-  
+
   if(CONFIG_SOC_ESP32C6_LPCORE)
     zephyr_compile_definitions(IS_ULP_COCPU)
     zephyr_ld_options("-nostartfiles")
@@ -367,7 +367,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/ulp/lp_core/lp_core.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-      ../../components/driver/gpio/rtc_io.c
       ../../components/hal/rtc_io_hal.c
       )
 

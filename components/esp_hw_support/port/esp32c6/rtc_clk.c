@@ -364,7 +364,9 @@ rtc_xtal_freq_t rtc_clk_xtal_freq_get(void)
 {
     uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
     if (xtal_freq_mhz == 0) {
+#if !defined(CONFIG_SOC_ESP32C6_LPCORE)
         ESP_HW_LOGW(TAG, "invalid RTC_XTAL_FREQ_REG value, assume 40MHz");
+#endif
         clk_ll_xtal_store_freq_mhz(RTC_XTAL_FREQ_40M);
         return RTC_XTAL_FREQ_40M;
     }

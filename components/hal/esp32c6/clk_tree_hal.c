@@ -10,7 +10,9 @@
 #include "hal/assert.h"
 #include "hal/log.h"
 
+#if !defined(CONFIG_SOC_ESP32C6_LPCORE)
 static const char *CLK_HAL_TAG = "clk_hal";
+#endif
 
 uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
 {
@@ -69,7 +71,9 @@ uint32_t clk_hal_xtal_get_freq_mhz(void)
 {
     uint32_t freq = clk_ll_xtal_load_freq_mhz();
     if (freq == 0) {
+#if !defined(CONFIG_SOC_ESP32C6_LPCORE)
         HAL_LOGW(CLK_HAL_TAG, "invalid RTC_XTAL_FREQ_REG value, assume 40MHz");
+#endif
         return (uint32_t)RTC_XTAL_FREQ_40M;
     }
     return freq;
