@@ -291,10 +291,6 @@ esp_err_t adc1_config_channel_atten(adc1_channel_t channel, adc_atten_t atten)
     adc_oneshot_ll_set_atten(ADC_UNIT_1, channel, atten);
     SARADC1_EXIT();
 
-#if SOC_ADC_CALIBRATION_V1_SUPPORTED
-    adc_hal_calibration_init(ADC_UNIT_1);
-#endif
-
     return ESP_OK;
 }
 
@@ -463,10 +459,6 @@ esp_err_t adc2_config_channel_atten(adc2_channel_t channel, adc_atten_t atten)
 
 #if CONFIG_IDF_TARGET_ESP32
     adc_lock_release(ADC_UNIT_2);
-#endif
-
-#if SOC_ADC_CALIBRATION_V1_SUPPORTED
-    adc_hal_calibration_init(ADC_UNIT_2);
 #endif
 
     return ESP_OK;
@@ -766,10 +758,6 @@ esp_err_t adc1_config_channel_atten(adc1_channel_t channel, adc_atten_t atten)
     s_atten1_single[channel] = atten;
     ret = adc_digi_gpio_init(ADC_UNIT_1, BIT(channel));
 
-#if SOC_ADC_CALIBRATION_V1_SUPPORTED
-    adc_hal_calibration_init(ADC_UNIT_1);
-#endif
-
     return ret;
 }
 
@@ -811,10 +799,6 @@ esp_err_t adc2_config_channel_atten(adc2_channel_t channel, adc_atten_t atten)
     esp_err_t ret = ESP_OK;
     s_atten2_single[channel] = atten;
     ret = adc_digi_gpio_init(ADC_UNIT_2, BIT(channel));
-
-#if SOC_ADC_CALIBRATION_V1_SUPPORTED
-    adc_hal_calibration_init(ADC_UNIT_2);
-#endif
 
     return ret;
 }
