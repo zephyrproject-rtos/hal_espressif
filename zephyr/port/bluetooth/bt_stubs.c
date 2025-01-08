@@ -134,6 +134,36 @@ int API_vhci_host_register_callback(const esp_vhci_host_callback_t *callback)
 	return ESP_OK;
 }
 
+int ble_txpwr_set(int power_type, int power_level)
+{
+	return ESP_OK;
+}
+
+int ble_txpwr_get(int power_type)
+{
+	return ESP_OK;
+}
+
+int bredr_txpwr_set(int min_power_level, int max_power_level)
+{
+	return ESP_OK;
+}
+
+int bredr_txpwr_get(int *min_power_level, int *max_power_level)
+{
+	return ESP_OK;
+}
+
+void bredr_sco_datapath_set(uint8_t data_path)
+{
+	// No-op
+}
+
+void btdm_controller_scan_duplicate_list_clear(void)
+{
+	// No-op
+}
+
 void coex_pti_v2(void)
 {
 	// No-op
