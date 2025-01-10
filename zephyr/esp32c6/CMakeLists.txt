@@ -105,6 +105,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/mbedtls/port/include
 
     ../port/include/boot
+    ../../components/ulp/lp_core/include
+    ../../components/ulp/lp_core/lp_core/include
+    ../../components/ulp/lp_core/shared/include
+    ../../components/ulp/ulp_common/include
   )
 
   zephyr_link_libraries(
@@ -208,7 +212,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       )
   endif()
 
-  zephyr_sources(
+  zephyr_sources_ifdef(
+    CONFIG_SOC_ESP32C6_HPCORE
 
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
@@ -300,6 +305,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/uart_periph.c
     )
 
   zephyr_sources_ifdef(
@@ -332,6 +338,33 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
+  endif()
+  
+  if(CONFIG_SOC_ESP32C6_LPCORE)
+    zephyr_compile_definitions(IS_ULP_COCPU)
+    zephyr_ld_options("-nostartfiles")
+    zephyr_ld_options("-Wl,--no-warn-rwx-segments")
+    zephyr_ld_options("-Wl,--gc-sections")
+  endif()
+
+  if(CONFIG_ULP_COPROC_ENABLED)
+    zephyr_sources_ifdef(
+      CONFIG_SOC_ESP32C6_HPCORE
+      ../../components/ulp/lp_core/lp_core.c
+      ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
+      ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
+      ../../components/driver/gpio/rtc_io.c
+      ../../components/hal/rtc_io_hal.c
+      )
+
+      zephyr_sources_ifdef(
+        CONFIG_SOC_ESP32C6_LPCORE
+        ../../components/ulp/lp_core/lp_core/lp_core_interrupt.c
+        ../../components/ulp/lp_core/lp_core/lp_core_utils.c
+        ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
+        ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
+        ../../components/hal/uart_hal_iram.c
+      )
   endif()
 
   ## shared WIFI/BT resources
