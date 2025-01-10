@@ -424,6 +424,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../port/phy/phy_stubs.c
       )
 
+    zephyr_link_libraries(
+      gcc
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.bt_funcs.ld
+      )
+
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
