@@ -478,16 +478,15 @@ static int get_time_wrapper(void *t)
 
 uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
 {
-    /* The bit width of WiFi light sleep clock calibration is 12 while the one of
-     * system is 19. It should shift 19 - 12 = 7.
-    */
-    if (GET_PERI_REG_MASK(SYSTEM_BT_LPCK_DIV_FRAC_REG, SYSTEM_LPCLK_SEL_XTAL)) {
-        uint64_t time_per_us = 1000000ULL;
-        return (((time_per_us << RTC_CLK_CAL_FRACT) / (MHZ(1))) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
-    }
-
-	return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
-
+	/* The bit width of WiFi light sleep clock calibration is 12 while the one of
+	 * system is 19. It should shift 19 - 12 = 7.
+	*/
+	if (GET_PERI_REG_MASK(SYSTEM_BT_LPCK_DIV_FRAC_REG, SYSTEM_LPCLK_SEL_XTAL)) {
+		uint64_t time_per_us = 1000000ULL;
+		return (((time_per_us << RTC_CLK_CAL_FRACT) / (MHZ(1))) >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
+	} else {
+		return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
+	}
 }
 
 static void *IRAM_ATTR malloc_internal_wrapper(size_t size)
