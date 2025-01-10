@@ -17,10 +17,32 @@
 extern "C" {
 #endif
 
+/**
+* @brief Internal use only
+*
+* @note Please do not modify this value
+*/
 #define ESP_BT_CTRL_CONFIG_MAGIC_VAL    0x5A5AA5A5
-#define ESP_BT_CTRL_CONFIG_VERSION      0x02404010
 
+/**
+* @brief Internal use only
+*
+* @note Please do not modify this value
+*/
+#define ESP_BT_CTRL_CONFIG_VERSION      0x02410230
+
+/**
+* @brief Internal use only
+*
+* @note Please do not modify this value
+*/
 #define ESP_BT_HCI_TL_MAGIC_VALUE   0xfadebead
+
+/**
+* @brief Internal use only
+*
+* @note Please do not modify this value
+*/
 #define ESP_BT_HCI_TL_VERSION       0x00010000
 
 #if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
@@ -304,6 +326,14 @@ typedef void (* btdm_vnd_ol_task_func_t)(void *param);
     .ble_data_lenth_zero_aux = BT_BLE_ADV_DATA_LENGTH_ZERO_AUX,            \
     .ble_chan_ass_en = BT_CTRL_CHAN_ASS_EN,                                \
     .ble_ping_en = BT_CTRL_LE_PING_EN,                                     \
+    .ble_llcp_disc_flag = 0,                                               \
+    .run_in_flash = 0,                                                     \
+    .dtm_en = 1,                                                           \
+    .enc_en = 1,                                                           \
+    .qa_test = 0,                                                          \
+    .master_en = 0,                                                        \
+    .scan_en = 1,                                                          \
+    .ble_aa_check = 0,                                                     \
 }
 
 #else
@@ -333,51 +363,100 @@ typedef struct {
  *        some options or parameters of some functions enabled by config mask.
  */
 typedef struct {
-    /*
-     * Following parameters can not be configured runtime when call esp_bt_controller_init()
-     * They will be overwritten by constant values from menuconfig options or from macros.
-     * So, do not modify the value when esp_bt_controller_init()
-     */
     uint32_t magic;                         /*!< Magic number */
     uint32_t version;                       /*!< version number of the defined structure */
-    /*
-     * Following parameters can be configured runtime, when call esp_bt_controller_init()
-     */
-    uint16_t controller_task_stack_size;    /*!< Bluetooth controller task stack size */
-    uint8_t controller_task_prio;           /*!< Bluetooth controller task priority */
-    uint8_t controller_task_run_cpu;        /*!< CPU num that Bluetooth controller task runs on */
-    uint8_t bluetooth_mode;                 /*!< Controller mode: BR/EDR, BLE or Dual Mode */
-    uint8_t ble_max_act;                    /*!< BLE maximum number of air activities */
-    uint8_t sleep_mode;                     /*!< controller sleep mode */
-    uint8_t sleep_clock;                    /*!< controller sleep clock */
-    uint8_t ble_st_acl_tx_buf_nb;           /*!< controller static ACL TX BUFFER number */
-    uint8_t ble_hw_cca_check;               /*!< controller hardware triggered CCA check */
-    uint16_t ble_adv_dup_filt_max;          /*!< maximum number of duplicate scan filter */
-    bool coex_param_en;                     /*!< deprecated */
-    uint8_t ce_len_type;                    /*!< connection event length computation method */
-    bool coex_use_hooks;                    /*!< deprecated */
-    uint8_t hci_tl_type;                    /*!< HCI transport layer, UART, VHCI, etc */
-    esp_bt_hci_tl_t *hci_tl_funcs;          /*!< hci transport functions used, must be set when hci_tl_type is UART */
-    uint8_t txant_dft;                      /*!< default Tx antenna */
-    uint8_t rxant_dft;                      /*!< default Rx antenna */
-    uint8_t txpwr_dft;                      /*!< default Tx power */
+    uint16_t controller_task_stack_size;    /*!< Bluetooth Controller task stack size in bytes */
+    uint8_t controller_task_prio;           /*!< Bluetooth Controller task priority */
+    uint8_t controller_task_run_cpu;        /*!< CPU number that Bluetooth Controller task runs on. Configurable in menuconfig.
+                                                - 0 - CPU 0 (default)
+                                                - 1 - CPU 1 */
+    uint8_t bluetooth_mode;                 /*!< BLE mode */
+    uint8_t ble_max_act;                    /*!< The maximum number of BLE instance. Configurable in menuconfig.
+                                                - Range: 1 - 10
+                                                - Default: 6 */
+    uint8_t sleep_mode;                     /*!< Modem sleep mode. Configurable in menuconfig.
+                                                - 0 - Disable (default)
+                                                - 1 - Enable */
+    uint8_t sleep_clock;                    /*!< Modem sleep clock source. Configurable in menuconfig. */
+    uint8_t ble_st_acl_tx_buf_nb;           /*!< Static ACL TX buffer numbers. Configurable in menuconfig.
+                                                - Range: 0 - 12
+                                                - Default: 0 */
+    uint8_t ble_hw_cca_check;               /*!< Deprecated */
+    uint16_t ble_adv_dup_filt_max;          /*!< The maximum number of extended duplicate scan filter. Configurable in menuconfig.
+                                                - Range: 1 - 500
+                                                - Default: 30 */
+    bool coex_param_en;                     /*!< Deprecated */
+    uint8_t ce_len_type;                    /*!< Connection event length determination method. Configurable in menuconfig.
+                                                - 0 - Original (default)
+                                                - 1 - use `CE_LEN` parameter from HCI commands
+                                                - 2 - Espressif vendor defined method */
+    bool coex_use_hooks;                    /*!< Deprecated */
+    uint8_t hci_tl_type;                    /*!< HCI transport layer type. Configurable in menuconfig.
+                                                - 0 - URAT
+                                                - 1 - Virtual HCI (default) */
+    esp_bt_hci_tl_t *hci_tl_funcs;          /*!< HCI transport functions used. It must be set when `hci_tl_type` is UART. */
+    uint8_t txant_dft;                      /*!< Default TX antenna. Configurable in menuconfig.
+                                                - 0 - Antenna 0 (default)
+                                                - 1 - Antenna 1 */
+    uint8_t rxant_dft;                      /*!< Default RX antenna. Configurable in menuconfig.
+                                                - 0 - Antenna 0 (default)
+                                                - 1 - Antenna 1 */
+    uint8_t txpwr_dft;                      /*!< Default TX power. Please refer to `esp_power_level_t` for supported power level. Configurable in menuconfig.
+                                                - Default : `ESP_PWR_LVL_P9` +9 dBm. */
     uint32_t cfg_mask;                      /*!< Configuration mask to set specific options */
-    uint8_t scan_duplicate_mode;            /*!< scan duplicate mode */
-    uint8_t scan_duplicate_type;            /*!< scan duplicate type */
-    uint16_t normal_adv_size;               /*!< Normal adv size for scan duplicate */
-    uint16_t mesh_adv_size;                 /*!< Mesh adv size for scan duplicate */
-    uint8_t coex_phy_coded_tx_rx_time_limit;  /*!< limit on max tx/rx time in case of connection using CODED-PHY with Wi-Fi coexistence */
-    uint32_t hw_target_code;                /*!< hardware target */
-    uint8_t slave_ce_len_min;               /*!< slave minimum ce length*/
-    uint8_t hw_recorrect_en;                /*!< Hardware re-correction enabled */
-    uint8_t cca_thresh;                     /*!< cca threshold*/
-    uint16_t scan_backoff_upperlimitmax;    /*!< scan backoff upperlimitmax value */
-    uint16_t dup_list_refresh_period;       /*!< duplicate scan list refresh time */
-    bool ble_50_feat_supp;                  /*!< BLE 5.0 feature support */
-    uint8_t ble_cca_mode;                   /*!< BLE CCA mode */
-    uint8_t ble_data_lenth_zero_aux;        /*!< Config ext adv aux option */
-    uint8_t ble_chan_ass_en;                /*!< BLE channel assessment enable */
-    uint8_t ble_ping_en;                    /*!< BLE ping procedure enable */
+    uint8_t scan_duplicate_mode;            /*!< Scan duplicate filtering mode. Configurable in menuconfig.
+                                                - 0 - Normal scan duplicate filtering mode (default)
+                                                - 1 - Special scan duplicate filtering mode for BLE Mesh */
+    uint8_t scan_duplicate_type;            /*!< Scan duplicate filtering type. If `scan_duplicate_mode` is set to 1, this parameter will be ignored. Configurable in menuconfig.
+                                                - 0 - Filter scan duplicates by device address only (default)
+                                                - 1 - Filter scan duplicates by advertising data only, even if they originate from different devices.
+                                                - 2 - Filter scan duplicated by device address and advertising data. */
+    uint16_t normal_adv_size;               /*!< Maximum number of devices in scan duplicate filtering list. Configurable in menuconfig.
+                                                - Range: 10 - 1000
+                                                - Default: 100 */
+    uint16_t mesh_adv_size;                 /*!< Maximum number of Mesh advertising packets in scan duplicate filtering list. Configurable in menuconfig.
+                                                - Range: 10 - 1000
+                                                - Default: 100 */
+    uint8_t coex_phy_coded_tx_rx_time_limit;  /*!< Enable / disable the maximum TX/RX time limit for Coded-PHY connections in coexistence with Wi-Fi scenarios. Configurable in menuconfig.
+                                                - 0 - Disable (default)
+                                                - 1 - Enable */
+    uint32_t hw_target_code;                /*!< Hardware target. Internal use only. Please do not modify this value. */
+    uint8_t slave_ce_len_min;               /*!< Slave minimum connection event length: 5 slots. Please do not modify this value. */
+    uint8_t hw_recorrect_en;                /*!< Enable / disable uncoded phy / coded phy hardware re-correction. Configurable in menuconfig. */
+    uint8_t cca_thresh;                     /*!< Absolute value of hardware-triggered CCA threshold. The CCA threshold is always negative.
+                                                 If the channel assessment result exceeds the CCA threshold (e.g. -75 dBm), indicating the channel is busy,
+                                                 the hardware will not transmit packets on that channel. Configurable in menuconfig.
+                                                - Range: 20 dBm - 100 dBm
+                                                - Default: 75 dBm */
+    uint16_t scan_backoff_upperlimitmax;    /*!< Enable / disable active scan backoff. Configurable in menuconfig.
+                                                - 0 - Disable (default)
+                                                - 1 - Enable */
+    uint16_t dup_list_refresh_period;       /*!< Scan duplicate filtering list refresh period in seconds.  Configurable in menuconfig
+                                                - Range: 0 - 100 seconds
+                                                - Default: 0 second */
+    bool ble_50_feat_supp;                  /*!< True if BLE 5.0 features are enabled; false otherwise. This option depends on whether the Host enable the 5.0 features. */
+    uint8_t ble_cca_mode;                   /*!< BLE CCA mode. Configurable in menuconfig
+                                                - 0 - Disable (default)
+                                                - 1 - Hardware-triggered CCA
+                                                - 2 - Software-based CCA */
+    uint8_t ble_data_lenth_zero_aux;        /*!< Enable / disable auxiliary packets when the extended ADV data length is zero. Configurable in menuconfig.
+                                                - 0 - Disable (default)
+                                                - 1 - Enable */
+    uint8_t ble_chan_ass_en;                /*!< Enable / disable BLE channel assessment. Configurable in menuconfig.
+                                                - 0 - Disable
+                                                - 1 - Enable (default) */
+    uint8_t ble_ping_en;                    /*!< Enable / disable BLE ping procedure. Configurable in menuconfig.
+                                                - 0 - Disable
+                                                - 1 - Enable (default) */
+    uint8_t ble_llcp_disc_flag;             /*!< Flag indicating whether the Controller disconnects after Instant Passed (0x28) error occurs. Configurable in menuconfig.
+                                                - The Controller does not disconnect after Instant Passed (0x28) by default. */
+    bool run_in_flash;                      /*!< True if the Controller code is in flash (flash model); false otherwise (default). Configurable in menuconfig. */
+    bool dtm_en;                            /*!< In the flash mode, True if the DTM feature is enabled; false otherwise (default). Configurable in menuconfig. */
+    bool enc_en;                            /*!< In the flash mode, True if the encryption feature is enabled (default); false otherwise. Configurable in menuconfig. */
+    bool qa_test;                           /*!< In the flash mode, True if the QA test feature is enabled; false otherwise (default). Configurable in menuconfig.*/
+    bool master_en;                         /*!< In the flash mode, True if the master feature is enabled (default); false otherwise. Configurable in menuconfig.*/
+    bool scan_en;                           /*!< In the flash mode, True if the scan feature is enabled (default); false otherwise. Configurable in menuconfig.*/
+    bool ble_aa_check;                      /*!< True if adds a verification step for the Access Address within the CONNECT_IND PDU; false otherwise. Configurable in menuconfig */
 } esp_bt_controller_config_t;
 
 /**
