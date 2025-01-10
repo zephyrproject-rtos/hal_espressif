@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sdkconfig.h"
 #include "esp_rom_caps.h"
 #include "soc/soc_caps.h"
 #include "esp_log.h"
@@ -18,6 +17,9 @@
 #include "ulp_lp_core_memory_shared.h"
 #include "ulp_lp_core_lp_timer_shared.h"
 #include "hal/lp_core_ll.h"
+#include <zephyr/devicetree.h>
+
+#define ULP_COPROC_RESERVE_MEM (0x4000)
 
 #if CONFIG_IDF_TARGET_ESP32P4
 #include "esp32p4/rom/rtc.h"
@@ -146,7 +148,7 @@ esp_err_t ulp_lp_core_load_binary(const uint8_t* program_binary, size_t program_
     if (program_binary == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
+    if (program_size_bytes > ULP_COPROC_RESERVE_MEM) {
         return ESP_ERR_INVALID_SIZE;
     }
 
@@ -159,8 +161,8 @@ esp_err_t ulp_lp_core_load_binary(const uint8_t* program_binary, size_t program_
 #endif
 
     //Start by clearing memory reserved with zeros, this will also will initialize the bss:
-    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
-    hal_memcpy(base, program_binary, program_size_bytes);
+    memset(base, 0, ULP_COPROC_RESERVE_MEM);
+    memcpy(base, program_binary, program_size_bytes);
 
     return ESP_OK;
 }
