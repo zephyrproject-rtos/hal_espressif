@@ -399,6 +399,18 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../port/phy/phy_stubs.c
       )
 
+    if (CONFIG_SOC_ESP32C3_REV_1_1)
+      set(ECO_BT_LD_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco7_bt_funcs.ld)
+    else()
+      set(ECO_BT_LD_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco3_bt_funcs.ld)
+    endif()
+
+    zephyr_link_libraries(
+      gcc
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.bt_funcs.ld
+        -T${ECO_BT_LD_FILE}
+      )
+
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
