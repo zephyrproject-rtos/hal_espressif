@@ -233,16 +233,25 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/hal/esp32/touch_sensor_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_ADC_ESP32
-    ../../components/hal/adc_hal.c
-    ../../components/driver/deprecated/adc_legacy.c
+  if (CONFIG_ADC_ESP32)
+    zephyr_include_directories(
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_adc/include
+    ../../components/esp_adc/interface
+    )
+
+    zephyr_sources(
+    ../../components/hal/adc_hal_common.c
+    ../../components/hal/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/hal/rtc_io_hal.c
     ../../components/driver/gpio/rtc_io.c
-    src/esp_adc_cal/esp_adc_cal.c
+    ../../components/esp_adc/adc_cali.c
+    ../../components/esp_adc/adc_cali_curve_fitting.c
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     )
+  endif()
 
   zephyr_link_libraries("-Wl,--wrap=longjmp")
 

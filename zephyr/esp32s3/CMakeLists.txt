@@ -28,8 +28,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/efuse/${CONFIG_SOC_SERIES}/include
     ../../components/efuse/${CONFIG_SOC_SERIES}/private_include
 
-    ../../components/esp_adc/deprecated/include
-
     ../../components/esp_common/include
     ../../components/esp_hw_support/dma
     ../../components/esp_hw_support/include
@@ -199,23 +197,31 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/pcnt_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_ADC_ESP32
+  if (CONFIG_ADC_ESP32)
+    zephyr_include_directories(
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_adc/include
+    ../../components/esp_adc/interface
+    )
+
+    zephyr_sources(
     ../../components/hal/adc_hal.c
     ../../components/hal/adc_hal_common.c
-    ../../components/driver/deprecated/adc_legacy.c
+    ../../components/hal/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/esp_adc/deprecated/${CONFIG_SOC_SERIES}/esp_adc_cal_legacy.c
-    ../../components/esp_adc/deprecated/esp_adc_cal_common_legacy.c
     ../../components/hal/rtc_io_hal.c
     ../../components/driver/gpio/rtc_io.c
+    ../../components/esp_adc/adc_cali.c
+    ../../components/esp_adc/adc_cali_curve_fitting.c
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     ../../components/efuse/src/esp_efuse_api.c
     ../../components/efuse/src/esp_efuse_utility.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     )
+  endif()
 
   zephyr_sources_ifdef(
     CONFIG_DMA_ESP32
