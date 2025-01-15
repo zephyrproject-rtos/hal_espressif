@@ -316,6 +316,31 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/hal/ledc_hal.c
     )
 
+  if (CONFIG_ADC_ESP32)
+    zephyr_include_directories(
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_adc/include
+    ../../components/esp_adc/interface
+    )
+
+    zephyr_sources(
+    ../../components/hal/adc_hal.c
+    ../../components/hal/adc_hal_common.c
+    ../../components/hal/adc_oneshot_hal.c
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/esp_adc/adc_cali.c
+    ../../components/esp_adc/adc_cali_curve_fitting.c
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    )
+  endif()
+
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
     zephyr_sources(
