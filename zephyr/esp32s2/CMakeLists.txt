@@ -91,6 +91,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
     ../../components/esp_netif/include
 
+    ../../components/esp_coex/include
     ../../components/esp_phy/include
     ../../components/esp_phy/${CONFIG_SOC_SERIES}/include
     ../../components/esp_wifi/include
@@ -379,6 +380,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
+      src/coex/esp_coex_adapter.c
       ../port/wifi/wifi_init.c
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
@@ -597,6 +599,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       core
       pp
       phy
+      coexist
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s2

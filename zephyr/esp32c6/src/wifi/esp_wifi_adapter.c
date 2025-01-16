@@ -22,6 +22,8 @@
 #include "esp_timer.h"
 #include "esp_private/esp_modem_clock.h"
 #include "os.h"
+#include "private/esp_coexist_internal.h"
+#include "private/esp_modem_wrapper.h"
 #include "esp_wpa.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_phy_init.h"
@@ -142,62 +144,6 @@ static void wifi_delete_queue_wrapper(void *queue)
 	wifi_delete_queue(queue);
 }
 
-static bool IRAM_ATTR env_is_chip_wrapper(void)
-{
-#ifdef CONFIG_IDF_ENV_FPGA
-	return false;
-#else
-	return true;
-#endif
-}
-
-static void *spin_lock_create_wrapper(void)
-{
-	unsigned int *wifi_spin_lock = (unsigned int *) wifi_malloc(sizeof(unsigned int));
-	if (wifi_spin_lock == NULL) {
-		LOG_ERR("spin_lock_create_wrapper allocation failed");
-	}
-
-	return (void *)wifi_spin_lock;
-}
-
-static uint32_t IRAM_ATTR wifi_int_disable_wrapper(void *wifi_int_mux)
-{
-	unsigned int *int_mux = (unsigned int *) wifi_int_mux;
-
-	*int_mux = irq_lock();
-	return 0;
-}
-
-static void IRAM_ATTR wifi_int_restore_wrapper(void *wifi_int_mux, uint32_t tmp)
-{
-	unsigned int *key = (unsigned int *) wifi_int_mux;
-
-	irq_unlock(*key);
-}
-
-static void IRAM_ATTR task_yield_from_isr_wrapper(void)
-{
-	k_yield();
-}
-
-static void *semphr_create_wrapper(uint32_t max, uint32_t init)
-{
-	struct k_sem *sem = (struct k_sem *) wifi_malloc(sizeof(struct k_sem));
-
-	if (sem == NULL) {
-		LOG_ERR("semphr_create_wrapper allocation failed");
-	}
-
-	k_sem_init(sem, init, max);
-	return (void *) sem;
-}
-
-static void semphr_delete_wrapper(void *semphr)
-{
-	esp_wifi_free(semphr);
-}
-
 static void *wifi_thread_semphr_get_wrapper(void)
 {
 	struct k_sem *sem = NULL;
@@ -214,30 +160,6 @@ static void *wifi_thread_semphr_get_wrapper(void)
 		}
 	}
 	return (void *)sem;
-}
-
-static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
-{
-	if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-		int ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
-
-		if (ret == 0) {
-			return 1;
-		}
-	} else {
-		int ret = k_sem_take((struct k_sem *)semphr, K_TICKS(block_time_tick));
-
-		if (ret == 0) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static int32_t semphr_give_wrapper(void *semphr)
-{
-	k_sem_give((struct k_sem *) semphr);
-	return 1;
 }
 
 static void *recursive_mutex_create_wrapper(void)
@@ -440,43 +362,9 @@ static void IRAM_ATTR timer_arm_wrapper(void *timer, uint32_t tmout, bool repeat
 	ets_timer_arm(timer, tmout, repeat);
 }
 
-static void IRAM_ATTR timer_disarm_wrapper(void *timer)
-{
-	ets_timer_disarm(timer);
-}
-
-static void timer_done_wrapper(void *ptimer)
-{
-	ets_timer_done(ptimer);
-}
-
-static void timer_setfn_wrapper(void *ptimer, void *pfunction, void *parg)
-{
-	ets_timer_setfn(ptimer, pfunction, parg);
-}
-
-static void IRAM_ATTR timer_arm_us_wrapper(void *ptimer, uint32_t us, bool repeat)
-{
-	ets_timer_arm_us(ptimer, us, repeat);
-}
-
 static int get_time_wrapper(void *t)
 {
 	return os_get_time(t);
-}
-
-uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
-{
-	/* The bit width of WiFi light sleep clock calibration is 12 while the one of
-	 * system is 19. It should shift 19 - 12 = 7.
-	 */
-	return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
-
-}
-
-static void *IRAM_ATTR malloc_internal_wrapper(size_t size)
-{
-	return wifi_malloc(size);
 }
 
 static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
@@ -740,7 +628,7 @@ static void coex_disable_wrapper(void)
 static IRAM_ATTR uint32_t coex_status_get_wrapper(void)
 {
 #if CONFIG_SW_COEXIST_ENABLE
-	return coex_status_get();
+	return coex_status_get(COEX_STATUS_GET_WIFI_BITMAP);
 #else
 	return 0;
 #endif
@@ -933,22 +821,22 @@ static void *sleep_retention_find_link_by_id_wrapper(int id)
 
 wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._version = ESP_WIFI_OS_ADAPTER_VERSION,
-	._env_is_chip = env_is_chip_wrapper,
+	._env_is_chip = esp_coex_common_env_is_chip_wrapper,
 	._set_intr = set_intr_wrapper,
 	._clear_intr = clear_intr_wrapper,
 	._set_isr = set_isr_wrapper,
 	._ints_on = enable_intr_wrapper,
 	._ints_off = disable_intr_wrapper,
 	._is_from_isr = k_is_in_isr,
-	._spin_lock_create = spin_lock_create_wrapper,
+	._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
 	._spin_lock_delete = esp_wifi_free,
-	._wifi_int_disable = wifi_int_disable_wrapper,
-	._wifi_int_restore = wifi_int_restore_wrapper,
-	._task_yield_from_isr = task_yield_from_isr_wrapper,
-	._semphr_create = semphr_create_wrapper,
-	._semphr_delete = semphr_delete_wrapper,
-	._semphr_take = semphr_take_wrapper,
-	._semphr_give = semphr_give_wrapper,
+	._wifi_int_disable = esp_coex_common_int_disable_wrapper,
+	._wifi_int_restore = esp_coex_common_int_restore_wrapper,
+	._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
+	._semphr_create = esp_coex_common_semphr_create_wrapper,
+	._semphr_delete = esp_coex_common_semphr_delete_wrapper,
+	._semphr_take = esp_coex_common_semphr_take_wrapper,
+	._semphr_give = esp_coex_common_semphr_give_wrapper,
 	._wifi_thread_semphr_get = wifi_thread_semphr_get_wrapper,
 	._mutex_create = mutex_create_wrapper,
 	._recursive_mutex_create = recursive_mutex_create_wrapper,
@@ -989,10 +877,10 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._phy_update_country_info = esp_phy_update_country_info,
 	._read_mac = esp_read_mac,
 	._timer_arm = timer_arm_wrapper,
-	._timer_disarm = timer_disarm_wrapper,
-	._timer_done = timer_done_wrapper,
-	._timer_setfn = timer_setfn_wrapper,
-	._timer_arm_us = timer_arm_us_wrapper,
+	._timer_disarm = esp_coex_common_timer_disarm_wrapper,
+	._timer_done = esp_coex_common_timer_done_wrapper,
+	._timer_setfn = esp_coex_common_timer_setfn_wrapper,
+	._timer_arm_us = esp_coex_common_timer_arm_us_wrapper,
 	._wifi_reset_mac = wifi_reset_mac_wrapper,
 	._wifi_clock_enable = wifi_clock_enable_wrapper,
 	._wifi_clock_disable = wifi_clock_disable_wrapper,
@@ -1018,7 +906,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._log_write = esp_log_write_wrapper,
 	._log_writev = esp_log_writev_wrapper,
 	._log_timestamp = k_uptime_get_32,
-	._malloc_internal =  malloc_internal_wrapper,
+	._malloc_internal =  esp_coex_common_malloc_internal_wrapper,
 	._realloc_internal = realloc_internal_wrapper,
 	._calloc_internal = calloc_internal_wrapper,
 	._zalloc_internal = zalloc_internal_wrapper,
