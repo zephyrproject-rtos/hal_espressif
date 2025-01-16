@@ -24,6 +24,7 @@
 #include "esp_wpa.h"
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
+#include "private/esp_modem_wrapper.h"
 
 #ifdef CONFIG_ESP_WIFI_NAN_ENABLE
 #include "apps_private/wifi_apps_private.h"
@@ -34,6 +35,10 @@
 
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA
 #include "esp_private/sleep_retention.h"
+#endif
+
+#if CONFIG_SW_COEXIST_ENABLE
+#include "private/esp_coexist_internal.h"
 #endif
 
 #include <zephyr/logging/log.h>
@@ -52,6 +57,7 @@ static bool s_wifi_inited = false;
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
 extern uint8_t esp_wifi_get_user_init_flag_internal(void);
+extern esp_err_t coex_init(void);
 
 #if CONFIG_IDF_TARGET_ESP32
 /* Callback function to update WiFi MAC time */
@@ -243,6 +249,10 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         return ESP_OK;
     }
 
+#if CONFIG_SW_COEXIST_ENABLE
+    esp_coex_adapter_register(&g_coex_adapter_funcs);
+    coex_pre_init();
+#endif
     esp_err_t result = ESP_OK;
 #ifdef CONFIG_SPIRAM
     result = esp_wifi_psram_check(config);
@@ -271,10 +281,6 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #endif
 
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
-    coex_wifi_register_update_lpclk_callback(esp_wifi_update_tsf_tick_interval);
-#endif
-
-#if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     coex_init();
 #endif
     esp_wifi_set_log_level();
@@ -287,11 +293,13 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
     }
 #endif
     result = esp_wifi_init_internal(config);
+
     if (result == ESP_OK) {
 #if CONFIG_MAC_BB_PD
         esp_mac_bb_pd_mem_init();
         esp_wifi_mac_pd_mem_init();
 #endif
+
         esp_phy_modem_init();
 #if CONFIG_IDF_TARGET_ESP32
         s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
@@ -325,7 +333,6 @@ _deinit:
     if (deinit_ret != ESP_OK) {
         LOG_ERR("Failed to deinit Wi-Fi (0x%x)", deinit_ret);
     }
-
     return result;
 }
 

@@ -382,6 +382,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       pp
       phy
       mesh
+      coexist
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32c3
@@ -596,6 +597,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
+      src/coex/esp_coex_adapter.c
       ../port/wifi/wifi_init.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}

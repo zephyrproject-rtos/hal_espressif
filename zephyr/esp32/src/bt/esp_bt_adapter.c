@@ -885,7 +885,7 @@ static void IRAM_ATTR coex_bb_reset_unlock_wrapper(uint32_t restore)
 static int coex_schm_register_btdm_callback_wrapper(void *callback)
 {
 #if CONFIG_SW_COEXIST_ENABLE
-	return coex_schm_register_callback(OEX_SCHM_CALLBACK_TYPE_BT, callback);
+	return coex_schm_register_callback(COEX_SCHM_CALLBACK_TYPE_BT, callback);
 #else
 	return 0;
 #endif
