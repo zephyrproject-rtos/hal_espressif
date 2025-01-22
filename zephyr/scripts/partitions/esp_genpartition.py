@@ -189,6 +189,7 @@ def generate_partition_table_dtsi(scheme, flash_offset_kb, scheme_name):
     output.append("};")
     output.append("")
     output.append(f"/* Remaining flash size is {int((flash_size - current_offset) / 1024)}kB */")
+    output.append("")
 
     filename = f"partitions_{hex(flash_offset_kb * 1024)}_{scheme_name}_{int(scheme.size_mb)}M.dtsi"
 
@@ -209,6 +210,7 @@ def generate_default_partition_table_dtsi(offset_kb, scheme_name, flash_size_mb)
     output.append(" */")
     output.append("")
     output.append(f"#include <espressif/partitions_0x{(offset_kb*1024):X}_{str(scheme_name)}_{int(flash_size_mb)}M.dtsi>")
+    output.append("")
 
     filename = f"partitions_{hex(offset_kb * 1024)}_{scheme_name}.dtsi"
 
