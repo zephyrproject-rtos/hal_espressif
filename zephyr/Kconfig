@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Espressif Systems (Shanghai) Co., Ltd.
+# Copyright (c) 2024-2025 Espressif Systems (Shanghai) Co., Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
 if SOC_FAMILY_ESPRESSIF_ESP32
@@ -132,5 +132,7 @@ config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
 	  controlled by the EFUSE_FLASH_TPUW in ROM will be executed in deepsleep wake up flow.)
 
 endmenu # Sleep config
+
+rsource "Kconfig.console"
 
 endif # SOC_FAMILY_ESPRESSIF_ESP32
