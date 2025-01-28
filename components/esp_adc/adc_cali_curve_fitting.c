@@ -105,7 +105,7 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
 
 err:
     if (scheme) {
-        free(scheme);
+        heap_caps_free(scheme);
     }
     return ret;
 }
@@ -114,10 +114,10 @@ esp_err_t adc_cali_delete_scheme_curve_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    free(handle->ctx);
+    heap_caps_free(handle->ctx);
     handle->ctx = NULL;
 
-    free(handle);
+    heap_caps_free(handle);
     handle = NULL;
 
     return ESP_OK;
@@ -184,30 +184,36 @@ static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step
     if (v_cali_1 == 0) {
         return 0;
     }
-
     uint8_t term_num = param->term_num;
     int32_t error = 0;
     uint64_t coeff = 0;
-    uint64_t variable[term_num];
-    uint64_t term[term_num];
-    memset(variable, 0, term_num * sizeof(uint64_t));
+
+    uint64_t *term = (uint64_t *)heap_caps_calloc(term_num, sizeof(uint64_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (term == NULL) {
+        ESP_LOGE(TAG, "Memory allocation failed for 'term'");
+        return -1;
+    }
+
     memset(term, 0, term_num * sizeof(uint64_t));
 
-    variable[0] = 1;
+    uint64_t variable_prev = 1;
     coeff = (*param->coeff)[atten][0][0];
-    term[0] = variable[0] * coeff / (*param->coeff)[atten][0][1];
-    error = (int32_t)term[0] * (*param->sign)[atten][0];
+    term[0] = variable_prev * coeff / (*param->coeff)[atten][0][1];
+    error = (int32_t)(term[0] * (*param->sign)[atten][0]);
 
     for (int i = 1; i < term_num; i++) {
-        variable[i] = variable[i - 1] * v_cali_1;
+        uint64_t variable_current = variable_prev * v_cali_1;
         coeff = (*param->coeff)[atten][i][0];
-        term[i] = variable[i] * coeff;
+        term[i] = variable_current * coeff;
         ESP_LOGV(TAG, "big coef is %llu, big term%d is %llu, coef_id is %d", coeff, i, term[i], i);
-
         term[i] = term[i] / (*param->coeff)[atten][i][1];
-        error += (int32_t)term[i] * (*param->sign)[atten][i];
+        error += (int32_t)(term[i] * (*param->sign)[atten][i]);
+
         ESP_LOGV(TAG, "term%d is %llu, error is %"PRId32, i, term[i], error);
+        variable_prev = variable_current;
     }
+
+    heap_caps_free(term);
 
     return error;
 }
