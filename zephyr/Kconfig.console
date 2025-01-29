@@ -78,6 +78,10 @@ config ESP_CONSOLE_UART_BAUDRATE
 	default $(ESP32_USB_SERIAL_CURR_SPEED) if $(dt_nodelabel_enabled,usb_serial) && $(dt_chosen_reg_addr_hex,$(DT_CHOSEN_Z_CONSOLE)) = $(dt_nodelabel_reg_addr_hex,usb_serial)
 	default 0
 
+config ESP_CONSOLE
+	bool
+	default y if ESP_CONSOLE_UART || ESP_CONSOLE_USB_SERIAL_JTAG
+
 endif # $(dt_chosen_enabled,$(DT_CHOSEN_Z_CONSOLE))
 
 endif # SOC_FAMILY_ESPRESSIF_ESP32
