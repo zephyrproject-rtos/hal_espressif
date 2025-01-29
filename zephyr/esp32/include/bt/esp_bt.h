@@ -54,7 +54,7 @@ extern "C" {
 *
 * @note Please do not modify this value.
 */
-#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20240722
+#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20241024
 
 #if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
 #define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P9
@@ -199,12 +199,37 @@ the adv packet will be discarded until the memory is restored. */
 #define BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX  0
 #endif
 
-#define BT_TASK_EXTRA_STACK_SIZE 512
-#define ESP_TASK_BT_CONTROLLER_STACK  (3584 + BT_TASK_EXTRA_STACK_SIZE)
-#define ESP_TASK_BT_CONTROLLER_PRIO 1
+#ifdef CONFIG_BTDM_BLE_LLCP_CONN_UPDATE
+#define BTDM_BLE_LLCP_CONN_UPDATE (1<<0)
+#else
+#define BTDM_BLE_LLCP_CONN_UPDATE (0<<0)
+#endif
 
-/* SMP is not supported yet */
-#define CONFIG_BTDM_CTRL_PINNED_TO_CORE 0
+#ifdef CONFIG_BTDM_BLE_LLCP_CHAN_MAP_UPDATE
+#define BTDM_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
+#else
+#define BTDM_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
+#endif
+
+#define BTDM_BLE_LLCP_DISC_FLAG (BTDM_BLE_LLCP_CONN_UPDATE | BTDM_BLE_LLCP_CHAN_MAP_UPDATE)
+
+#ifdef CONFIG_BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#define BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED CONFIG_BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#else
+#define BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED 0
+#endif
+
+#if defined(CONFIG_BTDM_BLE_CHAN_ASS_EN)
+#define BTDM_BLE_CHAN_ASS_EN (CONFIG_BTDM_BLE_CHAN_ASS_EN)
+#else
+#define BTDM_BLE_CHAN_ASS_EN (0)
+#endif
+
+#if defined(CONFIG_BTDM_BLE_PING_EN)
+#define BTDM_BLE_PING_EN (CONFIG_BTDM_BLE_PING_EN)
+#else
+#define BTDM_BLE_PING_EN (0)
+#endif
 
 /**
 * @brief  Default Bluetooth Controller configuration
@@ -234,6 +259,10 @@ the adv packet will be discarded until the memory is restored. */
     .hli = BTDM_CTRL_HLI,                                                  \
     .dup_list_refresh_period = SCAN_DUPL_CACHE_REFRESH_PERIOD,             \
     .ble_scan_backoff = BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,              \
+    .ble_llcp_disc_flag = BTDM_BLE_LLCP_DISC_FLAG,                         \
+    .ble_aa_check = BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED,    \
+    .ble_chan_ass_en = BTDM_BLE_CHAN_ASS_EN,                               \
+    .ble_ping_en = BTDM_BLE_PING_EN,                                       \
     .magic = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL,                           \
 }
 
@@ -253,39 +282,69 @@ the adv packet will be discarded until the memory is restored. */
 typedef struct {
     uint16_t controller_task_stack_size;    /*!< Bluetooth Controller task stack size in bytes */
     uint8_t controller_task_prio;           /*!< Bluetooth Controller task priority */
-    uint8_t hci_uart_no;                    /*!< Indicates UART number if using UART1/2 as HCI I/O interface. Configurable in menuconfig. */
-    uint32_t hci_uart_baudrate;             /*!< Indicates UART baudrate if using UART1/2 as HCI I/O interface. Configurable in menuconfig. */
-    uint8_t scan_duplicate_mode;            /*!< Scan duplicate filtering mode. Configurable in menuconfig. */
-    uint8_t scan_duplicate_type;            /*!< Scan duplicate filtering type. Configurable in menuconfig. */
-    uint16_t normal_adv_size;               /*!< Maximum number of devices in scan duplicate filtering list. Configurable in menuconfig. */
-    uint16_t mesh_adv_size;                 /*!< Maximum number of Mesh ADV packets in scan duplicate filtering list. Configurable in menuconfig. */
+    uint8_t hci_uart_no;                    /*!< UART number as HCI I/O interface. Configurable in menuconfig.
+                                                - 1 - URAT 1 (default)
+                                                - 2 - URAT 2 */
+    uint32_t hci_uart_baudrate;             /*!<  UART baudrate. Configurable in menuconfig.
+                                                - Range: 115200 - 921600
+                                                - Default: 921600 */
+    uint8_t scan_duplicate_mode;            /*!< Scan duplicate filtering mode. Configurable in menuconfig.
+                                                - 0 - Normal scan duplicate filtering mode (default)
+                                                - 1 - Special scan duplicate filtering mode for BLE Mesh */
+    uint8_t scan_duplicate_type;            /*!< Scan duplicate filtering type. If `scan_duplicate_mode` is set to 1, this parameter will be ignored. Configurable in menuconfig.
+                                                - 0 - Filter scan duplicates by device address only (default)
+                                                - 1 - Filter scan duplicates by advertising data only, even if they originate from different devices.
+                                                - 2 - Filter scan duplicated by device address and advertising data. */
+    uint16_t normal_adv_size;               /*!< Maximum number of devices in scan duplicate filtering list. Configurable in menuconfig
+                                                - Range: 10 - 1000
+                                                - Default: 100 */
+    uint16_t mesh_adv_size;                 /*!< Maximum number of Mesh advertising packets in scan duplicate filtering list. Configurable in menuconfig
+                                                - Range: 10 - 1000
+                                                - Default: 100 */
     uint16_t send_adv_reserved_size;        /*!< Controller minimum memory value in bytes. Internal use only */
     uint32_t  controller_debug_flag;        /*!< Controller debug log flag. Internal use only */
-    uint8_t mode;                           /*!< Controller mode:
-
-                                                1: BLE mode
-
-                                                2: Classic Bluetooth mode
-
-                                                3: Dual mode
-
-                                                Others: Invalid
-                                                C
-                                                onfigurable in menuconfig
-                                                */
-    uint8_t ble_max_conn;                   /*!< Maximum number of BLE connections. Configurable in menuconfig. */
-    uint8_t bt_max_acl_conn;                /*!< Maximum number of BR/EDR ACL connections. Configurable in menuconfig. */
-    uint8_t bt_sco_datapath;                /*!< SCO data path, i.e. HCI or PCM module. Configurable in menuconfig. */
-    bool auto_latency;                      /*!< True if BLE auto latency is enabled, used to enhance Classic Bluetooth performance; false otherwise. Configurable in menuconfig.*/
-    bool bt_legacy_auth_vs_evt;             /*!< True if BR/EDR Legacy Authentication Vendor Specific Event is enabled, which is required to  protect from BIAS attack; false otherwise. Configurable in menuconfig. */
-    uint8_t bt_max_sync_conn;               /*!< Maximum number of BR/EDR synchronous connections. Configurable in menuconfig. */
-    uint8_t ble_sca;                        /*!< BLE low power crystal accuracy index. Configurable in menuconfig. */
-    uint8_t pcm_role;                       /*!< PCM role (master & slave). Configurable in menuconfig.*/
-    uint8_t pcm_polar;                      /*!< PCM polar trig (falling clk edge & rising clk edge). Configurable in menuconfig. */
-    uint8_t pcm_fsyncshp;                   /*!< Physical shape of the PCM Frame Synchronization signal (stereo mode & mono mode). Configurable in menuconfig */
-    bool hli;                               /*!< True if using high level interrupt; false otherwise. Configurable in menuconfig. */
-    uint16_t dup_list_refresh_period;       /*!< Scan duplicate filtering list refresh period in seconds. Configurable in menuconfig.*/
-    bool ble_scan_backoff;                  /*!< True if BLE scan backoff is enabled; false otherwise. Configurable in menuconfig.*/
+    uint8_t mode;                           /*!< Controller mode.  Configurable in menuconfig
+                                                - 1 - BLE mode
+                                                - 2 - Classic Bluetooth mode
+                                                - 3 - Dual mode
+                                                - 4 - Others: Invalid */
+    uint8_t ble_max_conn;                   /*!< Maximum number of BLE connections. Configurable in menuconfig
+                                                - Range: 1 - 9
+                                                - Default: 3 */
+    uint8_t bt_max_acl_conn;                /*!< Maximum number of BR/EDR ACL connections. Configurable in menuconfig
+                                                - Range: 1 - 7
+                                                - Default: 2 */
+    uint8_t bt_sco_datapath;                /*!< SCO data path. Configurable in menuconfig
+                                                - 0 - HCI module (default)
+                                                - 1 - PCM module */
+    bool auto_latency;                      /*!< True if BLE auto latency is enabled, used to enhance Classic Bluetooth performance in the Dual mode; false otherwise (default). Configurable in menuconfig */
+    bool bt_legacy_auth_vs_evt;             /*!< True if BR/EDR Legacy Authentication Vendor Specific Event is enabled (default in the classic bluetooth or Dual mode), which is required to protect from BIAS attack; false otherwise. Configurable in menuconfig */
+    uint8_t bt_max_sync_conn;               /*!< Maximum number of BR/EDR synchronous connections. Configurable in menuconfig
+                                                - Range: 0 - 3
+                                                - Default: 0 */
+    uint8_t ble_sca;                        /*!< BLE low power crystal accuracy index. Configurable in menuconfig
+                                                - 0 - `BTDM_BLE_DEFAULT_SCA_500PPM`
+                                                - 1 - `BTDM_BLE_DEFAULT_SCA_250PPM` (default) */
+    uint8_t pcm_role;                       /*!< PCM role. Configurable in menuconfig
+                                                - 0 - PCM master (default)
+                                                - 1 - PCM slave (default) */
+    uint8_t pcm_polar;                      /*!< PCM polarity (falling clk edge & rising clk edge). Configurable in menuconfig
+                                                - 0 - Falling Edge (default)
+                                                - 1 - Rising Edge */
+    uint8_t pcm_fsyncshp;                   /*!< Physical shape of the PCM Frame Synchronization signal. Configurable in menuconfig
+                                                - 0 - Stereo Mode (default)
+                                                - 1 - Mono Mode 1
+                                                - 2 - Mono Mode 2 */
+    bool hli;                               /*!< True if using high-level (level 4) interrupt (default); false otherwise. Configurable in menuconfig */
+    uint16_t dup_list_refresh_period;       /*!< Scan duplicate filtering list refresh period in seconds. Configurable in menuconfig
+                                                - Range: 0 - 100 seconds
+                                                - Default: 0 second */
+    bool ble_scan_backoff;                  /*!< True if BLE scan backoff is enabled; false otherwise (default). Configurable in menuconfig */
+    uint8_t ble_llcp_disc_flag;             /*!< Flag indicating whether the Controller disconnects after Instant Passed (0x28) error occurs. Configurable in menuconfig.
+                                                - The Controller does not disconnect after Instant Passed (0x28) by default. */
+    bool ble_aa_check;                      /*!< True if adds a verification step for the Access Address within the `CONNECT_IND` PDU; false otherwise (default). Configurable in menuconfig */
+    uint8_t ble_chan_ass_en;                /*!< True if BLE channel assessment is enabled (default), false otherwise. Configurable in menuconfig */
+    uint8_t ble_ping_en;                    /*!< True if BLE ping procedure is enabled (default), false otherwise. Configurable in menuconfig */
     uint32_t magic;                         /*!< Magic number */
 } esp_bt_controller_config_t;
 
