@@ -94,39 +94,6 @@ static int check_chip_validity(const esp_image_header_t *img_hdr, esp_image_type
 	return err;
 }
 
-int check_bootloader_validity(void)
-{
-	unsigned int revision = efuse_hal_chip_revision();
-	unsigned int major = revision / 100;
-	unsigned int minor = revision % 100;
-
-	ESP_EARLY_LOGI(TAG, "chip revision: v%d.%d", major, minor);
-
-#if defined(CONFIG_SOC_SERIES_ESP32)
-	if (major < 3) {
-		ESP_EARLY_LOGE(TAG,
-			       "You are using ESP32 chip revision (%d) that is unsupported. While "
-			       "it may work, it could cause unexpected behavior or issues.",
-			       major);
-		ESP_EARLY_LOGE(TAG,
-			       "Proceeding with this ESP32 chip revision is not recommended unless "
-			       "you fully understand the potential risk and limitations.");
-#if !defined(CONFIG_ESP32_USE_UNSUPPORTED_REVISION)
-		ESP_EARLY_LOGE(
-			TAG,
-			"If you choose to continue, please enable the "
-			"'CONFIG_ESP32_USE_UNSUPPORTED_REVISION' in your project configuration.");
-		return -EIO;
-#endif /* !CONFIG_ESP32_USE_UNSUPPORTED_REVISION */
-	}
-#endif /* CONFIG_SOC_SERIES_ESP32 */
-	/* compare with the one set in bootloader image header */
-	if (check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != 0) {
-		return ESP_FAIL;
-	}
-	return 0;
-}
-
 void config_wdt(void)
 {
 	/*
@@ -149,4 +116,41 @@ void config_wdt(void)
 	wdt_hal_write_protect_disable(&mwdt_ctx);
 	wdt_hal_set_flashboot_en(&mwdt_ctx, false);
 	wdt_hal_write_protect_enable(&mwdt_ctx);
+}
+
+int check_bootloader_validity(void)
+{
+	unsigned int revision = efuse_hal_chip_revision();
+	unsigned int major = revision / 100;
+	unsigned int minor = revision % 100;
+
+	ESP_EARLY_LOGI(TAG, "chip revision: v%d.%d", major, minor);
+
+#ifndef CONFIG_MCUBOOT
+#if defined(CONFIG_SOC_SERIES_ESP32)
+	if (major < 3) {
+		ESP_EARLY_LOGE(TAG,
+			       "You are using ESP32 chip revision (%d) that is unsupported. While "
+			       "it may work, it could cause unexpected behavior or issues.",
+			       major);
+		ESP_EARLY_LOGE(TAG,
+			       "Proceeding with this ESP32 chip revision is not recommended unless "
+			       "you fully understand the potential risk and limitations.");
+#if !defined(CONFIG_ESP32_USE_UNSUPPORTED_REVISION)
+		ESP_EARLY_LOGE(
+			TAG,
+			"If you choose to continue, please enable "
+			"'CONFIG_ESP32_USE_UNSUPPORTED_REVISION=y' in your project configuration.");
+		config_wdt(); // disable watchdog to avoid reset
+		abort();
+#endif /* !CONFIG_ESP32_USE_UNSUPPORTED_REVISION */
+	}
+#endif /* CONFIG_SOC_SERIES_ESP32 */
+#endif /* CONFIG_MCUBOOT */
+
+	/* compare with the one set in bootloader image header */
+	if (check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != 0) {
+		return ESP_FAIL;
+	}
+	return 0;
 }
