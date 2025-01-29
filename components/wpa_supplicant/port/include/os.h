@@ -24,7 +24,7 @@
 #include "esp_err.h"
 #include "supplicant_opt.h"
 #include "esp_wifi.h"
-#include "esp_heap_runtime.h"
+#include "esp_heap_adapter.h"
 
 // Declare strlcpy here to avoid warnings
 size_t strlcpy(char *dst, const char *src, size_t dsize);
@@ -218,23 +218,6 @@ static inline char *os_readfile(const char *name, size_t *len)
  * OS_NO_C_LIB_DEFINES can be defined to skip all defines here in which case
  * these functions need to be implemented in os_*.c file for the target system.
  */
-
-/* Select heap to be used for WiFi adapter */
-#if defined(CONFIG_ESP_WIFI_HEAP_RUNTIME)
-
-#define os_wpa_malloc_func(_size) esp_heap_runtime_malloc(_size)
-#define os_wpa_realloc_func(_ptr, _size) esp_heap_runtime_realloc(_ptr, _size)
-#define os_wpa_calloc_func(_nmemb, _size) esp_heap_runtime_calloc(_nmemb, _size)
-#define os_wpa_free_func(_mem) esp_heap_runtime_free(_mem)
-
-#else
-
-#define os_wpa_malloc_func(_size) k_malloc(_size)
-#define os_wpa_realloc_func(_ptr, _size) k_realloc(_ptr, _size)
-#define os_wpa_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
-#define os_wpa_free_func(_mem) k_free(_mem)
-
-#endif /* CONFIG_ESP_WIFI_HEAP_RUNTIME */
 
 #ifndef os_malloc
 #define os_malloc(s) os_wpa_malloc_func((s))

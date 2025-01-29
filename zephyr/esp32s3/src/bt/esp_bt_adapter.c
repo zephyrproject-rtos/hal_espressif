@@ -27,7 +27,7 @@
 #include "private/esp_coexist_internal.h"
 #include "esp_timer.h"
 #include "esp_sleep.h"
-#include "esp_heap_runtime.h"
+#include "esp_heap_adapter.h"
 #include "esp_rom_sys.h"
 #include "esp_private/phy.h"
 
@@ -116,19 +116,6 @@ typedef struct {
 	struct intr_handle_data_t *handle;    /*!< ISR handle */
 	esp_err_t ret;
 } btdm_isr_alloc_t;
-
-/* Select heap to be used for WiFi adapter */
-#if defined(CONFIG_ESP_BT_HEAP_RUNTIME)
-
-#define esp_bt_malloc_func(_size) esp_heap_runtime_malloc(_size)
-#define esp_bt_free_func(_mem) esp_heap_runtime_free(_mem)
-
-#else
-
-#define esp_bt_malloc_func(_size) k_malloc(_size)
-#define esp_bt_free_func(_mem) k_free(_mem)
-
-#endif /* CONFIG_ESP_BLUETOOTH_HEAP_RUNTIME */
 
 /* OSI function */
 struct osi_funcs_t {

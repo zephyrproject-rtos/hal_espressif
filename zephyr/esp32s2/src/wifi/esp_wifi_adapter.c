@@ -35,26 +35,11 @@
 #include "esp32s2/rom/ets_sys.h"
 #include "esp_mac.h"
 #include "wifi/wifi_event.h"
-#include "esp_heap_runtime.h"
+#include "esp_heap_adapter.h"
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
-
-/* Select heap to be used for WiFi adapter */
-#if defined(CONFIG_ESP_WIFI_HEAP_RUNTIME)
-
-#define esp_wifi_malloc_func(_size) esp_heap_runtime_malloc(_size)
-#define esp_wifi_calloc_func(_nmemb, _size) esp_heap_runtime_calloc(_nmemb, _size)
-#define esp_wifi_free_func(_mem) esp_heap_runtime_free(_mem)
-
-#else
-
-#define esp_wifi_malloc_func(_size) k_malloc(_size)
-#define esp_wifi_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
-#define esp_wifi_free_func(_mem) k_free(_mem)
-
-#endif /* CONFIG_ESP_WIFI_HEAP_RUNTIME */
 
 static void *wifi_msgq_buffer;
 
