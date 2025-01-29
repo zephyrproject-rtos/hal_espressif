@@ -375,10 +375,10 @@ static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
 /* number of fractional bit for btdm_lpcycle_us */
 static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
 
-#if CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG
+#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
 // used low power clock
 static DRAM_ATTR uint8_t btdm_lpclk_sel;
-#endif /* #ifdef CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG */
+#endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
@@ -885,7 +885,7 @@ static void IRAM_ATTR coex_bb_reset_unlock_wrapper(uint32_t restore)
 static int coex_schm_register_btdm_callback_wrapper(void *callback)
 {
 #if CONFIG_SW_COEXIST_ENABLE
-	return coex_schm_register_btdm_callback(callback);
+	return coex_schm_register_callback(OEX_SCHM_CALLBACK_TYPE_BT, callback);
 #else
 	return 0;
 #endif
@@ -1079,12 +1079,13 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	btdm_controller_mem_init();
 
 	periph_module_enable(PERIPH_BT_MODULE);
+	periph_module_reset(PERIPH_BT_MODULE);
 
 	/* set default sleep clock cycle and its fractional bits */
 	btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
 	btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
 
-#if CONFIG_BTDM_MODEM_SLEEP_MODE_ORIG
+#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
 
 	btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
 #if CONFIG_BTDM_LPCLK_SEL_EXT_32K_XTAL
@@ -1100,7 +1101,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
 #endif
 
-	bool select_src_ret, set_div_ret;
+	bool select_src_ret __attribute__((unused));
+	bool set_div_ret __attribute__((unused));
 	if (btdm_lpclk_sel == BTDM_LPCLK_SEL_XTAL) {
 		select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL);
 		set_div_ret = btdm_lpclk_set_div(rtc_clk_xtal_freq_get() * 2 / MHZ(1) - 1);
@@ -1207,6 +1209,11 @@ static void patch_apply(void)
 #ifndef CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY
 	config_ble_funcs_reset();
 #endif
+
+#ifdef CONFIG_BTDM_BLE_VS_QA_SUPPORT
+	config_ble_vs_qa_funcs_reset();
+#endif
+
 }
 
 esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
