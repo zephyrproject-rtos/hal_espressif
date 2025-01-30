@@ -177,6 +177,11 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_I2S_ESP32
+    ../../components/hal/i2s_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
     ../../components/hal/uart_hal_iram.c

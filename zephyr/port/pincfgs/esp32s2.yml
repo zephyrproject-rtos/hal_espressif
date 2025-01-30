@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# Copyright (c) 2022-2025 Espressif Systems (Shanghai) Co., Ltd.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Notes:
@@ -116,29 +116,29 @@ i2c1:
 
 i2s0:
   mclk:
-    sigo: i2s0_mclk_out
-    gpio: [[0, 21], [26, 45]]
+    sigo: clk_i2s
+    gpio: [[0, 21], [26, 46]]
   i_bck:
     sigi: i2s0i_bck_in
     sigo: i2s0i_bck_out
-    gpio: [[0, 21], [26, 45]]
+    gpio: [[0, 21], [26, 46]]
   i_ws:
     sigi: i2s0i_ws_in
     sigo: i2s0i_ws_out
-    gpio: [[0, 21], [26, 45]]
+    gpio: [[0, 21], [26, 46]]
   i_sd:
-    sigi: i2s0i_data_in0
-    gpio: [[0, 21], [26, 45]]
+    sigi: i2s0i_data_in15
+    gpio: [[0, 21], [26, 46]]
   o_bck:
     sigi: i2s0o_bck_in
     sigo: i2s0o_bck_out
-    gpio: [[0, 21], [26, 45]]
+    gpio: [[0, 21], [26, 46]]
   o_ws:
     sigi: i2s0o_ws_in
     sigo: i2s0o_ws_out
-    gpio: [[0, 21], [26, 45]]
+    gpio: [[0, 21], [26, 46]]
   o_sd:
-    sigo: i2s0o_data_out0
+    sigo: i2s0o_data_out23
     gpio: [[0, 21], [26, 45]]
 
 twai:
