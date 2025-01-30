@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 
 output_path = ""
+start_year = 2024
 
 scheme_default = [
     ("boot",         "mcuboot",        128),
@@ -121,7 +122,10 @@ def generate_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme, scheme
     output = []
 
     output.append("/*")
-    output.append(f" * Copyright (c) {datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
+    if start_year < datetime.now().year:
+        output.append(f" * Copyright (c) {start_year}-{datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
+    else:
+        output.append(f" * Copyright (c) {datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
     output.append(" *")
     output.append(" * SPDX-License-Identifier: Apache-2.0")
     output.append(" */")
@@ -166,7 +170,10 @@ def generate_default_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme
     output = []
 
     output.append("/*")
-    output.append(f" * Copyright (c) {datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
+    if start_year < datetime.now().year:
+        output.append(f" * Copyright (c) {start_year}-{datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
+    else:
+        output.append(f" * Copyright (c) {datetime.now().year} Espressif Systems (Shanghai) Co., Ltd.")
     output.append(" *")
     output.append(" * SPDX-License-Identifier: Apache-2.0")
     output.append(" */")
