@@ -104,6 +104,11 @@ uint8_t btdm_sleep_clock_sync(void)
 	return 0;
 }
 
+void sdk_config_extend_set_pll_track(bool enable)
+{
+	// No-op
+}
+
 bool btdm_lpclk_select_src(uint32_t sel)
 {
 	return true;
