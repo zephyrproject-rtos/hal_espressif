@@ -762,11 +762,6 @@ static void esp_phy_disable_wrapper(void)
 	esp_phy_disable(PHY_MODEM_WIFI);
 }
 
-int32_t IRAM_ATTR coex_is_in_isr_wrapper(void)
-{
-	return !k_is_in_isr();
-}
-
 static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
 {
 #if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
