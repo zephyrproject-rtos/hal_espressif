@@ -375,10 +375,15 @@ if(CONFIG_SOC_SERIES_ESP32)
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
-      zephyr_link_libraries_ifndef(
-        CONFIG_BUILD_ONLY_NO_BLOBS
-        ## ble
+      if (CONFIG_BUILD_ONLY_NO_BLOBS)
+        zephyr_sources(
+          ../port/coex/coex_stubs.c
+          )
+      endif()
+
+      zephyr_link_libraries(
         btdm_app
+        coexist
           -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
         )
     endif()
@@ -390,7 +395,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       pp
       phy
       rtc
-      coexist
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32

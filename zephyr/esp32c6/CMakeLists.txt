@@ -359,11 +359,18 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
       )
 
-    zephyr_sources_ifdef(
-      CONFIG_BUILD_ONLY_NO_BLOBS
-      ../port/wifi/wifi_stubs.c
-      ../port/phy/phy_stubs.c
-      )
+    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
+      if (CONFIG_BUILD_ONLY_NO_BLOBS)
+        zephyr_sources(
+          ../port/coex/coex_stubs.c
+          )
+      endif()
+
+      zephyr_link_libraries(
+        coexist
+          -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+        )
+    endif()
 
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS
@@ -372,7 +379,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       pp
       phy
       mesh
-      coexist
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
@@ -393,6 +399,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       btbb
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
       )
+
   endif()
 
   ## WIFI definitions
@@ -554,6 +561,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/sha256.c"
         )
     endif()
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/wifi/wifi_stubs.c
+      ../port/phy/phy_stubs.c
+      )
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
