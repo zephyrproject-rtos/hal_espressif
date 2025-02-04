@@ -347,6 +347,19 @@ if(CONFIG_SOC_SERIES_ESP32C2)
       ../../components/efuse/src/efuse_controller/keys/without_key_purposes/one_key_block/esp_efuse_api_key.c
       )
 
+    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
+      if (CONFIG_BUILD_ONLY_NO_BLOBS)
+        zephyr_sources(
+          ../port/coex/coex_stubs.c
+          )
+      endif()
+
+      zephyr_link_libraries(
+        coexist
+          -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+        )
+    endif()
+
     zephyr_sources_ifdef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       ../port/wifi/wifi_stubs.c
@@ -359,7 +372,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
       core
       pp
       phy
-      coexist
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
