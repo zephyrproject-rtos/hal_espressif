@@ -89,6 +89,8 @@ uint32_t bootloader_mmap_get_free_pages(void);
  */
 const void *bootloader_mmap(uint32_t src_addr, uint32_t size);
 
+/* use ROM functions to mmap */
+const void *bootloader_mmap_rom(uint32_t src_addr, uint32_t size);
 
 /**
  * @brief Unmap a previously mapped region of flash
@@ -96,6 +98,9 @@ const void *bootloader_mmap(uint32_t src_addr, uint32_t size);
  * Call bootloader_munmap once for each successful call to bootloader_mmap.
  */
 void bootloader_munmap(const void *mapping);
+
+/* use ROM functions to unmmap */
+void bootloader_munmap_rom(const void *mapping);
 
 /**
  * @brief  Read data from Flash.
@@ -114,6 +119,8 @@ void bootloader_munmap(const void *mapping);
  */
 esp_err_t bootloader_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
 
+/* use ROM functions to flash read */
+esp_err_t bootloader_flash_read_rom(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
 
 /**
  * @brief  Write data to Flash.
@@ -132,6 +139,9 @@ esp_err_t bootloader_flash_read(size_t src_addr, void *dest, size_t size, bool a
  */
 esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
 
+/* use ROM functions to flash write */
+esp_err_t bootloader_flash_write_rom(size_t dest_addr, void *src, size_t size, bool write_encrypted);
+
 /**
  * @brief  Erase the Flash sector.
  *
@@ -140,6 +150,9 @@ esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool 
  * @return esp_err_t
  */
 esp_err_t bootloader_flash_erase_sector(size_t sector);
+
+/* use ROM functions to flash erase */
+esp_err_t bootloader_flash_erase_sector_rom(size_t sector);
 
 /**
  * @brief  Erase the Flash range.
@@ -150,6 +163,9 @@ esp_err_t bootloader_flash_erase_sector(size_t sector);
  * @return esp_err_t
  */
 esp_err_t bootloader_flash_erase_range(uint32_t start_addr, uint32_t size);
+
+/* use ROM functions to flash range read */
+esp_err_t bootloader_flash_erase_range_rom(uint32_t start_addr, uint32_t size);
 
 /**
  * @brief Execute a user command on the flash
