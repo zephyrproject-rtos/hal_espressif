@@ -4,12 +4,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
-  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
-
-  if(CONFIG_ESP_SIMPLE_BOOT)
-    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QIO BOOTLOADER_BUILD)
-    zephyr_compile_definitions_ifdef(CONFIG_ESPTOOLPY_FLASHMODE_QOUT BOOTLOADER_BUILD)
-  endif()
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
@@ -303,9 +297,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
       ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       ../common/console_init.c
-      ../common/flash_init.c
       ../common/soc_init.c
-      src/soc_flash_init.c
       )
 
     zephyr_sources_ifdef(
@@ -317,8 +309,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   zephyr_sources(
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
-
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
 
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
@@ -384,10 +374,14 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     ../port/host_flash/cache_utils.c
     ../port/heap/heap_caps_zephyr.c
+    ../port/bootloader/bootloader_flash.c
+
+    ../common/flash_init.c
 
     src/stubs.c
-    src/soc_init.c
     src/soc_random.c
+    src/soc_init.c
+    src/soc_flash_init.c
   )
 
   ## shared WIFI/BT resources

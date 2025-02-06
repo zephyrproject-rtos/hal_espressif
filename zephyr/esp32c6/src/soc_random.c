@@ -13,8 +13,6 @@
 #include <soc/regi2c_saradc.h>
 #include <esp_log.h>
 
-#define TAG "soc_random"
-
 static const uint32_t SAR2_CHANNEL = 9;
 static const uint32_t PATTERN_BIT_WIDTH = 6;
 static const uint32_t SAR1_ATTEN = 1;
@@ -22,8 +20,6 @@ static const uint32_t SAR2_ATTEN = 1;
 
 void soc_random_enable(void)
 {
-	ESP_EARLY_LOGI(TAG, "Enabling RNG early entropy source");
-
 	/* pull SAR ADC out of reset */
 	REG_SET_BIT(PCR_SARADC_CONF_REG, PCR_SARADC_RST_EN);
 	REG_CLR_BIT(PCR_SARADC_CONF_REG, PCR_SARADC_RST_EN);
@@ -82,8 +78,6 @@ void soc_random_enable(void)
 
 void soc_random_disable(void)
 {
-	ESP_EARLY_LOGI(TAG, "Disabling RNG early entropy source");
-
 	/* disable timer */
 	REG_CLR_BIT(APB_SARADC_CTRL2_REG, APB_SARADC_SARADC_TIMER_EN);
 

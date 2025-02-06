@@ -85,3 +85,9 @@ void reset_mmu(void)
 	 */
 	DPORT_REG_CLR_BIT(DPORT_PRO_CACHE_CTRL1_REG, DPORT_PRO_CACHE_MASK_DROM0);
 }
+
+/* Not supported but common bootloader calls the function. Do nothing */
+void ana_clock_glitch_reset_config(bool enable)
+{
+	(void)enable;
+}

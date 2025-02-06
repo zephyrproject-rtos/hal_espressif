@@ -14,12 +14,8 @@
 #include <hal/regi2c_ctrl.h>
 #include <soc/regi2c_saradc.h>
 
-#define TAG "soc_random"
-
 void soc_random_enable(void)
 {
-	ESP_EARLY_LOGI(TAG, "Enabling RNG early entropy source");
-
 	SET_PERI_REG_MASK(SYSTEM_WIFI_CLK_EN_REG, SYSTEM_WIFI_CLK_RNG_EN);
 
 	/* Enable 8M clock source for RNG (this is actually enough to produce strong random results,
@@ -89,7 +85,6 @@ void soc_random_enable(void)
 
 void soc_random_disable(void)
 {
-	ESP_EARLY_LOGI(TAG, "Disabling RNG early entropy source");
 	/* Restore internal I2C bus state */
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC_ENCAL_REF_ADDR, 0);
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC_ENT_TSENS_ADDR, 0);

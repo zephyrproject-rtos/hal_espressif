@@ -5,9 +5,6 @@ if(CONFIG_SOC_SERIES_ESP32)
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
 
-  zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
-  zephyr_compile_definitions_ifdef(CONFIG_ESP_SIMPLE_BOOT BOOTLOADER_BUILD)
-
   zephyr_compile_definitions(CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5)
 
   if(CONFIG_MCUBOOT)
@@ -272,10 +269,7 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/hal/mpu_hal.c
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
       ../common/console_init.c
-      ../common/flash_init.c
       ../common/soc_init.c
-      src/soc_init.c
-
       )
 
     zephyr_sources_ifdef(
@@ -289,10 +283,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/dport_access.c
 
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c
     ../../components/bootloader_support/src/bootloader_efuse.c
-    ../../components/bootloader_support/src/bootloader_random_${CONFIG_SOC_SERIES}.c
-    ../../components/bootloader_support/src/${CONFIG_SOC_SERIES}/bootloader_soc.c
 
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/clk_ctrl_os.c
@@ -348,9 +339,13 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     ../port/heap/heap_caps_zephyr.c
     ../port/host_flash/cache_utils.c
+    ../port/bootloader/bootloader_flash.c
+
+    ../common/flash_init.c
 
     src/stubs.c
     src/soc_random.c
+    src/soc_init.c
     src/soc_flash_init.c
   )
 

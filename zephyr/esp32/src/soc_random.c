@@ -11,10 +11,7 @@
 #include "soc/i2s_periph.h"
 #include "esp_log.h"
 #include "soc/io_mux_reg.h"
-
-#ifndef BOOTLOADER_BUILD
 #include "esp_private/periph_ctrl.h"
-#endif
 
 void soc_random_enable(void)
 {
@@ -22,11 +19,7 @@ void soc_random_enable(void)
 	 * case already (this clock is never disabled while the CPU is running), this is a "belts
 	 * and braces" type check.
 	 */
-#ifdef BOOTLOADER_BUILD
-	DPORT_SET_PERI_REG_MASK(DPORT_WIFI_CLK_EN_REG, DPORT_WIFI_CLK_RNG_EN);
-#else
 	periph_module_enable(PERIPH_RNG_MODULE);
-#endif /* BOOTLOADER_BUILD */
 
 	/* Enable SAR ADC in test mode to feed ADC readings of the 1.1V
 	 * reference via I2S into the RNG entropy input.
@@ -37,11 +30,8 @@ void soc_random_enable(void)
 	SET_PERI_REG_MASK(RTC_CNTL_TEST_MUX_REG, RTC_CNTL_ENT_RTC);
 	SET_PERI_REG_MASK(SENS_SAR_START_FORCE_REG, SENS_SAR2_EN_TEST);
 
-#ifdef BOOTLOADER_BUILD
-	DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_I2S0_CLK_EN);
-#else
 	periph_module_enable(PERIPH_I2S0_MODULE);
-#endif /* BOOTLOADER_BUILD */
+
 	CLEAR_PERI_REG_MASK(SENS_SAR_START_FORCE_REG, SENS_ULP_CP_FORCE_START_TOP);
 	CLEAR_PERI_REG_MASK(SENS_SAR_START_FORCE_REG, SENS_ULP_CP_START_TOP);
 
@@ -94,11 +84,7 @@ void soc_random_disable(void)
 	CLEAR_PERI_REG_MASK(I2S_CONF2_REG(0), I2S_DATA_ENABLE);
 
 	/* Disable i2s clock */
-#ifdef BOOTLOADER_BUILD
-	DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_I2S0_CLK_EN);
-#else
 	periph_module_disable(PERIPH_I2S0_MODULE);
-#endif /* BOOTLOADER_BUILD */
 
 	/* Restore SYSCON mode registers */
 	CLEAR_PERI_REG_MASK(SENS_SAR_READ_CTRL_REG, SENS_SAR1_DIG_FORCE);
@@ -114,12 +100,7 @@ void soc_random_disable(void)
 			  SYSCON_SARADC_START_WAIT_S);
 
 	/* Reset i2s peripheral */
-#ifdef BOOTLOADER_BUILD
-	DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_I2S0_RST);
-	DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_I2S0_RST);
-#else
 	periph_module_reset(PERIPH_I2S0_MODULE);
-#endif
 
 	/* Disable pull supply voltage to SAR ADC */
 	CLEAR_PERI_REG_MASK(RTC_CNTL_TEST_MUX_REG, RTC_CNTL_ENT_RTC);
