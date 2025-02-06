@@ -15,6 +15,7 @@
 #include "hal/efuse_hal.h"
 #include "soc/chip_revision.h"
 #include <hal/wdt_hal.h>
+#include "soc_init.h"
 
 #define IS_MAX_REV_SET(max_chip_rev_full)                                                          \
 	(((max_chip_rev_full) != 65535) && ((max_chip_rev_full) != 0))
@@ -45,11 +46,12 @@ void print_banner(void)
 int read_bootloader_header(void)
 {
 	/* load bootloader image header */
-	if (bootloader_flash_read(FIXED_PARTITION_OFFSET(boot_partition), &bootloader_image_hdr,
-				  sizeof(esp_image_header_t), true) != 0) {
+	if (bootloader_flash_read_rom(FIXED_PARTITION_OFFSET(boot_partition), &bootloader_image_hdr,
+				      sizeof(esp_image_header_t), true) != 0) {
 		ESP_EARLY_LOGE(TAG, "failed to load bootloader image header!");
 		return -EIO;
 	}
+
 	return 0;
 }
 

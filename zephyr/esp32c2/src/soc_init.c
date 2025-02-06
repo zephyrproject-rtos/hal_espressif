@@ -73,3 +73,9 @@ void check_wdt_reset(void)
 
 	wdt_reset_cpu0_info_enable();
 }
+
+/* Not supported but common bootloader calls the function. Do nothing */
+void ana_clock_glitch_reset_config(bool enable)
+{
+	(void)enable;
+}

@@ -1,17 +1,17 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#include "soc_random.h"
-#include <esp_log.h>
-#include <soc/syscon_reg.h>
-#include <soc/rtc_cntl_reg.h>
-#include <soc/apb_saradc_reg.h>
-#include <soc/system_reg.h>
-#include <esp_private/regi2c_ctrl.h>
-#include <soc/regi2c_saradc.h>
+#include "sdkconfig.h"
+#include "bootloader_random.h"
+#include "esp_log.h"
+#include "soc/syscon_reg.h"
+#include "soc/rtc_cntl_reg.h"
+#include "soc/apb_saradc_reg.h"
+#include "soc/system_reg.h"
+#include "esp_private/regi2c_ctrl.h"
+#include "soc/regi2c_saradc.h"
 
 void soc_random_enable(void)
 {
@@ -19,16 +19,16 @@ void soc_random_enable(void)
 	REG_SET_FIELD(RTC_CNTL_SENSOR_CTRL_REG, RTC_CNTL_FORCE_XPD_SAR, 0x3);
 	SET_PERI_REG_MASK(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_SAR_I2C_PU_M);
 
-	/* Bridging sar2 internal reference voltage */
+	// Bridging sar2 internal reference voltage
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC2_ENCAL_REF_ADDR, 1);
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC_DTEST_RTC_ADDR, 0);
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC_ENT_RTC_ADDR, 0);
 	REGI2C_WRITE_MASK(I2C_SAR_ADC, ADC_SARADC_ENT_TSENS_ADDR, 0);
 
-	/* Enable SAR ADC2 internal channel to read adc2 ref voltage for additional entropy */
+	// Enable SAR ADC2 internal channel to read adc2 ref voltage for additional entropy
 	SET_PERI_REG_MASK(SYSTEM_PERIP_CLK_EN0_REG, SYSTEM_APB_SARADC_CLK_EN_M);
 	CLEAR_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG, SYSTEM_APB_SARADC_RST_M);
-	REG_SET_FIELD(APB_SARADC_APB_ADC_CLKM_CONF_REG, APB_SARADC_CLK_SEL, 0x2);
+	REG_SET_FIELD(APB_SARADC_APB_ADC_CLKM_CONF_REG, APB_SARADC_REG_CLK_SEL, 0x2);
 	SET_PERI_REG_MASK(APB_SARADC_APB_ADC_CLKM_CONF_REG, APB_SARADC_CLK_EN_M);
 	SET_PERI_REG_MASK(APB_SARADC_CTRL_REG, APB_SARADC_SAR_CLK_GATED_M);
 	REG_SET_FIELD(APB_SARADC_CTRL_REG, APB_SARADC_XPD_SAR_FORCE, 0x3);
@@ -41,12 +41,12 @@ void soc_random_enable(void)
 	SET_PERI_REG_MASK(APB_SARADC_CTRL_REG, APB_SARADC_SAR_PATT_P_CLEAR_M);
 	CLEAR_PERI_REG_MASK(APB_SARADC_CTRL_REG, APB_SARADC_SAR_PATT_P_CLEAR_M);
 	REG_SET_FIELD(APB_SARADC_CTRL_REG, APB_SARADC_SAR_PATT_LEN, 0);
-	/* Set adc2 internal channel & atten */
-	REG_SET_FIELD(APB_SARADC_SAR_PATT_TAB1_REG, APB_SARADC_SAR_PATT_TAB1, 0x9cffff);
-	/* Set ADC sampling frequency */
+	REG_SET_FIELD(APB_SARADC_SAR_PATT_TAB1_REG, APB_SARADC_SAR_PATT_TAB1,
+		      0x9cffff); // Set adc2 internal channel & atten
 	REG_SET_FIELD(APB_SARADC_SAR_PATT_TAB2_REG, APB_SARADC_SAR_PATT_TAB2, 0xffffff);
+	// Set ADC sampling frequency
 	REG_SET_FIELD(APB_SARADC_CTRL2_REG, APB_SARADC_TIMER_TARGET, 100);
-	REG_SET_FIELD(APB_SARADC_APB_ADC_CLKM_CONF_REG, APB_SARADC_CLKM_DIV_NUM, 15);
+	REG_SET_FIELD(APB_SARADC_APB_ADC_CLKM_CONF_REG, APB_SARADC_REG_CLKM_DIV_NUM, 15);
 	CLEAR_PERI_REG_MASK(APB_SARADC_CTRL2_REG, APB_SARADC_MEAS_NUM_LIMIT);
 	SET_PERI_REG_MASK(APB_SARADC_DMA_CONF_REG, APB_SARADC_APB_ADC_TRANS_M);
 	SET_PERI_REG_MASK(APB_SARADC_CTRL2_REG, APB_SARADC_TIMER_EN);
