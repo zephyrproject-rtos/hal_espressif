@@ -71,12 +71,6 @@ void spi_flash_op_unlock(void)
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
-#ifdef CONFIG_MULTITHREADING
-	if(!k_is_in_isr()) {
-		k_sched_lock();
-	}
-#endif
-
 	s_intr_saved_state = irq_lock();
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
 	!defined(CONFIG_SOC_SERIES_ESP32C6)
@@ -117,13 +111,6 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 	esp_intr_noniram_enable();
 #endif
 	irq_unlock(s_intr_saved_state);
-
-#ifdef CONFIG_MULTITHREADING
-	if(!k_is_in_isr()) {
-		k_sched_unlock();
-	}
-#endif
-
 }
 
 void IRAM_ATTR spi_flash_enable_cache(uint32_t cpuid)
