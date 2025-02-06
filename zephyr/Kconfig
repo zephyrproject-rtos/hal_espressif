@@ -96,10 +96,6 @@ config IDF_TARGET_ESP32C6
 	bool
 	default y if SOC_SERIES_ESP32C6
 
-config RESERVE_RTC_MEM
-	int
-	default 0
-
 menu "Sleep config"
 
 config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
@@ -132,7 +128,5 @@ config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
 	  controlled by the EFUSE_FLASH_TPUW in ROM will be executed in deepsleep wake up flow.)
 
 endmenu # Sleep config
-
-rsource "Kconfig.console"
 
 endif # SOC_FAMILY_ESPRESSIF_ESP32
