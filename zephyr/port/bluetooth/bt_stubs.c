@@ -16,7 +16,6 @@ int btdm_controller_init(uint32_t config_mask, esp_bt_controller_config_t *confi
 
 void btdm_controller_deinit(void)
 {
-	// No-op
 }
 
 int btdm_controller_enable(esp_bt_mode_t mode)
@@ -26,7 +25,6 @@ int btdm_controller_enable(esp_bt_mode_t mode)
 
 void btdm_controller_disable(void)
 {
-	// No-op
 }
 
 uint8_t btdm_controller_get_mode(void)
@@ -41,7 +39,6 @@ const char *btdm_controller_get_compile_version(void)
 
 void btdm_rf_bb_init_phase2(void)
 {
-	// No-op
 }
 
 #ifdef CONFIG_SOC_SERIES_ESP32
@@ -53,12 +50,10 @@ int btdm_dispatch_work_to_controller(workitem_handler_t callback, void *arg, boo
 
 void btdm_controller_enable_sleep(bool enable)
 {
-	// No-op
 }
 
 void btdm_controller_set_sleep_mode(uint8_t mode)
 {
-	// No-op
 }
 
 uint8_t btdm_controller_get_sleep_mode(void)
@@ -73,12 +68,10 @@ bool btdm_power_state_active(void)
 
 void btdm_wakeup_request(void)
 {
-	// No-op
 }
 
 void btdm_in_wakeup_requesting_set(bool in_wakeup_requesting)
 {
-	// No-op
 }
 
 #ifndef CONFIG_SOC_SERIES_ESP32
@@ -106,7 +99,6 @@ uint8_t btdm_sleep_clock_sync(void)
 
 void sdk_config_extend_set_pll_track(bool enable)
 {
-	// No-op
 }
 
 bool btdm_lpclk_select_src(uint32_t sel)
@@ -131,7 +123,6 @@ bool API_vhci_host_check_send_available(void)
 
 void API_vhci_host_send_packet(uint8_t *data, uint16_t len)
 {
-	// No-op
 }
 
 int API_vhci_host_register_callback(const esp_vhci_host_callback_t *callback)
@@ -161,40 +152,32 @@ int bredr_txpwr_get(int *min_power_level, int *max_power_level)
 
 void bredr_sco_datapath_set(uint8_t data_path)
 {
-	// No-op
 }
 
 void btdm_controller_scan_duplicate_list_clear(void)
 {
-	// No-op
 }
 
 void coex_pti_v2(void)
 {
-	// No-op
 }
 
 void sdk_config_set_bt_pll_track_enable(bool enable)
 {
-	// No-op
 }
 
 void sdk_config_set_uart_flow_ctrl_enable(bool enable)
 {
-	// No-op
 }
 
 void config_bt_funcs_reset(void)
 {
-	// No-op
 }
 
 void config_ble_funcs_reset(void)
 {
-	// No-op
 }
 
 void config_btdm_funcs_reset(void)
 {
-	// No-op
 }
