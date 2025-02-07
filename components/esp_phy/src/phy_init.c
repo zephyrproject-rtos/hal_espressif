@@ -684,7 +684,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
 
 void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
 {
-    // no-op
+
 }
 #endif // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
 
