@@ -321,6 +321,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_rom/patches/esp_rom_uart.c
     ../../components/esp_rom/patches/esp_rom_spiflash.c
     ../../components/esp_rom/patches/esp_rom_efuse.c
+    ../../components/esp_rom/patches/esp_rom_gpio.c
     ../../components/esp_rom/patches/esp_rom_longjmp.S
 
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c

@@ -352,6 +352,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_rom/patches/esp_rom_uart.c
     ../../components/esp_rom/patches/esp_rom_spiflash.c
     ../../components/esp_rom/patches/esp_rom_efuse.c
+    ../../components/esp_rom/patches/esp_rom_gpio.c
     ../../components/esp_rom/patches/esp_rom_systimer.c
     ../../components/esp_rom/patches/esp_rom_wdt.c
     ../../components/esp_rom/patches/esp_rom_longjmp.S
