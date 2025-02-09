@@ -144,6 +144,8 @@ class Tools(WestCommand):
         group.add_argument('-p', '--port', help='Serial port address')
         group.add_argument('-e', '--elf', help='ELF file')
         group.add_argument('-n', '--eol', default='CRLF', help='EOL to use')
+        group.add_argument('-d', '--enable-address-decoding', action='store_true',
+                           help='Enable address decoding in the monitor')
 
         return parser
 
@@ -178,5 +180,12 @@ class Tools(WestCommand):
 
         monitor_path = Path(module_path, "tools/idf_monitor/idf_monitor.py")
         cmd_path = Path(os.getcwd())
-        cmd_exec((sys.executable, str(monitor_path), "-p", esp_port,
-                 "-b", args.baud, str(elf_path), "--eol", args.eol), cwd=cmd_path)
+
+        # Build command arguments
+        cmd = [sys.executable, str(monitor_path), "-p", esp_port, "-b", args.baud, str(elf_path), "--eol", args.eol]
+
+        # Add "-d" flag by default unless explicitly enabled
+        if not args.enable_address_decoding:
+            cmd.append("-d")
+
+        cmd_exec(cmd, cwd=cmd_path)
