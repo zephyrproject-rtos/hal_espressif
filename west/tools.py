@@ -181,10 +181,9 @@ class Tools(WestCommand):
         monitor_path = Path(module_path, "tools/idf_monitor/idf_monitor.py")
         cmd_path = Path(os.getcwd())
 
-        # Build command arguments
         cmd = [sys.executable, str(monitor_path), "-p", esp_port, "-b", args.baud, str(elf_path), "--eol", args.eol]
 
-        # Add "-d" flag by default unless explicitly enabled
+        # Adding "-d" argument for idf_monitor.py disables the address decoding
         if not args.enable_address_decoding:
             cmd.append("-d")
 
