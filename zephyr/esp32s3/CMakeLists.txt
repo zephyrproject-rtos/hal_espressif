@@ -217,6 +217,18 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
   endif()
 
+  if (CONFIG_UDC_DWC2)
+    zephyr_include_directories(
+    ../../components/usb/include
+    )
+
+    zephyr_sources(
+    ../../components/driver/gpio/gpio.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/hal/usb_wrap_hal.c
+    )
+  endif()
+
   zephyr_sources_ifdef(
     CONFIG_DMA_ESP32
     ../../components/soc/lldesc.c
