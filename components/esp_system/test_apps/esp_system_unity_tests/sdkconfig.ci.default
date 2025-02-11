@@ -1,3 +1,0 @@
-# Default configuration
-# Used for testing stack smashing protection
-CONFIG_COMPILER_STACK_CHECK=y

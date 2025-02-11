@@ -1,3 +1,0 @@
-| Supported Targets | Linux |
-| ----------------- | ----- |
-
