@@ -46,7 +46,7 @@ void print_banner(void)
 int read_bootloader_header(void)
 {
 	/* load bootloader image header */
-	if (bootloader_flash_read_rom(FIXED_PARTITION_OFFSET(boot_partition), &bootloader_image_hdr,
+	if (esp_rom_flash_read(FIXED_PARTITION_OFFSET(boot_partition), &bootloader_image_hdr,
 				      sizeof(esp_image_header_t), true) != 0) {
 		ESP_EARLY_LOGE(TAG, "failed to load bootloader image header!");
 		return -EIO;
