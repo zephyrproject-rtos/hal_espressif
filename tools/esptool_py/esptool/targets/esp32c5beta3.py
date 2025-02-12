@@ -4,6 +4,7 @@
 
 import struct
 import time
+from typing import Dict
 
 from .esp32c6 import ESP32C6ROM
 from ..loader import ESPLoader
@@ -40,6 +41,35 @@ class ESP32C5BETA3ROM(ESP32C6ROM):
         [0x50000000, 0x50004000, "RTC_DRAM"],
         [0x600FE000, 0x60100000, "MEM_INTERNAL2"],
     ]
+
+    EFUSE_MAX_KEY = 5
+    KEY_PURPOSES: Dict[int, str] = {
+        0: "USER/EMPTY",
+        1: "ECDSA_KEY",
+        2: "XTS_AES_256_KEY_1",
+        3: "XTS_AES_256_KEY_2",
+        4: "XTS_AES_128_KEY",
+        5: "HMAC_DOWN_ALL",
+        6: "HMAC_DOWN_JTAG",
+        7: "HMAC_DOWN_DIGITAL_SIGNATURE",
+        8: "HMAC_UP",
+        9: "SECURE_BOOT_DIGEST0",
+        10: "SECURE_BOOT_DIGEST1",
+        11: "SECURE_BOOT_DIGEST2",
+        12: "KM_INIT_KEY",
+    }
+
+    def get_pkg_version(self):
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 26) & 0x07
+
+    def get_minor_chip_version(self):
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 0) & 0x0F
+
+    def get_major_chip_version(self):
+        num_word = 2
+        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 4) & 0x03
 
     def get_chip_description(self):
         chip_name = {

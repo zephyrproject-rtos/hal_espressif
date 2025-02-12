@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
+from typing import Dict
 
 from .esp32 import ESP32ROM
 from ..loader import ESPLoader
@@ -26,6 +27,8 @@ class ESP32C3ROM(ESP32ROM):
     SPI_MOSI_DLEN_OFFS = 0x24
     SPI_MISO_DLEN_OFFS = 0x28
     SPI_W0_OFFS = 0x58
+
+    SPI_ADDR_REG_MSB = False
 
     BOOTLOADER_FLASH_OFFSET = 0x0
 
@@ -98,6 +101,20 @@ class ESP32C3ROM(ESP32ROM):
     ]
 
     UF2_FAMILY_ID = 0xD42BA06C
+
+    EFUSE_MAX_KEY = 5
+    KEY_PURPOSES: Dict[int, str] = {
+        0: "USER/EMPTY",
+        1: "RESERVED",
+        4: "XTS_AES_128_KEY",
+        5: "HMAC_DOWN_ALL",
+        6: "HMAC_DOWN_JTAG",
+        7: "HMAC_DOWN_DIGITAL_SIGNATURE",
+        8: "HMAC_UP",
+        9: "SECURE_BOOT_DIGEST0",
+        10: "SECURE_BOOT_DIGEST1",
+        11: "SECURE_BOOT_DIGEST2",
+    }
 
     def get_pkg_version(self):
         num_word = 3
@@ -179,8 +196,10 @@ class ESP32C3ROM(ESP32ROM):
         )
 
     def get_key_block_purpose(self, key_block):
-        if key_block < 0 or key_block > 5:
-            raise FatalError("Valid key block numbers must be in range 0-5")
+        if key_block < 0 or key_block > self.EFUSE_MAX_KEY:
+            raise FatalError(
+                f"Valid key block numbers must be in range 0-{self.EFUSE_MAX_KEY}"
+            )
 
         reg, shift = [
             (self.EFUSE_PURPOSE_KEY0_REG, self.EFUSE_PURPOSE_KEY0_SHIFT),
@@ -194,7 +213,9 @@ class ESP32C3ROM(ESP32ROM):
 
     def is_flash_encryption_key_valid(self):
         # Need to see an AES-128 key
-        purposes = [self.get_key_block_purpose(b) for b in range(6)]
+        purposes = [
+            self.get_key_block_purpose(b) for b in range(self.EFUSE_MAX_KEY + 1)
+        ]
 
         return any(p == self.PURPOSE_VAL_XTS_AES128_KEY for p in purposes)
 

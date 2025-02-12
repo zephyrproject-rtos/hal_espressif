@@ -5,7 +5,9 @@
 Troubleshooting
 ===============
 
-Flashing problems can be fiddly to troubleshoot. Try the suggestions here if you're having problems:
+Flashing problems can be fiddly to troubleshoot. The underlying issue can be caused by the drivers, OS, hardware, or even a combination of these. If your board is a custom design, check the `ESP Hardware Design Guidelines <https://docs.espressif.com/projects/esp-hardware-design-guidelines/>`_ or consider using our `free-of-charge schematic and PCB review service <https://www.espressif.com/en/contact-us/circuit-schematic-pcb-design-review>`_.
+
+Try the following suggestions if your issues persist:
 
 Bootloader Won't Respond
 ------------------------
@@ -104,14 +106,17 @@ Early Stage Crash
 
 .. only:: not esp8266 and not esp32 and not esp32c2
 
-   Issues When Using USB-Serial/JTAG or USB-OTG
-   --------------------------------------------
+   Issues and Debugging in USB-Serial/JTAG or USB-OTG modes
+   --------------------------------------------------------
 
-   When working with ESP chips that implement a `USB-Serial/JTAG Controller <https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/usb-serial-jtag-console.html>`_ or a `USB-OTG console <https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/usb-otg-console.html>`_, it's essential to be aware of potential issues related to the loaded application interfering with or reprogramming the GPIO pins used for USB communication.
+   When working with ESP chips that implement a `USB-Serial/JTAG <https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/usb-serial-jtag-console.html>`_ or a `USB-OTG <https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/usb-otg-console.html>`_ console (you are not using a classic USB-to-Serial adapter), it's essential to be aware of potential issues related to the loaded application interfering with or reprogramming the GPIO pins used for USB communication.
 
    If the application accidentally reconfigures the USB peripheral pins or disables the USB peripheral, the device disappears from the system. You can also encounter unstable flashing or errors like ``OSError: [Errno 71] Protocol error``.
 
-   If that happens, try :ref:`manually entering the download mode <manual-bootloader>` and then using the :ref:`erase_flash <erase_flash>` command to wipe the flash memory. Then, make sure to fix the issue in the application before flashing again.
+   If that happens, try to :ref:`manually enter the download mode <manual-bootloader>` and then use the :ref:`erase_flash <erase_flash>` command to wipe the flash memory. Then, make sure to fix the issue in the application before flashing again.
+
+   On boards with two USB ports (usually marked as USB and UART), you can use the USB port for flashing while listening on the UART port for debugging purposes. This setup is useful for retrieving core dumps or the reset reason in the event of a crash. To implement this, connect the UART port to another instance of any of the `serial terminal programs`_, while repeating the failing action over the USB port. You'll be able to monitor the crash log without interference from the USB port used for communication or it disappearing due to a firmware crash.
+   If your devkit doesn't have a dedicated USB port connected to an on-board USB-to-UART bridge, you can use a separate adapter to connect to the UART pins on the board.
 
 Serial Terminal Programs
 ------------------------
@@ -195,15 +200,7 @@ A serial exception error occurred
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``esptool.py`` uses the `pySerial <https://pyserial.readthedocs.io/en/latest/>`_ Python module for accessing the serial port.
-If pySerial cannot operate normally, it raises an error and terminates. Some of the most common pySerial error causes are:
-
-.. list::
-
-   * You don't have permission to access the port.
-   * The port is being already used by other software.
-   * The port doesn't exist.
-   * The device gets unexpectedly disconnected.
-   * The necessary serial port drivers are not installed or are faulty.
+If pySerial cannot operate normally, it raises an error and terminates.
 
 An example of a pySerial error:
 
@@ -212,3 +209,15 @@ An example of a pySerial error:
    A serial exception error occurred: read failed: [Errno 6] Device not configured
 
 Errors originating from pySerial are, therefore, not a problem with ``esptool.py``, but are usually caused by a problem with hardware or drivers.
+
+Some of the most common pySerial error causes are:
+
+.. list::
+
+   * The port is being already used by other software.
+   * The port doesn't exist.
+   * The device gets unexpectedly disconnected.
+   * The necessary serial port drivers are not installed or are faulty.
+   * You don't have permission to access the port.
+
+On Linux, read and write access the serial port over USB is necessary. You can add your user to the ``dialout`` or ``uucp`` group to grant access to the serial port. See `Adding user to dialout or uucp on Linux <https://docs.espressif.com/projects/esp-idf/en/stable/get-started/establish-serial-connection.html#adding-user-to-dialout-or-uucp-on-linux>`_.

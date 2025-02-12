@@ -34,19 +34,32 @@ class ResetStrategy(object):
         self.reset_delay = reset_delay
 
     def __call__(self):
-        try:
-            self.reset()
-        except OSError as e:
-            # ENOTTY for TIOCMSET; EINVAL for TIOCMGET
-            if e.errno in [errno.ENOTTY, errno.EINVAL]:
-                self.print_once(
-                    "WARNING: Chip was NOT reset. Setting RTS/DTR lines is not "
-                    f"supported for port '{self.port.name}'. Set --before and --after "
-                    "arguments to 'no_reset' and switch to bootloader manually to "
-                    "avoid this warning."
-                )
-            else:
-                raise
+        """
+        On targets with USB modes, the reset process can cause the port to
+        disconnect / reconnect during reset.
+        This will retry reconnections on ports that
+        drop out during the reset sequence.
+        """
+        for retry in reversed(range(3)):
+            try:
+                if not self.port.isOpen():
+                    self.port.open()
+                self.reset()
+                break
+            except OSError as e:
+                # ENOTTY for TIOCMSET; EINVAL for TIOCMGET
+                if e.errno in [errno.ENOTTY, errno.EINVAL]:
+                    self.print_once(
+                        "WARNING: Chip was NOT reset. Setting RTS/DTR lines is not "
+                        f"supported for port '{self.port.name}'. Set --before and --after "
+                        "arguments to 'no_reset' and switch to bootloader manually to "
+                        "avoid this warning."
+                    )
+                    break
+                elif not retry:
+                    raise
+                self.port.close()
+                time.sleep(0.5)
 
     def reset(self):
         pass
@@ -135,13 +148,13 @@ class HardReset(ResetStrategy):
     Can be used to reset out of the bootloader or to restart a running app.
     """
 
-    def __init__(self, port, uses_usb_otg=False):
+    def __init__(self, port, uses_usb=False):
         super().__init__(port)
-        self.uses_usb_otg = uses_usb_otg
+        self.uses_usb = uses_usb
 
     def reset(self):
         self._setRTS(True)  # EN->LOW
-        if self.uses_usb_otg:
+        if self.uses_usb:
             # Give the chip some time to come out of reset,
             # to be able to handle further DTR/RTS transitions
             time.sleep(0.2)

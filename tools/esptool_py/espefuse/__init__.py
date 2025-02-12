@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2016-2022 Espressif Systems (Shanghai) CO LTD
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
+# PYTHON_ARGCOMPLETE_OK
 
 import argparse
 import os
@@ -39,13 +40,15 @@ SUPPORTED_BURN_COMMANDS = [
     "execute_scripts",
 ]
 
-SUPPORTED_COMMANDS = [
+SUPPORTED_READ_COMMANDS = [
     "summary",
     "dump",
     "get_custom_mac",
     "adc_info",
     "check_error",
-] + SUPPORTED_BURN_COMMANDS
+]
+
+SUPPORTED_COMMANDS = SUPPORTED_READ_COMMANDS + SUPPORTED_BURN_COMMANDS
 
 SUPPORTED_CHIPS = {
     "esp32": DefChip("ESP32", esp32_efuse, esptool.targets.ESP32ROM),
@@ -94,15 +97,25 @@ def get_esp(
             )
             if not skip_connect:
                 esp.connect(connect_mode)
+                if esp.sync_stub_detected:
+                    esp = esp.STUB_CLASS(esp)
     return esp
 
 
-def get_efuses(esp, skip_connect=False, debug_mode=False, do_not_confirm=False):
+def get_efuses(
+    esp,
+    skip_connect=False,
+    debug_mode=False,
+    do_not_confirm=False,
+    extend_efuse_table=None,
+):
     for name in SUPPORTED_CHIPS:
         if SUPPORTED_CHIPS[name].chip_name == esp.CHIP_NAME:
             efuse = SUPPORTED_CHIPS[name].efuse_lib
             return (
-                efuse.EspEfuses(esp, skip_connect, debug_mode, do_not_confirm),
+                efuse.EspEfuses(
+                    esp, skip_connect, debug_mode, do_not_confirm, extend_efuse_table
+                ),
                 efuse.operations,
             )
     else:
@@ -224,9 +237,15 @@ def main(custom_commandline=None, esp=None):
         "(efuses which disable access to blocks or chip).",
         action="store_true",
     )
+    init_parser.add_argument(
+        "--extend-efuse-table",
+        help="CSV file from ESP-IDF (esp_efuse_custom_table.csv)",
+        type=argparse.FileType("r"),
+        default=None,
+    )
 
     common_args, remaining_args = init_parser.parse_known_args(custom_commandline)
-    debug_mode = common_args.debug or ("dump" in remaining_args)
+    debug_mode = common_args.debug
     just_print_help = [
         True for arg in remaining_args if arg in ["--help", "-h"]
     ] or remaining_args == []
@@ -253,7 +272,11 @@ def main(custom_commandline=None, esp=None):
             # TODO: Require the --port argument in the next major release, ESPTOOL-490
 
     efuses, efuse_operations = get_efuses(
-        esp, just_print_help, debug_mode, common_args.do_not_confirm
+        esp,
+        just_print_help,
+        debug_mode,
+        common_args.do_not_confirm,
+        common_args.extend_efuse_table,
     )
 
     parser = argparse.ArgumentParser(parents=[init_parser])
@@ -262,6 +285,15 @@ def main(custom_commandline=None, esp=None):
     )
 
     efuse_operations.add_commands(subparsers, efuses)
+
+    # Enable argcomplete only on Unix-like systems
+    if sys.platform != "win32":
+        try:
+            import argcomplete
+
+            argcomplete.autocomplete(parser)
+        except ImportError:
+            pass
 
     grouped_remaining_args, used_cmds = split_on_groups(remaining_args)
     if len(grouped_remaining_args) == 0:
@@ -302,6 +334,22 @@ def main(custom_commandline=None, esp=None):
             if not efuses.burn_all(check_batch_mode=True):
                 raise esptool.FatalError("BURN was not done")
             print("Successful")
+
+        if (
+            sum(cmd in SUPPORTED_BURN_COMMANDS for cmd in used_cmds) > 0
+            and sum(cmd in SUPPORTED_READ_COMMANDS for cmd in used_cmds) > 0
+        ):
+            # [burn_cmd1] [burn_cmd2] [read_cmd1] [burn_cmd3] [read_cmd2]
+            print("\n=== Run read commands after burn commands ===")
+            for rem_args in grouped_remaining_args:
+                args, unused_args = parser.parse_known_args(
+                    rem_args, namespace=common_args
+                )
+                current_cmd = args.operation
+                if current_cmd in SUPPORTED_READ_COMMANDS:
+                    print(f"\n=== Run {args.operation} command ===")
+                    operation_func = vars(efuse_operations)[current_cmd]
+                    operation_func(esp, efuses, args)
     finally:
         if not external_esp and not common_args.virt and esp._port:
             esp._port.close()

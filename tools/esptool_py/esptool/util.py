@@ -49,7 +49,7 @@ def hexify(s, uppercase=True):
     return "".join(format_str % c for c in s)
 
 
-def pad_to(data, alignment, pad_character=b"\xff"):
+def pad_to(data, alignment, pad_character=b"\xFF"):
     """Pad to the next alignment boundary"""
     pad_mod = len(data) % alignment
     if pad_mod != 0:
