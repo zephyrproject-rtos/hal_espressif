@@ -151,7 +151,7 @@ static bool mapped;
 // Current bootloader mapping (ab)used for bootloader_read()
 static uint32_t current_read_mapping = UINT32_MAX;
 
-uint32_t bootloader_mmap_get_free_pages_rom(void)
+uint32_t esp_rom_flash_mmap_get_free_pages(void)
 {
     /**
      * Allow mapping up to 50 of the 51 available MMU blocks (last one used for reads)
@@ -160,7 +160,7 @@ uint32_t bootloader_mmap_get_free_pages_rom(void)
     return MMU_FREE_PAGES;
 }
 
-const void *bootloader_mmap_rom(uint32_t src_paddr, uint32_t size)
+const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size)
 {
     if (mapped) {
         ESP_EARLY_LOGE(TAG, "tried to bootloader_mmap twice");
@@ -231,7 +231,7 @@ const void *bootloader_mmap_rom(uint32_t src_paddr, uint32_t size)
     return (void *)(MMU_BLOCK0_VADDR + (src_paddr - src_paddr_aligned));
 }
 
-void bootloader_munmap_rom(const void *mapping)
+void esp_rom_flash_mmap(const void *mapping)
 {
     if (mapped)  {
 #if CONFIG_IDF_TARGET_ESP32
@@ -331,7 +331,7 @@ static esp_err_t bootloader_flash_read_allow_decrypt(size_t src_addr, void *dest
     return ESP_OK;
 }
 
-esp_err_t bootloader_flash_read_rom(size_t src_addr, void *dest, size_t size, bool allow_decrypt)
+esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt)
 {
     if (src_addr & 3) {
         ESP_EARLY_LOGE(TAG, "bootloader_flash_read src_addr 0x%x not 4-byte aligned", src_addr);
@@ -353,7 +353,7 @@ esp_err_t bootloader_flash_read_rom(size_t src_addr, void *dest, size_t size, bo
     }
 }
 
-esp_err_t bootloader_flash_write_rom(size_t dest_addr, void *src, size_t size, bool write_encrypted)
+esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
 {
     esp_err_t err;
     size_t alignment = write_encrypted ? 32 : 4;
@@ -382,12 +382,12 @@ esp_err_t bootloader_flash_write_rom(size_t dest_addr, void *src, size_t size, b
     }
 }
 
-esp_err_t bootloader_flash_erase_sector_rom(size_t sector)
+esp_err_t esp_rom_flash_erase_sector(size_t sector)
 {
     return spi_to_esp_err(esp_rom_spiflash_erase_sector(sector));
 }
 
-esp_err_t bootloader_flash_erase_range_rom(uint32_t start_addr, uint32_t size)
+esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size)
 {
     if (start_addr % FLASH_SECTOR_SIZE != 0) {
         return ESP_ERR_INVALID_ARG;
