@@ -36,6 +36,27 @@ The ``--after`` argument allows you to specify whether the chip should be reset 
     * ``--after no_reset`` leaves the chip in the serial bootloader, no reset is performed.
     * ``--after no_reset_stub`` leaves the chip in the stub bootloader, no reset is performed.
 
+
+Connect Loop
+------------
+
+Esptool supports connection loops, where the user can specify how many times to try to open a port. The delay between retries is 0.1 seconds. This can be useful for example when the chip is in deep sleep or esptool was started before the chip was connected to the PC. A connection loop can be created by setting the ``ESPTOOL_OPEN_PORT_ATTEMPTS`` environment variable.
+This feature can also be enabled by using the ``open_port_attempts`` configuration option, for more details regarding config options see :ref:`Configuration file <config>` section.
+There are 3 possible values for this option:
+
+.. list::
+
+    * ``0`` will keep trying to connect to the chip indefinitely
+    * ``1`` will try to connect to the chip only once (default)
+    * ``N`` will try to connect to the chip N times
+
+
+.. note::
+
+    This option is only available if both the ``--port`` and ``--chip`` arguments are set.
+
+
+
 .. _disable_stub:
 
 Disabling the Stub Loader
@@ -117,3 +138,21 @@ An example of this is available in the :ref:`merge_bin <merge-bin>` command desc
 .. note:: PowerShell users
 
     Because of `splatting <https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_splatting?view=powershell-7.3>`__ in PowerShell (method of passing a collection of parameter values to a command as a unit) there is a need to add quotes around @filename.txt ("@filename.txt") to be correctly resolved.
+
+Filtering serial ports
+----------------------
+.. _filtering_serial_ports:
+
+``--port-filter <FilterType>=<FilterValue>`` allows limiting ports that will be tried. This can be useful when esptool is run on a system
+with many serial ports. There are a few different types that can be combined. A port must match all specified FilterTypes, and must match
+at least one FilterValue for each specified FilterType to be considered. Example filter configurations:
+
+.. list::
+
+    * ``--port-filter vid=0x303A`` matches ports with the Espressif USB VID.
+    * ``--port-filter vid=0x303A --port-filter vid=0x0403`` matches Espressif and FTDI ports by VID.
+    * ``--port-filter vid=0x303A --port-filter pid=0x0002`` matches Espressif ESP32-S2 in USB-OTG mode by VID and PID.
+    * ``--port-filter vid=0x303A --port-filter pid=0x1001`` matches Espressif USB-Serial/JTAG unit used by multiple chips by VID and PID.
+    * ``--port-filter name=ttyUSB`` matches ports where the port name contains the specified text.
+
+See also the `Espressif USB customer-allocated PID repository <https://github.com/espressif/usb-pids>`_

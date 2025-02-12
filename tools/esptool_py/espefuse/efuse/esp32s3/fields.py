@@ -58,9 +58,16 @@ class EspEfuses(base_fields.EspEfusesBase):
     debug = False
     do_not_confirm = False
 
-    def __init__(self, esp, skip_connect=False, debug=False, do_not_confirm=False):
+    def __init__(
+        self,
+        esp,
+        skip_connect=False,
+        debug=False,
+        do_not_confirm=False,
+        extend_efuse_table=None,
+    ):
         self.Blocks = EfuseDefineBlocks()
-        self.Fields = EfuseDefineFields()
+        self.Fields = EfuseDefineFields(extend_efuse_table)
         self.REGS = EfuseDefineRegisters
         self.BURN_BLOCK_DATA_NAMES = self.Blocks.get_burn_block_data_names()
         self.BLOCKS_FOR_KEYS = self.Blocks.get_blocks_for_keys()
@@ -295,6 +302,28 @@ class EspEfuses(base_fields.EspEfusesBase):
         else:
             output = "Flash voltage (VDD_SPI) set to 3.3V by efuse."
         return output
+
+    def is_efuses_incompatible_for_burn(self):
+        # getting chip version: self._esp.get_chip_revision()
+        if (
+            (
+                self["DIS_USB_JTAG"].get()
+                and self["DIS_USB_SERIAL_JTAG"].get(from_read=False)
+            )
+            or (
+                self["DIS_USB_JTAG"].get(from_read=False)
+                and self["DIS_USB_SERIAL_JTAG"].get()
+            )
+            or (
+                self["DIS_USB_JTAG"].get(from_read=False)
+                and self["DIS_USB_SERIAL_JTAG"].get(from_read=False)
+            )
+        ):
+            print(
+                "DIS_USB_JTAG and DIS_USB_SERIAL_JTAG cannot be set together due to a bug in the ROM bootloader!"
+            )
+            return True
+        return False
 
 
 class EfuseField(base_fields.EfuseFieldBase):

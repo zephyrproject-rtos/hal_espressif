@@ -478,19 +478,32 @@ def write_flash(esp, args):
                     "Use --force to override the warning."
                 )
 
-    # verify file sizes fit in flash
-    flash_end = flash_size_bytes(
-        detect_flash_size(esp) if args.flash_size == "keep" else args.flash_size
+    set_flash_size = (
+        flash_size_bytes(args.flash_size)
+        if args.flash_size not in ["detect", "keep"]
+        else None
     )
-    if flash_end is not None:  # Not in secure download mode
+    if esp.secure_download_mode:
+        flash_end = set_flash_size
+    else:  # Check against real flash chip size if not in SDM
+        flash_end_str = detect_flash_size(esp)
+        flash_end = flash_size_bytes(flash_end_str)
+        if set_flash_size and set_flash_size > flash_end:
+            print(
+                f"WARNING: Set --flash_size {args.flash_size} "
+                f"is larger than the available flash size of {flash_end_str}."
+            )
+
+    # Verify file sizes fit in the set --flash_size, or real flash size if smaller
+    flash_end = min(set_flash_size, flash_end) if set_flash_size else flash_end
+    if flash_end is not None:
         for address, argfile in args.addr_filename:
             argfile.seek(0, os.SEEK_END)
             if address + argfile.tell() > flash_end:
                 raise FatalError(
-                    "File %s (length %d) at offset %d "
-                    "will not fit in %d bytes of flash. "
-                    "Use --flash_size argument, or change flashing address."
-                    % (argfile.name, argfile.tell(), address, flash_end)
+                    f"File {argfile.name} (length {argfile.tell()}) at offset "
+                    f"{address} will not fit in {flash_end} bytes of flash. "
+                    "Change the --flash_size argument, or flashing address."
                 )
             argfile.seek(0)
 
@@ -560,14 +573,23 @@ def write_flash(esp, args):
             print("Will flash %s uncompressed" % argfile.name)
             compress = False
 
-        if args.no_stub:
-            print("Erasing flash...")
-        image = pad_to(
-            argfile.read(), esp.FLASH_ENCRYPTED_WRITE_ALIGN if encrypted else 4
-        )
+        image = argfile.read()
+
         if len(image) == 0:
             print("WARNING: File %s is empty" % argfile.name)
             continue
+
+        image = pad_to(image, esp.FLASH_ENCRYPTED_WRITE_ALIGN if encrypted else 4)
+
+        if args.no_stub:
+            print("Erasing flash...")
+
+            # It is not possible to write to not aligned addresses without stub,
+            # so there are added 0xFF (erase) bytes at the beginning of the image
+            # to align it.
+            bytes_over = address % esp.FLASH_SECTOR_SIZE
+            address -= bytes_over
+            image = b"\xFF" * bytes_over + image
 
         if not esp.secure_download_mode and not esp.get_secure_boot_enabled():
             image = _update_image_flash_params(esp, address, args, image)
@@ -946,9 +968,7 @@ def image_info(args):
             ESP8266V2FirmwareImage.IMAGE_V2_MAGIC,
         ]:
             raise FatalError(
-                "This is not a valid image " "(invalid magic number: {:#x})".format(
-                    magic
-                )
+                f"This is not a valid image (invalid magic number: {magic:#x})"
             )
 
         if args.chip == "auto":
@@ -1155,7 +1175,7 @@ def run(esp, args):
     esp.run()
 
 
-def flash_id(esp, args):
+def detect_flash_id(esp):
     flash_id = esp.flash_id()
     print("Manufacturer: %02x" % (flash_id & 0xFF))
     flid_lowbyte = (flash_id >> 16) & 0xFF
@@ -1163,12 +1183,27 @@ def flash_id(esp, args):
     print(
         "Detected flash size: %s" % (DETECTED_FLASH_SIZES.get(flid_lowbyte, "Unknown"))
     )
+
+
+def flash_id(esp, args):
+    detect_flash_id(esp)
     flash_type = esp.flash_type()
     flash_type_dict = {0: "quad (4 data lines)", 1: "octal (8 data lines)"}
     flash_type_str = flash_type_dict.get(flash_type)
     if flash_type_str:
         print(f"Flash type set in eFuse: {flash_type_str}")
     esp.get_flash_voltage()
+
+
+def read_flash_sfdp(esp, args):
+    detect_flash_id(esp)
+
+    sfdp = esp.read_spiflash_sfdp(args.addr, args.bytes * 8)
+    print(f"SFDP[{args.addr}..{args.addr+args.bytes-1}]: ", end="")
+    for i in range(args.bytes):
+        print(f"{sfdp&0xff:02X} ", end="")
+        sfdp = sfdp >> 8
+    print()
 
 
 def read_flash(esp, args):
@@ -1284,7 +1319,16 @@ def get_security_info(esp, args):
     print(title)
     print("=" * len(title))
     print("Flags: {:#010x} ({})".format(si["flags"], bin(si["flags"])))
-    print("Key Purposes: {}".format(si["key_purposes"]))
+    if esp.KEY_PURPOSES:
+        print(f"Key Purposes: {si['key_purposes']}")
+        desc = "\n  ".join(
+            [
+                f"BLOCK_KEY{key_num} - {esp.KEY_PURPOSES.get(purpose, 'UNKNOWN')}"
+                for key_num, purpose in enumerate(si["key_purposes"])
+                if key_num <= esp.EFUSE_MAX_KEY
+            ]
+        )
+        print(f"  {desc}")
     if si["chip_id"] is not None and si["api_version"] is not None:
         print("Chip ID: {}".format(si["chip_id"]))
         print("API Version: {}".format(si["api_version"]))
@@ -1404,6 +1448,13 @@ def merge_bin(args):
             )
     elif args.format == "hex":
         out = IntelHex()
+        if len(input_files) == 1:
+            print(
+                "WARNING: Only one input file specified, output may include "
+                "additional padding if input file was previously merged. "
+                "Please refer to the documentation for more information: "
+                "https://docs.espressif.com/projects/esptool/en/latest/esptool/basic-commands.html#hex-output-format"  # noqa E501
+            )
         for addr, argfile in input_files:
             ihex = IntelHex()
             image = argfile.read()

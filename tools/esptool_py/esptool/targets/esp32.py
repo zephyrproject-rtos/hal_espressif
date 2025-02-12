@@ -5,7 +5,7 @@
 
 import struct
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 from ..loader import ESPLoader
 from ..util import FatalError, NotSupportedError
@@ -125,6 +125,8 @@ class ESP32ROM(ESPLoader):
 
     UF2_FAMILY_ID = 0x1C5F21B0
 
+    KEY_PURPOSES: Dict[int, str] = {}
+
     """ Try to read the BLOCK1 (encryption key) and check if it is valid """
 
     def is_flash_encryption_key_valid(self):
@@ -225,21 +227,17 @@ class ESP32ROM(ESPLoader):
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         rev3 = major_rev == 3
-        single_core = self.read_efuse(3) & (1 << 0)  # CHIP_VER DIS_APP_CPU
+        sc = self.read_efuse(3) & (1 << 0)  # single core, CHIP_VER DIS_APP_CPU
 
         chip_name = {
-            0: "ESP32-S0WDQ6" if single_core else "ESP32-D0WDQ6",
-            1: "ESP32-S0WD" if single_core else "ESP32-D0WD",
+            0: "ESP32-S0WDQ6" if sc else "ESP32-D0WDQ6-V3" if rev3 else "ESP32-D0WDQ6",
+            1: "ESP32-S0WD" if sc else "ESP32-D0WD-V3" if rev3 else "ESP32-D0WD",
             2: "ESP32-D2WD",
             4: "ESP32-U4WDH",
             5: "ESP32-PICO-V3" if rev3 else "ESP32-PICO-D4",
             6: "ESP32-PICO-V3-02",
             7: "ESP32-D0WDR2-V3",
         }.get(pkg_version, "unknown ESP32")
-
-        # ESP32-D0WD-V3, ESP32-D0WDQ6-V3
-        if chip_name.startswith("ESP32-D0WD") and rev3:
-            chip_name += "-V3"
 
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
