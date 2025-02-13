@@ -231,7 +231,7 @@ const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size)
     return (void *)(MMU_BLOCK0_VADDR + (src_paddr - src_paddr_aligned));
 }
 
-void esp_rom_flash_mmap(const void *mapping)
+void esp_rom_flash_unmmap(const void *mapping)
 {
     if (mapped)  {
 #if CONFIG_IDF_TARGET_ESP32

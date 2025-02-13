@@ -68,7 +68,7 @@ static int load_segment(const struct flash_area *fap, uint32_t data_addr,
         return -1;
     }
     memcpy((void *)load_addr, data, data_len);
-    esp_rom_flash_mmap(data);
+    esp_rom_flash_unmmap(data);
     return 0;
 }
 
@@ -92,7 +92,7 @@ void esp_app_image_load(int image_index, int slot,
                                                              sizeof(esp_image_load_header_t));
     esp_image_load_header_t load_header = {0};
     memcpy((void *)&load_header, data, sizeof(esp_image_load_header_t));
-    esp_rom_flash_mmap(data);
+    esp_rom_flash_unmmap(data);
 
     if (load_header.header_magic != ESP_LOAD_HEADER_MAGIC) {
         BOOT_LOG_ERR("Load header magic verification failed. Aborting");
