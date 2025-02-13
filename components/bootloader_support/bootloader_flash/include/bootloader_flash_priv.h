@@ -100,7 +100,7 @@ const void *esp_rom_flash_mmap(uint32_t src_addr, uint32_t size);
 void bootloader_munmap(const void *mapping);
 
 /* use ROM functions to unmmap */
-void esp_rom_flash_mmap(const void *mapping);
+void esp_rom_flash_unmmap(const void *mapping);
 
 /**
  * @brief  Read data from Flash.
