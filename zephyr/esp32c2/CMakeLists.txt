@@ -105,9 +105,11 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../port/include/boot
   )
 
-  if (CONFIG_SOC_ESP32C2_REV_2_0)
-    set(ECO_LD_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco4.ld)
-  endif()
+  zephyr_link_libraries_ifdef(
+    CONFIG_SOC_ESP32C2_REV_2_0
+    gcc
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco4.ld
+  )
 
   zephyr_link_libraries(
     gcc
