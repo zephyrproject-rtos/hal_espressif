@@ -25,7 +25,7 @@ extern int ets_printf(const char *fmt, ...);
 #if MCUBOOT_LOG_LEVEL >= MCUBOOT_LOG_LEVEL_ERROR
 #define MCUBOOT_LOG_ERR(_fmt, ...)                                      \
     do {                                                                \
-            ESP_EARLY_LOGE("boot", _fmt "\n\r", ##__VA_ARGS__);         \
+            ESP_EARLY_LOGE("boot", _fmt, ##__VA_ARGS__);         \
     } while (0)
 #else
 #define MCUBOOT_LOG_ERR(_fmt, ...)
@@ -34,7 +34,7 @@ extern int ets_printf(const char *fmt, ...);
 #if MCUBOOT_LOG_LEVEL >= MCUBOOT_LOG_LEVEL_WARNING
 #define MCUBOOT_LOG_WRN(_fmt, ...)                                      \
     do {                                                                \
-            ESP_EARLY_LOGW("boot", _fmt "\n\r", ##__VA_ARGS__);         \
+            ESP_EARLY_LOGW("boot", _fmt, ##__VA_ARGS__);         \
     } while (0)
 #else
 #define MCUBOOT_LOG_WRN(_fmt, ...)
@@ -43,7 +43,7 @@ extern int ets_printf(const char *fmt, ...);
 #if MCUBOOT_LOG_LEVEL >= MCUBOOT_LOG_LEVEL_INFO
 #define MCUBOOT_LOG_INF(_fmt, ...)                                      \
     do {                                                                \
-            ESP_EARLY_LOGI("boot", _fmt "\n\r", ##__VA_ARGS__);         \
+            ESP_EARLY_LOGI("boot", _fmt, ##__VA_ARGS__);         \
     } while (0)
 #else
 #define MCUBOOT_LOG_INF(_fmt, ...)
@@ -52,7 +52,7 @@ extern int ets_printf(const char *fmt, ...);
 #if MCUBOOT_LOG_LEVEL >= MCUBOOT_LOG_LEVEL_DEBUG
 #define MCUBOOT_LOG_DBG(_fmt, ...)                                      \
     do {                                                                \
-            ESP_EARLY_LOGD("boot", _fmt "\n\r", ##__VA_ARGS__);         \
+            ESP_EARLY_LOGD("boot", _fmt, ##__VA_ARGS__);         \
     } while (0)
 #else
 #define MCUBOOT_LOG_DBG(_fmt, ...)
