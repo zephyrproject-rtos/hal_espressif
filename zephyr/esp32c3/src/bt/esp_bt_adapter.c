@@ -34,7 +34,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
@@ -113,7 +113,7 @@ typedef struct {
 	int flags;                /*!< ISR alloc flag */
 	void (*fn)(void *);       /*!< ISR function */
 	void *arg;                /*!< ISR function args*/
-	isr_handler_t *handle;    /*!< ISR handle */
+	struct intr_handle_data_t *handle;    /*!< ISR handle */
 	esp_err_t ret;
 } btdm_isr_alloc_t;
 
@@ -121,9 +121,9 @@ typedef struct {
 struct osi_funcs_t {
     uint32_t _magic;
     uint32_t _version;
-    int (* _interrupt_alloc)(int cpu_id, int source, isr_handler_t handler, void *arg, void **ret_handle);
+    int (* _interrupt_alloc)(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle);
     int (* _interrupt_free)(void *handle);
-    void (*_interrupt_handler_set_rsv)(int interrupt_no, isr_handler_t fn, void *arg);
+    void (*_interrupt_handler_set_rsv)(int interrupt_no, intr_handler_t fn, void *arg);
     void (*_global_intr_disable)(void);
     void (*_global_intr_restore)(void);
     void (*_task_yield)(void);
@@ -237,7 +237,7 @@ extern void ets_backup_dma_copy(uint32_t reg, uint32_t mem_addr, uint32_t num, b
 extern void btdm_cca_feature_enable(void);
 extern void btdm_aa_check_enhance_enable(void);
 
-static int interrupt_alloc_wrapper(int cpu_id, int source, isr_handler_t handler, void *arg, void **ret_handle);
+static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle);
 static int interrupt_free_wrapper(void *handle);
 static void global_interrupt_disable(void);
 static void global_interrupt_restore(void);
@@ -437,39 +437,34 @@ static inline void esp_bt_power_domain_off(void)
 static void btdm_intr_alloc(void *arg)
 {
 	btdm_isr_alloc_t *p = arg;
-	p->ret = esp_intr_alloc(p->source,	p->flags, (isr_handler_t)p->fn, p->arg, NULL);
+	p->ret = esp_intr_alloc(p->source,	p->flags, p->fn, p->arg, &p->handle);
 }
 
-static int interrupt_alloc_wrapper(int cpu_id, int source, isr_handler_t handler, void *arg, void **ret_handle)
+static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle)
 {
 	btdm_isr_alloc_t p;
 	p.source = source;
 	p.flags = ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM;
-	p.fn = (void *)handler;
+	p.fn = handler;
 	p.arg = arg;
-	p.handle = (isr_handler_t *)ret_handle;
+	p.handle = (struct intr_handle_data_t *)ret_handle;
 	btdm_intr_alloc(&p);
 	return p.ret;
 }
 
 static int interrupt_free_wrapper(void *handle)
 {
-	/* TODO: implement esp_intr_free() for ESP32-C3 */
-	return ESP_OK;
+	return esp_intr_free((struct intr_handle_data_t *)handle);
 }
 
 static int interrupt_enable_wrapper(void *handle)
 {
-	ARG_UNUSED(handle);
-
-	return ESP_OK;
+	return esp_intr_enable((struct intr_handle_data_t *)handle);
 }
 
 static int interrupt_disable_wrapper(void *handle)
 {
-	ARG_UNUSED(handle);
-
-	return ESP_OK;
+	return esp_intr_disable((struct intr_handle_data_t *)handle);
 }
 
 static void IRAM_ATTR global_interrupt_disable(void)
@@ -721,11 +716,7 @@ static void task_delete_wrapper(void *task_handle)
 
 static void *malloc_internal_wrapper(size_t size)
 {
-	void *ptr = esp_bt_malloc_func(size);
-	if (ptr == NULL) {
-		ets_printf("malloc_internal failed\n");
-	}
-	return ptr;
+	return esp_bt_malloc_func(sizeof(uint8_t) * size);
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -1249,9 +1240,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	periph_module_enable(PERIPH_BT_MODULE);
 	periph_module_reset(PERIPH_BT_MODULE);
 
-	err = btdm_controller_init(cfg);
-	if (err != ESP_OK) {
-		ets_printf("BT controller init failed=%X\r\n", err);
+	if (btdm_controller_init(cfg) != 0) {
+		err = ESP_ERR_NO_MEM;
 		goto error;
 	}
 

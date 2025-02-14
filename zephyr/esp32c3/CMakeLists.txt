@@ -339,9 +339,11 @@ if(CONFIG_SOC_SERIES_ESP32C3)
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
 
+    ../../components/riscv/interrupt.c
+    ../../components/riscv/instruction_decode.c
+
     ../port/heap/heap_caps_zephyr.c
     ../port/host_flash/cache_utils.c
-    ../../components/riscv/interrupt.c
     ../port/bootloader/bootloader_flash.c
 
     ../common/flash_init.c

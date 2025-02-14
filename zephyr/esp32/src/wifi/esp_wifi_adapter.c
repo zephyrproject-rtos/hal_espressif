@@ -405,17 +405,19 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	esp_intr_alloc(n, 0, f, arg, NULL);
+	irq_disable(n);
+	irq_connect_dynamic(n, 0, f, arg, 0);
+	irq_enable(n);
 }
 
 static void intr_on(unsigned int mask)
 {
-	irq_enable(0);
+	irq_enable(__builtin_ctz(mask));
 }
 
 static void intr_off(unsigned int mask)
 {
-	irq_disable(0);
+	irq_disable(__builtin_ctz(mask));
 }
 
 uint32_t esp_get_free_heap_size(void)
