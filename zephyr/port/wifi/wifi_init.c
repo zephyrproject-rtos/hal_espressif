@@ -455,4 +455,13 @@ void nan_sm_handle_event(void *p1, int p2)
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
 }
 
+#if CONFIG_IDF_TARGET_ESP32C2
+#ifndef CONFIG_SOC_ESP32C2_REV_2_0
+void esp32c2_eco4_rom_ptr_init(void)
+{
+    /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
+}
+#endif
+#endif
+
 #endif
