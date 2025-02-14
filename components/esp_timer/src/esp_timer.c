@@ -38,15 +38,7 @@
 
 #include "sdkconfig.h"
 
-#if defined(CONFIG_SOC_SERIES_ESP32C2) || \
-	defined(CONFIG_SOC_SERIES_ESP32C3) || \
-	defined(CONFIG_SOC_SERIES_ESP32C6)
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
-#define ISR_HANDLER isr_handler_t
-#else
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
-#define ISR_HANDLER intr_handler_t
-#endif
 
 #define LOG_MODULE_NAME esp_timer
 #include <zephyr/logging/log.h>
@@ -576,7 +568,7 @@ esp_err_t esp_timer_init(void)
     esp_err_t err = ESP_OK;
     err = init_timer_task();
     if (err == ESP_OK) {
-        err = esp_timer_impl_init((ISR_HANDLER)&timer_alarm_handler);
+        err = esp_timer_impl_init((intr_handler_t)&timer_alarm_handler);
         if (err != ESP_OK) {
             ESP_EARLY_LOGE(TAG, "ISR init failed");
             deinit_timer_task();

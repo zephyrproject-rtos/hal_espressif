@@ -10,11 +10,12 @@
 void esp_cpu_intr_get_desc(int core_id, int intr_num, esp_cpu_intr_desc_t *intr_desc_ret)
 {
     /* On the ESP32-C2, interrupt:
+     * - 0 is unavailable according to TRM
      * - 1 is for Wi-Fi
      * - 6 for "permanently disabled interrupt", named INT_MUX_DISABLED_INTNO in the interrupt allocator
      */
     // [TODO: IDF-2465]
-    const uint32_t rsvd_mask = BIT(1) | BIT(6);
+    const uint32_t rsvd_mask = BIT(0) | BIT(1) | BIT(6);
 
     intr_desc_ret->priority = 1;
     intr_desc_ret->type = ESP_CPU_INTR_TYPE_NA;

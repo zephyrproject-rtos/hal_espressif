@@ -277,9 +277,11 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/log/log_noos.c
     ../../components/log/log.c
 
+    ../../components/riscv/interrupt.c
+    ../../components/riscv/instruction_decode.c
+
     ../port/heap/heap_caps_zephyr.c
     ../port/host_flash/cache_utils.c
-    ../../components/riscv/interrupt.c
     ../port/bootloader/bootloader_flash.c
 
     ../common/flash_init.c

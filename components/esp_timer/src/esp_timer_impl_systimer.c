@@ -22,15 +22,7 @@
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
 
-#if defined(CONFIG_SOC_SERIES_ESP32C2) || \
-	defined(CONFIG_SOC_SERIES_ESP32C3) || \
-	defined(CONFIG_SOC_SERIES_ESP32C6)
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
-#define ISR_HANDLER isr_handler_t
-#else
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
-#define ISR_HANDLER intr_handler_t
-#endif
 
 /**
  * @file esp_timer_systimer.c
@@ -50,7 +42,7 @@ static const char *TAG = "esp_timer_systimer";
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
  */
-static ISR_HANDLER s_alarm_handler = NULL;
+static intr_handler_t s_alarm_handler = NULL;
 
 /* Systimer HAL layer object */
 static systimer_hal_context_t systimer_hal;
@@ -145,7 +137,7 @@ esp_err_t esp_timer_impl_early_init(void)
     return ESP_OK;
 }
 
-esp_err_t esp_timer_impl_init(ISR_HANDLER alarm_handler)
+esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
     int isr_flags = 0  /* ZEP-795 (GH #74368): esp_timer ISR priority relaxed to avoid
                         * IRQ not being allocated when several peripherals are enabled
@@ -156,7 +148,7 @@ esp_err_t esp_timer_impl_init(ISR_HANDLER alarm_handler)
                     | ESP_INTR_FLAG_IRAM;
 
 	esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE, isr_flags,
-								   (ISR_HANDLER)timer_alarm_isr, NULL, NULL);
+								   (intr_handler_t)timer_alarm_isr, NULL, NULL);
 	if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
         return err;

@@ -28,12 +28,12 @@ static inline uint32_t esp_riscv_intr_num_flags(int intr_num, uint32_t rsvd_mask
     }
 
     extern intptr_t _mtvt_table[48];
-    extern intptr_t _interrupt_handler;
+    extern intptr_t _isr_wrapper;
 
     /* The first 16 entries of the array are internal interrupt, ignore them  */
     const intptr_t destination = _mtvt_table[16 + intr_num];
 
-    return (destination != (intptr_t)&_interrupt_handler) ? ESP_CPU_INTR_DESC_FLAG_RESVD : 0;
+    return (destination != (intptr_t)&_isr_wrapper) ? ESP_CPU_INTR_DESC_FLAG_RESVD : 0;
 }
 
 
@@ -60,13 +60,12 @@ static inline uint32_t esp_riscv_intr_num_flags(int intr_num, uint32_t rsvd_mask
     }
 
     extern intptr_t _vector_table[32];
-    extern int _interrupt_handler;
     const intptr_t pc = (intptr_t) &_vector_table[intr_num];
 
     /* JAL instructions are relative to the PC they are executed from. */
     const intptr_t destination = pc + riscv_decode_offset_from_jal_instruction(pc);
 
-    return (destination != (intptr_t)&_interrupt_handler) ? ESP_CPU_INTR_DESC_FLAG_RESVD : 0;
+    return (destination != (intptr_t)&_isr_wrapper) ? ESP_CPU_INTR_DESC_FLAG_RESVD : 0;
 }
 
 #endif // SOC_INT_CLIC_SUPPORTED

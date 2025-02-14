@@ -45,7 +45,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #include "zephyr_compat.h"
 
 #include <zephyr/logging/log.h>
@@ -447,21 +447,19 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	ARG_UNUSED(n);
-
-	/* workaround to force allocating same handler for wifi interrupts */
-	esp_intr_alloc(0, 0, (isr_handler_t)f, arg, NULL);
-	esp_intr_alloc(2, 0, (isr_handler_t)f, arg,	NULL);
+	irq_disable(n);
+	irq_connect_dynamic(n, 0, f, arg, 0);
+	irq_enable(n);
 }
 
 static void enable_intr_wrapper(unsigned int mask)
 {
-	esp_intr_enable(mask);
+	esprv_intc_int_enable(mask);
 }
 
 static void disable_intr_wrapper(unsigned int mask)
 {
-	esp_intr_disable(mask);
+	esprv_intc_int_disable(mask);
 }
 
 uint32_t esp_get_free_heap_size(void)

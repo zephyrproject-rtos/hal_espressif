@@ -23,11 +23,7 @@
 #include "soc/timer_group_reg.h"
 #include "soc/rtc.h"
 
-#ifdef CONFIG_SOC_SERIES_ESP32C3
-#include <zephyr/drivers/interrupt_controller/intc_esp32c3.h>
-#else
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
-#endif
 
 /**
  * @file esp_timer_lac.c
