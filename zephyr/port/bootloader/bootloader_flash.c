@@ -30,6 +30,13 @@
 
 #include "esp_rom_spiflash.h"
 
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+
+#define DT_DRV_COMPAT espressif_esp32_flash_controller
+#define SOC_NV_FLASH_NODE DT_INST(0, soc_nv_flash)
+#define FLASH_BLK_SZ DT_PROP(SOC_NV_FLASH_NODE, write_block_size)
+
 #ifdef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 #define ENCRYPTION_IS_VIRTUAL (!efuse_hal_flash_encryption_enabled())
 #else
@@ -333,53 +340,93 @@ static esp_err_t bootloader_flash_read_allow_decrypt(size_t src_addr, void *dest
 
 esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt)
 {
-    if (src_addr & 3) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_read src_addr 0x%x not 4-byte aligned", src_addr);
-        return ESP_FAIL;
-    }
-    if (size & 3) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_read size 0x%x not 4-byte aligned", size);
-        return ESP_FAIL;
-    }
-    if ((intptr_t)dest & 3) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_read dest 0x%x not 4-byte aligned", (intptr_t)dest);
-        return ESP_FAIL;
+    uint8_t *dest_ptr = (uint8_t *)dest;
+    size_t aligned_size, copy_size;
+    size_t remaining = size;
+    uint8_t temp_buf[FLASH_BLK_SZ + 8];
+
+    /* handle misaligned source address */
+    size_t src_offset = src_addr & 3;
+    size_t start_addr = src_addr - src_offset;
+
+    while (remaining > 0) {
+        copy_size = (remaining > sizeof(temp_buf)) ? sizeof(temp_buf) : remaining;
+        aligned_size = (copy_size + src_offset + 3) & ~3;
+
+        /* read from flash into the temp buffer */
+        esp_err_t err;
+        if (allow_decrypt) {
+            err = bootloader_flash_read_allow_decrypt(start_addr, temp_buf, aligned_size);
+        } else {
+            err = bootloader_flash_read_no_decrypt(start_addr, temp_buf, aligned_size);
+        }
+
+        if (err != ESP_OK) {
+            return err;
+        }
+
+        /* copy the correctly aligned data to destination */
+        memcpy(dest_ptr, temp_buf + src_offset, copy_size);
+
+        remaining -= copy_size;
+        dest_ptr += copy_size;
+        start_addr += aligned_size;
+        src_offset = 0;
     }
 
-    if (allow_decrypt) {
-        return bootloader_flash_read_allow_decrypt(src_addr, dest, size);
-    } else {
-        return bootloader_flash_read_no_decrypt(src_addr, dest, size);
-    }
+    return ESP_OK;
 }
 
-esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
+ esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted)
 {
     esp_err_t err;
     size_t alignment = write_encrypted ? 32 : 4;
-    if ((dest_addr % alignment) != 0) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_write dest_addr 0x%x not %d-byte aligned", dest_addr, alignment);
-        return ESP_FAIL;
-    }
-    if ((size % alignment) != 0) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_write size 0x%x not %d-byte aligned", size, alignment);
-        return ESP_FAIL;
-    }
-    if (((intptr_t)src % 4) != 0) {
-        ESP_EARLY_LOGE(TAG, "bootloader_flash_write src 0x%x not 4 byte aligned", (intptr_t)src);
-        return ESP_FAIL;
-    }
+    size_t remaining = size;
+    uint8_t *src_ptr = (uint8_t *)src;
+    uint32_t temp_buf[FLASH_BLK_SZ + 8];
+
+    /* align dest_addr if needed */
+    size_t dest_offset = dest_addr % alignment;
+    size_t start_addr = dest_addr - dest_offset;
 
     err = bootloader_flash_unlock();
     if (err != ESP_OK) {
         return err;
     }
 
-    if (write_encrypted && !ENCRYPTION_IS_VIRTUAL) {
-        return spi_to_esp_err(esp_rom_spiflash_write_encrypted(dest_addr, src, size));
-    } else {
-        return spi_to_esp_err(esp_rom_spiflash_write(dest_addr, src, size));
+    while (remaining > 0) {
+        size_t copy_size = (remaining > sizeof(temp_buf)) ? sizeof(temp_buf) : remaining;
+        size_t aligned_size = (copy_size + dest_offset + (alignment - 1)) & ~(alignment - 1);
+
+        /* read the existing data if the address is misaligned */
+        if (dest_offset || (copy_size % alignment)) {
+            err = spi_to_esp_err(esp_rom_spiflash_read(start_addr, temp_buf, aligned_size));
+            if (err != ESP_OK) {
+                return err;
+            }
+        }
+
+        /* copy new data into the buffer at the correct position */
+        memcpy(temp_buf + dest_offset, src_ptr, copy_size);
+
+        /* perform the aligned write */
+        if (write_encrypted && !ENCRYPTION_IS_VIRTUAL) {
+            err = spi_to_esp_err(esp_rom_spiflash_write_encrypted(start_addr, temp_buf, aligned_size));
+        } else {
+            err = spi_to_esp_err(esp_rom_spiflash_write(start_addr, temp_buf, aligned_size));
+        }
+
+        if (err != ESP_OK) {
+            return err;
+        }
+
+        remaining -= copy_size;
+        src_ptr += copy_size;
+        start_addr += aligned_size;
+        dest_offset = 0;
     }
+
+    return ESP_OK;
 }
 
 esp_err_t esp_rom_flash_erase_sector(size_t sector)
