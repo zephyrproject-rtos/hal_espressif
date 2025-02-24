@@ -21,6 +21,40 @@ static int periph_spinlock;
 
 static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
 
+IRAM_ATTR void periph_rcc_enter(void)
+{
+    ENTER_CRITICAL_SECTION();
+}
+
+IRAM_ATTR void periph_rcc_exit(void)
+{
+    LEAVE_CRITICAL_SECTION();
+}
+
+IRAM_ATTR uint8_t periph_rcc_acquire_enter(periph_module_t periph)
+{
+    periph_rcc_enter();
+    return ref_counts[periph];
+}
+
+IRAM_ATTR void periph_rcc_acquire_exit(periph_module_t periph, uint8_t ref_count)
+{
+    ref_counts[periph] = ++ref_count;
+    periph_rcc_exit();
+}
+
+IRAM_ATTR uint8_t periph_rcc_release_enter(periph_module_t periph)
+{
+    periph_rcc_enter();
+    return ref_counts[periph] - 1;
+}
+
+IRAM_ATTR void periph_rcc_release_exit(periph_module_t periph, uint8_t ref_count)
+{
+    ref_counts[periph] = ref_count;
+    periph_rcc_exit();
+}
+
 void periph_module_enable(periph_module_t periph)
 {
     assert(periph < PERIPH_MODULE_MAX);

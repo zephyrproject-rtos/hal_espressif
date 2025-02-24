@@ -112,16 +112,18 @@ void esp_app_image_load(int image_index, int slot,
     }
 
 #if SOC_RTC_FAST_MEM_SUPPORTED
-    if (!esp_ptr_in_rtc_iram_fast((void *)load_header.lp_rtc_iram_dest_addr) ||
-        !esp_ptr_in_rtc_iram_fast((void *)(load_header.lp_rtc_iram_dest_addr + load_header.lp_rtc_iram_size))) {
+    if ((load_header.lp_rtc_iram_size) &&
+	(!esp_ptr_in_rtc_iram_fast((void *)load_header.lp_rtc_iram_dest_addr) ||
+        !esp_ptr_in_rtc_iram_fast((void *)(load_header.lp_rtc_iram_dest_addr + load_header.lp_rtc_iram_size)))) {
         BOOT_LOG_ERR("%s_IRAM region in load header is not valid. Aborting", LP_RTC_PREFIX);
         FIH_PANIC;
     }
 #endif
 
 #if SOC_RTC_SLOW_MEM_SUPPORTED
-    if (!esp_ptr_in_rtc_slow((void *)load_header.lp_rtc_dram_dest_addr) ||
-        !esp_ptr_in_rtc_slow((void *)(load_header.lp_rtc_dram_dest_addr + load_header.lp_rtc_dram_size))) {
+    if ((load_header.lp_rtc_dram_size) &&
+	(!esp_ptr_in_rtc_slow((void *)load_header.lp_rtc_dram_dest_addr) ||
+        !esp_ptr_in_rtc_slow((void *)(load_header.lp_rtc_dram_dest_addr + load_header.lp_rtc_dram_size)))) {
         BOOT_LOG_ERR("%s_RAM region in load header is not valid. Aborting %p", LP_RTC_PREFIX, load_header.lp_rtc_dram_dest_addr);
         FIH_PANIC;
     }
