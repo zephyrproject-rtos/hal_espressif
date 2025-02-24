@@ -37,6 +37,7 @@
 #include "esp_rom_spiflash.h"
 #include "hal/cache_hal.h"
 #include "hal/cache_ll.h"
+#include "hal/cpu_ll.h"
 #include <soc/soc.h>
 #include "esp_log.h"
 
@@ -79,7 +80,7 @@ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
 	!defined(CONFIG_SOC_SERIES_ESP32C6)
-	int cpu_id = arch_curr_cpu()->id;
+	int cpu_id = esp_cpu_get_core_id();
 #else
 	int cpu_id = PRO_CPU_NUM;
 #endif
@@ -95,7 +96,7 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 {
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
 	!defined(CONFIG_SOC_SERIES_ESP32C6)
-	int cpu_id = arch_curr_cpu()->id;
+	int cpu_id = esp_cpu_get_core_id();
 #else
 	int cpu_id = PRO_CPU_NUM;
 #endif
