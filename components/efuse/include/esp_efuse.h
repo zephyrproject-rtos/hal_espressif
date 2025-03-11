@@ -15,6 +15,8 @@
 #include "sdkconfig.h"
 #include "esp_efuse_chip.h"
 
+#include "zephyr_compat.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -390,7 +392,7 @@ bool esp_efuse_check_secure_version(uint32_t secure_version);
  */
 esp_err_t esp_efuse_update_secure_version(uint32_t secure_version);
 
-#if defined(BOOTLOADER_BUILD) && defined(CONFIG_EFUSE_VIRTUAL) && !defined(CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH)
+#if defined(CONFIG_EFUSE_VIRTUAL) && !defined(CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH)
 /**
  *  @brief Initializes eFuses API to keep eFuses in RAM.
  *

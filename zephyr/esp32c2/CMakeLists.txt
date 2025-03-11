@@ -280,6 +280,14 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
+  zephyr_sources(
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/efuse/src/efuse_controller/keys/without_key_purposes/one_key_block/esp_efuse_api_key.c
+  )
+
   zephyr_sources_ifdef(
     CONFIG_UART_ESP32
     ../../components/hal/uart_hal.c
@@ -297,10 +305,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/driver/deprecated/rtc_temperature_legacy.c
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
 
   if (CONFIG_ADC_ESP32)
@@ -319,11 +323,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
 
@@ -337,11 +337,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
     zephyr_sources(
       ../../components/esp_hw_support/sleep_modes.c
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/src/efuse_controller/keys/without_key_purposes/one_key_block/esp_efuse_api_key.c
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
