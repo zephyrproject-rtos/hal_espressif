@@ -125,6 +125,14 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources(src/hal/windowspill_asm.S)
 
+  zephyr_sources(
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/efuse/src/efuse_controller/keys/without_key_purposes/three_key_blocks/esp_efuse_api_key.c
+  )
+
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
     ../../components/bootloader_support/src/flash_encrypt.c
@@ -354,18 +362,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     src/soc_init.c
     src/soc_flash_init.c
   )
-
-  ## shared WIFI/BT/ETH resources
-  if (CONFIG_BT OR CONFIG_WIFI_ESP32 OR CONFIG_ESP32_EMAC)
-    set(efuse_key_type "without_key_purposes/three_key_blocks")
-    zephyr_sources(
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/src/efuse_controller/keys/${efuse_key_type}/esp_efuse_api_key.c
-      )
-  endif()
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)

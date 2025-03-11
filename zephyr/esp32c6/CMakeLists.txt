@@ -126,6 +126,14 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
+  zephyr_sources(
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
+  )
+
   zephyr_sources_ifdef(
     CONFIG_ESP32_SPIM
     ../../components/hal/spi_hal.c
@@ -333,10 +341,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/driver/deprecated/rtc_temperature_legacy.c
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     )
 
@@ -357,11 +361,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
 
@@ -400,14 +400,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
       ../../components/esp_phy/src/phy_override.c
-      )
-
-    zephyr_sources(
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)

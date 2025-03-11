@@ -118,6 +118,14 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
+  zephyr_sources(
+    ../../components/efuse/src/esp_efuse_api.c
+    ../../components/efuse/src/esp_efuse_utility.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
+    ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
+  )
+
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
   zephyr_sources(
     ../../components/bootloader_support/src/flash_encrypt.c
@@ -222,11 +230,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_table.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
 
@@ -258,9 +263,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_table.c
-    ../../components/efuse/src/esp_efuse_api.c
-    ../../components/efuse/src/esp_efuse_utility.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     )
 
@@ -383,14 +385,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
-      )
-
-    zephyr_sources(
-      ../../components/efuse/src/esp_efuse_utility.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_table.c
-      ../../components/efuse/src/esp_efuse_api.c
-      ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
-      ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
       )
 
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
