@@ -255,7 +255,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
     ../../components/driver/deprecated/rtc_temperature_legacy.c
-    ../../components/soc//${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_table.c
     ../../components/efuse/src/esp_efuse_api.c
