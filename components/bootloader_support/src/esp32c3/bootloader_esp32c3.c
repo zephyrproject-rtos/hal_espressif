@@ -44,9 +44,6 @@
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
 #include "hal/efuse_hal.h"
-#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
-#include "esp_flash_internal.h"
-#endif
 
 static const char *TAG = "boot.esp32c3";
 
@@ -70,7 +67,7 @@ static void bootloader_check_wdt_reset(void)
     soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
     if (rst_reason == RESET_REASON_CORE_RTC_WDT || rst_reason == RESET_REASON_CORE_MWDT0 || rst_reason == RESET_REASON_CORE_MWDT1 ||
         rst_reason == RESET_REASON_CPU0_MWDT0 || rst_reason == RESET_REASON_CPU0_MWDT1 || rst_reason == RESET_REASON_CPU0_RTC_WDT) {
-        ESP_EARLY_LOGW(TAG, "PRO CPU has been reset by WDT.");
+        ESP_LOGW(TAG, "PRO CPU has been reset by WDT.");
         wdt_rst = 1;
     }
     if (wdt_rst) {
@@ -143,15 +140,13 @@ esp_err_t bootloader_init(void)
     /* check that static RAM is after the stack */
     assert(&_bss_start <= &_bss_end);
     assert(&_data_start <= &_data_end);
-#ifndef __ZEPHYR__
     // clear bss section
     bootloader_clear_bss_section();
-#endif
 #endif // !CONFIG_APP_BUILD_TYPE_RAM
 
     // init eFuse virtual mode (read eFuses to RAM)
 #ifdef CONFIG_EFUSE_VIRTUAL
-    ESP_EARLY_LOGW(TAG, "eFuse virtual mode is enabled. If Secure boot or Flash encryption is enabled then it does not provide any security. FOR TESTING ONLY!");
+    ESP_LOGW(TAG, "eFuse virtual mode is enabled. If Secure boot or Flash encryption is enabled then it does not provide any security. FOR TESTING ONLY!");
 #ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
     esp_efuse_init_virtual_mode_in_ram();
 #endif
@@ -163,13 +158,6 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#ifndef CONFIG_BOOTLOADER_MCUBOOT
-    spi_flash_init_chip_state();
-    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
-        return ret;
-    }
-#endif
-
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
     //init cache hal
     cache_hal_init();
@@ -179,24 +167,21 @@ esp_err_t bootloader_init(void)
     bootloader_flash_update_id();
     // Check and run XMC startup flow
     if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed when running XMC startup flow, reboot!");
+        ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
 #if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed to read flash!");
         return ret;
     }
     // read chip revision and check if it's compatible to bootloader
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed to vallidate!");
         return ret;
     }
 #endif  //#if !CONFIG_APP_BUILD_TYPE_RAM
     // initialize spi flash
     if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed to init spi flash!");
         return ret;
     }
 #endif // !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP

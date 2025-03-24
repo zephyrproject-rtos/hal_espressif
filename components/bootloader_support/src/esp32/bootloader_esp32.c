@@ -36,11 +36,10 @@
 #include "esp_rom_sys.h"
 #include "esp_rom_spiflash.h"
 #include "esp_efuse.h"
-#include "esp_flash_internal.h"
 
 static const char *TAG = "boot.esp32";
 
-#if !CONFIG_APP_BUILD_TYPE_RAM
+#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
 static void bootloader_reset_mmu(void)
 {
     /* completely reset MMU in case serial bootloader was running */
@@ -180,15 +179,13 @@ esp_err_t bootloader_init(void)
     {
         assert(&_bss_start <= &_bss_end);
         assert(&_data_start <= &_data_end);
-        // int *sp = esp_cpu_get_sp();
-        // assert((unsigned*)sp < (unsigned*)&_bss_start);
-        // assert((unsigned*)sp < (unsigned*)&_data_start);
+        int *sp = esp_cpu_get_sp();
+        assert(sp < &_bss_start);
+        assert(sp < &_data_start);
     }
 #endif
-#ifndef __ZEPHYR__
     // clear bss section
     bootloader_clear_bss_section();
-#endif
 #endif // !CONFIG_APP_BUILD_TYPE_RAM
 
     // init eFuse virtual mode (read eFuses to RAM)
@@ -197,7 +194,7 @@ esp_err_t bootloader_init(void)
 #ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
     esp_efuse_init_virtual_mode_in_ram();
 #endif
-#endif /* CONFIG_EFUSE_VIRTUAL */
+#endif
     // bootst up vddsdio
     bootloader_common_vddsdio_configure();
     // check rated CPU clock
@@ -208,17 +205,10 @@ esp_err_t bootloader_init(void)
     bootloader_clock_configure();
     // initialize uart console, from now on, we can use esp_log
     bootloader_console_init();
-    // print 2nd bootloader banner
+    /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#ifndef CONFIG_BOOTLOADER_MCUBOOT
-    spi_flash_init_chip_state();
-    if ((ret = esp_flash_init_default_chip()) != ESP_OK) {
-        return ret;
-    }
-#endif
-
-#if !CONFIG_APP_BUILD_TYPE_RAM
+#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
     // reset MMU
     bootloader_reset_mmu();
     // update flash ID
@@ -228,6 +218,7 @@ esp_err_t bootloader_init(void)
         ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
+#if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         return ret;
@@ -236,11 +227,12 @@ esp_err_t bootloader_init(void)
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
         return ret;
     }
+#endif // #if !CONFIG_APP_BUILD_TYPE_RAM
     // initialize spi flash
     if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
         return ret;
     }
-#endif // #if !CONFIG_APP_BUILD_TYPE_RAM
+#endif  //#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
 
     // check whether a WDT reset happend
     bootloader_check_wdt_reset();
@@ -248,6 +240,5 @@ esp_err_t bootloader_init(void)
     bootloader_config_wdt();
     // enable RNG early entropy source
     bootloader_enable_random();
-
     return ret;
 }

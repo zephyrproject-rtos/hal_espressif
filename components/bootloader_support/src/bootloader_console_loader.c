@@ -25,7 +25,6 @@
 #include "esp32s3/rom/usb/cdc_acm.h"
 #include "esp32s3/rom/usb/usb_persist.h"
 #endif
-#include "stubs.h"
 
 #ifdef CONFIG_ESP_CONSOLE_USB_CDC
 /* The following functions replace esp_rom_uart_putc, esp_rom_uart_tx_one_char,
