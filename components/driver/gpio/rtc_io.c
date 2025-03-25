@@ -16,11 +16,6 @@
 
 static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
-extern int rtc_spinlock;
-
-#define RTCIO_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
-#define RTCIO_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
-
 #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 
 /*---------------------------------------------------------------
@@ -29,9 +24,9 @@ extern int rtc_spinlock;
 esp_err_t rtc_gpio_init(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_function_select(rtc_io_number_get(gpio_num), RTCIO_FUNC_RTC);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -39,10 +34,10 @@ esp_err_t rtc_gpio_init(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_deinit(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     // Select Gpio as Digital Gpio
     rtcio_hal_function_select(rtc_io_number_get(gpio_num), RTCIO_FUNC_DIGITAL);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -50,9 +45,9 @@ esp_err_t rtc_gpio_deinit(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_set_level(gpio_num_t gpio_num, uint32_t level)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_set_level(rtc_io_number_get(gpio_num), level);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -68,9 +63,9 @@ esp_err_t rtc_gpio_set_drive_capability(gpio_num_t gpio_num, gpio_drive_cap_t st
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
     ESP_RETURN_ON_FALSE(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "Output pad only");
     ESP_RETURN_ON_FALSE(strength < GPIO_DRIVE_CAP_MAX, ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO drive capability error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_set_drive_capability(rtc_io_number_get(gpio_num), strength);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -88,9 +83,9 @@ esp_err_t rtc_gpio_get_drive_capability(gpio_num_t gpio_num, gpio_drive_cap_t *s
 esp_err_t rtc_gpio_set_direction(gpio_num_t gpio_num, rtc_gpio_mode_t mode)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_set_direction(rtc_io_number_get(gpio_num), mode);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -98,9 +93,9 @@ esp_err_t rtc_gpio_set_direction(gpio_num_t gpio_num, rtc_gpio_mode_t mode)
 esp_err_t rtc_gpio_set_direction_in_sleep(gpio_num_t gpio_num, rtc_gpio_mode_t mode)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_set_direction_in_sleep(rtc_io_number_get(gpio_num), mode);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -108,9 +103,9 @@ esp_err_t rtc_gpio_set_direction_in_sleep(gpio_num_t gpio_num, rtc_gpio_mode_t m
 esp_err_t rtc_gpio_pullup_en(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_pullup_enable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -118,9 +113,9 @@ esp_err_t rtc_gpio_pullup_en(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_pullup_dis(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_pullup_disable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -128,9 +123,9 @@ esp_err_t rtc_gpio_pullup_dis(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_pulldown_en(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_pulldown_enable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -138,9 +133,9 @@ esp_err_t rtc_gpio_pulldown_en(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_pulldown_disable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -149,9 +144,9 @@ esp_err_t rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_iomux_func_sel(gpio_num_t gpio_num, int func)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_iomux_func_sel(rtc_io_number_get(gpio_num), func);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -163,45 +158,45 @@ esp_err_t rtc_gpio_iomux_func_sel(gpio_num_t gpio_num, int func)
 esp_err_t rtc_gpio_hold_en(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_hold_enable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
 esp_err_t rtc_gpio_hold_dis(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_hold_disable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
 esp_err_t rtc_gpio_isolate(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_isolate(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
 
 esp_err_t rtc_gpio_force_hold_en_all(void)
 {
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_hold_all();
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
 
 esp_err_t rtc_gpio_force_hold_dis_all(void)
 {
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_unhold_all();
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -215,18 +210,18 @@ esp_err_t rtc_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
     if (intr_type == GPIO_INTR_POSEDGE || intr_type == GPIO_INTR_NEGEDGE || intr_type == GPIO_INTR_ANYEDGE) {
         return ESP_ERR_INVALID_ARG; // Dont support this mode.
     }
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_wakeup_enable(rtc_io_number_get(gpio_num), intr_type);
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
 esp_err_t rtc_gpio_wakeup_disable(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-    RTCIO_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     rtcio_hal_wakeup_disable(rtc_io_number_get(gpio_num));
-    RTCIO_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 

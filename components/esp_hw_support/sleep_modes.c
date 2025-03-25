@@ -1207,7 +1207,7 @@ esp_err_t esp_light_sleep_start(void)
      *
      * - esp_clk_slowclk_cal_set() -> esp_rtc_get_time_us()
      */
-    esp_clk_private_lock();
+    unsigned int key = irq_lock();
 
     s_config.rtc_ticks_at_sleep_start = rtc_time_get();
     uint32_t ccount_at_sleep_start = esp_cpu_get_cycle_count();
@@ -1344,7 +1344,7 @@ esp_err_t esp_light_sleep_start(void)
         // esp_set_time_from_rtc();
     }
 
-    esp_clk_private_unlock();
+    irq_unlock(key);
     esp_timer_private_unlock();
 
     if (!wdt_was_enabled) {

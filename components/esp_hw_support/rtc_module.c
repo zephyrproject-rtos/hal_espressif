@@ -35,7 +35,6 @@ static const char *TAG = "rtc_module";
 
 #define NOT_REGISTERED      (-1)
 
-int rtc_spinlock;
 static DRAM_ATTR int s_rtc_isr_handler_list_lock;
 #define RTC_ISR_HANDLER_ENTER_CRITICAL()    do { s_rtc_isr_handler_list_lock = irq_lock(); } while(0)
 #define RTC_ISR_HANDLER_EXIT_CRITICAL()    irq_unlock(s_rtc_isr_handler_list_lock);

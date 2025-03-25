@@ -32,6 +32,7 @@
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/periph_ctrl.h"
 #include "soc/periph_defs.h"
+
 //For calibration
 #if CONFIG_IDF_TARGET_ESP32S2
 #include "esp_efuse_rtc_table.h"
@@ -39,13 +40,7 @@
 #include "esp_efuse_rtc_calib.h"
 #endif
 
-
 static const char *TAG = "adc_share_hw_ctrl";
-
-extern int rtc_spinlock;
-
-#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
-#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
 
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
 /*---------------------------------------------------------------
@@ -84,11 +79,11 @@ void adc_calc_hw_calibration_code(adc_unit_t adc_n, adc_atten_t atten)
     else {
         ESP_EARLY_LOGD(TAG, "Calibration eFuse is not configured, use self-calibration for ICode");
         sar_periph_ctrl_adc_oneshot_power_acquire();
-        RTC_ENTER_CRITICAL();
+        unsigned int key = irq_lock();
         adc_ll_pwdet_set_cct(ADC_LL_PWDET_CCT_DEFAULT);
         const bool internal_gnd = true;
         init_code = adc_hal_self_calibration(adc_n, atten, internal_gnd);
-        RTC_EXIT_CRITICAL();
+        irq_unlock(key);
         sar_periph_ctrl_adc_oneshot_power_release();
     }
 #else

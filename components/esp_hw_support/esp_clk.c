@@ -48,10 +48,6 @@
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
 
-static int s_esp_rtc_time_lock;
-#define ENTER_CRITICAL_SECTION()    do { s_esp_rtc_time_lock = irq_lock(); } while(0)
-#define LEAVE_CRITICAL_SECTION()    irq_unlock(s_esp_rtc_time_lock);
-
 #if SOC_RTC_MEM_SUPPORTED
 typedef struct {
     uint64_t rtc_time_us;
@@ -108,7 +104,7 @@ int IRAM_ATTR esp_clk_xtal_freq(void)
 
 uint64_t esp_rtc_get_time_us(void)
 {
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     const uint32_t cal = esp_clk_slowclk_cal_get();
 #if SOC_RTC_MEM_SUPPORTED
     static bool first_call = true;
@@ -151,11 +147,11 @@ uint64_t esp_rtc_get_time_us(void)
     s_rtc_timer_retain_mem.rtc_last_ticks = rtc_this_ticks;
     s_rtc_timer_retain_mem.checksum = calc_checksum();
     uint64_t esp_rtc_time_us = s_rtc_timer_retain_mem.rtc_time_us;
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
     return esp_rtc_time_us;
 #else
     uint64_t esp_rtc_time_us = delta_time_us + clk_ll_rtc_slow_load_rtc_fix_us();
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
     return esp_rtc_time_us;
 #endif
 }
@@ -169,7 +165,7 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
 #if SOC_RTC_MEM_SUPPORTED
     esp_rtc_get_time_us();
 #else
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     uint32_t old_cal = clk_ll_rtc_slow_load_cal();
     if (old_cal != 0) {
         /**
@@ -192,7 +188,7 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
         new_fix_us = old_fix_us - new_fix_us;
         clk_ll_rtc_slow_store_rtc_fix_us(new_fix_us);
     }
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
 #endif // SOC_RTC_MEM_SUPPORTED
 #endif // CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER
     clk_ll_rtc_slow_store_cal(new_cal);
@@ -214,10 +210,8 @@ uint64_t esp_clk_rtc_time(void)
 
 void esp_clk_private_lock(void)
 {
-    ENTER_CRITICAL_SECTION();
 }
 
 void esp_clk_private_unlock(void)
 {
-    LEAVE_CRITICAL_SECTION()
 }

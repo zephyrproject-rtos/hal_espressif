@@ -23,12 +23,6 @@
 
 static const char *TAG = "sar_periph_ctrl";
 
-static int rtc_spinlock;
-
-#define ENTER_CRITICAL_SECTION()    do { rtc_spinlock = irq_lock(); } while(0)
-#define LEAVE_CRITICAL_SECTION()    irq_unlock(rtc_spinlock);
-#define LEAVE_CRITICAL()    irq_unlock(rtc_spinlock);
-
 void sar_periph_ctrl_init(void)
 {
     sar_ctrl_ll_force_power_ctrl_from_pwdet(true);
@@ -38,16 +32,16 @@ void sar_periph_ctrl_init(void)
 
 void sar_periph_ctrl_power_enable(void)
 {
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     sar_ctrl_ll_force_power_ctrl_from_pwdet(true);
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
 }
 
 void sar_periph_ctrl_power_disable(void)
 {
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     sar_ctrl_ll_force_power_ctrl_from_pwdet(false);
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
 }
 
 /**
@@ -61,26 +55,26 @@ static int s_pwdet_power_on_cnt;
 static void s_sar_power_acquire(void)
 {
     modem_clock_module_enable(PERIPH_MODEM_ADC_COMMON_FE_MODULE);
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     s_pwdet_power_on_cnt++;
     if (s_pwdet_power_on_cnt == 1) {
         sar_ctrl_ll_set_power_mode_from_pwdet(SAR_CTRL_LL_POWER_ON);
     }
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
 }
 
 static void s_sar_power_release(void)
 {
-    ENTER_CRITICAL_SECTION();
+    unsigned int key = irq_lock();
     s_pwdet_power_on_cnt--;
     if (s_pwdet_power_on_cnt < 0) {
-        LEAVE_CRITICAL();
+        irq_unlock(key);
         ESP_LOGE(TAG, "%s called, but s_pwdet_power_on_cnt == 0", __func__);
         abort();
     } else if (s_pwdet_power_on_cnt == 0) {
         sar_ctrl_ll_set_power_mode_from_pwdet(SAR_CTRL_LL_POWER_FSM);
     }
-    LEAVE_CRITICAL_SECTION();
+    irq_unlock(key);
     modem_clock_module_disable(PERIPH_MODEM_ADC_COMMON_FE_MODULE);
 }
 
