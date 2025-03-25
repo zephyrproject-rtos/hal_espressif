@@ -22,6 +22,8 @@
 #include "esp_check.h"
 #include "sdkconfig.h"
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
+#include <zephyr/sys/__assert.h>
 #include <esp_heap_caps.h>
 #include "esp_private/phy.h"
 #include "phy_init_data.h"
@@ -71,7 +73,7 @@ static int64_t s_phy_rf_en_ts = 0;
 
 /* PHY spinlock for libphy.a */
 static DRAM_ATTR int s_phy_int_mux;
-static DRAM_ATTR int s_phy_lock_nest = 0;
+static atomic_t s_phy_lock_nest;
 
 /* Indicate PHY is calibrated or not */
 static bool s_is_phy_calibrated = false;
@@ -211,27 +213,16 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
 
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    int key = irq_lock();
-    if(s_phy_lock_nest == 0) {
-        s_phy_int_mux = key;
+    if (atomic_inc(&s_phy_lock_nest) == 0) {
+        s_phy_int_mux = irq_lock();
     }
-
-    if(s_phy_lock_nest < 0xFFFFFFFF) {
-        s_phy_lock_nest++;
-    }
-
-    // Interrupt level will be stored in current tcb, so always return zero.
     return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
-    if(s_phy_lock_nest > 0) {
-        s_phy_lock_nest--;
-    }
-
-    if(s_phy_lock_nest == 0) {
-        // Param level don't need any more, ignore it.
+    __ASSERT_NO_MSG(atomic_get(&s_phy_lock_nest) > 0);
+    if (atomic_dec(&s_phy_lock_nest) == 1) {
         irq_unlock(s_phy_int_mux);
     }
 }

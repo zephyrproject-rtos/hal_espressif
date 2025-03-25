@@ -9,9 +9,12 @@
 #include "esp_task.h"
 #include "esp_attr.h"
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
+#include <zephyr/sys/__assert.h>
 
 /* Spinlock used to protect access to the hardware registers. */
 unsigned int s_time_update_lock;
+static atomic_t s_timer_lock_counter;
 
 /* Alarm values to generate interrupt on match
  * [0] - for ESP_TIMER_TASK alarms,
@@ -21,12 +24,17 @@ uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
 
 void esp_timer_impl_lock(void)
 {
-    s_time_update_lock = irq_lock();
+    if (atomic_inc(&s_timer_lock_counter) == 0) {
+        s_time_update_lock = irq_lock();
+    }
 }
 
 void esp_timer_impl_unlock(void)
 {
-    irq_unlock(s_time_update_lock);
+    __ASSERT_NO_MSG(atomic_get(&s_timer_lock_counter) > 0);
+    if (atomic_dec(&s_timer_lock_counter) == 1) {
+        irq_unlock(s_time_update_lock);
+    }
 }
 
 void esp_timer_private_lock(void) __attribute__((alias("esp_timer_impl_lock")));
@@ -39,7 +47,7 @@ void IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 void IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void) {
-    s_time_update_lock = irq_lock();
+    esp_timer_impl_lock();
     unsigned now_alarm_idx;  // ISR is called due to this current alarm
     unsigned next_alarm_idx; // The following alarm after now_alarm_idx
     if (timestamp_id[0] < timestamp_id[1]) {
@@ -59,7 +67,7 @@ void IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void) {
         // Remove the current alarm from consideration as well.
         timestamp_id[now_alarm_idx] = UINT64_MAX;
     }
-    irq_unlock(s_time_update_lock);
+    esp_timer_impl_unlock();
 }
 #endif
 
