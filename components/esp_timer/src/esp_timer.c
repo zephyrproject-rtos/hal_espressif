@@ -87,8 +87,6 @@ static inline bool is_initialized(void);
 static esp_err_t timer_insert(esp_timer_handle_t timer, bool without_update_alarm);
 static esp_err_t timer_remove(esp_timer_handle_t timer);
 static bool timer_armed(esp_timer_handle_t timer);
-static void timer_list_lock(esp_timer_dispatch_t timer_type);
-static void timer_list_unlock(esp_timer_dispatch_t timer_type);
 
 #if WITH_PROFILING
 static void timer_insert_inactive(esp_timer_handle_t timer);
@@ -114,10 +112,6 @@ K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
 static struct k_thread s_timer_task;
 // counting semaphore used to notify the timer task from ISR
 static struct k_sem s_timer_semaphore;
-// lock protecting s_timers, s_inactive_timers
-static unsigned int s_timer_lock[ESP_TIMER_MAX] = {
-    [0 ... (ESP_TIMER_MAX - 1)] = 0
-};
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 // For ISR dispatch method, a callback function of the timer may require a context switch
@@ -145,9 +139,10 @@ esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
 #if WITH_PROFILING
     result->name = args->name;
     esp_timer_dispatch_t dispatch_method = result->flags & FL_ISR_DISPATCH_METHOD;
-    timer_list_lock(dispatch_method);
+    ARG_UNUSED(dispatch_method);
+    unsigned int key = irq_lock();
     timer_insert_inactive(result);
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
 #endif
     *out_handle = result;
     return ESP_OK;
@@ -167,17 +162,13 @@ esp_err_t IRAM_ATTR esp_timer_restart(esp_timer_handle_t timer, uint64_t timeout
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (!is_initialized()) {
+    if (!is_initialized() || !timer_armed(timer)) {
         return ESP_ERR_INVALID_STATE;
     }
 
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
-    timer_list_lock(dispatch_method);
-
-    if (!timer_armed(timer)) {
-        timer_list_unlock(dispatch_method);
-        return ESP_ERR_INVALID_STATE;
-    }
+    ARG_UNUSED(dispatch_method);
+    unsigned int key = irq_lock();
 
     const int64_t now = esp_timer_impl_get_time();
     const uint64_t period = timer->period;
@@ -204,7 +195,7 @@ esp_err_t IRAM_ATTR esp_timer_restart(esp_timer_handle_t timer, uint64_t timeout
         ret = timer_insert(timer, false);
     }
 
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
 
     return ret;
 }
@@ -219,9 +210,10 @@ esp_err_t IRAM_ATTR esp_timer_start_once(esp_timer_handle_t timer, uint64_t time
     }
     int64_t alarm = esp_timer_get_time() + timeout_us;
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+    ARG_UNUSED(dispatch_method);
     esp_err_t err;
 
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
 
     /* Check if the timer is armed once the list is locked.
      * Otherwise another task may arm the timer inbetween the check
@@ -239,7 +231,7 @@ esp_err_t IRAM_ATTR esp_timer_start_once(esp_timer_handle_t timer, uint64_t time
         err = timer_insert(timer, false);
     }
 
-     timer_list_unlock(dispatch_method);
+     irq_unlock(key);
      return err;
 }
 
@@ -254,8 +246,9 @@ esp_err_t IRAM_ATTR esp_timer_start_periodic(esp_timer_handle_t timer, uint64_t 
     period_us = MAX(period_us, esp_timer_impl_get_min_period_us());
     int64_t alarm = esp_timer_get_time() + period_us;
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+    ARG_UNUSED(dispatch_method);
     esp_err_t err;
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
 
     /* Check if the timer is armed once the list is locked to avoid a data race */
     if (timer_armed(timer)) {
@@ -270,7 +263,7 @@ esp_err_t IRAM_ATTR esp_timer_start_periodic(esp_timer_handle_t timer, uint64_t 
         err = timer_insert(timer, false);
     }
 
-     timer_list_unlock(dispatch_method);
+     irq_unlock(key);
      return err;
 }
 
@@ -280,9 +273,10 @@ esp_err_t IRAM_ATTR esp_timer_stop(esp_timer_handle_t timer)
         return ESP_ERR_INVALID_STATE;
     }
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+    ARG_UNUSED(dispatch_method);
     esp_err_t err;
 
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
 
     /* Check if the timer is armed once the list is locked to avoid a data race */
     if (!timer_armed(timer)) {
@@ -290,7 +284,7 @@ esp_err_t IRAM_ATTR esp_timer_stop(esp_timer_handle_t timer)
     } else {
         err = timer_remove(timer);
     }
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
     return err;
 }
 
@@ -301,7 +295,7 @@ esp_err_t esp_timer_delete(esp_timer_handle_t timer)
     }
     int64_t alarm = esp_timer_get_time();
     esp_err_t err;
-    timer_list_lock(ESP_TIMER_TASK);
+    unsigned int key = irq_lock();
 
     /* Check if the timer is armed once the list is locked to avoid a data race */
      if (timer_armed(timer)) {
@@ -317,7 +311,7 @@ esp_err_t esp_timer_delete(esp_timer_handle_t timer)
         timer->period = 0;
         err = timer_insert(timer, false);
     }
-    timer_list_unlock(ESP_TIMER_TASK);
+    irq_unlock(key);
     return err;
 }
 
@@ -398,30 +392,13 @@ static IRAM_ATTR bool timer_armed(esp_timer_handle_t timer)
     return timer->alarm > 0;
 }
 
-static IRAM_ATTR void timer_list_lock(esp_timer_dispatch_t timer_type)
-{
-    unsigned key = irq_lock();
-
-    /* ensure lock is not already held */
-    __ASSERT_NO_MSG(s_timer_lock[timer_type] == 0);
-    s_timer_lock[timer_type] = key;
-}
-
-static IRAM_ATTR void timer_list_unlock(esp_timer_dispatch_t timer_type)
-{
-    unsigned int key = s_timer_lock[timer_type];
-    s_timer_lock[timer_type] = 0;
-
-    irq_unlock(key);
-}
-
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 static IRAM_ATTR bool timer_process_alarm(esp_timer_dispatch_t dispatch_method)
 #else
 static bool timer_process_alarm(esp_timer_dispatch_t dispatch_method)
 #endif
 {
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
     bool processed = false;
     esp_timer_handle_t it;
     while (1) {
@@ -461,9 +438,9 @@ static bool timer_process_alarm(esp_timer_dispatch_t dispatch_method)
 #endif
             esp_timer_cb_t callback = it->callback;
             void* arg = it->arg;
-            timer_list_unlock(dispatch_method);
+            irq_unlock(key);
             (*callback)(arg);
-            timer_list_lock(dispatch_method);
+            key = irq_lock();
 #if WITH_PROFILING
             it->times_triggered++;
             it->total_callback_run_time += esp_timer_impl_get_time() - callback_start;
@@ -479,7 +456,7 @@ static bool timer_process_alarm(esp_timer_dispatch_t dispatch_method)
             esp_timer_impl_set_alarm_id(UINT64_MAX, dispatch_method);
         }
     }
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
     return processed;
 }
 
@@ -573,7 +550,7 @@ esp_err_t esp_timer_init(void)
             ESP_EARLY_LOGE(TAG, "ISR init failed");
             deinit_timer_task();
         }
-		init_status = true;
+        init_status = true;
     }
     return err;
 }
@@ -649,7 +626,7 @@ esp_err_t esp_timer_dump(FILE* stream)
     /* First count the number of timers */
     size_t timer_count = 0;
     for (esp_timer_dispatch_t dispatch_method = ESP_TIMER_TASK; dispatch_method < ESP_TIMER_MAX; ++dispatch_method) {
-        timer_list_lock(dispatch_method);
+        unsigned int key = irq_lock();
         LIST_FOREACH(it, &s_timers[dispatch_method], list_entry) {
             ++timer_count;
         }
@@ -658,7 +635,7 @@ esp_err_t esp_timer_dump(FILE* stream)
             ++timer_count;
         }
 #endif
-        timer_list_unlock(dispatch_method);
+        irq_unlock(key);
     }
 
     /* Allocate the memory for this number of timers. Since we have unlocked,
@@ -675,7 +652,7 @@ esp_err_t esp_timer_dump(FILE* stream)
     /* Print to the buffer */
     char* pos = print_buf;
     for (esp_timer_dispatch_t dispatch_method = ESP_TIMER_TASK; dispatch_method < ESP_TIMER_MAX; ++dispatch_method) {
-        timer_list_lock(dispatch_method);
+        unsigned int key = irq_lock();
         LIST_FOREACH(it, &s_timers[dispatch_method], list_entry) {
             print_timer_info(it, &pos, &buf_size);
         }
@@ -684,7 +661,7 @@ esp_err_t esp_timer_dump(FILE* stream)
             print_timer_info(it, &pos, &buf_size);
         }
 #endif
-        timer_list_unlock(dispatch_method);
+        irq_unlock(key);
     }
 
     if (stream != NULL) {
@@ -708,14 +685,14 @@ int64_t IRAM_ATTR esp_timer_get_next_alarm(void)
 {
     int64_t next_alarm = INT64_MAX;
     for (esp_timer_dispatch_t dispatch_method = ESP_TIMER_TASK; dispatch_method < ESP_TIMER_MAX; ++dispatch_method) {
-        timer_list_lock(dispatch_method);
+        unsigned int key = irq_lock();
         esp_timer_handle_t it = LIST_FIRST(&s_timers[dispatch_method]);
         if (it) {
             if (next_alarm > it->alarm) {
                 next_alarm = it->alarm;
             }
         }
-        timer_list_unlock(dispatch_method);
+        irq_unlock(key);
     }
     return next_alarm;
 }
@@ -724,7 +701,7 @@ int64_t IRAM_ATTR esp_timer_get_next_alarm_for_wake_up(void)
 {
     int64_t next_alarm = INT64_MAX;
     for (esp_timer_dispatch_t dispatch_method = ESP_TIMER_TASK; dispatch_method < ESP_TIMER_MAX; ++dispatch_method) {
-        timer_list_lock(dispatch_method);
+        unsigned int key = irq_lock();
         esp_timer_handle_t it = NULL;
         LIST_FOREACH(it, &s_timers[dispatch_method], list_entry) {
             // timers with the SKIP_UNHANDLED_EVENTS flag do not want to wake up CPU from a sleep mode.
@@ -735,7 +712,7 @@ int64_t IRAM_ATTR esp_timer_get_next_alarm_for_wake_up(void)
                 break;
             }
         }
-        timer_list_unlock(dispatch_method);
+        irq_unlock(key);
     }
     return next_alarm;
 }
@@ -747,10 +724,11 @@ esp_err_t IRAM_ATTR esp_timer_get_period(esp_timer_handle_t timer, uint64_t *per
     }
 
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+    ARG_UNUSED(dispatch_method);
 
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
     *period = timer->period;
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -767,10 +745,11 @@ esp_err_t IRAM_ATTR esp_timer_get_expiry_time(esp_timer_handle_t timer, uint64_t
     }
 
     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+    ARG_UNUSED(dispatch_method);
 
-    timer_list_lock(dispatch_method);
+    unsigned int key = irq_lock();
     *expiry = timer->alarm;
-    timer_list_unlock(dispatch_method);
+    irq_unlock(key);
 
     return ESP_OK;
 }
