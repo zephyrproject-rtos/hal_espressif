@@ -18,12 +18,6 @@
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/adc_share_hw_ctrl.h"
 
-extern int rtc_spinlock;
-
-#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
-#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
-
-
 /*------------------------------------------------------------------------------------------------------------
 -----------------------------------------Temperature Sensor---------------------------------------------------
 ------------------------------------------------------------------------------------------------------------*/
@@ -39,7 +33,7 @@ static uint8_t s_tsens_idx = 2; // Index for temperature attribute, set 2(middle
 
 void temperature_sensor_power_acquire(void)
 {
-    RTC_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     s_temperature_sensor_power_cnt++;
     if (s_temperature_sensor_power_cnt == 1) {
         adc_apb_periph_claim();
@@ -49,16 +43,16 @@ void temperature_sensor_power_acquire(void)
         temperature_sensor_ll_clk_enable(true);
         temperature_sensor_ll_enable(true);
     }
-    RTC_EXIT_CRITICAL();
+    irq_unlock(key);
 }
 
 void temperature_sensor_power_release(void)
 {
-    RTC_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     s_temperature_sensor_power_cnt--;
     /* Sanity check */
     if (s_temperature_sensor_power_cnt < 0) {
-        RTC_EXIT_CRITICAL();
+        irq_unlock(key);
         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
         abort();
     } else if (s_temperature_sensor_power_cnt == 0) {
@@ -68,7 +62,7 @@ void temperature_sensor_power_release(void)
         periph_module_disable(PERIPH_TEMPSENSOR_MODULE);
         adc_apb_periph_free();
     }
-    RTC_EXIT_CRITICAL();
+    irq_unlock(key);
 }
 
 static int temperature_sensor_get_raw_value(void)
@@ -84,7 +78,7 @@ void temp_sensor_sync_tsens_idx(int tsens_idx)
 
 int16_t temp_sensor_get_raw_value(bool *range_changed)
 {
-    RTC_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
 
     int degree = temperature_sensor_get_raw_value();
     uint8_t temperature_dac;
@@ -95,7 +89,7 @@ int16_t temp_sensor_get_raw_value(bool *range_changed)
         if (range_changed != NULL) {
             *range_changed = false;
         }
-        RTC_EXIT_CRITICAL();
+        irq_unlock(key);
         return degree;
     }
 
@@ -127,7 +121,7 @@ int16_t temp_sensor_get_raw_value(bool *range_changed)
         *range_changed = true;
     }
 
-    RTC_EXIT_CRITICAL();
+    irq_unlock(key);
     return degree;
 }
 

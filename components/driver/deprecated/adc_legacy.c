@@ -45,11 +45,6 @@ static const char *ADC_TAG = "ADC";
 //////////////////////// Locks ///////////////////////////////////////////
 LOG_MODULE_REGISTER(adc_legacy, CONFIG_ADC_LOG_LEVEL);
 
-extern int rtc_spinlock;
-
-#define RTC_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
-#define RTC_EXIT_CRITICAL()    irq_unlock(rtc_spinlock);
-
 #define DIGI_ENTER_CRITICAL()
 #define DIGI_EXIT_CRITICAL()
 
@@ -142,9 +137,9 @@ esp_err_t adc2_pad_get_io_num(adc2_channel_t channel, gpio_num_t *gpio_num)
 #if SOC_ADC_RTC_CTRL_SUPPORTED
 esp_err_t adc_set_clk_div(uint8_t clk_div)
 {
-    DIGI_CONTROLLER_ENTER();
+    unsigned int key = irq_lock();
     adc_ll_digi_set_clk_div(clk_div);
-    DIGI_CONTROLLER_EXIT();
+    irq_unlock(key);
     return ESP_OK;
 }
 
@@ -195,15 +190,17 @@ esp_err_t adc_common_gpio_init(adc_unit_t adc_unit, adc_channel_t channel)
 
 esp_err_t adc_set_data_inv(adc_unit_t adc_unit, bool inv_en)
 {
+    unsigned int key;
+
     if (adc_unit == ADC_UNIT_1) {
-        SARADC1_ENTER();
+        key = irq_lock();
         adc_oneshot_ll_output_invert(ADC_UNIT_1, inv_en);
-        SARADC1_EXIT();
+        irq_unlock(key);
     }
     if (adc_unit == ADC_UNIT_2) {
-        SARADC2_ENTER();
+        key = irq_lock();
         adc_oneshot_ll_output_invert(ADC_UNIT_2, inv_en);
-        SARADC2_EXIT();
+        irq_unlock(key);
     }
 
     return ESP_OK;
@@ -213,6 +210,7 @@ esp_err_t adc_set_data_width(adc_unit_t adc_unit, adc_bits_width_t width_bit)
 {
     ESP_RETURN_ON_FALSE(width_bit < ADC_WIDTH_MAX, ESP_ERR_INVALID_ARG, ADC_TAG, "unsupported bit width");
     adc_bitwidth_t bitwidth = 0;
+    unsigned int key;
 #if CONFIG_IDF_TARGET_ESP32
     if ((uint32_t)width_bit == (uint32_t)ADC_BITWIDTH_DEFAULT) {
         bitwidth = SOC_ADC_RTC_MAX_BITWIDTH;
@@ -241,14 +239,14 @@ esp_err_t adc_set_data_width(adc_unit_t adc_unit, adc_bits_width_t width_bit)
 #endif
 
     if (adc_unit == ADC_UNIT_1) {
-        SARADC1_ENTER();
+        key = irq_lock();
         adc_oneshot_ll_set_output_bits(ADC_UNIT_1, bitwidth);
-        SARADC1_EXIT();
+        irq_unlock(key);
     }
     if (adc_unit == ADC_UNIT_2) {
-        SARADC2_ENTER();
+        key = irq_lock();
         adc_oneshot_ll_set_output_bits(ADC_UNIT_2, bitwidth);
-        SARADC2_EXIT();
+        irq_unlock(key);
     }
 
     return ESP_OK;
@@ -263,9 +261,9 @@ esp_err_t adc_set_data_width(adc_unit_t adc_unit, adc_bits_width_t width_bit)
 #if !CONFIG_IDF_TARGET_ESP32
 esp_err_t adc_rtc_reset(void)
 {
-    FSM_ENTER();
+    unsigned int key = irq_lock();
     adc_ll_rtc_reset();
-    FSM_EXIT();
+    irq_unlock(key);
     return ESP_OK;
 }
 #endif
@@ -286,10 +284,10 @@ esp_err_t adc1_config_channel_atten(adc1_channel_t channel, adc_atten_t atten)
 #endif  //#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
 
     adc_common_gpio_init(ADC_UNIT_1, channel);
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
     adc_rtc_chan_init(ADC_UNIT_1);
     adc_oneshot_ll_set_atten(ADC_UNIT_1, channel, atten);
-    SARADC1_EXIT();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -325,9 +323,9 @@ esp_err_t adc1_config_width(adc_bits_width_t width_bit)
     bitwidth = ADC_BITWIDTH_12;
 #endif
 
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
     adc_oneshot_ll_set_output_bits(ADC_UNIT_1, bitwidth);
-    SARADC1_EXIT();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -341,10 +339,10 @@ esp_err_t adc1_dma_mode_acquire(void)
 
     sar_periph_ctrl_adc_continuous_power_acquire();
 
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
     /* switch SARADC into DIG channel */
     adc_ll_set_controller(ADC_UNIT_1, ADC_LL_CTRL_DIG);
-    SARADC1_EXIT();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -356,10 +354,10 @@ esp_err_t adc1_rtc_mode_acquire(void)
     SARADC1_ACQUIRE();
     sar_periph_ctrl_adc_oneshot_power_acquire();
 
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
     /* switch SARADC into RTC channel. */
     adc_ll_set_controller(ADC_UNIT_1, ADC_LL_CTRL_RTC);
-    SARADC1_EXIT();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -386,7 +384,7 @@ int adc1_get_raw(adc1_channel_t channel)
     adc_set_hw_calibration_code(ADC_UNIT_1, atten);
 #endif  //SOC_ADC_CALIBRATION_V1_SUPPORTED
 
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
 #ifdef CONFIG_IDF_TARGET_ESP32
     adc_ll_hall_disable(); //Disable other peripherals.
     adc_ll_amp_disable();  //Currently the LNA is not open, close it by default.
@@ -397,7 +395,7 @@ int adc1_get_raw(adc1_channel_t channel)
 #if !CONFIG_IDF_TARGET_ESP32
     adc_ll_rtc_reset();    //Reset FSM of rtc controller
 #endif
-    SARADC1_EXIT();
+    irq_unlock(key);
 
     adc1_lock_release();
     return adc_value;
@@ -413,7 +411,7 @@ void adc1_ulp_enable(void)
 {
     sar_periph_ctrl_adc_oneshot_power_acquire();
 
-    SARADC1_ENTER();
+    unsigned int key = irq_lock();
     adc_ll_set_controller(ADC_UNIT_1, ADC_LL_CTRL_ULP);
     /* since most users do not need LNA and HALL with uLP, we disable them here
        open them in the uLP if needed. */
@@ -422,7 +420,7 @@ void adc1_ulp_enable(void)
     adc_ll_hall_disable();
     adc_ll_amp_disable();
 #endif
-    SARADC1_EXIT();
+    irq_unlock(key);
 }
 #endif
 
@@ -452,10 +450,10 @@ esp_err_t adc2_config_channel_atten(adc2_channel_t channel, adc_atten_t atten)
 #endif
 
     //avoid collision with other tasks
-    SARADC2_ENTER();
+    unsigned int key = irq_lock();
     adc_rtc_chan_init(ADC_UNIT_2);
     adc_oneshot_ll_set_atten(ADC_UNIT_2, channel, atten);
-    SARADC2_EXIT();
+    irq_unlock(key);
 
 #if CONFIG_IDF_TARGET_ESP32
     adc_lock_release(ADC_UNIT_2);
@@ -553,7 +551,7 @@ esp_err_t adc2_get_raw(adc2_channel_t channel, adc_bits_width_t width_bit, int *
 
     //avoid collision with other tasks
     adc2_init();   // in critical section with whole rtc module. because the PWDET use the same registers, place it here.
-    SARADC2_ENTER();
+    unsigned int key = irq_lock();
 
 #if SOC_ADC_ARBITER_SUPPORTED
     adc_arbiter_t config = ADC_ARBITER_CONFIG_DEFAULT();
@@ -593,7 +591,7 @@ esp_err_t adc2_get_raw(adc2_channel_t channel, adc_bits_width_t width_bit, int *
     }
 #endif //CONFIG_PM_ENABLE
 #endif //CONFIG_IDF_TARGET_ESP32
-    SARADC2_EXIT();
+    irq_unlock(key);
 
     sar_periph_ctrl_adc_oneshot_power_release();
 #if CONFIG_IDF_TARGET_ESP32
@@ -606,6 +604,7 @@ esp_err_t adc2_get_raw(adc2_channel_t channel, adc_bits_width_t width_bit, int *
 
 esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
 {
+    unsigned int key;
 #ifdef CONFIG_IDF_TARGET_ESP32
     if (adc_unit == ADC_UNIT_1) {
         return ESP_ERR_INVALID_ARG;
@@ -625,13 +624,13 @@ esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
 
     sar_periph_ctrl_adc_oneshot_power_acquire();
     if (adc_unit == ADC_UNIT_1) {
-        VREF_ENTER(1);
+        key = irq_lock();
         adc_ll_vref_output(ADC_UNIT_1, ch, true);
-        VREF_EXIT(1);
+        irq_unlock(key);
     } else if (adc_unit == ADC_UNIT_2) {
-        VREF_ENTER(2);
+        key = irq_lock();
         adc_ll_vref_output(ADC_UNIT_2, ch, true);
-        VREF_EXIT(2);
+        irq_unlock(key);
     }
 
     //Configure RTC gpio, Only ADC2's channels IO are supported to output reference voltage.
@@ -649,10 +648,6 @@ esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
             when RTC controller isn't supported
 ---------------------------------------------------------------*/
 #include "esp_check.h"
-
-int adc_reg_lock;
-#define ADC_REG_LOCK_ENTER()    do { adc_reg_lock = irq_lock(); } while(0)
-#define ADC_REG_LOCK_EXIT()    irq_unlock(adc_reg_lock);
 
 static adc_atten_t s_atten1_single[ADC1_CHANNEL_MAX];    //Array saving attenuate of each channel of ADC1, used by single read API
 #if (SOC_ADC_PERIPH_NUM >= 2)
@@ -703,6 +698,7 @@ static esp_err_t adc_digi_gpio_init(adc_unit_t adc_unit, uint16_t channel_mask)
 esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
 {
     esp_err_t ret;
+    unsigned int key;
     uint32_t channel = ADC2_CHANNEL_MAX;
     if (adc_unit == ADC_UNIT_2) {
         for (int i = 0; i < ADC2_CHANNEL_MAX; i++) {
@@ -718,13 +714,13 @@ esp_err_t adc_vref_to_gpio(adc_unit_t adc_unit, gpio_num_t gpio)
 
     sar_periph_ctrl_adc_oneshot_power_acquire();
     if (adc_unit == ADC_UNIT_1) {
-        RTC_ENTER_CRITICAL();
+        key = irq_lock();
         adc_ll_vref_output(ADC_UNIT_1, channel, true);
-        RTC_EXIT_CRITICAL();
+        irq_unlock(key);
     } else {    //ADC_UNIT_2
-        RTC_ENTER_CRITICAL();
+        key = irq_lock();
         adc_ll_vref_output(ADC_UNIT_2, channel, true);
-        RTC_EXIT_CRITICAL();
+        irq_unlock(key);
     }
 
     ret = adc_digi_gpio_init(ADC_UNIT_2, BIT(channel));
@@ -778,10 +774,10 @@ int adc1_get_raw(adc1_channel_t channel)
     adc_set_hw_calibration_code(ADC_UNIT_1, atten);
 #endif
 
-    ADC_REG_LOCK_ENTER();
+    unsigned int key = irq_lock();
     adc_oneshot_ll_set_atten(ADC_UNIT_1, channel, atten);
     adc_hal_convert(ADC_UNIT_1, channel, clk_src_freq_hz, &raw_out);
-    ADC_REG_LOCK_EXIT();
+    irq_unlock(key);
 
     sar_periph_ctrl_adc_oneshot_power_release();
     periph_module_disable(PERIPH_SARADC_MODULE);
@@ -834,10 +830,10 @@ esp_err_t adc2_get_raw(adc2_channel_t channel, adc_bits_width_t width_bit, int *
     adc_set_hw_calibration_code(ADC_UNIT_2, atten);
 #endif
 
-    ADC_REG_LOCK_ENTER();
+    unsigned int key = irq_lock();
     adc_oneshot_ll_set_atten(ADC_UNIT_2, channel, atten);
     ret = adc_hal_convert(ADC_UNIT_2, channel, clk_src_freq_hz, raw_out);
-    ADC_REG_LOCK_EXIT();
+    irq_unlock(key);
 
     sar_periph_ctrl_adc_oneshot_power_release();
     periph_module_disable(PERIPH_SARADC_MODULE);

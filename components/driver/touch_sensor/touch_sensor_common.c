@@ -43,11 +43,6 @@ static const char *TOUCH_TAG = "TOUCH_SENSOR";
 
 _Static_assert(TOUCH_PAD_MAX == SOC_TOUCH_SENSOR_NUM, "Touch sensor channel number not equal to chip capabilities");
 
-extern int rtc_spinlock;
-
-#define TOUCH_ENTER_CRITICAL()    do { rtc_spinlock = irq_lock(); } while(0)
-#define TOUCH_EXIT_CRITICAL()     irq_unlock(rtc_spinlock)
-
 esp_err_t touch_pad_isr_deregister(intr_handler_t fn, void *arg)
 {
     return rtc_isr_deregister(fn, arg);
@@ -67,9 +62,9 @@ esp_err_t touch_pad_set_voltage(touch_high_volt_t refh, touch_low_volt_t refl, t
         .refl = refl,
         .atten = atten,
     };
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_set_voltage(&volt);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -77,9 +72,9 @@ esp_err_t touch_pad_set_voltage(touch_high_volt_t refh, touch_low_volt_t refl, t
 esp_err_t touch_pad_get_voltage(touch_high_volt_t *refh, touch_low_volt_t *refl, touch_volt_atten_t *atten)
 {
     touch_hal_volt_t volt = {0};
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_get_voltage(&volt);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     *refh = volt.refh;
     *refl = volt.refl;
     *atten = volt.atten;
@@ -97,9 +92,9 @@ esp_err_t touch_pad_set_cnt_mode(touch_pad_t touch_num, touch_cnt_slope_t slope,
         .slope = slope,
         .tie_opt = opt,
     };
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_set_meas_mode(touch_num, &meas);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
 
     return ESP_OK;
 }
@@ -109,9 +104,9 @@ esp_err_t touch_pad_get_cnt_mode(touch_pad_t touch_num, touch_cnt_slope_t *slope
     TOUCH_CHECK(touch_num < SOC_TOUCH_SENSOR_NUM, "Touch channel error", ESP_ERR_INVALID_ARG);
 
     touch_hal_meas_mode_t meas = {0};
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_get_meas_mode(touch_num, &meas);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     *slope = meas.slope;
     *opt = meas.tie_opt;
 
@@ -131,17 +126,17 @@ esp_err_t touch_pad_io_init(touch_pad_t touch_num)
 
 esp_err_t touch_pad_fsm_start(void)
 {
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_start_fsm();
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
 esp_err_t touch_pad_fsm_stop(void)
 {
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_stop_fsm();
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
@@ -149,9 +144,9 @@ esp_err_t touch_pad_set_fsm_mode(touch_fsm_mode_t mode)
 {
     TOUCH_CHECK((mode < TOUCH_FSM_MODE_MAX), "touch fsm mode error", ESP_ERR_INVALID_ARG);
 
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_set_fsm_mode(mode);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
 #ifdef CONFIG_IDF_TARGET_ESP32
     if (mode == TOUCH_FSM_MODE_TIMER) {
         touch_pad_fsm_start();
@@ -170,9 +165,9 @@ esp_err_t touch_pad_get_fsm_mode(touch_fsm_mode_t *mode)
 
 esp_err_t touch_pad_sw_start(void)
 {
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_start_sw_meas();
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 
@@ -180,9 +175,9 @@ esp_err_t touch_pad_sw_start(void)
 esp_err_t touch_pad_set_thresh(touch_pad_t touch_num, uint16_t threshold)
 {
     TOUCH_CHANNEL_CHECK(touch_num);
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_set_threshold(touch_num, threshold);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 #else // !CONFIG_IDF_TARGET_ESP32
@@ -191,9 +186,9 @@ esp_err_t touch_pad_set_thresh(touch_pad_t touch_num, uint32_t threshold)
     TOUCH_CHANNEL_CHECK(touch_num);
     TOUCH_CHECK(touch_num != SOC_TOUCH_DENOISE_CHANNEL,
                 "TOUCH0 is internal denoise channel", ESP_ERR_INVALID_ARG);
-    TOUCH_ENTER_CRITICAL();
+    unsigned int key = irq_lock();
     touch_hal_set_threshold(touch_num, threshold);
-    TOUCH_EXIT_CRITICAL();
+    irq_unlock(key);
     return ESP_OK;
 }
 #endif // CONFIG_IDF_TARGET_ESP32
