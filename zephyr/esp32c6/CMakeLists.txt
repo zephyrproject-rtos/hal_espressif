@@ -353,7 +353,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     )
   endif()
-  
+
   if(CONFIG_SOC_ESP32C6_LPCORE)
     zephyr_compile_definitions(IS_ULP_COCPU)
     zephyr_ld_options("-nostartfiles")

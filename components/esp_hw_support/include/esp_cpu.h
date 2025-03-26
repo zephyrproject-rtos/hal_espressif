@@ -6,7 +6,9 @@
 
 #pragma once
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/kernel.h>
+#endif
 
 #include "sdkconfig.h"
 #include <stdbool.h>
@@ -373,7 +375,11 @@ FORCE_INLINE_ATTR void *esp_cpu_intr_get_handler_arg(int intr_num)
 FORCE_INLINE_ATTR void esp_cpu_intr_enable(uint32_t intr_mask)
 {
 #ifdef __XTENSA__
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
     z_xt_ints_on(intr_mask);
+#else
+    xt_ints_on(intr_mask);
+#endif
 #else
     rv_utils_intr_enable(intr_mask);
 #endif
@@ -387,7 +393,11 @@ FORCE_INLINE_ATTR void esp_cpu_intr_enable(uint32_t intr_mask)
 FORCE_INLINE_ATTR void esp_cpu_intr_disable(uint32_t intr_mask)
 {
 #ifdef __XTENSA__
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
     z_xt_ints_off(intr_mask);
+#else
+    xt_ints_off(intr_mask);
+#endif
 #else
     rv_utils_intr_disable(intr_mask);
 #endif
