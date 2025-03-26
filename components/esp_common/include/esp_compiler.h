@@ -6,7 +6,9 @@
 
 #pragma once
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/toolchain.h>
+#endif
 
 /*
  * Utility macros used for designated initializers, which work differently
