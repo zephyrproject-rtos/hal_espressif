@@ -31,7 +31,7 @@
 #include "private/esp_coexist_internal.h"
 #include "esp_timer.h"
 #include "esp_heap_adapter.h"
-
+#include "esp_system.h"
 #include "esp_rom_sys.h"
 
 #include <zephyr/logging/log.h>
@@ -1254,6 +1254,10 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
 	}
 
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_ENABLED;
+	ret = esp_register_shutdown_handler(bt_shutdown);
+	if (ret != ESP_OK) {
+		LOG_WRN("Register shutdown handler failed, ret = 0x%x", ret);
+	}
 
 	/* set default TX power level */
 	esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP32_RADIO_TXP_DEFAULT);
@@ -1284,7 +1288,7 @@ esp_err_t esp_bt_controller_disable(void)
 
 	esp_phy_disable(PHY_MODEM_BT);
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
-	bt_shutdown();
+	esp_unregister_shutdown_handler(bt_shutdown);
 
 	return ESP_OK;
 }

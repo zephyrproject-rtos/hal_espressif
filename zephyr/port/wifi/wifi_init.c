@@ -25,6 +25,7 @@
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
 #include "private/esp_modem_wrapper.h"
+#include "esp_system.h"
 
 #ifdef CONFIG_ESP_WIFI_NAN_ENABLE
 #include "apps_private/wifi_apps_private.h"
@@ -322,6 +323,11 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #ifdef CONFIG_ESP_WIFI_NAN_ENABLE
     esp_nan_app_init();
 #endif
+
+    result = esp_register_shutdown_handler((shutdown_handler_t)esp_wifi_stop);
+    if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) {
+        LOG_ERR("Failed to init wifi (0x%x)", result);
+    }
 
     s_wifi_inited = true;
 
