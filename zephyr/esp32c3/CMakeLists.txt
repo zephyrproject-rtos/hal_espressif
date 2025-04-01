@@ -347,6 +347,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../port/bootloader/bootloader_flash.c
 
     ../common/flash_init.c
+    ../common/esp_restart.c
 
     src/stubs.c
     src/soc_random.c
