@@ -162,6 +162,10 @@ void coex_pti_v2(void)
 {
 }
 
+void esp_bt_controller_shutdown(void)
+{
+}
+
 void sdk_config_set_bt_pll_track_enable(bool enable)
 {
 }
