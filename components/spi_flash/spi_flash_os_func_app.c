@@ -27,6 +27,7 @@ static const char TAG[] = "spi_flash";
 
 #if SPI_FLASH_CACHE_NO_DISABLE
 K_MUTEX_DEFINE(s_spi1_flash_mutex);
+static unsigned int s_spi1_key;
 #endif  //  #if SPI_FLASH_CACHE_NO_DISABLE
 
 /*
@@ -83,7 +84,11 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg)
      * From 1 to 3, the lock efficiency decreases.
      */
 #if SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    if (k_is_pre_kernel()) {
+        s_spi1_key = irq_lock();
+    } else {
+        k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    }
 #else
     //directly disable the cache and interrupts when lock is not used
     cache_disable(NULL);
@@ -100,7 +105,11 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
      * There are three ways for ESP Flash API lock, see `spi1_start`
      */
 #if SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_unlock(&s_spi1_flash_mutex);
+    if (k_is_pre_kernel()) {
+        irq_unlock(s_spi1_key);
+    } else {
+        k_mutex_unlock(&s_spi1_flash_mutex);
+    }
 #else
     cache_enable(NULL);
 #endif
