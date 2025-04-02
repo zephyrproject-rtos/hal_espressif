@@ -241,6 +241,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_octal.c
       )
 
+    zephyr_sources_ifdef(CONFIG_SPIRAM_FETCH_INSTRUCTIONS
+      ../../components/esp_psram/mmu_psram_flash.c
+      )
   endif()
 
   zephyr_sources_ifdef(

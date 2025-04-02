@@ -20,6 +20,41 @@
 #define os_wpa_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
 #define os_wpa_free_func(_mem)            k_free(_mem)
 
+#elif defined(CONFIG_ESP_WIFI_WIFI_SPIRAM)
+
+#define esp_wifi_malloc_func(_size)                                                               \
+		shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _size)
+#define esp_wifi_calloc_func(_nmemb, _size)                                                       \
+	{                                                                                         \
+		void *p;                                                                          \
+		p = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _nmemb * _size);   \
+		if (p) {                                                                          \
+			memset(p, 0, _nmemb * _size);                                             \
+		}                                                                                 \
+		return p;                                                                         \
+	}
+#define esp_wifi_free_func(_mem) shared_multi_heap_free(_mem)
+
+#define os_wpa_malloc_func(_size) shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _size)
+#define os_wpa_realloc_func(_ptr, _size)                                                          \
+	{	void *p;                                                                          \
+		if (_ptr) {                                                                       \
+			shared_multi_heap_free(_ptr);                                             \
+		}                                                                                 \
+		p = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _size);            \
+		return p;                                                                         \
+	}
+#define os_wpa_calloc_func(_nmemb, _size)                                                         \
+	{                                                                                         \
+		void *p;                                                                          \
+		p = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _nmemb * _size);   \
+		if (p) {                                                                          \
+			memset(p, 0, _nmemb * _size);                                             \
+		}                                                                                 \
+		return p;                                                                         \
+	}
+#define os_wpa_free_func(_mem) shared_multi_heap_free(_mem)
+
 #else
 
 #define esp_wifi_malloc_func(_size)         malloc(_size)

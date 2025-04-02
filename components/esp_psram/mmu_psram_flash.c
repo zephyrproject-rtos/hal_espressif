@@ -172,7 +172,8 @@ void instruction_flash_page_info_init(uint32_t psram_start_physical_page)
     instr_end_page = instr_start_page + instr_page_cnt - 1;
     instr_flash2spiram_offs = instr_start_page - psram_start_physical_page;
     instruction_in_spiram = 1;
-    ESP_DRAM_LOGV("mmu_psram", "Instructions from flash page%d copy to SPIRAM page%d, Offset: %d", instr_start_page, psram_start_physical_page, instr_flash2spiram_offs);
+    ESP_DRAM_LOGV("mmu_psram", "Instructions in flash pages %d..%d copy to SPIRAM page %d, Offset: %d",
+		    instr_start_page, instr_end_page, psram_start_physical_page, instr_flash2spiram_offs);
 }
 
 uint32_t esp_spiram_instruction_access_enabled(void)
