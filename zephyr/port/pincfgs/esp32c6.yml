@@ -151,3 +151,31 @@ i2c0:
     sigi: i2cext0_scl_in
     sigo: i2cext0_scl_out
     gpio: [[0, 23]]
+
+twai0:
+  rx:
+    sigi: twai0_rx
+    gpio: [[0, 23]]
+  tx:
+    sigo: twai0_tx
+    gpio: [[0, 23]]
+  clkout:
+    sigo: twai0_clkout
+    gpio: [[0, 23]]
+  bus_off:
+    sigo: twai0_bus_off_on
+    gpio: [[0, 23]]
+
+twai1:
+  rx:
+    sigi: twai1_rx
+    gpio: [[0, 23]]
+  tx:
+    sigo: twai1_tx
+    gpio: [[0, 23]]
+  clkout:
+    sigo: twai1_clkout
+    gpio: [[0, 23]]
+  bus_off:
+    sigo: twai1_bus_off_on
+    gpio: [[0, 23]]
