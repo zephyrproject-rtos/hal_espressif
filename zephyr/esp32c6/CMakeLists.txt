@@ -319,6 +319,11 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_PCNT_ESP32
+    ../../components/hal/pcnt_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_ESP32_TEMP
     ../../components/driver/deprecated/rtc_temperature_legacy.c
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
