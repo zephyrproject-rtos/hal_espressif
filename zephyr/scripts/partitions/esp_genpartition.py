@@ -9,7 +9,8 @@ output_path = ""
 start_year = 2024
 
 scheme_default = [
-    ("boot",         "mcuboot",        128),
+    ("boot",         "mcuboot",        64),
+    ("sys",          "sys",            64),
     ("slot0",        "image-0",        -1),
     ("slot1",        "image-1",        -1),
     ("slot0-lpcore", "image-0-lpcore", 32),
@@ -20,7 +21,8 @@ scheme_default = [
 ]
 
 scheme_amp = [
-    ("boot",         "mcuboot",        128),
+    ("boot",         "mcuboot",        64),
+    ("sys",          "sys",            64),
     ("slot0",        "image-0",        -3),
     ("slot1",        "image-1",        -3),
     ("slot0-appcpu", "image-0-appcpu", -1),
@@ -162,8 +164,8 @@ def generate_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme, scheme
 
     with open(output_file, "w") as f:
         f.write("\n".join(output))
-    
-    print(f"Writing file {output_file}")
+
+    print(f"Output file: {output_file}")
 
 def generate_default_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme_name):
 
@@ -185,8 +187,8 @@ def generate_default_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme
 
     with open(output_file, "w") as f:
         f.write("\n".join(output))
-    
-    print(f"Writing file {output_file}")
+
+    print(f"Output file: {output_file}")
 
 if __name__ == "__main__":
 
@@ -194,6 +196,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         output_path = sys.argv[1]
+
+    output_path = os.path.realpath(output_path)
 
     for offset_kb in flash_offsets_kb:
         for flash_mb in flash_sizes_mb:
