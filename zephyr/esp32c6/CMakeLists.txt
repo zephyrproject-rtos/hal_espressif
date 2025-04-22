@@ -378,7 +378,9 @@ if(CONFIG_SOC_SERIES_ESP32C6)
         ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
         ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
         ../../components/hal/uart_hal_iram.c
-      )
+	../../components/hal/rtc_io_hal.c
+	../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+	)
   endif()
 
   ## shared WIFI/BT resources
