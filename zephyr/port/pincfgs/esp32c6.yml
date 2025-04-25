@@ -152,6 +152,34 @@ i2c0:
     sigo: i2cext0_scl_out
     gpio: [[0, 23]]
 
+i2s:
+  mclk:
+    sigi: i2s_mclk_in
+    sigo: i2s_mclk_out
+    gpio: [[0, 23]]
+  i_bck:
+    sigi: i2si_bck_in
+    sigo: i2si_bck_out
+    gpio: [[0, 23]]
+  i_ws:
+    sigi: i2si_ws_in
+    sigo: i2si_ws_out
+    gpio: [[0, 23]]
+  i_sd:
+    sigi: i2si_sd_in
+    gpio: [[0, 23]]
+  o_bck:
+    sigi: i2so_bck_in
+    sigo: i2so_bck_out
+    gpio: [[0, 23]]
+  o_ws:
+    sigi: i2so_ws_in
+    sigo: i2so_ws_out
+    gpio: [[0, 23]]
+  o_sd:
+    sigo: i2so_sd_out
+    gpio: [[0, 23]]
+
 twai0:
   rx:
     sigi: twai0_rx
