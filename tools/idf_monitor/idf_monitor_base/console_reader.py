@@ -94,4 +94,8 @@ class ConsoleReader(StoppableThread):
             # Note: This would throw exception in testing mode when the stdin is connected to PTY.
             import fcntl
             import termios
-            fcntl.ioctl(self.console.fd, termios.TIOCSTI, b'\0')
+            try:
+                fcntl.ioctl(self.console.fd, termios.TIOCSTI, b'\0')
+            except OSError:
+                # ignore I/O errors when injecting the “unblock” byte
+                pass
