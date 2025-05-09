@@ -122,7 +122,6 @@ _wctomb_r = 0x4000064c;
 __ascii_wctomb = 0x40000650;
 _mbtowc_r = 0x40000654;
 __ascii_mbtowc = 0x40000658;
-puts = 0x4000065c;
 putc = 0x40000660;
 putchar = 0x40000664;
 nan = 0x40000668;
@@ -133,6 +132,7 @@ syscall_table_ptr = 0x3fcdffd8;
 _global_impure_ptr = 0x3fcdffd4;
 
 /* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( puts = 0x4000065c );
 PROVIDE ( strdup = 0x40000510 );
 PROVIDE ( strndup = 0x40000534 );
 PROVIDE ( rand = 0x40000570 );
