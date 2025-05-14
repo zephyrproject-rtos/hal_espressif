@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <soc.h>
 #include <string.h>
 #include <zephyr/multi_heap/shared_multi_heap.h>
 
@@ -23,6 +24,8 @@
 
 #elif defined(CONFIG_ESP_WIFI_HEAP_SPIRAM)
 
+#define IS_DRAM(addr) ((uint32_t)addr >= SOC_DRAM_LOW && (uint32_t)addr < SOC_DRAM_HIGH)
+
 static inline void* esp_wifi_malloc_func(size_t _size)
 {
 	return shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _size);
@@ -39,7 +42,11 @@ static inline void* esp_wifi_calloc_func(size_t _nmemb, size_t _size)
 
 static inline void esp_wifi_free_func(void *_mem)
 {
-	shared_multi_heap_free(_mem);
+	if (IS_DRAM(_mem)) {
+		k_free(_mem);
+	} else {
+		shared_multi_heap_free(_mem);
+	}
 }
 
 static inline void* os_wpa_malloc_func(size_t _size)
@@ -50,13 +57,14 @@ static inline void* os_wpa_malloc_func(size_t _size)
 static inline void* os_wpa_realloc_func(void *_ptr, size_t _size)
 {
 	if (_ptr) {
-		shared_multi_heap_free(_ptr);
+		esp_wifi_free_func(_ptr);
 	}
-	return shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _size);
+	return os_wpa_malloc_func(_size);
 }
+
 static inline void* os_wpa_calloc_func(size_t _nmemb, size_t _size)
 {
-	void *p = shared_multi_heap_aligned_alloc(SMH_REG_ATTR_EXTERNAL, 16, _nmemb * _size);
+	void *p = os_wpa_malloc_func(_nmemb * _size);
 	if (p) {
 		memset(p, 0, _nmemb * _size);
 	}
@@ -64,7 +72,7 @@ static inline void* os_wpa_calloc_func(size_t _nmemb, size_t _size)
 }
 static inline void os_wpa_free_func(void *_mem)
 {
-	shared_multi_heap_free(_mem);
+	esp_wifi_free_func(_mem);
 }
 
 #else
