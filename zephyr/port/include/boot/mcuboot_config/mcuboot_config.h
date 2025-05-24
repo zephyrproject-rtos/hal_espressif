@@ -40,6 +40,14 @@
 #define MCUBOOT_BOOT_MAX_ALIGN DT_PROP(DT_CHOSEN(zephyr_flash), write_block_size)
 #endif
 
+#if defined(CONFIG_SECURE_FLASH_ENC_ENABLED) || (MCUBOOT_BOOT_MAX_ALIGN == 32)
+#define MCUBOOT_FLASH_HAS_HW_ENCRYPTION 1
+#endif
+
+#ifdef MCUBOOT_FLASH_HAS_HW_ENCRYPTION
+#define FLASH_AUX_WRITE_BUFFER_SIZE 0x100
+#endif
+
 /*
  * Upgrade mode
  *
