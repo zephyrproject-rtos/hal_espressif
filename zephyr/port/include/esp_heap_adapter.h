@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <soc.h>
 #include <string.h>
 #include <zephyr/multi_heap/shared_multi_heap.h>
 
@@ -24,7 +23,7 @@
 
 #elif defined(CONFIG_ESP_WIFI_HEAP_SPIRAM)
 
-#define IS_DRAM(addr) ((uint32_t)addr >= SOC_DRAM_LOW && (uint32_t)addr < SOC_DRAM_HIGH)
+#include <esp_memory_utils.h>
 
 static inline void* esp_wifi_malloc_func(size_t _size)
 {
@@ -42,7 +41,7 @@ static inline void* esp_wifi_calloc_func(size_t _nmemb, size_t _size)
 
 static inline void esp_wifi_free_func(void *_mem)
 {
-	if (IS_DRAM(_mem)) {
+	if (esp_ptr_in_dram(_mem)) {
 		k_free(_mem);
 	} else {
 		shared_multi_heap_free(_mem);
