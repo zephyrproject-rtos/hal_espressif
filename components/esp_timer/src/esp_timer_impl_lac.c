@@ -222,7 +222,7 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    int isr_flags = ((1 << 1) & ESP_INTR_FLAG_LEVELMASK) | ESP_INTR_FLAG_IRAM;
+    int isr_flags = ESP_INTR_FLAG_IRAM;
 
 	esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
 								   (intr_handler_t)timer_alarm_isr, NULL, NULL);
