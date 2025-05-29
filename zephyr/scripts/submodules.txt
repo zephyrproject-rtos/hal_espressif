@@ -1,8 +1,8 @@
-aa8d03a0ff51c166267207e54002613bcedc576e components/bt/controller/lib_esp32c6/esp32c6-bt-lib https://github.com/espressif/esp32c6-bt-lib
-ed99228396aaa18935b575d600bc19da38dc4746 components/bt/controller/lib_esp32c3_family https://github.com/espressif/esp32c3-bt-lib
-35fb599d3733f50254c056171edebcaa3c57d06b components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
-10b87164fad0d1fd3b3e84439f9b58fd4a25501f components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
-1e3487dc778d48c15229af05ce0f03f78e15528c components/esp_phy/lib https://github.com/espressif/esp-phy-lib
-72aa687352a469044cbb946f3fdb261430e41ce1 components/mbedtls/mbedtls https://github.com/espressif/mbedtls
-78de591727b5400ed62108e7e70ad27e404f5325 components/esp_coex/lib https://github.com/espressif/esp-coex-lib
+250e75199e8772a9ce44c53e7747063107d36155 components/bt/controller/lib_esp32c6/esp32c6-bt-lib https://github.com/espressif/esp32c6-bt-lib
+3ff529142f6e2707d57b10eb87ac8d86e9098b88 components/bt/controller/lib_esp32c3_family https://github.com/espressif/esp32c3-bt-lib
+6d007b7167146b31256b29fed31e04dc46989885 components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
+52bbf235d23ef4c647cf95abe4952a260c4d0662 components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
+fc76520d481fc3d08cbc001ef47804a4457fffd7 components/esp_phy/lib https://github.com/espressif/esp-phy-lib
+601990b1d81510a135da9bb0476d6ed3cb8c011b components/mbedtls/mbedtls https://github.com/espressif/mbedtls
+d13a28da1f1843cf19707f39d64970326e0e0cef components/esp_coex/lib https://github.com/espressif/esp-coex-lib
 102b03c8095de8a337c293f79dce189be63186f3 components/ieee802154/lib https://github.com/espressif/esp-ieee802154-lib
