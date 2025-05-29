@@ -335,7 +335,7 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, UINT8 bdn[BTM_MAX_REM_BD_NAME_L
 #if (CLASSIC_BT_INCLUDED == TRUE)
                         const UINT8 req_pend = (p_dev_rec->sm4 & BTM_SM4_REQ_PEND);
 #endif  ///CLASSIC_BT_INCLUDED == TRUE
-                        /* Store the Peer Security Capabilites (in SM4 and rmt_sec_caps) */
+                        /* Store the Peer Security Capabilities (in SM4 and rmt_sec_caps) */
 #if (SMP_INCLUDED == TRUE)
                         btm_sec_set_peer_sec_caps(p, p_dev_rec);
 #endif  ///SMP_INCLUDED == TRUE
@@ -350,7 +350,7 @@ void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, UINT8 bdn[BTM_MAX_REM_BD_NAME_L
                         return;
                     }
                 } else {
-                    /* If remote features indicated secure connection (SC) mode, check the remote feautres again*/
+                    /* If remote features indicated secure connection (SC) mode, check the remote features again*/
                     /* this is to prevent from BIAS attack where attacker can downgrade SC mode*/
                     btm_read_remote_features (p->hci_handle);
                 }
@@ -474,7 +474,7 @@ void btm_acl_removed (BD_ADDR bda, tBT_TRANSPORT transport)
                     BTM_TRACE_DEBUG("Bonded\n");
                 }
             } else {
-                BTM_TRACE_DEBUG("Bletooth link down\n");
+                BTM_TRACE_DEBUG("Bluetooth link down\n");
                 p_dev_rec->sec_flags &= ~(BTM_SEC_AUTHORIZED | BTM_SEC_AUTHENTICATED
                                           | BTM_SEC_ENCRYPTED | BTM_SEC_ROLE_SWITCHED);
             }
@@ -531,10 +531,11 @@ void btm_acl_device_down (void)
 *******************************************************************************/
 void btm_acl_update_busy_level (tBTM_BLI_EVENT event)
 {
-    tBTM_BL_UPDATE_DATA  evt;
-    UINT8 busy_level;
-    BTM_TRACE_DEBUG ("btm_acl_update_busy_level\n");
+    UINT8 busy_level_flags = 0;
     BOOLEAN old_inquiry_state = btm_cb.is_inquiry;
+
+    BTM_TRACE_DEBUG ("btm_acl_update_busy_level\n");
+
     switch (event) {
     case BTM_BLI_ACL_UP_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_ACL_UP_EVT\n");
@@ -545,30 +546,31 @@ void btm_acl_update_busy_level (tBTM_BLI_EVENT event)
     case BTM_BLI_PAGE_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_PAGE_EVT\n");
         btm_cb.is_paging = TRUE;
-        evt.busy_level_flags = BTM_BL_PAGING_STARTED;
+        busy_level_flags = BTM_BL_PAGING_STARTED;
         break;
     case BTM_BLI_PAGE_DONE_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_PAGE_DONE_EVT\n");
         btm_cb.is_paging = FALSE;
-        evt.busy_level_flags = BTM_BL_PAGING_COMPLETE;
+        busy_level_flags = BTM_BL_PAGING_COMPLETE;
         break;
     case BTM_BLI_INQ_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_INQ_EVT\n");
         btm_cb.is_inquiry = TRUE;
-        evt.busy_level_flags = BTM_BL_INQUIRY_STARTED;
+        busy_level_flags = BTM_BL_INQUIRY_STARTED;
         break;
     case BTM_BLI_INQ_CANCEL_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_INQ_CANCEL_EVT\n");
         btm_cb.is_inquiry = FALSE;
-        evt.busy_level_flags = BTM_BL_INQUIRY_CANCELLED;
+        busy_level_flags = BTM_BL_INQUIRY_CANCELLED;
         break;
     case BTM_BLI_INQ_DONE_EVT:
         BTM_TRACE_DEBUG ("BTM_BLI_INQ_DONE_EVT\n");
         btm_cb.is_inquiry = FALSE;
-        evt.busy_level_flags = BTM_BL_INQUIRY_COMPLETE;
+        busy_level_flags = BTM_BL_INQUIRY_COMPLETE;
         break;
     }
 
+    UINT8 busy_level;
     if (btm_cb.is_paging || btm_cb.is_inquiry) {
         busy_level = 10;
     } else {
@@ -576,8 +578,11 @@ void btm_acl_update_busy_level (tBTM_BLI_EVENT event)
     }
 
     if ((busy_level != btm_cb.busy_level) || (old_inquiry_state != btm_cb.is_inquiry)) {
-        evt.event         = BTM_BL_UPDATE_EVT;
-        evt.busy_level    = busy_level;
+        tBTM_BL_UPDATE_DATA evt = {
+            .event = BTM_BL_UPDATE_EVT,
+            .busy_level = busy_level,
+            .busy_level_flags = busy_level_flags,
+        };
         btm_cb.busy_level = busy_level;
         if (btm_cb.p_bl_changed_cb && (btm_cb.bl_evt_mask & BTM_BL_UPDATE_MASK)) {
             (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA *)&evt);
@@ -1016,7 +1021,7 @@ void btm_process_remote_ext_features (tACL_CONN *p_acl_cb, UINT8 num_read_pages)
 
     const UINT8 req_pend = (p_dev_rec->sm4 & BTM_SM4_REQ_PEND);
 #if (SMP_INCLUDED == TRUE)
-    /* Store the Peer Security Capabilites (in SM4 and rmt_sec_caps) */
+    /* Store the Peer Security Capabilities (in SM4 and rmt_sec_caps) */
     btm_sec_set_peer_sec_caps(p_acl_cb, p_dev_rec);
 #endif  ///SMP_INCLUDED == TRUE
     BTM_TRACE_API("%s: pend:%d\n", __FUNCTION__, req_pend);
@@ -1455,7 +1460,7 @@ void btm_process_clk_off_comp_evt (UINT16 hci_handle, UINT16 clock_offset)
 **
 ** Function         btm_acl_role_changed
 **
-** Description      This function is called whan a link's master/slave role change
+** Description      This function is called when a link's master/slave role change
 **                  event or command status event (with error) is received.
 **                  It updates the link control block, and calls
 **                  the registered callback with status and role (if registered).
@@ -2218,6 +2223,18 @@ void BTM_BleGetWhiteListSize(uint16_t *length)
     *length = p_cb->white_list_avail_size;
     return;
 }
+
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+void BTM_BleGetPeriodicAdvListSize(uint8_t *size)
+{
+    tBTM_BLE_CB *p_cb = &btm_cb.ble_ctr_cb;
+    if (p_cb->periodic_adv_list_size == 0) {
+        BTM_TRACE_WARNING("%s Periodic Adv list is full.", __func__);
+    }
+    *size = p_cb->periodic_adv_list_size;
+}
+#endif  //#if (BLE_50_FEATURE_SUPPORT == TRUE)
+
 #endif  ///BLE_INCLUDED == TRUE
 
 /*******************************************************************************
@@ -2705,7 +2722,7 @@ void btm_acl_connected(BD_ADDR bda, UINT16 handle, UINT8 link_type, UINT8 enc_mo
         l2c_link_hci_conn_comp(status, handle, bda);
     }
 #if BTM_SCO_INCLUDED == TRUE
-    else {
+    else if (link_type == HCI_LINK_TYPE_SCO) {
         memset(&esco_data, 0, sizeof(tBTM_ESCO_DATA));
         esco_data.link_type = HCI_LINK_TYPE_SCO;
         memcpy (esco_data.bd_addr, bda, BD_ADDR_LEN);

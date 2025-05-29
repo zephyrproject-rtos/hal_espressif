@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -20,6 +20,10 @@
 #include "esp_hw_log.h"
 #include "sdkconfig.h"
 #include "hal/clk_tree_ll.h"
+#ifndef BOOTLOADER_BUILD
+#include "esp_private/systimer.h"
+#include "hal/systimer_ll.h"
+#endif
 
 static const char *TAG = "rtc_clk";
 
@@ -46,6 +50,13 @@ void rtc_clk_32k_enable_external(void)
     SET_PERI_REG_MASK(RTC_IO_XTAL_32P_PAD_REG, RTC_IO_X32P_MUX_SEL);
     SET_PERI_REG_MASK(RTC_IO_XTAL_32N_PAD_REG, RTC_IO_X32N_MUX_SEL);
     clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_EXTERNAL);
+}
+
+void rtc_clk_32k_disable_external(void)
+{
+    CLEAR_PERI_REG_MASK(RTC_IO_XTAL_32P_PAD_REG, RTC_IO_X32P_MUX_SEL);
+    CLEAR_PERI_REG_MASK(RTC_IO_XTAL_32N_PAD_REG, RTC_IO_X32N_MUX_SEL);
+    clk_ll_xtal32k_disable();
 }
 
 void rtc_clk_32k_bootstrap(uint32_t cycle)
@@ -449,6 +460,9 @@ static void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
     /* no need to adjust the REF_TICK, default register value already set it to 1MHz with any cpu clock source */
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+#ifndef BOOTLOADER_BUILD
+    systimer_ll_set_step_for_xtal(&SYSTIMER, systimer_us_to_ticks(1) / cpu_freq);
+#endif
     rtc_clk_apb_freq_update(cpu_freq * MHZ);
 
     /* lower the voltage

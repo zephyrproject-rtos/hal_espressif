@@ -14,6 +14,7 @@
 #include "esp_attr.h"
 #include "soc/uart_periph.h"
 #include "soc/uart_struct.h"
+#include "soc/dport_reg.h"
 #include "hal/uart_types.h"
 
 #ifdef __cplusplus
@@ -55,6 +56,25 @@ typedef enum {
 } uart_intr_t;
 
 /**
+ * @brief Check if UART is enabled or disabled.
+ *
+ * @param uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ *
+ * @return true: enabled; false: disabled
+ */
+FORCE_INLINE_ATTR bool uart_ll_is_enabled(uint32_t uart_num)
+{
+    uint32_t uart_rst_bit = ((uart_num == 0) ? DPORT_UART_RST :
+                            (uart_num == 1) ? DPORT_UART1_RST :
+                            (uart_num == 2) ? DPORT_UART2_RST : 0);
+    uint32_t uart_en_bit  = ((uart_num == 0) ? DPORT_UART_CLK_EN :
+                            (uart_num == 1) ? DPORT_UART1_CLK_EN :
+                            (uart_num == 2) ? DPORT_UART2_CLK_EN : 0);
+    return DPORT_REG_GET_BIT(DPORT_PERIP_RST_EN_REG, uart_rst_bit) == 0 &&
+        DPORT_REG_GET_BIT(DPORT_PERIP_CLK_EN_REG, uart_en_bit) != 0;
+}
+
+/**
  * @brief  Set the UART source clock.
  *
  * @param  hw Beginning address of the peripheral registers.
@@ -88,17 +108,23 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, uart_sclk_t* source_clk)
  * @param  baud The baud-rate to be set. When the source clock is APB, the max baud-rate is `UART_LL_BITRATE_MAX`
  * @param  sclk_freq Frequency of the clock source of UART, in Hz.
 
- * @return None
+ * @return True if baud-rate set successfully; False if baud-rate requested cannot be achieved
  */
-FORCE_INLINE_ATTR void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
+FORCE_INLINE_ATTR bool uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
 {
-    uint32_t clk_div;
-
-    clk_div = ((sclk_freq) << 4) / baud;
-    // The baud-rate configuration register is divided into
-    // an integer part and a fractional part.
-    hw->clk_div.div_int = clk_div >> 4;
-    hw->clk_div.div_frag = clk_div &  0xf;
+    if (baud == 0) {
+        return false;
+    }
+    uint32_t clk_div = ((sclk_freq) << 4) / baud;
+    // The baud-rate configuration register is divided into an integer part and a fractional part.
+    uint32_t clkdiv_int = clk_div >> 4;
+    if (clkdiv_int > UART_CLKDIV_V) {
+        return false; // unachievable baud-rate
+    }
+    uint32_t clkdiv_frag = clk_div & 0xf;
+    hw->clk_div.div_int = clkdiv_int;
+    hw->clk_div.div_frag = clkdiv_frag;
+    return true;
 }
 
 /**

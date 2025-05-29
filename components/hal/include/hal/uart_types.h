@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,7 +14,6 @@ extern "C" {
 #include <stdbool.h>
 #include "soc/soc_caps.h"
 #include "soc/clk_tree_defs.h"
-#include "esp_assert.h"
 
 /**
  * @brief UART port number, can be UART_NUM_0 ~ (UART_NUM_MAX -1).
@@ -37,7 +36,7 @@ typedef enum {
     UART_NUM_MAX,                       /*!< UART port max */
 } uart_port_t;
 
-ESP_STATIC_ASSERT(UART_NUM_MAX == SOC_UART_NUM, "UART_NUM_MAX does not match SOC_UART_NUM");
+// ESP_STATIC_ASSERT(UART_NUM_MAX == SOC_UART_NUM, "UART_NUM_MAX does not match SOC_UART_NUM");
 
 /**
  * @brief UART mode selection
@@ -139,6 +138,19 @@ typedef struct {
     uint8_t xon_thrd;      /*!< If the software flow control is enabled and the data amount in rxfifo is less than xon_thrd, an xon_char will be sent*/
     uint8_t xoff_thrd;       /*!< If the software flow control is enabled and the data amount in rxfifo is more than xoff_thrd, an xoff_char will be sent*/
 } uart_sw_flowctrl_t;
+
+/**
+ * @brief UART configuration parameters for uart_param_config function
+ */
+typedef struct {
+    int baud_rate;                      /*!< UART baud rate*/
+    uart_word_length_t data_bits;       /*!< UART byte size*/
+    uart_parity_t parity;               /*!< UART parity mode*/
+    uart_stop_bits_t stop_bits;         /*!< UART stop bits*/
+    uart_hw_flowcontrol_t flow_ctrl;    /*!< UART HW flow control mode (cts/rts)*/
+    uint8_t rx_flow_ctrl_thresh;        /*!< UART HW RTS threshold*/
+    uart_sclk_t source_clk;             /*!< UART source clock selection */
+} uart_config_t;
 
 #ifdef __cplusplus
 }

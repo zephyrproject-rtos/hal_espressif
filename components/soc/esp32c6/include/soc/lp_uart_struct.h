@@ -499,7 +499,7 @@ typedef union {
          */
         uint32_t err_wr_mask:1;
         uint32_t reserved_19:1;
-        /** mem_clk_en : R/W; bitpos: [20]; default: 0;
+        /** mem_clk_en : R/W; bitpos: [20]; default: 1;
          *  UART memory clock gate enable signal.
          */
         uint32_t mem_clk_en:1;
@@ -792,7 +792,7 @@ typedef union {
  */
 typedef union {
     struct {
-        uint32_t reserved_0:24;
+        uint32_t reserved_20:24;
         /** tx_sclk_en : R/W; bitpos: [24]; default: 1;
          *  Set this bit to enable UART Tx clock.
          */
@@ -1017,7 +1017,7 @@ typedef union {
  */
 typedef union {
     struct {
-        /** date : R/W; bitpos: [31:0]; default: 36720720;
+        /** date : R/W; bitpos: [31:0]; default: 35656288;
          *  This is the version register.
          */
         uint32_t date:32;
@@ -1092,7 +1092,6 @@ typedef struct {
     volatile lp_uart_reg_update_reg_t reg_update;
     volatile lp_uart_id_reg_t id;
 } lp_uart_dev_t;
-
 
 #ifndef __cplusplus
 _Static_assert(sizeof(lp_uart_dev_t) == 0xa0, "Invalid size of lp_uart_dev_t structure");

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,7 +12,11 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include "soc/rtc_io_struct.h"
+#include "soc/rtc_io_reg.h"
 #include "soc/rtc_periph.h"
 #include "hal/gpio_types.h"
 #include "soc/io_mux_reg.h"
@@ -42,6 +46,16 @@ typedef enum {
 } rtcio_ll_out_mode_t;
 
 /**
+ * @brief Enable/Disable LP IOMUX clock.
+ *
+ * @param enable true to enable the clock / false to disable the clock
+ */
+static inline void rtcio_ll_enable_io_clock(bool enable)
+{
+    SENS.sar_peri_clk_gate_conf.iomux_clk_en = enable;
+}
+
+/**
  * @brief Select the rtcio function.
  *
  * @note The RTC function must be selected before the pad analog function is enabled.
@@ -55,14 +69,12 @@ static inline void rtcio_ll_function_select(int rtcio_num, rtcio_ll_func_t func)
         if (rtcio_num == rtc_io_num_map[USB_DM_GPIO_NUM] || rtcio_num == rtc_io_num_map[USB_DP_GPIO_NUM]) {
             USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
         }
-        SENS.sar_peri_clk_gate_conf.iomux_clk_en = 1;
         // 0: GPIO connected to digital GPIO module. 1: GPIO connected to analog RTC module.
         SET_PERI_REG_MASK(rtc_io_desc[rtcio_num].reg, (rtc_io_desc[rtcio_num].mux));
         //0:RTC FUNCTION 1,2,3:Reserved
         SET_PERI_REG_BITS(rtc_io_desc[rtcio_num].reg, RTC_IO_TOUCH_PAD1_FUN_SEL_V, RTCIO_LL_PIN_FUNC, rtc_io_desc[rtcio_num].func);
     } else if (func == RTCIO_FUNC_DIGITAL) {
         CLEAR_PERI_REG_MASK(rtc_io_desc[rtcio_num].reg, (rtc_io_desc[rtcio_num].mux));
-        SENS.sar_peri_clk_gate_conf.iomux_clk_en = 0;
         // USB Serial JTAG pad re-enable won't be done here (it requires both DM and DP pins not in rtc function)
         // Instead, USB_SERIAL_JTAG_USB_PAD_ENABLE needs to be guaranteed to be set in usb_serial_jtag driver
     }
@@ -212,6 +224,21 @@ static inline void rtcio_ll_pullup_disable(int rtcio_num)
 }
 
 /**
+ * @brief Get RTC GPIO pad pullup status.
+ *
+ * @param rtcio_num The index of rtcio. 0 ~ MAX(rtcio).
+ * @return Whether the pullup of the pad is enabled or not.
+ */
+static inline bool rtcio_ll_is_pullup_enabled(int rtcio_num)
+{
+    if (rtc_io_desc[rtcio_num].pullup) {
+        return GET_PERI_REG_MASK(rtc_io_desc[rtcio_num].reg, rtc_io_desc[rtcio_num].pullup);
+    } else {
+        return false;
+    }
+}
+
+/**
  * RTC GPIO pulldown enable.
  *
  * @param rtcio_num The index of rtcio. 0 ~ MAX(rtcio).
@@ -232,6 +259,21 @@ static inline void rtcio_ll_pulldown_disable(int rtcio_num)
 {
     if (rtc_io_desc[rtcio_num].pulldown) {
         CLEAR_PERI_REG_MASK(rtc_io_desc[rtcio_num].reg, rtc_io_desc[rtcio_num].pulldown);
+    }
+}
+
+/**
+ * @brief Get RTC GPIO pad pulldown status.
+ *
+ * @param rtcio_num The index of rtcio. 0 ~ MAX(rtcio).
+ * @return Whether the pulldown of the pad is enabled or not.
+ */
+static inline bool rtcio_ll_is_pulldown_enabled(int rtcio_num)
+{
+    if (rtc_io_desc[rtcio_num].pulldown) {
+        return GET_PERI_REG_MASK(rtc_io_desc[rtcio_num].reg, rtc_io_desc[rtcio_num].pulldown);
+    } else {
+        return false;
     }
 }
 
@@ -295,8 +337,7 @@ static inline void rtcio_ll_force_unhold_all(void)
  */
 static inline void rtcio_ll_wakeup_enable(int rtcio_num, rtcio_ll_wake_type_t type)
 {
-    SENS.sar_peri_clk_gate_conf.iomux_clk_en = 1;
-    RTCIO.pin[rtcio_num].wakeup_enable = 0x1;
+    RTCIO.pin[rtcio_num].wakeup_enable = 1;
     RTCIO.pin[rtcio_num].int_type = type;
 }
 

@@ -353,6 +353,10 @@ typedef struct {
     tBTM_BLE_SEL_CBACK *p_select_cback;
     /* white list information */
     UINT8 white_list_avail_size;
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+    /* periodic list information */
+    UINT8 periodic_adv_list_size;
+#endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
     tBTM_UPDATE_WHITELIST_CBACK *update_wl_cb;
     tBTM_BLE_WL_STATE wl_state;
 
@@ -381,6 +385,7 @@ typedef struct {
     UINT8 link_count[2]; /* total link count master and slave*/
     tBTM_UPDATE_DUPLICATE_EXCEPTIONAL_LIST_CMPL_CBACK *update_exceptional_list_cmp_cb;
     tBTM_SET_CSA_SUPPORT_CMPL_CBACK *set_csa_support_cmpl_cb;
+    tBTM_SET_VENDOR_EVT_MASK_CBACK *set_vendor_evt_mask_cmpl_cb;
 } tBTM_BLE_CB;
 
 #ifdef __cplusplus
@@ -540,6 +545,7 @@ void btm_ble_channel_select_algorithm_evt(tBTM_BLE_CHANNEL_SEL_ALG *params);
 void btm_ble_periodic_adv_report_evt(tBTM_PERIOD_ADV_REPORT *params);
 void btm_ble_periodic_adv_sync_lost_evt(tBTM_BLE_PERIOD_ADV_SYNC_LOST *params);
 void btm_ble_periodic_adv_sync_establish_evt(tBTM_BLE_PERIOD_ADV_SYNC_ESTAB *params);
+void btm_ble_periodic_adv_list_init(UINT8 periodic_adv_size);
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 
 #if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)

@@ -43,8 +43,6 @@ typedef struct tBTM_SEC_DEV_REC tBTM_SEC_DEV_REC;
 #include "stack/smp_api.h"
 #endif
 
-#define ESP_VS_REM_LEGACY_AUTH_CMP 0x03
-
 #if BTM_MAX_LOC_BD_NAME_LEN > 0
 typedef char tBTM_LOC_BD_NAME[BTM_MAX_LOC_BD_NAME_LEN + 1];
 #endif
@@ -464,7 +462,6 @@ typedef struct {
     tSCO_CONN            sco_db[BTM_MAX_SCO_LINKS];
     tBTM_ESCO_PARAMS     def_esco_parms;
     BD_ADDR              xfer_addr;
-    UINT16               sco_disc_reason;
     BOOLEAN              esco_supported;    /* TRUE if 1.2 cntlr AND supports eSCO links */
     tBTM_SCO_TYPE        desired_sco_mode;
     tBTM_SCO_TYPE        xfer_sco_type;
@@ -1149,7 +1146,9 @@ void btm_vsc_complete (UINT8 *p, UINT16 cc_opcode, UINT16 evt_len,
                        tBTM_CMPL_CB *p_vsc_cplt_cback);
 void btm_inq_db_reset (void);
 void btm_vendor_specific_evt (UINT8 *p, UINT8 evt_len);
+#if (CLASSIC_BT_INCLUDED == TRUE)
 void btm_delete_stored_link_key_complete (UINT8 *p);
+#endif // (CLASSIC_BT_INCLUDED == TRUE)
 void btm_report_device_status (tBTM_DEV_STATUS status);
 void btm_set_afh_channels_complete (UINT8 *p);
 void btm_ble_set_channels_complete (UINT8 *p);

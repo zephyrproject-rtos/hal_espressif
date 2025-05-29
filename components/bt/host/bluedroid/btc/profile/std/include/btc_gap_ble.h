@@ -22,6 +22,10 @@ extern tBTA_BLE_ADV_DATA *gl_bta_scan_rsp_data_ptr;
 
 #define BLE_ISVALID_PARAM(x, min, max)  (((x) >= (min) && (x) <= (max)))
 
+#define BLE_VENDOR_PDU_RECV_EVT         (0xC0)
+#define BLE_VENDOR_CHMAP_UPDATE_EVT     (0xC1)
+#define BLE_VENDOR_SLEEP_WAKEUP_EVT     (0xC3)
+
 typedef enum {
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
     BTC_GAP_BLE_ACT_CFG_ADV_DATA = 0,
@@ -109,6 +113,7 @@ typedef enum {
     BTC_GAP_BLE_ACT_VENDOR_HCI_CMD_EVT,
     BTC_GAP_BLE_SET_PRIVACY_MODE,
     BTC_GAP_BLE_SET_CSA_SUPPORT,
+    BTC_GAP_BLE_ACT_SET_VENDOR_EVT_MASK,
 } btc_gap_ble_act_t;
 
 /* btc_ble_gap_args_t */
@@ -281,6 +286,10 @@ typedef union {
     struct set_csa_support_args {
         uint8_t csa_select;
     } set_csa_support;
+    // BTC_GAP_BLE_ACT_SET_VENDOR_EVT_MASK
+    struct set_vendor_evt_mask_args {
+        uint32_t evt_mask;
+    } set_vendor_evt_mask;
 } btc_ble_gap_args_t;
 
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
@@ -441,6 +450,9 @@ typedef union {
 void btc_gap_ble_call_handler(btc_msg_t *msg);
 void btc_gap_ble_cb_handler(btc_msg_t *msg);
 void btc_get_whitelist_size(uint16_t *length);
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+void btc_get_periodic_list_size(uint8_t *length);
+#endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
 void btc_gap_ble_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src);
 void btc_gap_ble_arg_deep_free(btc_msg_t *msg);
 void btc_gap_ble_cb_deep_free(btc_msg_t *msg);

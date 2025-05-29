@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -141,6 +141,7 @@ FORCE_INLINE_ATTR void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_u
     }
 }
 
+
 /**
  * @brief  Configure the lp uart baud-rate.
  *
@@ -148,33 +149,25 @@ FORCE_INLINE_ATTR void lp_uart_ll_set_source_clk(uart_dev_t *hw, soc_periph_lp_u
  * @param  baud The baud rate to be set.
  * @param  sclk_freq Frequency of the clock source of UART, in Hz.
  *
- * @return None
+ * @return True if baud-rate set successfully; False if baud-rate requested cannot be achieved
  */
-FORCE_INLINE_ATTR void lp_uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
+FORCE_INLINE_ATTR bool lp_uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
 {
-    // Constants
-    const uint32_t MAX_DIV_BITS = 12;  // UART divider integer part bits
-    const uint32_t MAX_DIV = (1U << MAX_DIV_BITS) - 1;  // Maximum divider value
-
-    // Ensure baud rate and sclk_freq are valid
-    if (baud == 0 || sclk_freq == 0) abort();
-
-    // Calculate sclk divider
-    uint32_t sclk_div = (sclk_freq + MAX_DIV * baud - 1) / (MAX_DIV * baud);
-    if (sclk_div == 0) abort();  // Handle invalid sclk_div
-
-    // Calculate clk_div with integer and fractional parts
-    uint32_t clk_div = (sclk_freq * 16) / (baud * sclk_div);
-    uint32_t clk_div_int = clk_div >> 4;  // Integer part
-    uint32_t clk_div_frac = clk_div & 0xF;  // Fractional part
-
-    // Configure hardware registers
-    hw->clkdiv_sync.clkdiv_int = clk_div_int;
-    hw->clkdiv_sync.clkdiv_frag = clk_div_frac;
-    HAL_FORCE_MODIFY_U32_REG_FIELD(hw->clk_conf, sclk_div_num, sclk_div - 1);
-
-    // Update UART hardware
+    if (baud == 0) {
+        return false;
+    }
+    // No pre-divider for LP UART clock source on the target
+    uint32_t clk_div = (sclk_freq << 4) / baud;
+    // The baud rate configuration register is divided into an integer part and a fractional part.
+    uint32_t clkdiv_int = clk_div >> 4;
+    if (clkdiv_int > UART_CLKDIV_V) {
+        return false; // unachievable baud-rate
+    }
+    uint32_t clkdiv_frag = clk_div & 0xf;
+    hw->clkdiv_sync.clkdiv_int = clkdiv_int;
+    hw->clkdiv_sync.clkdiv_frag = clkdiv_frag;
     uart_ll_update(hw);
+    return true;
 }
 
 /**
@@ -402,19 +395,24 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, uart_sclk_t *source_clk)
  * @param  baud The baud rate to be set.
  * @param  sclk_freq Frequency of the clock source of UART, in Hz.
  *
- * @return None
+ * @return True if baud-rate set successfully; False if baud-rate requested cannot be achieved
  */
-FORCE_INLINE_ATTR void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
+FORCE_INLINE_ATTR bool uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint32_t sclk_freq)
 {
 #define DIV_UP(a, b)    (((a) + (b) - 1) / (b))
-    const uint32_t max_div = BIT(12) - 1;   // UART divider integer part only has 12 bits
+    if (baud == 0) {
+        return false;
+    }
+    const uint32_t max_div = UART_CLKDIV_V;   // UART divider integer part only has 12 bits
     uint32_t sclk_div = DIV_UP(sclk_freq, (uint64_t)max_div * baud);
+#undef DIV_UP
 
-    if (sclk_div == 0) abort();
+    if (sclk_div == 0 || sclk_div > (PCR_UART0_SCLK_DIV_NUM_V + 1)) {
+        return false; // unachievable baud-rate
+    }
 
     uint32_t clk_div = ((sclk_freq) << 4) / (baud * sclk_div);
-    // The baud rate configuration register is divided into
-    // an integer part and a fractional part.
+    // The baud rate configuration register is divided into an integer part and a fractional part.
     hw->clkdiv_sync.clkdiv_int = clk_div >> 4;
     hw->clkdiv_sync.clkdiv_frag = clk_div & 0xf;
     if ((hw) == &LP_UART) {
@@ -422,8 +420,8 @@ FORCE_INLINE_ATTR void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud, uint3
     } else {
         UART_LL_PCR_REG_U32_SET(hw, sclk_conf, sclk_div_num, sclk_div - 1);
     }
-#undef DIV_UP
     uart_ll_update(hw);
+    return true;
 }
 
 /**
@@ -440,7 +438,7 @@ FORCE_INLINE_ATTR uint32_t uart_ll_get_baudrate(uart_dev_t *hw, uint32_t sclk_fr
     div_reg.val = hw->clkdiv_sync.val;
     int sclk_div;
     if ((hw) == &LP_UART) {
-        sclk_div = HAL_FORCE_READ_U32_REG_FIELD(hw->clk_conf, sclk_div_num) + 1;
+        sclk_div = 1; // no pre-divider for LP UART clock source on the target
     } else {
         sclk_div = UART_LL_PCR_REG_U32_GET(hw, sclk_conf, sclk_div_num) + 1;
     }

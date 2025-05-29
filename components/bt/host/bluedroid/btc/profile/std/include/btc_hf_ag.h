@@ -211,6 +211,7 @@ typedef struct
 {
     bool                               initialized;
     UINT16                             handle;
+    UINT16                             sync_conn_hdl;
     bt_bdaddr_t                        connected_bda;
     tBTA_AG_PEER_FEAT                  peer_feat;
     tBTA_AG_CHLD_FEAT                  chld_feat;
@@ -254,6 +255,8 @@ void btc_hf_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src);
 void btc_hf_arg_deep_free(btc_msg_t *msg);
 
 bt_status_t btc_hf_ci_sco_data(void);
+
+void btc_hf_get_profile_status(esp_hf_profile_status_t *param);
 
 #endif  // BTC_HF_INCLUDED == TRUE
 

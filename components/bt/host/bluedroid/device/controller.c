@@ -83,6 +83,7 @@ typedef struct {
     bool secure_connections_supported;
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
     uint16_t ble_ext_adv_data_max_len;
+    uint16_t get_ble_periodic_advertiser_list_size;
 #endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
 } controller_local_param_t;
 
@@ -95,6 +96,7 @@ static controller_local_param_t *controller_param_ptr;
 
 #define AWAIT_COMMAND(command) future_await(controller_param.hci->transmit_command_futured(command))
 
+static bool loaded = false;
 // Module lifecycle functions
 
 static void start_up(void)
@@ -277,6 +279,10 @@ static void start_up(void)
                 response,
                 &controller_param.ble_ext_adv_data_max_len);
         }
+        response = AWAIT_COMMAND(controller_param.packet_factory->make_read_periodic_adv_list_size());
+        controller_param.packet_parser->parse_ble_read_periodic_adv_list_size_response(
+            response,
+            &controller_param.get_ble_periodic_advertiser_list_size);
 #endif // (BLE_50_FEATURE_SUPPORT == TRUE && BLE_42_FEATURE_SUPPORT == FALSE)
 
         if (HCI_LE_DATA_LEN_EXT_SUPPORTED(controller_param.features_ble.as_array)) {
@@ -316,6 +322,17 @@ static void shut_down(void)
 {
     controller_param.readable = false;
 }
+
+#if (BT_BLE_DYNAMIC_ENV_MEMORY == TRUE)
+void free_controller_param(void)
+{
+    if (controller_param_ptr) {
+        osi_free(controller_param_ptr);
+        controller_param_ptr = NULL;
+        loaded = false;
+    }
+}
+#endif
 
 static bool get_is_ready(void)
 {
@@ -517,6 +534,12 @@ static uint16_t ble_get_ext_adv_data_max_len(void)
 
     return controller_param.ble_ext_adv_data_max_len;
 }
+static uint8_t get_ble_periodic_adv_list_size(void)
+{
+    assert(controller_param.readable);
+    assert(controller_param.ble_supported);
+    return controller_param.get_ble_periodic_advertiser_list_size;
+}
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
 static uint8_t get_sco_data_size(void)
@@ -577,6 +600,7 @@ static const controller_t interface = {
     set_ble_resolving_list_max_size,
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
     ble_get_ext_adv_data_max_len,
+    get_ble_periodic_adv_list_size,
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 #if (BTM_SCO_HCI_INCLUDED == TRUE)
     get_sco_data_size,
@@ -586,7 +610,6 @@ static const controller_t interface = {
 
 const controller_t *controller_get_interface(void)
 {
-    static bool loaded = false;
     if (!loaded) {
         loaded = true;
 #if (BT_BLE_DYNAMIC_ENV_MEMORY == TRUE)
