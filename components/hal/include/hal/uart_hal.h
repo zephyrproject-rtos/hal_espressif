@@ -30,26 +30,6 @@ typedef struct {
 } uart_hal_context_t;
 
 /**
- * @brief  Configure the UART baud-rate and select the source clock
- *
- * @param  hal Context of the HAL layer
- * @param  baud_rate The baud-rate to be set
- * @param  sclk_freq Frequency of the clock source of UART, in Hz.
- *
- * @return None
- */
-#define uart_hal_set_baudrate(hal, baud_rate, sclk_freq) uart_ll_set_baudrate((hal)->dev, baud_rate, sclk_freq)
-
-/**
- * @brief Set the UART source clock type
- * @param  hal Context of the HAL layer
- * @param  sclk The UART source clock type.
- *
- * @return None
- */
-#define uart_hal_set_sclk(hal, sclk) uart_ll_set_sclk((hal)->dev, sclk);
-
-/**
  * @brief Clear the UART interrupt status
  *
  * @param  hal Context of the HAL layer
@@ -146,6 +126,16 @@ typedef struct {
 #define uart_hal_is_tx_idle(hal)  uart_ll_is_tx_idle((hal)->dev)
 
 /**
+ * @brief  Configure the UART core reset
+ *
+ * @param  hal Context of the HAL layer
+ * @param  core_rst_en true to enable the core reset, otherwise set it false
+ *
+ * @return None
+ */
+#define uart_hal_set_reset_core(hal, core_rst_en)  uart_ll_set_reset_core((hal)->dev, core_rst_en)
+
+/**
  * @brief  Read data from the UART rxfifo
  *
  * @param[in] hal Context of the HAL layer
@@ -199,6 +189,15 @@ void uart_hal_rxfifo_rst(uart_hal_context_t *hal);
 void uart_hal_init(uart_hal_context_t *hal, uart_port_t uart_num);
 
 /**
+ * @brief Set the UART source clock type
+ * @param  hal Context of the HAL layer
+ * @param  sclk The UART source clock type.
+ *
+ * @return None
+ */
+void uart_hal_set_sclk(uart_hal_context_t *hal, uart_sclk_t sclk);
+
+/**
  * @brief Get the UART source clock type
  *
  * @param  hal Context of the HAL layer
@@ -207,6 +206,17 @@ void uart_hal_init(uart_hal_context_t *hal, uart_port_t uart_num);
  * @return None
  */
 void uart_hal_get_sclk(uart_hal_context_t *hal, uart_sclk_t *sclk);
+
+/**
+ * @brief  Configure the UART baud-rate and select the source clock
+ *
+ * @param  hal Context of the HAL layer
+ * @param  baud_rate The baud-rate to be set
+ * @param  sclk_freq Frequency of the clock source of UART, in Hz.
+ *
+ * @return True if baud-rate set successfully; False if baud-rate requested cannot be achieved
+ */
+bool uart_hal_set_baudrate(uart_hal_context_t *hal, uint32_t baud_rate, uint32_t sclk_freq);
 
 /**
  * @brief  Configure the UART stop bit

@@ -71,6 +71,8 @@ static tBTM_BLE_CTRL_FEATURES_CBACK    *p_ctrl_le_feature_rd_cmpl_cback = NULL;
 #endif
 
 tBTM_CallbackFunc conn_callback_func;
+// BLE vendor HCI event callback
+static tBTM_BLE_VENDOR_HCI_EVT_CBACK *ble_vs_evt_callback = NULL;
 /*******************************************************************************
 **  Local functions
 *******************************************************************************/
@@ -324,6 +326,11 @@ void BTM_BleRegiseterConnParamCallback(tBTM_UPDATE_CONN_PARAM_CBACK *update_conn
 void BTM_BleRegiseterPktLengthChangeCallback(tBTM_SET_PKT_DATA_LENGTH_CBACK *ptk_len_chane_cb)
 {
     conn_callback_func.set_pkt_data_length_cb = ptk_len_chane_cb;
+}
+
+void BTM_BleRegisterVendorHciEventCallback(tBTM_BLE_VENDOR_HCI_EVT_CBACK *vendor_hci_evt_cb)
+{
+    ble_vs_evt_callback = vendor_hci_evt_cb;
 }
 
 /*******************************************************************************
@@ -4003,7 +4010,6 @@ static void btm_ble_stop_discover(void)
 
     if (!BTM_BLE_IS_SCAN_ACTIVE(p_ble_cb->scan_activity)) {
         /* Clear the inquiry callback if set */
-        btm_cb.ble_ctr_cb.inq_var.scan_type = BTM_BLE_SCAN_MODE_NONE;
         btm_cb.ble_ctr_cb.inq_var.state &= ~BTM_BLE_SCANNING;
         /* stop discovery now */
         if(btsnd_hcic_ble_set_scan_enable (BTM_BLE_SCAN_DISABLE, BTM_BLE_DUPLICATE_ENABLE)) {
@@ -4530,6 +4536,26 @@ BOOLEAN btm_ble_update_mode_operation(UINT8 link_role, BD_ADDR bd_addr, UINT8 st
     return bg_con;
 }
 
+static void btm_ble_vs_evt_callback(UINT8 len, UINT8 *p)
+{
+    UINT8 sub_event;
+
+    if (!len || !p) {
+        return;
+    }
+
+    STREAM_TO_UINT8(sub_event, p);
+    len--;
+
+    if (sub_event < HCI_VSE_LE_SUBEVT_BASE) {
+        return;
+    }
+
+    if (ble_vs_evt_callback) {
+        ble_vs_evt_callback(sub_event, len, p);
+    }
+}
+
 /*******************************************************************************
 **
 ** Function         btm_ble_init
@@ -4586,6 +4612,8 @@ void btm_ble_init (void)
 #if BLE_VND_INCLUDED == FALSE
     btm_ble_adv_filter_init();
 #endif
+
+    BTM_RegisterForVSEvents(btm_ble_vs_evt_callback, TRUE);
 }
 
 /*******************************************************************************
@@ -4776,6 +4804,17 @@ BOOLEAN BTM_BleSetCsaSupport(UINT8 csa_select, tBTM_SET_CSA_SUPPORT_CMPL_CBACK *
     }
 
     btm_cb.ble_ctr_cb.set_csa_support_cmpl_cb = p_callback;
+    return TRUE;
+}
+
+BOOLEAN BTM_BleSetVendorEventMask(UINT32 evt_mask, tBTM_SET_VENDOR_EVT_MASK_CBACK *p_callback)
+{
+    if (btsnd_hcic_ble_set_vendor_evt_mask(evt_mask) != TRUE) {
+        BTM_TRACE_ERROR("LE SetVendorEventMask evt_mask=%x: error", evt_mask);
+        return FALSE;
+    }
+
+    btm_cb.ble_ctr_cb.set_vendor_evt_mask_cmpl_cb = p_callback;
     return TRUE;
 }
 

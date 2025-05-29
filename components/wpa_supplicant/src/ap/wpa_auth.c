@@ -36,6 +36,7 @@
 #include "esp_private/wifi.h"
 #include "esp_wpas_glue.h"
 #include "esp_hostap.h"
+#include "wifi/wifi_event.h"
 
 #define STATE_MACHINE_DATA struct wpa_state_machine
 #define STATE_MACHINE_DEBUG_PREFIX "WPA"
@@ -1668,6 +1669,11 @@ SM_STATE(WPA_PTK, PTKCALCNEGOTIATING)
 
     if (!ok) {
         wpa_printf(MSG_INFO, "invalid MIC in msg 2/4 of 4-Way Handshake");
+        wifi_event_ap_wrong_password_t evt = {0};
+        os_memcpy(evt.mac, sm->addr, ETH_ALEN);
+        /* Zephyr does not have esp_event_post call */
+        esp_wifi_event_handler(WIFI_EVENT, WIFI_EVENT_AP_WRONG_PASSWORD, &evt,
+                sizeof(evt), 0);
         return;
     }
 
@@ -1871,6 +1877,10 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
     }
 
     kde_len = wpa_ie_len + ieee80211w_kde_len(sm);
+
+    if (sm->wpa_auth->conf.transition_disable)
+        kde_len += 2 + RSN_SELECTOR_LEN + 1;
+
     if (gtk)
         kde_len += 2 + RSN_SELECTOR_LEN + 2 + gtk_len;
 #ifdef CONFIG_IEEE80211R_AP
@@ -1907,6 +1917,9 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
     }
     pos = ieee80211w_kde_add(sm, pos);
 
+    if (sm->wpa_auth->conf.transition_disable)
+        pos = wpa_add_kde(pos, WFA_KEY_DATA_TRANSITION_DISABLE,
+                &sm->wpa_auth->conf.transition_disable, 1, NULL, 0);
 #ifdef CONFIG_IEEE80211R_AP
     if (wpa_key_mgmt_ft(sm->wpa_key_mgmt)) {
         int res;

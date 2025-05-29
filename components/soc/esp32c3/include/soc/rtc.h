@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -266,6 +266,11 @@ void rtc_clk_32k_enable(bool en);
  * @brief Configure 32 kHz XTAL oscillator to accept external clock signal
  */
 void rtc_clk_32k_enable_external(void);
+
+/**
+ * @brief Disable 32 kHz XTAL oscillator input.
+ */
+void rtc_clk_32k_disable_external(void);
 
 /**
  * @brief Get the state of 32k XTAL oscillator
@@ -647,8 +652,9 @@ void rtc_sleep_init(rtc_sleep_config_t cfg);
  * used in lightsleep mode.
  *
  * @param slowclk_period re-calibrated slow clock period
+ * @param dslp true if initialize for deepsleep request
  */
-void rtc_sleep_low_init(uint32_t slowclk_period);
+void rtc_sleep_low_init(uint32_t slowclk_period, bool dslp);
 
 #define RTC_GPIO_TRIG_EN            BIT(2)  //!< GPIO wakeup
 #define RTC_TIMER_TRIG_EN           BIT(3)  //!< Timer wakeup

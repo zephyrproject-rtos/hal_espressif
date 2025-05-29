@@ -4875,7 +4875,9 @@ static UINT8 bta_dm_ble_smp_cback (tBTM_LE_EVT event, BD_ADDR bda, tBTM_LE_EVT_D
         if (p_data->complt.reason != 0) {
             sec_event.auth_cmpl.fail_reason = BTA_DM_AUTH_CONVERT_SMP_CODE(((UINT8)p_data->complt.reason));
             /* delete this device entry from Sec Dev DB */
-            bta_dm_remove_sec_dev_entry (bda);
+            APPL_TRACE_WARNING("%s remove bond,rsn %d, BDA:0x%02X%02X%02X%02X%02X%02X", __func__, sec_event.auth_cmpl.fail_reason,
+                            bda[0], bda[1], bda[2], bda[3], bda[4], bda[5]);
+            bta_dm_remove_sec_dev_entry(bda);
         } else {
             sec_event.auth_cmpl.success = TRUE;
             if (!p_data->complt.smp_over_br) {
@@ -5766,6 +5768,12 @@ void bta_dm_ble_gap_set_csa_support(tBTA_DM_MSG *p_data)
 {
     APPL_TRACE_API("%s, csa_select = %d", __func__, p_data->ble_set_csa_support.csa_select);
     BTM_BleSetCsaSupport(p_data->ble_set_csa_support.csa_select, p_data->ble_set_csa_support.p_cback);
+}
+
+void bta_dm_ble_gap_set_vendor_evt_mask(tBTA_DM_MSG *p_data)
+{
+    APPL_TRACE_API("%s, evt_mask = %d", __func__, p_data->ble_set_vendor_evt_mask.evt_mask);
+    BTM_BleSetVendorEventMask(p_data->ble_set_vendor_evt_mask.evt_mask, p_data->ble_set_vendor_evt_mask.p_cback);
 }
 
 #if (BLE_50_FEATURE_SUPPORT == TRUE)

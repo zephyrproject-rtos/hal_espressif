@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -144,6 +144,16 @@ typedef enum {
     ESP_HIDD_NEED_DEREG,    /*!< HIDD module shall deregister first */
     ESP_HIDD_NO_CONNECTION, /*!< connection may have been closed */
 } esp_hidd_status_t;
+
+/**
+ * @brief HID device profile status parameters
+ */
+typedef struct {
+    bool hidd_inited;                      /*!< HID device initialization */
+    uint8_t conn_num;                      /*!< Number of connections */
+    uint8_t plug_vc_dev_num;               /*!< Number of plugged virtual cable devices */
+    uint8_t reg_app_num;                   /*!< Number of HID device application registrations */
+} esp_hidd_profile_status_t;
 
 /**
  * @brief HID device callback parameters union
@@ -332,6 +342,11 @@ esp_err_t esp_bt_hid_device_unregister_app(void);
  *                  esp_bluedroid_init() and esp_bluedroid_enable() success, and should be called after esp_bt_hid_device_init().
  *                  When the operation is complete, the callback function will be called with ESP_HIDD_OPEN_EVT.
  *
+ * @note            The connection between the HID Host and the HID Device is established as a virtual cable by default.
+ *                  A new HID Host connection request will only be accepted after the previous HID Host has been
+ *                  explicitly unplugged. For details on disconnection and virtual cable unplugging, please refer to API
+ *                  `esp_bt_hid_device_disconnect` and `esp_bt_hid_device_virtual_cable_unplug`.
+ *
  * @param[in]       bd_addr: Remote host bluetooth device address.
  *
  * @return
@@ -399,6 +414,17 @@ esp_err_t esp_bt_hid_device_report_error(esp_hidd_handshake_error_t error);
  *                  - other: failed
  */
 esp_err_t esp_bt_hid_device_virtual_cable_unplug(void);
+
+/**
+ * @brief       This function is used to get the status of hid device
+ *
+ * @param[out]  profile_status - HID device status
+ *
+ * @return
+ *              - ESP_OK: success
+ *              - other: failed
+ */
+esp_err_t esp_bt_hid_device_get_profile_status(esp_hidd_profile_status_t *profile_status);
 
 #ifdef __cplusplus
 }

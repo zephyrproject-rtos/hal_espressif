@@ -191,6 +191,9 @@ static void reset_complete(void)
 
     if (controller->supports_ble()) {
         btm_ble_white_list_init(controller->get_ble_white_list_size());
+        #if (BLE_50_FEATURE_SUPPORT == TRUE)
+        btm_ble_periodic_adv_list_init(controller->get_ble_periodic_adv_list_size());
+        #endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
         l2c_link_processs_ble_num_bufs(controller->get_acl_buffer_count_ble());
     }
 #endif
@@ -730,6 +733,14 @@ void btm_vsc_complete (UINT8 *p, UINT16 opcode, UINT16 evt_len,
             }
             break;
         }
+        case HCI_VENDOR_BLE_SET_EVT_MASK: {
+            uint8_t status;
+            STREAM_TO_UINT8(status, p);
+            if (ble_cb && ble_cb->set_vendor_evt_mask_cmpl_cb) {
+                ble_cb->set_vendor_evt_mask_cmpl_cb(status);
+            }
+            break;
+        }
         default:
             break;
     }
@@ -820,7 +831,7 @@ void btm_vendor_specific_evt (UINT8 *p, UINT8 evt_len)
 
     STREAM_TO_UINT8(sub_event, p_evt);
     /* Check in subevent if authentication is through Legacy Authentication. */
-    if (sub_event == ESP_VS_REM_LEGACY_AUTH_CMP) {
+    if (sub_event == HCI_VENDOR_LEGACY_REM_AUTH_EVT_SUBCODE) {
         UINT16 hci_handle;
         STREAM_TO_UINT16(hci_handle, p_evt);
         btm_sec_handle_remote_legacy_auth_cmp(hci_handle);
@@ -941,6 +952,7 @@ tBTM_STATUS BTM_EnableTestMode(void)
     }
 }
 
+#if (CLASSIC_BT_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         BTM_DeleteStoredLinkKey
@@ -1015,6 +1027,7 @@ void btm_delete_stored_link_key_complete (UINT8 *p)
     }
 }
 
+#endif // (CLASSIC_BT_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         btm_report_device_status

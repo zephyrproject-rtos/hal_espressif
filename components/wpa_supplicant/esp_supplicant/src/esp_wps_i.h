@@ -50,7 +50,7 @@ enum wps_sm_state{
 };
 #endif /* ESP_SUPPLICANT */
 
-#define WPS_IGNORE_SEL_REG_MAX_CNT	4
+#define WPS_IGNORE_SEL_REG_MAX_CNT  10
 
 #define WPS_MAX_DIS_AP_NUM	10
 
@@ -83,6 +83,7 @@ struct wps_sm {
     bool ignore_sel_reg;
     struct discard_ap_list_t dis_ap_list[WPS_MAX_DIS_AP_NUM];
     u8 discard_ap_cnt;
+    bool intermediate_disconnect;
 };
 
 #define API_MUTEX_TAKE() do {\

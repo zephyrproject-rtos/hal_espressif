@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -295,83 +295,17 @@ esp_err_t esp_ble_gap_config_local_privacy (bool privacy_enable)
 
 esp_err_t esp_ble_gap_config_local_icon (uint16_t icon)
 {
-    esp_err_t ret;
     btc_msg_t msg = {0};
     btc_ble_gap_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
 
-    switch (icon) {
-    case ESP_BLE_APPEARANCE_GENERIC_PHONE:
-    case ESP_BLE_APPEARANCE_GENERIC_COMPUTER:
-    case ESP_BLE_APPEARANCE_GENERIC_REMOTE:
-    case ESP_BLE_APPEARANCE_GENERIC_THERMOMETER:
-    case ESP_BLE_APPEARANCE_THERMOMETER_EAR:
-    case ESP_BLE_APPEARANCE_GENERIC_HEART_RATE:
-    case ESP_BLE_APPEARANCE_HEART_RATE_BELT:
-    case ESP_BLE_APPEARANCE_GENERIC_BLOOD_PRESSURE:
-    case ESP_BLE_APPEARANCE_BLOOD_PRESSURE_ARM:
-    case ESP_BLE_APPEARANCE_BLOOD_PRESSURE_WRIST:
-    case ESP_BLE_APPEARANCE_GENERIC_PULSE_OXIMETER:
-    case ESP_BLE_APPEARANCE_PULSE_OXIMETER_FINGERTIP:
-    case ESP_BLE_APPEARANCE_PULSE_OXIMETER_WRIST:
-    case ESP_BLE_APPEARANCE_GENERIC_GLUCOSE:
-    case ESP_BLE_APPEARANCE_GENERIC_WEIGHT:
-    case ESP_BLE_APPEARANCE_GENERIC_WALKING:
-    case ESP_BLE_APPEARANCE_WALKING_IN_SHOE:
-    case ESP_BLE_APPEARANCE_WALKING_ON_SHOE:
-    case ESP_BLE_APPEARANCE_WALKING_ON_HIP:
-    case ESP_BLE_APPEARANCE_GENERIC_WATCH:
-    case ESP_BLE_APPEARANCE_SPORTS_WATCH:
-    case ESP_BLE_APPEARANCE_GENERIC_EYEGLASSES:
-    case ESP_BLE_APPEARANCE_GENERIC_DISPLAY:
-    case ESP_BLE_APPEARANCE_GENERIC_MEDIA_PLAYER:
-    case ESP_BLE_APPEARANCE_GENERIC_BARCODE_SCANNER:
-    case ESP_BLE_APPEARANCE_HID_BARCODE_SCANNER:
-    case ESP_BLE_APPEARANCE_GENERIC_HID:
-    case ESP_BLE_APPEARANCE_HID_KEYBOARD:
-    case ESP_BLE_APPEARANCE_HID_MOUSE:
-    case ESP_BLE_APPEARANCE_HID_JOYSTICK:
-    case ESP_BLE_APPEARANCE_HID_GAMEPAD:
-    case ESP_BLE_APPEARANCE_HID_DIGITIZER_TABLET:
-    case ESP_BLE_APPEARANCE_HID_CARD_READER:
-    case ESP_BLE_APPEARANCE_HID_DIGITAL_PEN:
-    case ESP_BLE_APPEARANCE_UNKNOWN:
-    case ESP_BLE_APPEARANCE_GENERIC_CLOCK:
-    case ESP_BLE_APPEARANCE_GENERIC_TAG:
-    case ESP_BLE_APPEARANCE_GENERIC_KEYRING:
-    case ESP_BLE_APPEARANCE_GENERIC_CYCLING:
-    case ESP_BLE_APPEARANCE_CYCLING_COMPUTER:
-    case ESP_BLE_APPEARANCE_CYCLING_SPEED:
-    case ESP_BLE_APPEARANCE_CYCLING_CADENCE:
-    case ESP_BLE_APPEARANCE_CYCLING_POWER:
-    case ESP_BLE_APPEARANCE_CYCLING_SPEED_CADENCE:
-    case ESP_BLE_APPEARANCE_GENERIC_PERSONAL_MOBILITY_DEVICE:
-    case ESP_BLE_APPEARANCE_POWERED_WHEELCHAIR:
-    case ESP_BLE_APPEARANCE_MOBILITY_SCOOTER:
-    case ESP_BLE_APPEARANCE_GENERIC_CONTINUOUS_GLUCOSE_MONITOR:
-    case ESP_BLE_APPEARANCE_GENERIC_INSULIN_PUMP:
-    case ESP_BLE_APPEARANCE_INSULIN_PUMP_DURABLE_PUMP:
-    case ESP_BLE_APPEARANCE_INSULIN_PUMP_PATCH_PUMP:
-    case ESP_BLE_APPEARANCE_INSULIN_PEN:
-    case ESP_BLE_APPEARANCE_GENERIC_MEDICATION_DELIVERY:
-    case ESP_BLE_APPEARANCE_GENERIC_OUTDOOR_SPORTS:
-    case ESP_BLE_APPEARANCE_OUTDOOR_SPORTS_LOCATION:
-    case ESP_BLE_APPEARANCE_OUTDOOR_SPORTS_LOCATION_AND_NAV:
-    case ESP_BLE_APPEARANCE_OUTDOOR_SPORTS_LOCATION_POD:
-    case ESP_BLE_APPEARANCE_OUTDOOR_SPORTS_LOCATION_POD_AND_NAV:
-    case ESP_BLE_APPEARANCE_STANDALONE_SPEAKER:
-        msg.sig = BTC_SIG_API_CALL;
-        msg.pid = BTC_PID_GAP_BLE;
-        msg.act = BTC_GAP_BLE_ACT_CONFIG_LOCAL_ICON;
-        arg.cfg_local_icon.icon = icon;
-        ret = (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
-        break;
-    default:
-        ret = ESP_ERR_INVALID_ARG;
-        break;
-    }
-    return ret;
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = BTC_GAP_BLE_ACT_CONFIG_LOCAL_ICON;
+    arg.cfg_local_icon.icon = icon;
+
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gap_update_whitelist(bool add_remove, esp_bd_addr_t remote_bda, esp_ble_wl_addr_type_t wl_addr_type)
@@ -1620,6 +1554,18 @@ esp_err_t esp_ble_gap_prefer_ext_connect_params_set(esp_bd_addr_t addr,
 
 }
 
+esp_err_t esp_ble_gap_get_periodic_list_size(uint8_t *size)
+{
+    if (size == NULL) {
+        return ESP_FAIL;
+    }
+
+    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    btc_get_periodic_list_size(size);
+
+    return ESP_OK;
+}
 #endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
 
 #if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
@@ -1739,5 +1685,23 @@ esp_err_t esp_ble_gap_vendor_command_send(esp_ble_vendor_cmd_params_t *vendor_cm
     arg.vendor_cmd_send.p_param_buf = vendor_cmd_param->p_param_buf;
 
     return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), btc_gap_ble_arg_deep_copy, btc_gap_ble_arg_deep_free)
+                == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+}
+
+esp_err_t esp_ble_gap_set_vendor_event_mask(esp_ble_vendor_evt_mask_t event_mask)
+{
+    btc_msg_t msg = {0};
+    btc_ble_gap_args_t arg;
+
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = BTC_GAP_BLE_ACT_SET_VENDOR_EVT_MASK;
+    arg.set_vendor_evt_mask.evt_mask = event_mask;
+
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gap_args_t), NULL, NULL)
                 == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }

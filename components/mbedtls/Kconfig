@@ -390,6 +390,42 @@ menu "mbedTLS"
             This allows other code to run on the CPU while an AES operation is pending.
             Otherwise the CPU busy-waits.
 
+    config MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC
+        bool "Enable AES hardware's pseudo round function"
+        default n
+        depends on SOC_AES_SUPPORT_PSEUDO_ROUND_FUNCTION
+        help
+            Enables the pseudo round function of the AES peripheral.
+            Enabling this would impact the performance of the AES operations.
+            For more info regarding the performance impact, please checkout the pseudo round function section of the
+            security guide.
+
+    choice MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH
+        prompt "Strength of the pseudo rounds function"
+        depends on MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC
+        default MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_LOW
+        help
+            The strength of the pseudo rounds functions can be configured to low, medium and high.
+            You can configure the strength of the pseudo rounds functions according to your use cases,
+            for example, increasing the strength would provide higher security but would slow down the
+            hardware AES encryption/decryption operations.
+
+        config MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_LOW
+            bool "Low"
+
+        config MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_MEDIUM
+            bool "Medium"
+
+        config MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_HIGH
+            bool "High"
+    endchoice
+
+    config MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH
+        int
+        default 1 if MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_LOW
+        default 2 if MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_MEDIUM
+        default 3 if MBEDTLS_AES_USE_PSEUDO_ROUND_FUNC_STRENGTH_HIGH
+
     config MBEDTLS_HARDWARE_GCM
         bool "Enable partially hardware accelerated GCM"
         depends on SOC_AES_SUPPORT_GCM && MBEDTLS_HARDWARE_AES
@@ -517,16 +553,16 @@ menu "mbedTLS"
         config MBEDTLS_HARDWARE_ECDSA_SIGN_MASKING_CM
             bool "Mask original ECDSA sign operation under dummy sign operations"
             select HAL_ECDSA_GEN_SIG_CM
-            # ToDo: IDF-11051
             default y
             help
-                The ECDSA peripheral before ECO5 does not offer constant time ECDSA sign operation.
+                The ECDSA peripheral before ESP32-H2 v1.2 does not offer constant time ECDSA sign operation.
                 This time can be observed through power profiling of the device,
                 making the ECDSA private key vulnerable to side-channel timing attacks.
                 This countermeasure masks the real ECDSA sign operation
                 under dummy sign operations to add randomness in the generated power signature.
                 It is highly recommended to also enable Secure Boot for the device in addition to this countermeasure
                 so that only trusted software can execute on the device.
+                This countermeasure can be safely disabled for ESP32-H2 v1.2 and above.
 
         config MBEDTLS_HARDWARE_ECDSA_SIGN_CONSTANT_TIME_CM
             bool "Make ECDSA signature operation pseudo constant time for software"
@@ -539,6 +575,7 @@ menu "mbedTLS"
                 of an arbitrary message.
                 The signature time would appear to be constant to the external entity after enabling
                 this option.
+                This countermeasure can be safely disabled for ESP32-H2 v1.2 and above.
 
     endmenu
 
@@ -1145,5 +1182,12 @@ menu "mbedTLS"
             ROM (ECO1~ECO4) then we shall patch the relevant symbols. This would increase
             the flash footprint and hence care must be taken to keep some reserved space
             for the application binary in flash layout.
+
+    config MBEDTLS_ALLOW_WEAK_CERTIFICATE_VERIFICATION
+        bool "Allow weak certificate verification"
+        default n
+        help
+            This options allows weak certificate verification by skipping the hostname verification.
+            It is not recommended to use this option.
 
 endmenu  # mbedTLS

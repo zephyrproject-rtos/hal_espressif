@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -230,6 +230,8 @@ typedef enum {
     ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT,                         /*!< When vendor hci command complete, the event comes */
     ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT,                   /*!< When set privacy mode complete, the event comes */
     ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT,                    /*!< When set CSA support complete, the event comes */
+    ESP_GAP_BLE_SET_VENDOR_EVT_MASK_COMPLETE_EVT,                /*!< When set vendor event mask complete, the event comes */
+    ESP_GAP_BLE_VENDOR_HCI_EVT,                                  /*!< When BLE vendor HCI event received, the event comes */
     ESP_GAP_BLE_EVT_MAX,                                         /*!< when maximum advertising event complete, the event comes */
 } esp_gap_ble_cb_event_t;
 
@@ -1071,10 +1073,57 @@ typedef struct {
 } esp_ble_gap_past_params_t;
 #endif // #if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
 
-typedef enum{
+typedef enum {
     ESP_BLE_NETWORK_PRIVACY_MODE    = 0X00,    /*!< Network Privacy Mode for peer device (default) */
     ESP_BLE_DEVICE_PRIVACY_MODE     = 0X01,    /*!< Device Privacy Mode for peer device */
 } esp_ble_privacy_mode_t;
+
+#define ESP_BLE_VENDOR_SCAN_REQ_RECV_EVT_MASK   BIT(0)  /*!< Vendor BLE legacy SCAN_REQ received event mask */
+#define ESP_BLE_VENDOR_CHMAP_UPDATE_EVT_MASK    BIT(1)  /*!< Vendor BLE channel map update event mask */
+#define ESP_BLE_VENDOR_SLEEP_WAKEUP_EVT_MASK    BIT(3)  /*!< Vendor BLE sleep wakeup event mask */
+#define ESP_BLE_VENDOR_CONN_REQ_RECV_EVT_MASK   BIT(4)  /*!< Vendor BLE CONNECT_IND and AUX_CONNECT_REQ received event mask */
+#define ESP_BLE_VENDOR_CONN_RSP_RECV_EVT_MASK   BIT(5)  /*!< Vendor BLE AUX_CONNECT_RSP received event mask */
+typedef uint32_t esp_ble_vendor_evt_mask_t;
+
+#define ESP_BLE_VENDOR_PDU_RECV_EVT         (0)     /*!< Vendor BLE specify PDU received event */
+#define ESP_BLE_VENDOR_CHAN_MAP_UPDATE_EVT  (1)     /*!< Vendor BLE channel map update complete event */
+#define ESP_BLE_VENDOR_SLEEP_WAKEUP_EVT     (2)     /*!< Vendor BLE sleep wakeup event */
+typedef uint8_t esp_ble_vendor_evt_t;
+
+typedef enum {
+    ESP_BLE_VENDOR_PDU_SCAN_REQ = 0,                /*!< SCAN_REQ PDU type */
+    ESP_BLE_VENDOR_PDU_CONN_REQ,                    /*!< CONNECT_IND and AUX_CONNECT_REQ PDU type */
+    ESP_BLE_VENDOR_PDU_CONN_RSP,                    /*!< AUX_CONNECT_RSP PDU type */
+} esp_ble_vendor_pdu_t;
+
+/**
+ * @brief BLE vendor event parameters union
+ */
+typedef union {
+    /**
+     * @brief ESP_BLE_VENDOR_PDU_RECV_EVT
+     */
+    struct ble_pdu_recv_evt_param {
+        esp_ble_vendor_pdu_t type;                  /*!< The type of LE PDU */
+        uint8_t handle;                             /*!< The handle of advertising set */
+        esp_ble_addr_type_t addr_type;              /*!< The address type of peer device */
+        esp_bd_addr_t peer_addr;                    /*!< The address of peer device */
+    } pdu_recv;                                     /*!< Event parameter of ESP_BLE_VENDOR_PDU_RECV_EVT */
+    /**
+     * @brief ESP_BLE_VENDOR_CHAN_MAP_UPDATE_EVT
+     */
+    struct ble_chan_map_update_evt_param {
+        uint8_t status;                             /*!< Indicate the channel map update status (HCI error code) */
+        uint16_t conn_handle;                       /*!< The connection handle */
+        esp_gap_ble_channels ch_map;                /*!< The channel map after updated */
+    } chan_map_update;                              /*!< Event parameter of ESP_BLE_VENDOR_CHAN_MAP_UPDATE_EVT */
+    /**
+     * @brief ESP_BLE_VENDOR_SLEEP_WAKEUP_EVT
+     */
+    struct ble_sleep_wakeup_evt_param {
+        // No parameters
+    } sleep_wakeup;                                 /*!< Event parameter of ESP_BLE_VENDOR_SLEEP_WAKEUP_EVT */
+} esp_ble_vendor_evt_param_t;
 
 /**
  * @brief Gap callback parameters union
@@ -1578,7 +1627,22 @@ typedef union {
      */
     struct ble_set_csa_support_cmpl_evt_param {
         esp_bt_status_t status;                     /*!< Indicate CSA support set operation success status */
-    } set_csa_support_cmpl;                        /*!< Event parameter of ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT */
+    } set_csa_support_cmpl;                         /*!< Event parameter of ESP_GAP_BLE_SET_CSA_SUPPORT_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_SET_VENDOR_EVT_MASK_COMPLETE_EVT
+     */
+    struct ble_set_vendor_evt_mask_cmpl_evt_param {
+        esp_bt_status_t status;                     /*!< Indicate set vendor event mask operation success status */
+    } set_vendor_evt_mask_cmpl;                     /*!< Event parameter of ESP_GAP_BLE_SET_VENDOR_EVT_MASK_COMPLETE_EVT */
+    /**
+     * @brief ESP_GAP_BLE_VENDOR_HCI_EVT
+     */
+    struct ble_vendor_hci_event_evt_param {
+        esp_ble_vendor_evt_t subevt_code;           /*!< Subevent code for BLE vendor HCI event */
+        esp_ble_vendor_evt_param_t param;           /*!< Event parameter of BLE vendor HCI subevent */
+        uint8_t param_len;                          /*!< The length of the event parameter buffer (for internal use only) */
+        uint8_t *param_buf;                         /*!< The pointer of the event parameter buffer (for internal use only) */
+    } vendor_hci_evt;                               /*!< Event parameter of ESP_GAP_BLE_VENDOR_HCI_EVT */
 } esp_ble_gap_cb_param_t;
 
 /**
@@ -1592,6 +1656,8 @@ typedef void (* esp_gap_ble_cb_t)(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_p
  * @brief           This function is called to occur gap event, such as scan result
  *
  * @param[in]       callback: callback function
+ *
+ * @note            Avoid performing time-consuming operations within the callback functions.
  *
  * @return
  *                  - ESP_OK : success
@@ -1643,7 +1709,8 @@ esp_err_t esp_ble_gap_set_scan_params(esp_ble_scan_params_t *scan_params);
 /**
  * @brief           This procedure keep the device scanning the peer device which advertising on the air
  *
- * @param[in]       duration: Keeping the scanning time, the unit is second.
+ * @param[in]       duration: The scanning duration in seconds.
+ *                            Set to 0 for continuous scanning until explicitly stopped.
  *
  * @return
  *                  - ESP_OK : success
@@ -1808,15 +1875,19 @@ esp_err_t esp_ble_gap_clear_rand_addr(void);
 esp_err_t esp_ble_gap_config_local_privacy (bool privacy_enable);
 
 /**
- * @brief           set local gap appearance icon
+ * @brief           Set the local GAP appearance icon.
  *
+ * @note            This API does not restrict the input icon value.
+ *                  If an undefined or incorrect icon value is used, the device icon may not display properly.
  *
- * @param[in]       icon   - External appearance value, these values are defined by the Bluetooth SIG, please refer to
+ *                  For a complete list of valid appearance values, please refer to "2.6.2 Appearance Category ranges" at:
  *                  https://www.bluetooth.com/specifications/assigned-numbers/
  *
+ * @param[in]       icon   - External appearance value (16-bit), as defined by the Bluetooth SIG.
+ *
  * @return
- *                  - ESP_OK : success
- *                  - other  : failed
+ *                  - ESP_OK   : Success
+ *                  - ESP_FAIL : Internal failure
  *
  */
 esp_err_t esp_ble_gap_config_local_icon (uint16_t icon);
@@ -2481,15 +2552,17 @@ esp_err_t esp_ble_gap_periodic_adv_stop(uint8_t instance);
 esp_err_t esp_ble_gap_set_ext_scan_params(const esp_ble_ext_scan_params_t *params);
 
 /**
-* @brief           This function is used to enable scanning.
+* @brief           Enables extended scanning.
 *
-* @param[in]       duration  Scan duration time, where Time = N * 10 ms. Range: 0x0001 to 0xFFFF.
-* @param[in]       period    Time interval from when the Controller started its last Scan Duration until it begins the subsequent Scan Duration.
-*                            Time = N * 1.28 sec. Range: 0x0001 to 0xFFFF.
+* @param[in]       duration  Scan duration in units of 10 ms.
+*                            - Range: 0x0001 to 0xFFFF (Time = N * 10 ms).
+*                            - 0x0000: Scan continuously until explicitly disabled.
 *
+* @param[in]       period    Time interval between the start of consecutive scan durations, in units of 1.28 seconds.
+*                            - Range: 0x0001 to 0xFFFF (Time = N * 1.28 sec).
+*                            - 0x0000: Scan continuously.
 * @return            - ESP_OK : success
 *                    - other  : failed
-*
 */
 esp_err_t esp_ble_gap_start_ext_scan(uint32_t duration, uint16_t period);
 
@@ -2591,6 +2664,17 @@ esp_err_t esp_ble_gap_prefer_ext_connect_params_set(esp_bd_addr_t addr,
                                                     const esp_ble_gap_conn_params_t *phy_1m_conn_params,
                                                     const esp_ble_gap_conn_params_t *phy_2m_conn_params,
                                                     const esp_ble_gap_conn_params_t *phy_coded_conn_params);
+
+/**
+ * @brief            Retrieve the capacity of the periodic advertiser list in the controller.
+ *
+ * @param[out]       size: Pointer to a variable where the capacity of the periodic advertiser list will be stored.
+ *
+ * @return
+ *                     - ESP_OK : Success
+ *                     - Others : Failure
+ */
+esp_err_t esp_ble_gap_get_periodic_list_size(uint8_t *size);
 
 #endif //#if (BLE_50_FEATURE_SUPPORT == TRUE)
 
@@ -2767,6 +2851,17 @@ esp_err_t esp_ble_gap_set_privacy_mode(esp_ble_addr_type_t addr_type, esp_bd_add
  *                  - other  : failed
  */
 esp_err_t esp_ble_gap_set_csa_support(uint8_t csa_select);
+
+/**
+ * @brief           This function is used to control which vendor events are generated by the HCI for the Host.
+ *
+ * @param[in]       event_mask: The BLE vendor HCI event mask
+ *
+ * @return
+ *                  - ESP_OK : success
+ *                  - other  : failed
+ */
+esp_err_t esp_ble_gap_set_vendor_event_mask(esp_ble_vendor_evt_mask_t event_mask);
 
 #ifdef __cplusplus
 }

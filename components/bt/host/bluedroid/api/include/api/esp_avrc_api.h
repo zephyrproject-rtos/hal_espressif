@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -135,6 +135,7 @@ typedef enum {
     ESP_AVRC_CT_REMOTE_FEATURES_EVT = 5,         /*!< feature of remote device indication event */
     ESP_AVRC_CT_GET_RN_CAPABILITIES_RSP_EVT = 6,     /*!< supported notification events capability of peer device */
     ESP_AVRC_CT_SET_ABSOLUTE_VOLUME_RSP_EVT = 7, /*!< set absolute volume response event */
+    ESP_AVRC_CT_PROF_STATE_EVT = 8,             /*!< Indicate AVRCP controller init or deinit complete */
 } esp_avrc_ct_cb_event_t;
 
 /// AVRC Target callback events
@@ -145,6 +146,7 @@ typedef enum {
     ESP_AVRC_TG_SET_ABSOLUTE_VOLUME_CMD_EVT = 3,   /*!< set absolute volume command from remote device */
     ESP_AVRC_TG_REGISTER_NOTIFICATION_EVT = 4,     /*!< register notification event */
     ESP_AVRC_TG_SET_PLAYER_APP_VALUE_EVT = 5,      /*!< set application attribute value, attribute refer to esp_avrc_ps_attr_ids_t */
+    ESP_AVRC_TG_PROF_STATE_EVT = 6,                /*!< Indicate AVRCP target init or deinit complete */
 } esp_avrc_tg_cb_event_t;
 
 /// AVRC metadata attribute mask
@@ -155,7 +157,7 @@ typedef enum {
     ESP_AVRC_MD_ATTR_TRACK_NUM = 0x8,             /*!< track position on the album */
     ESP_AVRC_MD_ATTR_NUM_TRACKS = 0x10,           /*!< number of tracks on the album */
     ESP_AVRC_MD_ATTR_GENRE = 0x20,                /*!< track genre */
-    ESP_AVRC_MD_ATTR_PLAYING_TIME = 0x40          /*!< total album playing time in miliseconds */
+    ESP_AVRC_MD_ATTR_PLAYING_TIME = 0x40          /*!< total album playing time in milliseconds */
 } esp_avrc_md_attr_mask_t;
 
 /// AVRC event notification ids
@@ -277,6 +279,26 @@ typedef struct {
     uint8_t   attr_val;                      /*!< player application attribute value */
 } esp_avrc_set_app_value_param_t;
 
+/**
+ * @brief AVRCP profile status parameters
+ */
+typedef struct {
+    bool avrc_ct_inited;                   /*!< AVRCP CT initialization */
+    bool avrc_tg_inited;                   /*!< AVRCP TG initialization */
+} esp_avrc_profile_status_t;
+
+/**
+ * @brief Bluetooth AVRCP Initiation states
+ */
+typedef enum {
+    ESP_AVRC_INIT_SUCCESS = 0,                /*!< Indicate init successful */
+    ESP_AVRC_INIT_ALREADY,                    /*!< Indicate init repeated */
+    ESP_AVRC_INIT_FAIL,                       /*!< Indicate init fail */
+    ESP_AVRC_DEINIT_SUCCESS,                  /*!< Indicate deinit successful */
+    ESP_AVRC_DEINIT_ALREADY,                  /*!< Indicate deinit repeated */
+    ESP_AVRC_DEINIT_FAIL,                     /*!< Indicate deinit fail */
+} esp_avrc_init_state_t;
+
 /// AVRC controller callback parameters
 typedef union {
     /**
@@ -337,6 +359,13 @@ typedef union {
     struct avrc_ct_set_volume_rsp_param {
         uint8_t volume;                          /*!< the volume which has actually been set, range is 0 to 0x7f, means 0% to 100% */
     } set_volume_rsp;                            /*!< set absolute volume response event */
+
+    /**
+     * @brief ESP_AVRC_CT_PROF_STATE_EVT
+     */
+    struct avrc_ct_init_stat_param {
+        esp_avrc_init_state_t state;            /*!< avrc ct initialization param */
+    } avrc_ct_init_stat;                        /*!< status to indicate avrcp ct init or deinit */
 } esp_avrc_ct_cb_param_t;
 
 /// AVRC target callback parameters
@@ -389,6 +418,13 @@ typedef union {
         esp_avrc_set_app_value_param_t *p_vals; /*!< point to the id and value of player application attribute */
     } set_app_value;                            /*!< set player application value */
 
+    /**
+     * @brief ESP_AVRC_TG_PROF_STATE_EVT
+     */
+    struct avrc_tg_init_stat_param {
+        esp_avrc_init_state_t state;            /*!< avrc tg initialization param */
+    } avrc_tg_init_stat;                        /*!< status to indicate avrcp tg init or deinit */
+
 } esp_avrc_tg_cb_param_t;
 
 /**
@@ -429,6 +465,7 @@ esp_err_t esp_avrc_ct_register_callback(esp_avrc_ct_cb_t callback);
  * @brief           Initialize the bluetooth AVRCP controller module, This function should be called
  *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
  *                  AVRC should be used along with A2DP and AVRC should be initialized before A2DP.
+ *                  ESP_AVRC_CT_PROF_STATE_EVT with ESP_AVRC_INIT_SUCCESS will reported to the APP layer.
  *
  * @return
  *                  - ESP_OK: success
@@ -443,6 +480,7 @@ esp_err_t esp_avrc_ct_init(void);
  * @brief           De-initialize AVRCP controller module. This function should be called after
  *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
  *                  AVRC should be used along with A2DP and AVRC should be deinitialized before A2DP.
+ *                  ESP_AVRC_CT_PROF_STATE_EVT with ESP_AVRC_DEINIT_SUCCESS will reported to the APP layer.
  *
  * @return
  *                  - ESP_OK: success
@@ -571,6 +609,7 @@ esp_err_t esp_avrc_tg_register_callback(esp_avrc_tg_cb_t callback);
  * @brief           Initialize the bluetooth AVRCP target module, This function should be called
  *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
  *                  AVRC should be used along with A2DP and AVRC should be initialized before A2DP.
+ *                  ESP_AVRC_TG_PROF_STATE_EVT with ESP_AVRC_INIT_SUCCESS will reported to the APP layer.
  *
  * @return
  *                  - ESP_OK: success
@@ -585,6 +624,7 @@ esp_err_t esp_avrc_tg_init(void);
  * @brief           De-initialize AVRCP target module. This function should be called after
  *                  after esp_bluedroid_enable() completes successfully. Note: AVRC cannot work independently,
  *                  AVRC should be used along with A2DP and AVRC should be deinitialized before A2DP.
+ *                  ESP_AVRC_TG_PROF_STATE_EVT with ESP_AVRC_DEINIT_SUCCESS will reported to the APP layer.
  *
  * @return
  *                  - ESP_OK: success
@@ -656,11 +696,11 @@ bool esp_avrc_psth_bit_mask_operation(esp_avrc_bit_mask_op_t op, esp_avrc_psth_b
 
 /**
  *
- * @brief           Get the requested event notification capabilies on local AVRC target. The capability is returned
+ * @brief           Get the requested event notification capabilities on local AVRC target. The capability is returned
  *                  in a bit mask representation in evt_set. This function should be called after esp_avrc_tg_init().
  *
  *                  For capability type "ESP_AVRC_RN_CAP_ALLOWED_EVT, the retrieved event set is constant and
- *                  it covers all of the notifcation events that can possibly be supported with current
+ *                  it covers all of the notification events that can possibly be supported with current
  *                  implementation.
  *
  *                  For capability type ESP_AVRC_RN_CAP_SUPPORTED_EVT, the event set covers the notification
@@ -728,6 +768,17 @@ bool esp_avrc_rn_evt_bit_mask_operation(esp_avrc_bit_mask_op_t op, esp_avrc_rn_e
  */
 esp_err_t esp_avrc_tg_send_rn_rsp(esp_avrc_rn_event_ids_t event_id, esp_avrc_rn_rsp_t rsp,
                                   esp_avrc_rn_param_t *param);
+
+/**
+ * @brief       This function is used to get the status of AVRCP
+ *
+ * @param[out]  profile_status - AVRCP status
+ *
+ * @return
+ *              - ESP_OK: success
+ *              - other: failed
+ */
+esp_err_t esp_avrc_get_profile_status(esp_avrc_profile_status_t *profile_status);
 
 #ifdef __cplusplus
 }
