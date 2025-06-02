@@ -295,6 +295,12 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_PWM_LED_ESP32
     ../../components/hal/ledc_hal_iram.c
     ../../components/hal/ledc_hal.c
