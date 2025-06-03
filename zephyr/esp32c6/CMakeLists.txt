@@ -191,7 +191,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/sleep_system_peripheral.c
-    ../../components/esp_pm/pm_impl.c
     ../../components/hal/${CONFIG_SOC_SERIES}/pmu_hal.c
     ../../components/hal/rtc_io_hal.c
     )
