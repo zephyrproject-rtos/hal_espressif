@@ -185,3 +185,27 @@ void config_ble_funcs_reset(void)
 void config_btdm_funcs_reset(void)
 {
 }
+
+void bt_stack_enableSecCtrlVsCmd(bool en)
+{
+}
+
+void bt_stack_enableCoexVsCmd(bool en)
+{
+}
+
+void scan_stack_enableAdvFlowCtrlVsCmd(bool en)
+{
+}
+
+void adv_stack_enableClearLegacyAdvVsCmd(bool en)
+{
+}
+
+void advFilter_stack_enableDupExcListVsCmd(bool en)
+{
+}
+
+void chanSel_stack_enableSetCsaVsCmd(bool en)
+{
+}

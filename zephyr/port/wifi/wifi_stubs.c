@@ -1284,3 +1284,18 @@ esp_err_t esp_wifi_coex_pwr_configure(bool enabled)
 	return ESP_OK;
 }
 #endif
+
+uint8_t esp_wifi_ap_get_transition_disable_internal(void)
+{
+	return 0;
+}
+
+uint8_t esp_wifi_sta_get_reset_nvs_pmk_internal(void)
+{
+	return 0;
+}
+
+uint8_t esp_wifi_sta_set_reset_nvs_pmk_internal(uint8_t reset_flag)
+{
+	return 0;
+}
