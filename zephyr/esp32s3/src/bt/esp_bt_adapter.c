@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,9 +27,9 @@
 #include "private/esp_coexist_internal.h"
 #include "esp_timer.h"
 #include "esp_sleep.h"
-#include "esp_heap_adapter.h"
 #include "esp_rom_sys.h"
 #include "esp_private/phy.h"
+#include "esp_heap_adapter.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
@@ -87,7 +87,7 @@ typedef union {
 #define BTDM_MODEM_WAKE_UP_DELAY         (8)  // delay in half slots of modem wake up procedure, including re-enable PHY/RF
 
 #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
-#define OSI_VERSION              0x00010009
+#define OSI_VERSION              0x0001000A
 #define OSI_MAGIC_VALUE          0xFADEBEAD
 
 #define BLE_PWR_HDL_INVL 0xFFFF
@@ -179,6 +179,8 @@ struct osi_funcs_t {
 	void (* _btdm_rom_table_ready)(void);
 	bool (* _coex_bt_wakeup_request)(void);
 	void (* _coex_bt_wakeup_request_end)(void);
+	int64_t (*_get_time_us)(void);
+	void (* _assert)(void);
 };
 
 /* not for user call, so don't put to include file */
@@ -234,6 +236,23 @@ extern void ets_backup_dma_copy(uint32_t reg, uint32_t mem_addr, uint32_t num, b
 #endif
 
 extern void btdm_cca_feature_enable(void);
+extern void btdm_aa_check_enhance_enable(void);
+
+extern void scan_stack_enableAdvFlowCtrlVsCmd(bool en);
+extern void adv_stack_enableClearLegacyAdvVsCmd(bool en);
+extern void advFilter_stack_enableDupExcListVsCmd(bool en);
+extern void chanSel_stack_enableSetCsaVsCmd(bool en);
+
+extern void ble_dtm_funcs_reset(void);
+extern void ble_scan_funcs_reset(void);
+extern void ble_42_adv_funcs_reset(void);
+extern void ble_init_funcs_reset(void);
+extern void ble_con_funcs_reset(void);
+extern void ble_cca_funcs_reset(void);
+extern void ble_ext_adv_funcs_reset(void);
+extern void ble_ext_scan_funcs_reset(void);
+extern void ble_base_funcs_reset(void);
+extern void ble_enc_funcs_reset(void);
 
 static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle);
 static int interrupt_free_wrapper(void *handle);
@@ -284,6 +303,8 @@ static void btdm_backup_dma_copy_wrapper(uint32_t reg, uint32_t mem_addr, uint32
 static void btdm_funcs_table_ready_wrapper(void);
 static bool coex_bt_wakeup_request(void);
 static void coex_bt_wakeup_request_end(void);
+static int64_t get_time_us_wrapper(void);
+static void assert_wrapper(void);
 
 static void btdm_slp_tmr_callback(void *arg);
 
@@ -355,6 +376,8 @@ static const struct osi_funcs_t osi_funcs_ro = {
 	._btdm_rom_table_ready = btdm_funcs_table_ready_wrapper,
 	._coex_bt_wakeup_request = coex_bt_wakeup_request,
 	._coex_bt_wakeup_request_end = coex_bt_wakeup_request_end,
+	._get_time_us = get_time_us_wrapper,
+	._assert = assert_wrapper,
 };
 
 static DRAM_ATTR struct osi_funcs_t *osi_funcs_p;
@@ -442,6 +465,7 @@ static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handle
 {
 	btdm_isr_alloc_t p;
 	p.source = source;
+	/* keep ESP_INTR_FLAG_LEVEL1 in Zephyr */
 	p.flags = ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_IRAM;
 	p.fn = handler;
 	p.arg = arg;
@@ -741,7 +765,7 @@ static uint32_t IRAM_ATTR btdm_lpcycles_2_hus(uint32_t cycles, uint32_t *error_c
 	res = (local_error_corr >> btdm_lpcycle_us_frac);
 	local_error_corr -= (res << btdm_lpcycle_us_frac);
 	if (error_corr) {
-			*error_corr = (uint32_t) local_error_corr;
+		*error_corr = (uint32_t) local_error_corr;
 	}
 	return (uint32_t)res;
 }
@@ -781,10 +805,18 @@ static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles)
 	uint32_t us_to_sleep = btdm_lpcycles_2_hus(lpcycles, NULL) >> 1;
 
 #define BTDM_MIN_TIMER_UNCERTAINTY_US      (1800)
+#define BTDM_RTC_SLOW_CLK_RC_DRIFT_PERCENT 7
 	assert(us_to_sleep > BTDM_MIN_TIMER_UNCERTAINTY_US);
 	// allow a maximum time uncertainty to be about 488ppm(1/2048) at least as clock drift
 	// and set the timer in advance
 	uint32_t uncertainty = (us_to_sleep >> 11);
+#if CONFIG_ESP32_BT_CTLR_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+	// recalculate clock drift when Bluetooth using main XTAL during light sleep
+	if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_RC_SLOW) {
+		uncertainty = us_to_sleep * BTDM_RTC_SLOW_CLK_RC_DRIFT_PERCENT / 100;
+	}
+#endif
+
 	if (uncertainty < BTDM_MIN_TIMER_UNCERTAINTY_US) {
 		uncertainty = BTDM_MIN_TIMER_UNCERTAINTY_US;
 	}
@@ -917,29 +949,6 @@ static void async_wakeup_request_end(int event)
 	return;
 }
 
-static int coex_schm_register_btdm_callback_wrapper(void *callback)
-{
-#if CONFIG_SW_COEXIST_ENABLE
-	return coex_schm_register_callback(COEX_SCHM_CALLBACK_TYPE_BT, callback);
-#else
-	return 0;
-#endif
-}
-
-static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status)
-{
-#if CONFIG_SW_COEXIST_ENABLE
-	coex_schm_status_bit_clear(type, status);
-#endif
-}
-
-static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status)
-{
-#if CONFIG_SW_COEXIST_ENABLE
-	coex_schm_status_bit_set(type, status);
-#endif
-}
-
 static void btdm_funcs_table_ready_wrapper(void)
 {
 #if BT_BLE_CCA_MODE == 2
@@ -948,6 +957,46 @@ static void btdm_funcs_table_ready_wrapper(void)
 #if BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED
 	btdm_aa_check_enhance_enable();
 #endif
+#if CONFIG_ESP32_BT_CTLR_RUN_IN_FLASH_ONLY
+	// do nothing
+#else
+	LOG_INF("Feature Config, ADV:%d, BLE_50:%d, DTM:%d, SCAN:%d, CCA:%d, SMP:%d, CONNECT:%d",
+		 BT_CTRL_BLE_ADV, BT_CTRL_50_FEATURE_SUPPORT, BT_CTRL_DTM_ENABLE, BT_CTRL_BLE_SCAN,
+		 BT_BLE_CCA_MODE, BLE_SECURITY_ENABLE, BT_CTRL_BLE_MASTER);
+
+	ble_base_funcs_reset();
+#if CONFIG_ESP32_BT_CTLR_LE_ADV
+	ble_42_adv_funcs_reset();
+#if (BT_CTRL_50_FEATURE_SUPPORT == 1)
+	ble_ext_adv_funcs_reset();
+#endif //
+#endif // CONFIG_ESP32_BT_CTLR_LE_ADV
+
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+	ble_dtm_funcs_reset();
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+
+#if CONFIG_ESP32_BT_CTLR_LE_SCAN
+	ble_scan_funcs_reset();
+#if (BT_CTRL_50_FEATURE_SUPPORT == 1)
+	ble_ext_scan_funcs_reset();
+#endif // (BT_CTRL_50_FEATURE_SUPPORT == 1)
+#endif // CONFIG_ESP32_BT_CTLR_LE_SCAN
+
+#if (BT_BLE_CCA_MODE != 0)
+	ble_cca_funcs_reset();
+#endif // (BT_BLE_CCA_MODE != 0)
+
+#if CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
+	ble_enc_funcs_reset();
+#endif // CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
+
+#if CONFIG_ESP32_BT_CTLR_LE_MASTER
+	ble_init_funcs_reset();
+	ble_con_funcs_reset();
+#endif // CONFIG_ESP32_BT_CTLR_LE_MASTER
+
+#endif // CONFIG_ESP32_BT_CTLR_RUN_IN_FLASH_ONLY
 }
 
 bool bt_async_wakeup_request(void)
@@ -969,6 +1018,18 @@ static void coex_bt_wakeup_request_end(void)
 {
 	async_wakeup_request_end(BTDM_ASYNC_WAKEUP_REQ_COEX);
 	return;
+}
+
+static IRAM_ATTR int64_t get_time_us_wrapper(void)
+{
+	return esp_timer_get_time();
+}
+
+static IRAM_ATTR void assert_wrapper(void)
+{
+#if CONFIG_ESP32_BT_CTLR_LE_LOG_EN
+	esp_ble_controller_log_dump_all(true);
+#endif // CONFIG_ESP32_BT_CTLR_LE_LOG_EN
 }
 
 bool esp_vhci_host_check_send_available(void)
@@ -999,7 +1060,6 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
 
 	return API_vhci_host_register_callback((const esp_vhci_host_callback_t *)callback) == 0 ? ESP_OK : ESP_FAIL;
 }
-
 
 static void btdm_controller_mem_init(void)
 {
@@ -1091,7 +1151,7 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
 				if (rtc_clk_slow_src_get() != SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
 					LOG_WRN("32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock");
 					s_lp_cntl.lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL;
-#if !CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+#if !CONFIG_ESP32_BT_CTLR_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
 					s_lp_cntl.no_light_sleep = 1;
 #endif
 				}
@@ -1105,7 +1165,7 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
 				}
 			} else if (s_lp_cntl.lpclk_sel == ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
 				LOG_INF("Bluetooth will use main XTAL as Bluetooth sleep clock.");
-#if !CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+#if !CONFIG_ESP32_BT_CTLR_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
 				s_lp_cntl.no_light_sleep = 1;
 #endif
 			}
@@ -1116,7 +1176,7 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
 		bool select_src_ret __attribute__((unused));
 		bool set_div_ret __attribute__((unused));
 		if (s_lp_cntl.lpclk_sel == ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
-#ifdef CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+#ifdef CONFIG_ESP32_BT_CTLR_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
 			esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_ON);
 			s_lp_cntl.main_xtal_pu = 1;
 #endif
@@ -1243,6 +1303,11 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 		goto error;
 	}
 
+	scan_stack_enableAdvFlowCtrlVsCmd(true);
+	adv_stack_enableClearLegacyAdvVsCmd(true);
+	advFilter_stack_enableDupExcListVsCmd(true);
+	chanSel_stack_enableSetCsaVsCmd(true);
+
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
 
 	return ESP_OK;
@@ -1259,6 +1324,11 @@ esp_err_t esp_bt_controller_deinit(void)
 	if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_INITED) {
 		return ESP_ERR_INVALID_STATE;
 	}
+
+	scan_stack_enableAdvFlowCtrlVsCmd(false);
+	adv_stack_enableClearLegacyAdvVsCmd(false);
+	advFilter_stack_enableDupExcListVsCmd(false);
+	chanSel_stack_enableSetCsaVsCmd(false);
 
 	btdm_controller_deinit();
 
@@ -1295,7 +1365,7 @@ static void btdm_low_power_mode_deinit(void)
 	}
 
 	if (s_lp_cntl.lpclk_sel == ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
-#ifdef CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
+#ifdef CONFIG_ESP32_BT_CTLR_MAIN_XTAL_PU_DURING_LIGHT_SLEEP
 		if (s_lp_cntl.main_xtal_pu) {
 			esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
 			s_lp_cntl.main_xtal_pu = 0;
@@ -1620,6 +1690,29 @@ int IRAM_ATTR esp_bt_h4tl_eif_io_event_notify(int event)
 static void coex_wifi_sleep_set_hook(bool sleep)
 {
 
+}
+
+static int coex_schm_register_btdm_callback_wrapper(void *callback)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+	return coex_schm_register_callback(COEX_SCHM_CALLBACK_TYPE_BT, callback);
+#else
+	return 0;
+#endif
+}
+
+static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+	coex_schm_status_bit_clear(type, status);
+#endif
+}
+
+static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status)
+{
+#if CONFIG_SW_COEXIST_ENABLE
+	coex_schm_status_bit_set(type, status);
+#endif
 }
 
 static void esp_bt_free(void *mem)
