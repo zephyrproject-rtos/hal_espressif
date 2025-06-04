@@ -313,6 +313,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
 
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
@@ -339,12 +340,13 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/esp_timer/src/esp_timer.c
     ../../components/esp_timer/src/esp_timer_impl_common.c
-    ../../components/esp_timer/src/esp_timer_impl_lac.c
+    ../../components/esp_timer/src/esp_timer_impl_systimer.c
 
     ../../components/hal/brownout_hal.c
     ../../components/hal/efuse_hal.c
     ../../components/hal/cache_hal.c
     ../../components/hal/mmu_hal.c
+    ../../components/hal/systimer_hal.c
     ../../components/hal/wdt_hal_iram.c
 
     ../../components/hal/${CONFIG_SOC_SERIES}/clk_tree_hal.c
@@ -489,6 +491,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}esp_supplicant/src/crypto/fastpsk.c"
          # Add internal RC4 as RC4 has been removed from mbedtls
          "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
         )
