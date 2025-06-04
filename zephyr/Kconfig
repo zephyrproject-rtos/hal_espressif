@@ -68,6 +68,25 @@ config IDF_TARGET_ESP32C6
 	bool
 	default y if SOC_SERIES_ESP32C6
 
+menu "Wi-Fi config"
+
+choice ESP_WIFI_TASK_CORE_ID
+	prompt "WiFi Task Core ID"
+	depends on SOC_SERIES_ESP32S3
+	default ESP_WIFI_TASK_PINNED_TO_CORE_0
+	help
+	  Pinned WiFi task to core 0 or core 1.
+
+config ESP_WIFI_TASK_PINNED_TO_CORE_0
+	bool "Core 0"
+
+config ESP_WIFI_TASK_PINNED_TO_CORE_1
+	bool "Core 1"
+
+endchoice # ESP_WIFI_TASK_CORE_ID
+
+endmenu # Wi-Fi config
+
 menu "Sleep config"
 
 config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
