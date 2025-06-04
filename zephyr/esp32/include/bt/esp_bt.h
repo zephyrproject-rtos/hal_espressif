@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -54,7 +54,7 @@ extern "C" {
 *
 * @note Please do not modify this value.
 */
-#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20241024
+#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20250318
 
 #if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
 #define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P9
@@ -110,42 +110,42 @@ the adv packet will be discarded until the memory is restored. */
 /* enable controller log debug when adv lost */
 #define CONTROLLER_ADV_LOST_DEBUG_BIT      (0<<0)
 
-#ifdef CONFIG_BTDM_CTRL_HCI_UART_NO
-#define BT_HCI_UART_NO_DEFAULT                      CONFIG_BTDM_CTRL_HCI_UART_NO
+#ifdef CONFIG_ESP32_BT_CTLR_HCI_UART_NO
+#define BT_HCI_UART_NO_DEFAULT                      CONFIG_ESP32_BT_CTLR_HCI_UART_NO
 #else
 #define BT_HCI_UART_NO_DEFAULT                      1
 #endif /* BT_HCI_UART_NO_DEFAULT */
 
-#ifdef CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE
-#define BT_HCI_UART_BAUDRATE_DEFAULT                CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE
+#ifdef CONFIG_ESP32_BT_CTLR_HCI_UART_BAUDRATE
+#define BT_HCI_UART_BAUDRATE_DEFAULT                CONFIG_ESP32_BT_CTLR_HCI_UART_BAUDRATE
 #else
 #define BT_HCI_UART_BAUDRATE_DEFAULT                921600
 #endif /* BT_HCI_UART_BAUDRATE_DEFAULT */
 
-#ifdef CONFIG_BTDM_SCAN_DUPL_TYPE
-#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BTDM_SCAN_DUPL_TYPE
+#ifdef CONFIG_ESP32_BT_SCAN_DUPL_TYPE
+#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_ESP32_BT_SCAN_DUPL_TYPE
 #else
 #define SCAN_DUPLICATE_TYPE_VALUE  0
 #endif
 
 /* normal adv cache size */
-#ifdef CONFIG_BTDM_SCAN_DUPL_CACHE_SIZE
-#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_BTDM_SCAN_DUPL_CACHE_SIZE
+#ifdef CONFIG_ESP32_BT_SCAN_DUPL_CACHE_SIZE
+#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_ESP32_BT_SCAN_DUPL_CACHE_SIZE
 #else
 #define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            20
 #endif
 
-#ifndef CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN
-#define CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN FALSE
+#ifndef CONFIG_ESP32_BT_LE_MESH_SCAN_DUPL_EN
+#define CONFIG_ESP32_BT_LE_MESH_SCAN_DUPL_EN FALSE
 #endif
 
 #define SCAN_DUPLICATE_MODE_NORMAL_ADV_ONLY         0
 #define SCAN_DUPLICATE_MODE_NORMAL_ADV_MESH_ADV     1
 
-#if CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN
+#if CONFIG_ESP32_BT_LE_MESH_SCAN_DUPL_EN
     #define SCAN_DUPLICATE_MODE                     SCAN_DUPLICATE_MODE_NORMAL_ADV_MESH_ADV
-    #ifdef CONFIG_BTDM_MESH_DUPL_SCAN_CACHE_SIZE
-    #define MESH_DUPLICATE_SCAN_CACHE_SIZE          CONFIG_BTDM_MESH_DUPL_SCAN_CACHE_SIZE
+    #ifdef CONFIG_ESP32_BT_MESH_DUPL_SCAN_CACHE_SIZE
+    #define MESH_DUPLICATE_SCAN_CACHE_SIZE          CONFIG_ESP32_BT_MESH_DUPL_SCAN_CACHE_SIZE
     #else
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          50
     #endif
@@ -154,34 +154,32 @@ the adv packet will be discarded until the memory is restored. */
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
 #endif
 
-#ifdef CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
-#define SCAN_DUPL_CACHE_REFRESH_PERIOD CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#ifdef CONFIG_ESP32_BT_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#define SCAN_DUPL_CACHE_REFRESH_PERIOD CONFIG_ESP32_BT_SCAN_DUPL_CACHE_REFRESH_PERIOD
 #else
 #define SCAN_DUPL_CACHE_REFRESH_PERIOD              0
 #endif
 
-#if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
+#if !defined(CONFIG_BT_CLASSIC)
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
-#elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
-#define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_CLASSIC_BT
 #else
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
 #endif
 
-#ifdef CONFIG_BTDM_CTRL_AUTO_LATENCY_EFF
-#define BTDM_CTRL_AUTO_LATENCY_EFF CONFIG_BTDM_CTRL_AUTO_LATENCY_EFF
+#ifdef CONFIG_ESP32_BT_CTLR_AUTO_LATENCY_EFF
+#define BTDM_CTRL_AUTO_LATENCY_EFF CONFIG_ESP32_BT_CTLR_AUTO_LATENCY_EFF
 #else
 #define BTDM_CTRL_AUTO_LATENCY_EFF false
 #endif
 
-#ifdef CONFIG_BTDM_CTRL_HLI
-#define BTDM_CTRL_HLI CONFIG_BTDM_CTRL_HLI
+#ifdef CONFIG_ESP32_BT_CTLR_HLI
+#define BTDM_CTRL_HLI CONFIG_ESP32_BT_CTLR_HLI
 #else
 #define BTDM_CTRL_HLI false
 #endif
 
-#ifdef CONFIG_BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
-#define BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF CONFIG_BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
+#ifdef CONFIG_ESP32_BT_CTLR_LEGACY_AUTH_VENDOR_EVT_EFF
+#define BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF CONFIG_ESP32_BT_CTLR_LEGACY_AUTH_VENDOR_EVT_EFF
 #else
 #define BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF false
 #endif
@@ -193,19 +191,19 @@ the adv packet will be discarded until the memory is restored. */
 #define BTDM_CONTROLLER_SCO_DATA_PATH_HCI           0   // SCO data is routed to HCI
 #define BTDM_CONTROLLER_SCO_DATA_PATH_PCM           1   // SCO data path is PCM
 
-#ifdef CONFIG_BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
-#define BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX CONFIG_BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+#ifdef CONFIG_ESP32_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX
+#define BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX CONFIG_ESP32_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX
 #else
 #define BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX  0
 #endif
 
-#ifdef CONFIG_BTDM_BLE_LLCP_CONN_UPDATE
+#ifdef CONFIG_ESP32_BT_LE_LLCP_CONN_UPDATE
 #define BTDM_BLE_LLCP_CONN_UPDATE (1<<0)
 #else
 #define BTDM_BLE_LLCP_CONN_UPDATE (0<<0)
 #endif
 
-#ifdef CONFIG_BTDM_BLE_LLCP_CHAN_MAP_UPDATE
+#ifdef CONFIG_ESP32_BT_LE_LLCP_CHAN_MAP_UPDATE
 #define BTDM_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
 #else
 #define BTDM_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
@@ -213,22 +211,56 @@ the adv packet will be discarded until the memory is restored. */
 
 #define BTDM_BLE_LLCP_DISC_FLAG (BTDM_BLE_LLCP_CONN_UPDATE | BTDM_BLE_LLCP_CHAN_MAP_UPDATE)
 
-#ifdef CONFIG_BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
-#define BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED CONFIG_BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#ifdef CONFIG_ESP32_BT_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#define BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED CONFIG_ESP32_BT_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
 #else
 #define BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED 0
 #endif
 
-#if defined(CONFIG_BTDM_BLE_CHAN_ASS_EN)
-#define BTDM_BLE_CHAN_ASS_EN (CONFIG_BTDM_BLE_CHAN_ASS_EN)
+#if defined(CONFIG_ESP32_BT_LE_CHAN_ASS_EN)
+#define BTDM_BLE_CHAN_ASS_EN (CONFIG_ESP32_BT_LE_CHAN_ASS_EN)
 #else
 #define BTDM_BLE_CHAN_ASS_EN (0)
 #endif
 
-#if defined(CONFIG_BTDM_BLE_PING_EN)
-#define BTDM_BLE_PING_EN (CONFIG_BTDM_BLE_PING_EN)
+#if CONFIG_ESP32_BT_CTLR_CONTROLLER_DEBUG_MODE_1
+#define BTDM_CTRL_CONTROLLER_DEBUG_MODE_1  (1 << 1)
+#else
+#define BTDM_CTRL_CONTROLLER_DEBUG_MODE_1  0
+#endif
+
+#ifndef BTDM_CTRL_CONTROLLER_DEBUG_FLAG
+#define BTDM_CTRL_CONTROLLER_DEBUG_FLAG    (BTDM_CTRL_CONTROLLER_DEBUG_MODE_1 | CONTROLLER_ADV_LOST_DEBUG_BIT)
+#endif
+
+#if defined(CONFIG_ESP32_BT_LE_PING_EN)
+#define BTDM_BLE_PING_EN (CONFIG_ESP32_BT_LE_PING_EN)
 #else
 #define BTDM_BLE_PING_EN (0)
+#endif
+
+#if defined(CONFIG_ESP32_BT_CTLR_LE_MAX_CONN)
+#define BTDM_CTRL_BLE_MAX_CONN (CONFIG_ESP32_BT_CTLR_LE_MAX_CONN)
+#else
+#define BTDM_CTRL_BLE_MAX_CONN (0)
+#endif
+
+#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_SYNC_CONN)
+#define BTDM_CTRL_BR_EDR_MAX_SYNC_CONN (CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_SYNC_CONN)
+#else
+#define BTDM_CTRL_BR_EDR_MAX_SYNC_CONN (0)
+#endif
+
+#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_ACL_CONN)
+#define BTDM_CTRL_BR_EDR_MAX_ACL_CONN (CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_ACL_CONN)
+#else
+#define BTDM_CTRL_BR_EDR_MAX_ACL_CONN (0)
+#endif
+
+#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MIN_ENC_KEY_SZ_DFT)
+#define BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT (CONFIG_ESP32_BT_CTLR_BR_EDR_MIN_ENC_KEY_SZ_DFT)
+#else
+#define BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT (0)
 #endif
 
 /**
@@ -244,19 +276,20 @@ the adv packet will be discarded until the memory is restored. */
     .normal_adv_size = NORMAL_SCAN_DUPLICATE_CACHE_SIZE,                   \
     .mesh_adv_size = MESH_DUPLICATE_SCAN_CACHE_SIZE,                       \
     .send_adv_reserved_size = SCAN_SEND_ADV_RESERVED_SIZE,                 \
-    .controller_debug_flag = CONTROLLER_ADV_LOST_DEBUG_BIT,                \
-    .mode = ESP_BT_MODE_BLE,                                      \
-    .ble_max_conn = 3,                     \
-    .bt_max_acl_conn = 2,           \
-    .bt_sco_datapath = 0,          \
+    .controller_debug_flag = BTDM_CTRL_CONTROLLER_DEBUG_FLAG,              \
+    .mode = BTDM_CONTROLLER_MODE_EFF,                                      \
+    .ble_max_conn = BTDM_CTRL_BLE_MAX_CONN,                                \
+    .bt_max_acl_conn = BTDM_CTRL_BR_EDR_MAX_ACL_CONN,                      \
+    .bt_sco_datapath = 0,                                                  \
     .auto_latency = BTDM_CTRL_AUTO_LATENCY_EFF,                            \
     .bt_legacy_auth_vs_evt = BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF,         \
-    .bt_max_sync_conn = 0,         \
-    .ble_sca = 1,             \
-    .pcm_role = 0,                             \
-    .pcm_polar = 0,                           \
+    .bt_max_sync_conn = BTDM_CTRL_BR_EDR_MAX_SYNC_CONN,                    \
+    .ble_sca = CONFIG_ESP32_BT_LE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,         \
+    .pcm_role = 0,                                                         \
+    .pcm_polar = 0,                                                        \
     .pcm_fsyncshp = 0,                                                     \
     .hli = BTDM_CTRL_HLI,                                                  \
+    .enc_key_sz_min = BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT,                 \
     .dup_list_refresh_period = SCAN_DUPL_CACHE_REFRESH_PERIOD,             \
     .ble_scan_backoff = BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,              \
     .ble_llcp_disc_flag = BTDM_BLE_LLCP_DISC_FLAG,                         \
@@ -276,8 +309,8 @@ the adv packet will be discarded until the memory is restored. */
 /**
  * @brief Bluetooth Controller config options
  * @note
- *      1. For parameters configurable in menuconfig, please refer to menuconfig for details on range and default values.
- *      2. It is not recommended to modify the default values of `controller_task_stack_size`, `controller_task_prio`.
+ *      1. For parameters configurable through menuconfig, it is recommended to adjust them via the menuconfig interface. Please refer to menuconfig for details on the range and default values.
+ *      2. It is not recommended to modify the values for parameters which are not configurable through menuconfig.
  */
 typedef struct {
     uint16_t controller_task_stack_size;    /*!< Bluetooth Controller task stack size in bytes */
@@ -336,6 +369,9 @@ typedef struct {
                                                 - 1 - Mono Mode 1
                                                 - 2 - Mono Mode 2 */
     bool hli;                               /*!< True if using high-level (level 4) interrupt (default); false otherwise. Configurable in menuconfig */
+    uint8_t enc_key_sz_min;                 /*!< Minimum size of the encryption key
+                                                - Range: 7 - 16
+                                                - Default: 7 */
     uint16_t dup_list_refresh_period;       /*!< Scan duplicate filtering list refresh period in seconds. Configurable in menuconfig
                                                 - Range: 0 - 100 seconds
                                                 - Default: 0 second */
@@ -414,80 +450,13 @@ typedef enum {
 } esp_sco_data_path_t;
 
 /**
- * @brief  Set BLE TX power
- *
- * @note   Connection TX power should only be set after the connection is established.
- *
- * @param[in]  power_type The type of TX power. It could be Advertising, Connection, Default, etc.
- * @param[in]  power_level Power level (index) corresponding to the absolute value (dBm)
- *
- * @return
- *      - ESP_OK:   Success
- *      - ESP_ERR_INVALID_ARG: Invalid argument
+ * @brief Bluetooth sleep clock
  */
-esp_err_t esp_ble_tx_power_set(esp_ble_power_type_t power_type, esp_power_level_t power_level);
-
-/**
- * @brief  Get BLE TX power
- *
- * @note    Connection TX power should only be retrieved after the connection is established.
- *
- * @param[in]  power_type The type of TX power. It could be Advertising/Connection/Default and etc.
- *
- * @return
- *         - Power level
- *
- */
-esp_power_level_t esp_ble_tx_power_get(esp_ble_power_type_t power_type);
-
-/**
- * @brief  Set BR/EDR TX power
- *
- * BR/EDR power control will use the power within the range of minimum value and maximum value.
- * The power level will affect the global BR/EDR TX power for operations such as inquiry, page, and connection.
- *
- * @note
- *      1. Please call this function after `esp_bt_controller_enable()` and before any functions that cause RF transmission,
- *          such as performing discovery, profile initialization, and so on.
- *      2. For BR/EDR to use the new TX power for inquiry, call this function before starting an inquiry.
- *          If BR/EDR is already inquiring, restart the inquiry after calling this function.
- *
- * @param[in]  min_power_level The minimum power level. The default value is `ESP_PWR_LVL_N0`.
- * @param[in]  max_power_level The maximum power level. The default value is `ESP_PWR_LVL_P3`.
- *
- * @return
- *      - ESP_OK: Success
- *      - ESP_ERR_INVALID_ARG: Invalid argument
- *      - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
- */
-esp_err_t esp_bredr_tx_power_set(esp_power_level_t min_power_level, esp_power_level_t max_power_level);
-
-/**
- * @brief  Get BR/EDR TX power
- *
- * The corresponding power levels will be stored into the arguments.
- *
- * @param[out]  min_power_level Pointer to store the minimum power level
- * @param[out]  max_power_level  The maximum power level
- *
- * @return
- *      - ESP_OK: Success
- *      - ESP_ERR_INVALID_ARG: Invalid argument
- */
-esp_err_t esp_bredr_tx_power_get(esp_power_level_t *min_power_level, esp_power_level_t *max_power_level);
-
-/**
- * @brief  Set default SCO data path
- *
- * @note   This function should be called after the Controller is enabled, and before (e)SCO link is established.
- *
- * @param[in] data_path SCO data path
- *
- * @return
- *      - ESP_OK: Success
- *      - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
- */
-esp_err_t esp_bredr_sco_datapath_set(esp_sco_data_path_t data_path);
+typedef enum {
+    ESP_BT_SLEEP_CLOCK_NONE            = 0,   /*!< Sleep clock not configured */
+    ESP_BT_SLEEP_CLOCK_MAIN_XTAL       = 1,   /*!< SoC main crystal */
+    ESP_BT_SLEEP_CLOCK_EXT_32K_XTAL    = 2,   /*!< External 32.768kHz crystal/oscillator */
+} esp_bt_sleep_clock_t;
 
 /**
  * @brief       Initialize the Bluetooth Controller to allocate tasks and other resources
@@ -499,6 +468,8 @@ esp_err_t esp_bredr_sco_datapath_set(esp_sco_data_path_t data_path);
  * @return
  *        - ESP_OK: Success
  *        - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
+ *        - ESP_ERR_INVALID_ARG: Invalid arguments
+ *        - ESP_ERR_NO_MEM: Out of memory
  */
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg);
 
@@ -507,13 +478,12 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg);
  *
  * @note
  *      1. You should stop advertising and scanning, and disconnect all existing connections before de-initializing Bluetooth Controller.
- *      2. This function should be called only once, after any other Bluetooth functions.
+ *      2. This function should be called after `esp_bt_controller_disable` if the Controller was enabled before.
+ *      3. This function should be called only once, after any other Bluetooth functions.
  *
  * @return
  *      - ESP_OK: Success
- *      - ESP_ERR_INVALID_ARG: Invalid argument
  *      - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
- *      - ESP_ERR_NO_MEM: Out of memory
  */
 esp_err_t esp_bt_controller_deinit(void);
 
@@ -533,6 +503,7 @@ esp_err_t esp_bt_controller_deinit(void);
  * @return
  *          - ESP_OK: Success
  *          - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
+ *          - ESP_ERR_INVALID_ARG: Invalid arguments
  */
 esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode);
 
@@ -555,50 +526,7 @@ esp_err_t esp_bt_controller_disable(void);
  */
 esp_bt_controller_status_t esp_bt_controller_get_status(void);
 
-/**
- * @brief Vendor HCI (VHCI) callback functions to notify the Host on the next operation
- */
-typedef struct esp_vhci_host_callback {
-    void (*notify_host_send_available)(void);               /*!< Callback to notify the Host that the Controller is ready to receive the packet */
-    int (*notify_host_recv)(uint8_t *data, uint16_t len);   /*!< Callback to notify the Host that the Controller has a packet to send */
-} esp_vhci_host_callback_t;
-
 typedef void (*workitem_handler_t)(void *arg);
-
-/**
- * @brief Check whether the Controller is ready to receive the packet
- *
- *  If the return value is True, the Host can send the packet to the Controller.
- *
- * @note This function should be called before each `esp_vhci_host_send_packet()`.
- *
- * @return
- *       True if the Controller is ready to receive packets; false otherwise
- */
-bool esp_vhci_host_check_send_available(void);
-
-/**
- * @brief Send the packet to the Controller
- *
- * @note
- *      1. This function shall not be called within a critical section or when the scheduler is suspended.
- *      2. This function should be called only if `esp_vhci_host_check_send_available()` returns True.
- *
- * @param[in] data Pointer to the packet data
- * @param[in] len The packet length
- */
-void esp_vhci_host_send_packet(uint8_t *data, uint16_t len);
-
-/**
- * @brief Register the VHCI callback funations defined in `esp_vhci_host_callback` structure.
- *
- * @param[in] callback `esp_vhci_host_callback` type variable
- *
- * @return
- *      - ESP_OK: Success
- *      - ESP_FAIL: Failure
- */
-esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback);
 
 /**
  * @brief Release the Controller memory as per the mode
@@ -607,7 +535,7 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
  *
  * @note
  *    1. This function is optional and should be called only if you want to free up memory for other components.
- *    2. This function should only be called when the controller is in `ESP_BT_CONTROLLER_STATUS_IDLE` status.
+ *    2. This function should only be called when the Controller is in `ESP_BT_CONTROLLER_STATUS_IDLE` status.
  *    3. Once Bluetooth Controller memory is released, the process cannot be reversed. This means you cannot use the Bluetooth Controller mode that you have released using this function.
  *    4. If your firmware will upgrade the Bluetooth Controller mode later (such as switching from BLE to Classic Bluetooth or from disabled to enabled), then do not call this function.
  *
@@ -616,6 +544,7 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
  * If you intend to use BLE only, calling `esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT)` could release the BSS and data consumed by Classic Bluetooth Controller. You can then continue using BLE.
  *
  * If you intend to use Classic Bluetooth only, calling `esp_bt_controller_mem_release(ESP_BT_MODE_BLE)` could release the BSS and data consumed by BLE Controller. You can then continue using Classic Bluetooth.
+ *
  *
  * @param[in] mode The Bluetooth Controller mode
  *
@@ -626,12 +555,11 @@ esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callba
  */
 esp_err_t esp_bt_controller_mem_release(esp_bt_mode_t mode);
 
-/**
- * @brief Release the Controller memory, BSS and data section of the Classic Bluetooth/BLE Host stack as per the mode
+/** @brief Release the Controller memory, BSS and data section of the Classic Bluetooth/BLE Host stack as per the mode
  *
  * @note
  *    1. This function is optional and should be called only if you want to free up memory for other components.
- *    2. This function should only be called when the controller is in `ESP_BT_CONTROLLER_STATUS_IDLE` status.
+ *    2. This function should only be called when the Controller is in `ESP_BT_CONTROLLER_STATUS_IDLE` status.
  *    3. Once Bluetooth Controller memory is released, the process cannot be reversed. This means you cannot use the Bluetooth Controller mode that you have released using this function.
  *    4. If your firmware will upgrade the Bluetooth Controller mode later (such as switching from BLE to Classic Bluetooth or from disabled to enabled), then do not call this function.
  *
@@ -680,7 +608,6 @@ esp_err_t esp_bt_mem_release(esp_bt_mode_t mode);
  */
 esp_err_t esp_bt_sleep_enable(void);
 
-
 /**
  * @brief Disable Bluetooth modem sleep
  *
@@ -693,12 +620,39 @@ esp_err_t esp_bt_sleep_enable(void);
  * @return
  *       - ESP_OK: Success
  *       - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
- *       - ESP_ERR_NOT_SUPPORTED: Operation or feature not supported
+ *       - ESP_ERR_NOT_SUPPORTED: The modem sleep mode is not supported
  */
 esp_err_t esp_bt_sleep_disable(void);
 
 /**
- * @brief Manually clear the scan duplicate list
+ * @brief  Set BLE TX power
+ *
+ * @note Connection TX power should only be set after the connection is established.
+ *
+ * @param[in]  power_type The type of TX power. It could be Advertising, Connection, Default, etc.
+ * @param[in]  power_level Power level (index) corresponding to the absolute value (dBm)
+ *
+ * @return
+ *      - ESP_OK:   Success
+ *      - ESP_ERR_INVALID_ARG: Invalid argument
+ */
+esp_err_t esp_ble_tx_power_set(esp_ble_power_type_t power_type, esp_power_level_t power_level);
+
+/**
+ * @brief  Get BLE TX power
+ *
+ * @note Connection TX power should only be retrieved after the connection is established.
+ *
+ * @param[in]  power_type The type of TX power. It could be Advertising/Connection/Default and etc.
+ *
+ * @return
+ *         - Power level
+ *
+ */
+esp_power_level_t esp_ble_tx_power_get(esp_ble_power_type_t power_type);
+
+/**
+ * @brief Manually clear the BLE scan duplicate list
  *
  * @note
  *      1. This function name is incorrectly spelled, it will be fixed in release 5.x version.
@@ -709,7 +663,100 @@ esp_err_t esp_bt_sleep_disable(void);
  *       - ESP_OK: Success
  *       - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
  */
+esp_err_t esp_ble_scan_duplicate_list_flush(void);
 esp_err_t esp_ble_scan_dupilcate_list_flush(void);
+
+/**
+ * @brief  Set BR/EDR TX power
+ *
+ * BR/EDR power control will use the power within the range of minimum value and maximum value.
+ * The power level will affect the global BR/EDR TX power for operations such as inquiry, page, and connection.
+ *
+ * @note
+ *      1. Please call this function after `esp_bt_controller_enable()` and before any functions that cause RF transmission,
+ *          such as performing discovery, profile initialization, and so on.
+ *      2. For BR/EDR to use the new TX power for inquiry, call this function before starting an inquiry.
+ *          If BR/EDR is already inquiring, restart the inquiry after calling this function.
+ *
+ * @param[in]  min_power_level The minimum power level. The default value is `ESP_PWR_LVL_N0`.
+ * @param[in]  max_power_level The maximum power level. The default value is `ESP_PWR_LVL_P3`.
+ *
+ * @return
+ *      - ESP_OK: Success
+ *      - ESP_ERR_INVALID_ARG: Invalid argument
+ *      - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
+ */
+esp_err_t esp_bredr_tx_power_set(esp_power_level_t min_power_level, esp_power_level_t max_power_level);
+
+/**
+ * @brief  Get BR/EDR TX power
+ *
+ * The corresponding power levels will be stored into the arguments.
+ *
+ * @param[out]  min_power_level Pointer to store the minimum power level
+ * @param[out]  max_power_level The maximum power level
+ *
+ * @return
+ *      - ESP_OK: Success
+ *      - ESP_ERR_INVALID_ARG: Invalid argument
+ */
+esp_err_t esp_bredr_tx_power_get(esp_power_level_t *min_power_level, esp_power_level_t *max_power_level);
+
+/**
+ * @brief  Set BR/EDR default SCO data path
+ *
+ * @note   This function should be called after the Controller is enabled, and before (e)SCO link is established.
+ *
+ * @param[in] data_path SCO data path
+ *
+ * @return
+ *      - ESP_OK: Success
+ *      - ESP_ERR_INVALID_STATE: Invalid Bluetooth Controller state
+ */
+esp_err_t esp_bredr_sco_datapath_set(esp_sco_data_path_t data_path);
+
+/**
+ * @brief Virtual HCI (VHCI) callback functions to notify the Host on the next operation
+ */
+typedef struct esp_vhci_host_callback {
+    void (*notify_host_send_available)(void);               /*!< Callback to notify the Host that the Controller is ready to receive the HCI data */
+    int (*notify_host_recv)(uint8_t *data, uint16_t len);   /*!< Callback to notify the Host that the Controller has the HCI data to send */
+} esp_vhci_host_callback_t;
+
+/**
+ * @brief Check whether the Controller is ready to receive the HCI data from the Host
+ *
+ * If the return value is True, the Host can send the HCI data to the Controller.
+ *
+ * @note This function should be called before each `esp_vhci_host_send_packet()`.
+ *
+ * @return
+ *       True if the Controller is ready to receive the HCI data; false otherwise
+ */
+bool esp_vhci_host_check_send_available(void);
+
+/**
+ * @brief Send the HCI data to the Controller
+ *
+ * @note
+ *      1. This function shall not be called within a critical section or when the scheduler is suspended.
+ *      2. This function should be called only if `esp_vhci_host_check_send_available()` returns True.
+ *
+ * @param[in] data Pointer to the HCI data
+ * @param[in] len The HCI data length
+ */
+void esp_vhci_host_send_packet(uint8_t *data, uint16_t len);
+
+/**
+ * @brief Register the VHCI callback functions defined in `esp_vhci_host_callback` structure
+ *
+ * @param[in] callback `esp_vhci_host_callback` type variable
+ *
+ * @return
+ *      - ESP_OK: Success
+ *      - ESP_FAIL: Failure
+ */
+esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback);
 
 /**
  * @brief Power on Bluetooth Wi-Fi power domain
@@ -724,6 +771,29 @@ void esp_wifi_bt_power_domain_on(void);
  * @note This function is not recommended to use due to potential risk.
 */
 void esp_wifi_bt_power_domain_off(void);
+
+/**
+ * @brief Get the Bluetooth module sleep clock source.
+ *
+ * @note This function should be called after `esp_bt_controller_init()`
+ *
+ * @return
+ *      - Clock source used in Bluetooth low power mode
+ */
+esp_bt_sleep_clock_t esp_bt_get_lpclk_src(void);
+
+/**
+ * @brief Set the Bluetooth module sleep clock source.
+ *
+ * @note This function should be called before `esp_bt_controller_init()`
+ *
+ * @param[in] lpclk Bluetooth sleep clock source
+ *
+ * @return
+ *       - ESP_OK: Success
+ *       - ESP_ERR_INVALID_ARG: Invalid argument
+ */
+esp_err_t esp_bt_set_lpclk_src(esp_bt_sleep_clock_t lpclk);
 
 #ifdef __cplusplus
 }

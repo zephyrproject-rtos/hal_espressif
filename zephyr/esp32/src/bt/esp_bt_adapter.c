@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -29,7 +29,6 @@
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
 #include "private/esp_coexist_internal.h"
-#include "esp_timer.h"
 #include "esp_heap_adapter.h"
 #include "esp_system.h"
 #include "esp_rom_sys.h"
@@ -218,6 +217,12 @@ extern void config_bt_funcs_reset(void);
 extern void config_ble_funcs_reset(void);
 extern void config_btdm_funcs_reset(void);
 
+extern void bt_stack_enableSecCtrlVsCmd(bool en);
+extern void bt_stack_enableCoexVsCmd(bool en);
+extern void scan_stack_enableAdvFlowCtrlVsCmd(bool en);
+extern void adv_stack_enableClearLegacyAdvVsCmd(bool en);
+extern void advFilter_stack_enableDupExcListVsCmd(bool en);
+
 static void task_yield_from_isr(void);
 static void *semphr_create_wrapper(uint32_t max, uint32_t init);
 static void semphr_delete_wrapper(void *semphr);
@@ -375,10 +380,14 @@ static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
 /* number of fractional bit for btdm_lpcycle_us */
 static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
 
-#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
+#if CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_ORIG
 // used low power clock
-static DRAM_ATTR uint8_t btdm_lpclk_sel;
-#endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
+#if CONFIG_ESP32_BT_CTLR_LPCLK_SEL_EXT_32K_XTAL
+static DRAM_ATTR uint8_t btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_EXT_32K_XTAL;
+#else
+static DRAM_ATTR uint8_t btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL;
+#endif /* CONFIG_ESP32_BT_CTLR_LPCLK_SEL_EXT_32K_XTAL */
+#endif /* #ifdef CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_ORIG */
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
@@ -782,9 +791,8 @@ static bool async_wakeup_request(int event)
 
 	switch (event) {
 	case BTDM_ASYNC_WAKEUP_REQ_HCI:
-		btdm_in_wakeup_requesting_set(true);
-	/* NO break */
 	case BTDM_ASYNC_WAKEUP_REQ_CTRL_DISA:
+		btdm_in_wakeup_requesting_set(true);
 		if (!btdm_power_state_active()) {
 			do_wakeup_request = true;
 
@@ -811,10 +819,10 @@ static void async_wakeup_request_end(int event)
 
 	switch (event) {
 	case BTDM_ASYNC_WAKEUP_REQ_HCI:
+	case BTDM_ASYNC_WAKEUP_REQ_CTRL_DISA:
 		request_lock = true;
 		break;
 	case BTDM_ASYNC_WAKEUP_REQ_COEX:
-	case BTDM_ASYNC_WAKEUP_REQ_CTRL_DISA:
 		request_lock = false;
 		break;
 	default:
@@ -857,7 +865,7 @@ static int IRAM_ATTR coex_bt_release_wrapper(uint32_t event)
 #endif
 }
 
-static int  coex_register_bt_cb_wrapper(coex_func_cb_t cb)
+static int coex_register_bt_cb_wrapper(coex_func_cb_t cb)
 {
 #if CONFIG_SW_COEXIST_ENABLE
 	return coex_register_bt_cb(cb);
@@ -986,12 +994,15 @@ static uint32_t btdm_config_mask_load(void)
 {
 	uint32_t mask = 0x0;
 
-#if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
+#if CONFIG_ESP32_BT_CTLR_HCI_MODE_UART_H4
+	mask |= BTDM_CFG_HCI_UART;
+#endif
+#if CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 1
 	mask |= BTDM_CFG_CONTROLLER_RUN_APP_CPU;
 #endif
-#if CONFIG_BTDM_CTRL_FULL_SCAN_SUPPORTED
+#if CONFIG_ESP32_BT_CTLR_FULL_SCAN_SUPPORTED
 	mask |= BTDM_CFG_BLE_FULL_SCAN_SUPPORTED;
-#endif /* CONFIG_BTDM_CTRL_FULL_SCAN_SUPPORTED */
+#endif /* CONFIG_ESP32_BT_CTLR_FULL_SCAN_SUPPORTED */
 	mask |= BTDM_CFG_SCAN_DUPLICATE_OPTIONS;
 
 	mask |= BTDM_CFG_SEND_ADV_RESERVED_SIZE;
@@ -1017,13 +1028,100 @@ static void btdm_controller_mem_init(void)
 esp_err_t esp_bt_controller_mem_release(esp_bt_mode_t mode)
 {
 	/* not implemented */
-    return ESP_OK;
+	return ESP_OK;
 }
 
 esp_err_t esp_bt_mem_release(esp_bt_mode_t mode)
 {
 	/* not implemented */
-    return ESP_OK;
+	return ESP_OK;
+}
+
+// init low-power control resources
+static esp_err_t btdm_low_power_mode_init(void)
+{
+	esp_err_t err = ESP_OK;
+
+	// set default sleep clock cycle and its fractional bits
+	btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
+	btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
+
+#if CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_ORIG
+	if (btdm_lpclk_sel == ESP_BT_SLEEP_CLOCK_EXT_32K_XTAL) {
+		// check whether or not EXT_CRYS is working
+		if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
+			// do nothing
+		} else {
+			LOG_WRN("32.768kHz XTAL not detected, fall back to main "
+					       "XTAL as Bluetooth sleep clock\n"
+					       "light sleep mode will not be able to apply when "
+					       "bluetooth is enabled");
+			btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL; // set default value
+		}
+	} else if (btdm_lpclk_sel != ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
+		assert(0);
+	}
+
+	bool select_src_ret __attribute__((unused));
+	bool set_div_ret __attribute__((unused));
+	if (btdm_lpclk_sel == ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
+		select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL);
+		set_div_ret = btdm_lpclk_set_div(esp_clk_xtal_freq() * 2 / MHZ - 1);
+		assert(select_src_ret && set_div_ret);
+		btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
+		btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
+	} else { // btdm_lpclk_sel == BTDM_LPCLK_SEL_XTAL32K
+		select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL32K);
+		set_div_ret = btdm_lpclk_set_div(0);
+		assert(select_src_ret && set_div_ret);
+		btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
+		btdm_lpcycle_us = (RTC_CLK_CAL_FRACT > 15) ? (1000000 << (RTC_CLK_CAL_FRACT - 15))
+							   : (1000000 >> (15 - RTC_CLK_CAL_FRACT));
+		assert(btdm_lpcycle_us != 0);
+	}
+	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_ORIG);
+
+#elif CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_EVED
+	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_EVED);
+#else
+	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
+#endif
+
+	return err;
+}
+
+esp_bt_sleep_clock_t esp_bt_get_lpclk_src(void)
+{
+#if CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_ORIG
+	if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_INITED &&
+	    btdm_controller_status != ESP_BT_CONTROLLER_STATUS_ENABLED) {
+		return ESP_BT_SLEEP_CLOCK_NONE;
+	}
+	return btdm_lpclk_sel;
+#else
+	return ESP_BT_SLEEP_CLOCK_NONE;
+#endif
+}
+
+esp_err_t esp_bt_set_lpclk_src(esp_bt_sleep_clock_t lpclk)
+{
+#if CONFIG_ESP32_BT_CTLR_MODEM_SLEEP_MODE_ORIG
+	if (lpclk < ESP_BT_SLEEP_CLOCK_MAIN_XTAL || lpclk > ESP_BT_SLEEP_CLOCK_EXT_32K_XTAL) {
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	if (btdm_controller_status == ESP_BT_CONTROLLER_STATUS_INITED ||
+	    btdm_controller_status == ESP_BT_CONTROLLER_STATUS_ENABLED) {
+		ESP_LOGW(BTDM_LOG_TAG, "Please set the Bluetooth sleep clock source before "
+				       "Bluetooth initialization");
+		return ESP_ERR_INVALID_STATE;
+	}
+
+	btdm_lpclk_sel = lpclk;
+	return ESP_OK;
+#else
+	return ESP_ERR_NOT_SUPPORTED;
+#endif
 }
 
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
@@ -1055,7 +1153,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	}
 
 	/* overwrite some parameters */
-	cfg->bt_max_sync_conn = 0;
+	cfg->bt_max_sync_conn = BTDM_CTRL_BR_EDR_MAX_SYNC_CONN;
 	cfg->magic = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL;
 
 	if (((cfg->mode & ESP_BT_MODE_BLE) && (cfg->ble_max_conn <= 0 || cfg->ble_max_conn > BTDM_CONTROLLER_BLE_MAX_CONN_LIMIT))
@@ -1081,52 +1179,16 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	periph_module_enable(PERIPH_BT_MODULE);
 	periph_module_reset(PERIPH_BT_MODULE);
 
-	/* set default sleep clock cycle and its fractional bits */
-	btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
-	btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
-
-#if CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG
-
-	btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
-#if CONFIG_BTDM_LPCLK_SEL_EXT_32K_XTAL
-	/* check whether or not EXT_CRYS is working */
-	if (rtc_clk_slow_freq_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
-		btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL32K; // set default value
-	} else {
-		LOG_WRN("32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock\n"
-			 "light sleep mode will not be able to apply when bluetooth is enabled");
-		btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
-	}
+#if CONFIG_ESP32_BT_CTLR_HCI_UART_FLOW_CTRL_EN
+	sdk_config_set_uart_flow_ctrl_enable(true);
 #else
-	btdm_lpclk_sel = BTDM_LPCLK_SEL_XTAL; // set default value
-#endif
-
-	bool select_src_ret __attribute__((unused));
-	bool set_div_ret __attribute__((unused));
-	if (btdm_lpclk_sel == BTDM_LPCLK_SEL_XTAL) {
-		select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL);
-		set_div_ret = btdm_lpclk_set_div(rtc_clk_xtal_freq_get() * 2 / MHZ(1) - 1);
-		assert(select_src_ret && set_div_ret);
-		btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
-		btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
-	} else { /* btdm_lpclk_sel == BTDM_LPCLK_SEL_XTAL32K */
-		select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL32K);
-		set_div_ret = btdm_lpclk_set_div(0);
-		assert(select_src_ret && set_div_ret);
-		btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
-		btdm_lpcycle_us = (RTC_CLK_CAL_FRACT > 15) ? (1000000 << (RTC_CLK_CAL_FRACT - 15)) :
-				  (1000000 >> (15 - RTC_CLK_CAL_FRACT));
-		assert(btdm_lpcycle_us != 0);
-	}
-	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_ORIG);
-
-#elif CONFIG_BTDM_MODEM_SLEEP_MODE_EVED
-	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_EVED);
-#else
-	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
-#endif
-
 	sdk_config_set_uart_flow_ctrl_enable(false);
+#endif
+
+	if (btdm_low_power_mode_init() != 0) {
+		err = ESP_ERR_NO_MEM;
+		goto error;
+	}
 
 #if CONFIG_SW_COEXIST_ENABLE
 	coex_init();
@@ -1134,10 +1196,19 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
 	btdm_cfg_mask = btdm_config_mask_load();
 
-	if (btdm_controller_init(btdm_cfg_mask, cfg) != 0) {
+	err = btdm_controller_init(btdm_cfg_mask, cfg);
+
+	if (err != 0) {
+		LOG_ERR("%s %d", __func__, err);
 		err = ESP_ERR_NO_MEM;
 		goto error;
 	}
+
+	bt_stack_enableSecCtrlVsCmd(true);
+	bt_stack_enableCoexVsCmd(true);
+	scan_stack_enableAdvFlowCtrlVsCmd(true);
+	adv_stack_enableClearLegacyAdvVsCmd(true);
+	advFilter_stack_enableDupExcListVsCmd(true);
 
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
 
@@ -1160,12 +1231,27 @@ esp_err_t esp_bt_controller_deinit(void)
 
 	bt_controller_deinit_internal();
 
+	bt_stack_enableSecCtrlVsCmd(false);
+	bt_stack_enableCoexVsCmd(false);
+	scan_stack_enableAdvFlowCtrlVsCmd(false);
+	adv_stack_enableClearLegacyAdvVsCmd(false);
+	advFilter_stack_enableDupExcListVsCmd(false);
+
 	return ESP_OK;
+}
+
+// deinit low power control resources
+static void btdm_low_power_mode_deinit(void)
+{
+	btdm_lpcycle_us = 0;
+	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
 }
 
 static void bt_controller_deinit_internal(void)
 {
 	periph_module_disable(PERIPH_BT_MODULE);
+
+	btdm_low_power_mode_deinit();
 
 	if (s_wakeup_req_sem) {
 		semphr_delete_wrapper(s_wakeup_req_sem);
@@ -1178,9 +1264,6 @@ static void bt_controller_deinit_internal(void)
 	}
 
 	btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
-
-	btdm_lpcycle_us = 0;
-	btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
 
 	esp_bt_power_domain_off();
 
@@ -1202,18 +1285,12 @@ static void patch_apply(void)
 {
 	config_btdm_funcs_reset();
 
-#ifndef CONFIG_BTDM_CTRL_MODE_BLE_ONLY
+#ifdef CONFIG_BT_CLASSIC
 	config_bt_funcs_reset();
 #endif
 
-#ifndef CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY
+	/* Zephyr: BLE mode enabled by default */
 	config_ble_funcs_reset();
-#endif
-
-#ifdef CONFIG_BTDM_BLE_VS_QA_SUPPORT
-	config_ble_vs_qa_funcs_reset();
-#endif
-
 }
 
 esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
@@ -1239,7 +1316,7 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
 		btdm_controller_enable_sleep(true);
 	}
 
-	sdk_config_set_bt_pll_track_enable(true);
+	sdk_config_set_bt_pll_track_enable(false);
 
 	/* inititalize bluetooth baseband */
 	btdm_check_and_init_bb();
@@ -1278,6 +1355,7 @@ esp_err_t esp_bt_controller_disable(void)
 		while (!btdm_power_state_active()) {
 			esp_rom_delay_us(1000);
 		}
+		async_wakeup_request_end(BTDM_ASYNC_WAKEUP_REQ_CTRL_DISA);
 	}
 
 	btdm_controller_disable();
@@ -1385,13 +1463,18 @@ esp_err_t esp_bredr_sco_datapath_set(esp_sco_data_path_t data_path)
 	return ESP_OK;
 }
 
-esp_err_t esp_ble_scan_dupilcate_list_flush(void)
+esp_err_t esp_ble_scan_duplicate_list_flush(void)
 {
 	if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_ENABLED) {
 		return ESP_ERR_INVALID_STATE;
 	}
 	btdm_controller_scan_duplicate_list_clear();
 	return ESP_OK;
+}
+
+esp_err_t esp_ble_scan_dupilcate_list_flush(void)
+{
+	return esp_ble_scan_duplicate_list_flush();
 }
 
 static void esp_bt_free(void *mem)
