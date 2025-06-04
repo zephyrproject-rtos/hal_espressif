@@ -68,6 +68,16 @@ config IDF_TARGET_ESP32C6
 	bool
 	default y if SOC_SERIES_ESP32C6
 
+config ESP_TIMER_IMPL_TG0_LAC
+	bool
+	default y
+	depends on IDF_TARGET_ESP32
+
+config ESP_TIMER_IMPL_SYSTIMER
+	bool
+	default y
+	depends on !IDF_TARGET_ESP32
+
 menu "Wi-Fi config"
 
 choice ESP_WIFI_TASK_CORE_ID
