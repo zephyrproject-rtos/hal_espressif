@@ -447,9 +447,10 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-	irq_disable(n);
-	irq_connect_dynamic(n, 0, f, arg, 0);
-	irq_enable(n);
+	ARG_UNUSED(n);
+
+	esp_intr_alloc(0, 0, f, arg, NULL);
+	esp_intr_alloc(2, 0, f, arg, NULL);
 }
 
 static void enable_intr_wrapper(unsigned int mask)
