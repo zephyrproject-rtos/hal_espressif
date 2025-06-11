@@ -437,7 +437,7 @@ static inline void esp_bt_power_domain_off(void)
 static void btdm_intr_alloc(void *arg)
 {
 	btdm_isr_alloc_t *p = arg;
-	p->ret = esp_intr_alloc(p->source,	p->flags, p->fn, p->arg, &p->handle);
+	p->ret = esp_intr_alloc(p->source,	p->flags, p->fn, p->arg, (intr_handle_t *) p->handle);
 }
 
 static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle)
