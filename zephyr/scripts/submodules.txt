@@ -5,3 +5,4 @@ ed99228396aaa18935b575d600bc19da38dc4746 components/bt/controller/lib_esp32c3_fa
 1e3487dc778d48c15229af05ce0f03f78e15528c components/esp_phy/lib https://github.com/espressif/esp-phy-lib
 72aa687352a469044cbb946f3fdb261430e41ce1 components/mbedtls/mbedtls https://github.com/espressif/mbedtls
 78de591727b5400ed62108e7e70ad27e404f5325 components/esp_coex/lib https://github.com/espressif/esp-coex-lib
+102b03c8095de8a337c293f79dce189be63186f3 components/ieee802154/lib https://github.com/espressif/esp-ieee802154-lib
