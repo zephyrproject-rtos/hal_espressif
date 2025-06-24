@@ -553,6 +553,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}esp_supplicant/src/crypto/fastpsk.c"
          # Add internal RC4 as RC4 has been removed from mbedtls
          "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
         )
