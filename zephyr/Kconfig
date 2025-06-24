@@ -97,6 +97,14 @@ endchoice # ESP_WIFI_TASK_CORE_ID
 
 endmenu # Wi-Fi config
 
+if BT_ESP32
+
+config ESP32_BT_CTLR_PINNED_TO_CORE
+	int
+	default 0
+
+endif
+
 menu "Sleep config"
 
 config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
