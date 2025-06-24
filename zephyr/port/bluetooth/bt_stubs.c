@@ -209,3 +209,34 @@ void advFilter_stack_enableDupExcListVsCmd(bool en)
 void chanSel_stack_enableSetCsaVsCmd(bool en)
 {
 }
+
+void ble_dtm_funcs_reset(void)
+{
+}
+void ble_scan_funcs_reset(void)
+{
+}
+void ble_42_adv_funcs_reset(void)
+{
+}
+void ble_init_funcs_reset(void)
+{
+}
+void ble_con_funcs_reset(void)
+{
+}
+void ble_cca_funcs_reset(void)
+{
+}
+void ble_ext_adv_funcs_reset(void)
+{
+}
+void ble_ext_scan_funcs_reset(void)
+{
+}
+void ble_base_funcs_reset(void)
+{
+}
+void ble_enc_funcs_reset(void)
+{
+}
