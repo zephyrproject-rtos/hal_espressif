@@ -32,8 +32,8 @@ extern "C" {
             IEEE802154_TXRX_STATISTIC(a); \
             } while(0)
 
-#if CONFIG_IEEE802154_RECORD_EVENT
-#define IEEE802154_ASSERT_RECORD_EVENT_SIZE CONFIG_IEEE802154_RECORD_EVENT_SIZE
+#if CONFIG_IEEE802154_ESP32_RECORD_EVENT
+#define IEEE802154_ASSERT_RECORD_EVENT_SIZE CONFIG_IEEE802154_ESP32_RECORD_EVENT_SIZE
 #define IEEE802154_RECORD_EVENT(a) do { \
             g_ieee802154_probe.event[g_ieee802154_probe.event_index].event = a; \
             g_ieee802154_probe.event[g_ieee802154_probe.event_index].state = ieee802154_get_state(); \
@@ -63,10 +63,10 @@ typedef struct {
 } ieee802154_event_info_t;
 #else
 #define IEEE802154_RECORD_EVENT(a)
-#endif // CONFIG_IEEE802154_RECORD_EVENT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_EVENT
 
-#if CONFIG_IEEE802154_RECORD_STATE
-#define IEEE802154_ASSERT_RECORD_STATE_SIZE CONFIG_IEEE802154_RECORD_STATE_SIZE
+#if CONFIG_IEEE802154_ESP32_RECORD_STATE
+#define IEEE802154_ASSERT_RECORD_STATE_SIZE CONFIG_IEEE802154_ESP32_RECORD_STATE_SIZE
 #define ieee802154_set_state(a) do { s_ieee802154_state = a; \
             sprintf(g_ieee802154_probe.state[g_ieee802154_probe.state_index].line_str, "%d", __LINE__); \
             g_ieee802154_probe.state[g_ieee802154_probe.state_index].timestamp = esp_timer_get_time(); \
@@ -85,10 +85,10 @@ typedef struct {
 } ieee802154_state_info_t;
 #else
 #define ieee802154_set_state(state) (s_ieee802154_state = state)
-#endif // CONFIG_IEEE802154_RECORD_STATE
+#endif // CONFIG_IEEE802154_ESP32_RECORD_STATE
 
-#if CONFIG_IEEE802154_RECORD_CMD
-#define IEEE802154_ASSERT_RECORD_CMD_SIZE CONFIG_IEEE802154_RECORD_CMD_SIZE
+#if CONFIG_IEEE802154_ESP32_RECORD_CMD
+#define IEEE802154_ASSERT_RECORD_CMD_SIZE CONFIG_IEEE802154_ESP32_RECORD_CMD_SIZE
 #define ieee802154_set_cmd(a) do { ieee802154_ll_set_cmd(a); \
             sprintf(g_ieee802154_probe.cmd[g_ieee802154_probe.cmd_index].line_str, "%d", __LINE__); \
             g_ieee802154_probe.cmd[g_ieee802154_probe.cmd_index].timestamp = esp_timer_get_time(); \
@@ -107,10 +107,10 @@ typedef struct {
 } ieee802154_cmd_info_t;
 #else
 #define ieee802154_set_cmd(cmd) ieee802154_ll_set_cmd(cmd)
-#endif //CONFIG_IEEE802154_RECORD_CMD
+#endif //CONFIG_IEEE802154_ESP32_RECORD_CMD
 
-#if CONFIG_IEEE802154_RECORD_ABORT
-#define IEEE802154_ASSERT_RECORD_ABORT_SIZE CONFIG_IEEE802154_RECORD_ABORT_SIZE
+#if CONFIG_IEEE802154_ESP32_RECORD_ABORT
+#define IEEE802154_ASSERT_RECORD_ABORT_SIZE CONFIG_IEEE802154_ESP32_RECORD_ABORT_SIZE
 #define ieee802154_record_abort(a) do { \
             if (a == IEEE802154_EVENT_RX_ABORT) { \
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index].abort_reason.rx \
@@ -142,33 +142,33 @@ typedef struct {
 } ieee802154_abort_info_t;
 #else
 #define ieee802154_record_abort(a)
-#endif // CONFIG_IEEE802154_RECORD_ABORT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_ABORT
 
 /**
  * @brief The table of recording IEEE802154 information.
  */
 typedef struct {
-#if CONFIG_IEEE802154_RECORD_EVENT
+#if CONFIG_IEEE802154_ESP32_RECORD_EVENT
     ieee802154_event_info_t event[IEEE802154_ASSERT_RECORD_EVENT_SIZE]; /*!< record radio event */
     uint8_t event_index;                                                /*!< the index of event */
-#endif // CONFIG_IEEE802154_RECORD_EVENT
-#if CONFIG_IEEE802154_RECORD_STATE
+#endif // CONFIG_IEEE802154_ESP32_RECORD_EVENT
+#if CONFIG_IEEE802154_ESP32_RECORD_STATE
     ieee802154_state_info_t state[IEEE802154_ASSERT_RECORD_STATE_SIZE]; /*!< record radio state */
     uint8_t state_index;                                                /*!< the index of state */
-#endif // CONFIG_IEEE802154_RECORD_STATE
-#if CONFIG_IEEE802154_RECORD_CMD
+#endif // CONFIG_IEEE802154_ESP32_RECORD_STATE
+#if CONFIG_IEEE802154_ESP32_RECORD_CMD
     ieee802154_cmd_info_t cmd[IEEE802154_ASSERT_RECORD_CMD_SIZE];       /*!< record radio command */
     uint8_t cmd_index;                                                  /*!< the index of command */
-#endif // CONFIG_IEEE802154_RECORD_CMD
-#if CONFIG_IEEE802154_RECORD_ABORT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_CMD
+#if CONFIG_IEEE802154_ESP32_RECORD_ABORT
     ieee802154_abort_info_t abort[IEEE802154_ASSERT_RECORD_ABORT_SIZE]; /*!< record radio abort */
     uint8_t abort_index;                                                  /*!< the index of abort */
-#endif // CONFIG_IEEE802154_RECORD_ABORT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_ABORT
 } ieee802154_probe_info_t;
 
 extern ieee802154_probe_info_t g_ieee802154_probe;
 
-#if CONFIG_IEEE802154_ASSERT
+#if CONFIG_IEEE802154_ESP32_ASSERT
 /**
  * @brief  This function print rich information, which is useful for debug.
  *         Only can be used when `IEEE802154_ASSERT` is enabled.
@@ -181,11 +181,11 @@ void ieee802154_assert_print(void);
                                         assert(a); \
                                     } \
                                 } while (0)
-#else // CONFIG_IEEE802154_ASSERT
+#else // CONFIG_IEEE802154_ESP32_ASSERT
 #define IEEE802154_ASSERT(a) assert(a)
-#endif // CONFIG_IEEE802154_ASSERT
+#endif // CONFIG_IEEE802154_ESP32_ASSERT
 
-#if CONFIG_IEEE802154_TXRX_STATISTIC
+#if CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 typedef struct ieee802154_txrx_statistic{
     struct {
         uint64_t nums;
@@ -247,7 +247,7 @@ void ieee802154_tx_break_coex_nums_update(void);
 #define IEEE802154_TX_DEFERRED_NUMS_UPDATE()
 #define IEEE802154_TXRX_STATISTIC_CLEAR()
 #define IEEE802154_TX_BREAK_COEX_NUMS_UPDATE()
-#endif // CONFIG_IEEE802154_TXRX_STATISTIC
+#endif // CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 
 // TODO: replace etm code using common interface
 
@@ -265,7 +265,7 @@ typedef enum {
     IEEE802154_SCENE_RX_AT,     /*!< IEEE802154 radio coexistence scene RX AT */
 } ieee802154_txrx_scene_t;
 
-#if !CONFIG_IEEE802154_TEST && (CONFIG_ESP_COEX_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE)
+#if !CONFIG_IEEE802154_ESP32_TEST && (CONFIG_ESP_COEX_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE)
 
 /**
  * @brief  Set the IEEE802154 radio coexistence scene during transmitting or receiving.
@@ -281,7 +281,7 @@ void ieee802154_set_txrx_pti(ieee802154_txrx_scene_t txrx_scene);
 
 #define IEEE802154_SET_TXRX_PTI(txrx_scene)
 
-#endif // !CONFIG_IEEE802154_TEST && CONFIG_ESP_COEX_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
+#endif // !CONFIG_IEEE802154_ESP32_TEST && CONFIG_ESP_COEX_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
 
 /**
  * @brief  Convert the frequency to the index of channel.

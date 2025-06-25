@@ -10,10 +10,10 @@
 #include "esp_ieee802154_util.h"
 #include "esp_log.h"
 
-#if CONFIG_IEEE802154_DEBUG
+#if CONFIG_IEEE802154_ESP32_DEBUG
 ieee802154_probe_info_t g_ieee802154_probe;
 
-#if CONFIG_IEEE802154_RECORD_EVENT
+#if CONFIG_IEEE802154_ESP32_RECORD_EVENT
 static char *ieee802154_get_event_string(ieee802154_ll_event_t events)
 {
     char *event_string = "";
@@ -60,9 +60,9 @@ static char *ieee802154_get_event_string(ieee802154_ll_event_t events)
     }
     return event_string;
 }
-#endif // CONFIG_IEEE802154_RECORD_EVENT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_EVENT
 
-#if CONFIG_IEEE802154_RECORD_STATE || CONFIG_IEEE802154_RECORD_EVENT
+#if CONFIG_IEEE802154_ESP32_RECORD_STATE || CONFIG_IEEE802154_ESP32_RECORD_EVENT
 static char *ieee802154_state_string[] = {
     "DISABLE",
     "IDLE",
@@ -77,9 +77,9 @@ static char *ieee802154_state_string[] = {
     "ED",
     "CCA",
 };
-#endif // CONFIG_IEEE802154_RECORD_STATE
+#endif // CONFIG_IEEE802154_ESP32_RECORD_STATE
 
-#if CONFIG_IEEE802154_RECORD_CMD
+#if CONFIG_IEEE802154_ESP32_RECORD_CMD
 static char *ieee802154_get_cmd_string(ieee802154_ll_cmd_t cmd)
 {
     char *cmd_string = "";
@@ -123,9 +123,9 @@ static char *ieee802154_get_cmd_string(ieee802154_ll_cmd_t cmd)
     }
     return cmd_string;
 }
-#endif // CONFIG_IEEE802154_RECORD_CMD
+#endif // CONFIG_IEEE802154_ESP32_RECORD_CMD
 
-#if CONFIG_IEEE802154_RECORD_EVENT || CONFIG_IEEE802154_RECORD_ABORT
+#if CONFIG_IEEE802154_ESP32_RECORD_EVENT || CONFIG_IEEE802154_ESP32_RECORD_ABORT
 static char *ieee80154_rx_abort_reason_string[] = {
     "RSVD",                                         //   = 0,
     "RX_STOP",                                      //   = 1,
@@ -169,12 +169,12 @@ static char *ieee80154_tx_abort_reason_string[] = {
     "CCA_BUSY",                                     //   = 25,
 };
 
-#endif // CONFIG_IEEE802154_RECORD_EVENT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_EVENT
 
-#if CONFIG_IEEE802154_ASSERT
+#if CONFIG_IEEE802154_ESP32_ASSERT
 void ieee802154_assert_print(void)
 {
-#if CONFIG_IEEE802154_RECORD_EVENT
+#if CONFIG_IEEE802154_ESP32_RECORD_EVENT
     ESP_EARLY_LOGW(IEEE802154_TAG, "Print the record event, current event index: %d", g_ieee802154_probe.event_index);
     for (uint8_t i = 0; i < IEEE802154_ASSERT_RECORD_EVENT_SIZE; i++) {
         char event_log[200] = { 0 };
@@ -193,9 +193,9 @@ void ieee802154_assert_print(void)
         ESP_EARLY_LOGW(IEEE802154_TAG, "%s %s", event_log, abort_log);
     }
     ESP_EARLY_LOGW(IEEE802154_TAG,"Print the record event done.");
-#endif // CONFIG_IEEE802154_RECORD_EVENT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_EVENT
 
-#if CONFIG_IEEE802154_RECORD_STATE
+#if CONFIG_IEEE802154_ESP32_RECORD_STATE
     ESP_EARLY_LOGW(IEEE802154_TAG, "Print the record state, current state index: %d", g_ieee802154_probe.state_index);
     for (uint8_t i = 0; i < IEEE802154_ASSERT_RECORD_STATE_SIZE; i++) {
         ESP_EARLY_LOGW(IEEE802154_TAG, "index %2d: line:%5s, state:%10s, timestamp: %lld",
@@ -204,9 +204,9 @@ void ieee802154_assert_print(void)
             g_ieee802154_probe.state[i].timestamp);
     }
     ESP_EARLY_LOGW(IEEE802154_TAG,"Print the record state done.");
-#endif // CONFIG_IEEE802154_RECORD_STATE
+#endif // CONFIG_IEEE802154_ESP32_RECORD_STATE
 
-#if CONFIG_IEEE802154_RECORD_CMD
+#if CONFIG_IEEE802154_ESP32_RECORD_CMD
     ESP_EARLY_LOGW(IEEE802154_TAG, "Print the record cmd, current cmd index: %d", g_ieee802154_probe.cmd_index);
     for (uint8_t i = 0; i < IEEE802154_ASSERT_RECORD_CMD_SIZE; i++) {
         ESP_EARLY_LOGW(IEEE802154_TAG, "index %2d: line:%5s, cmd:%10s, timestamp: %lld",
@@ -215,9 +215,9 @@ void ieee802154_assert_print(void)
             g_ieee802154_probe.cmd[i].timestamp);
     }
     ESP_EARLY_LOGW(IEEE802154_TAG,"Print the record cmd done.");
-#endif // CONFIG_IEEE802154_RECORD_CMD
+#endif // CONFIG_IEEE802154_ESP32_RECORD_CMD
 
-#if CONFIG_IEEE802154_RECORD_ABORT
+#if CONFIG_IEEE802154_ESP32_RECORD_ABORT
     ESP_EARLY_LOGW(IEEE802154_TAG, "Print the record abort, current abort index: %d", g_ieee802154_probe.abort_index);
     for (uint8_t i = 0; i < IEEE802154_ASSERT_RECORD_ABORT_SIZE; i++) {
         if (g_ieee802154_probe.abort[i].is_tx_abort) {
@@ -233,11 +233,11 @@ void ieee802154_assert_print(void)
         }
     }
     ESP_EARLY_LOGW(IEEE802154_TAG,"Print the record abort done.");
-#endif // CONFIG_IEEE802154_RECORD_ABORT
+#endif // CONFIG_IEEE802154_ESP32_RECORD_ABORT
 }
-#endif // CONFIG_IEEE802154_ASSERT
+#endif // CONFIG_IEEE802154_ESP32_ASSERT
 
-#if CONFIG_IEEE802154_TXRX_STATISTIC
+#if CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 static ieee802154_txrx_statistic_t s_ieee802154_txrx_statistic;
 
 void ieee802154_txrx_statistic_clear(void)
@@ -368,6 +368,6 @@ void ieee802154_txrx_statistic_print(void)
     ESP_LOGW(IEEE802154_TAG, "+--------------------+-----------------------------------+--------------------------------------------------+");
 }
 
-#endif // CONFIG_IEEE802154_TXRX_STATISTIC
+#endif // CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 
-#endif // CONFIG_IEEE802154_DEBUG
+#endif // CONFIG_IEEE802154_ESP32_DEBUG

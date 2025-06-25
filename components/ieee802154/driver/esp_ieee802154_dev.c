@@ -57,13 +57,13 @@ static uint8_t *s_tx_frame = NULL;
 // |--------------------VB[2]--------------------|
 // |--------------------VB[3]--------------------|
 // |--------------------.....--------------------|
-// |-----VB[CONFIG_IEEE802154_RX_BUFFER_SIZE]----|
+// |--VB[CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE]-|
 // |---------------------STUB--------------------|
 //
 // VB: Valid buffer, used for storing the frame received by HW.
 // STUB : Stub buffer, used when all valid buffers are under processing, the received frame will be dropped.
-static uint8_t s_rx_frame[CONFIG_IEEE802154_RX_BUFFER_SIZE + 1][IEEE802154_RX_FRAME_SIZE];
-static esp_ieee802154_frame_info_t s_rx_frame_info[CONFIG_IEEE802154_RX_BUFFER_SIZE + 1];
+static uint8_t s_rx_frame[CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE + 1][IEEE802154_RX_FRAME_SIZE];
+static esp_ieee802154_frame_info_t s_rx_frame_info[CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE + 1];
 
 static bool s_needs_next_operation = false;
 
@@ -79,7 +79,7 @@ static esp_err_t ieee802154_sleep_deinit(void);
 #define NEEDS_NEXT_OPT(a) do {s_needs_next_operation = a;} while(0)
 static esp_err_t ieee802154_transmit_internal(const uint8_t *frame, bool cca);
 
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
 typedef struct {
     const uint8_t *frame;
     bool cca;
@@ -90,7 +90,7 @@ static pending_tx_t s_pending_tx = { 0 };
 static void ieee802154_receive_done(uint8_t *data, esp_ieee802154_frame_info_t *frame_info)
 {
     // If the RX done packet is written in the stub buffer, drop it silently.
-    if (s_rx_index != CONFIG_IEEE802154_RX_BUFFER_SIZE) {
+    if (s_rx_index != CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE) {
         // Otherwise, post it to the upper layer.
         // Ignore bit8 for the frame length, due to the max frame length is 127 based 802.15.4 spec.
         data[0] = data[0] & 0x7f;
@@ -102,7 +102,7 @@ static void ieee802154_receive_done(uint8_t *data, esp_ieee802154_frame_info_t *
 static void ieee802154_transmit_done(const uint8_t *frame, const uint8_t *ack, esp_ieee802154_frame_info_t *ack_frame_info)
 {
     if (ack && ack_frame_info) {
-        if (s_rx_index == CONFIG_IEEE802154_RX_BUFFER_SIZE) {
+        if (s_rx_index == CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE) {
             esp_ieee802154_transmit_failed(frame, ESP_IEEE802154_TX_ERR_NO_ACK);
         } else {
             ack_frame_info->process = true;
@@ -117,7 +117,7 @@ esp_err_t ieee802154_receive_handle_done(const uint8_t *data)
 {
     uint16_t size = data - &s_rx_frame[0][0];
     if ((size % IEEE802154_RX_FRAME_SIZE) != 0
-            || (size / IEEE802154_RX_FRAME_SIZE) >= CONFIG_IEEE802154_RX_BUFFER_SIZE) {
+            || (size / IEEE802154_RX_FRAME_SIZE) >= CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE) {
         return ESP_FAIL;
     }
     s_rx_frame_info[size / IEEE802154_RX_FRAME_SIZE].process = false;
@@ -132,7 +132,7 @@ static IRAM_ATTR void event_end_process(void)
     ieee802154_timer0_stop();
 }
 
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
 static IRAM_ATTR void receive_ack_timeout_timer_start(uint32_t duration)
 {
     ieee802154_ll_enable_events(IEEE802154_EVENT_TIMER0_OVERFLOW);
@@ -168,14 +168,14 @@ IEEE802154_STATIC IEEE802154_NOINLINE void set_next_rx_buffer(void)
 {
     uint8_t* next_rx_buffer = NULL;
     uint8_t index = 0;
-    if (s_rx_index != CONFIG_IEEE802154_RX_BUFFER_SIZE && s_rx_frame_info[s_rx_index].process == false) {
+    if (s_rx_index != CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE && s_rx_frame_info[s_rx_index].process == false) {
         // If buffer is not full, and current index is empty, set it to hardware.
         next_rx_buffer = s_rx_frame[s_rx_index];
     } else {
         // Otherwise, trave the buffer to find an empty one.
         // Notice, the s_rx_index + 1 is more like an empty one, so check it first.
-        for (uint8_t i = 1; i <= CONFIG_IEEE802154_RX_BUFFER_SIZE; i++) {
-            index = (i + s_rx_index) % CONFIG_IEEE802154_RX_BUFFER_SIZE;
+        for (uint8_t i = 1; i <= CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE; i++) {
+            index = (i + s_rx_index) % CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE;
             if (s_rx_frame_info[index].process == true) {
                 continue;
             } else {
@@ -188,9 +188,9 @@ IEEE802154_STATIC IEEE802154_NOINLINE void set_next_rx_buffer(void)
     // If all buffer is under processing by the upper layer, we set the stub buffer, and
     // will not post the received frame to the upper layer.
     if (!next_rx_buffer) {
-        s_rx_index = CONFIG_IEEE802154_RX_BUFFER_SIZE;
-        next_rx_buffer = s_rx_frame[CONFIG_IEEE802154_RX_BUFFER_SIZE];
-#if CONFIG_IEEE802154_DEBUG
+        s_rx_index = CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE;
+        next_rx_buffer = s_rx_frame[CONFIG_IEEE802154_ESP32_RX_BUFFER_SIZE];
+#if CONFIG_IEEE802154_ESP32_DEBUG
         ESP_EARLY_LOGW(IEEE802154_TAG, "Rx buffer full.");
 #endif
     }
@@ -371,7 +371,7 @@ static void enable_rx(void)
 
 static IRAM_ATTR void next_operation(void)
 {
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
     if (s_pending_tx.frame) {
         // Here the driver needs to recover the setting of rx aborts, see function `ieee802154_transmit`.
         ieee802154_ll_enable_rx_abort_events(BIT(IEEE802154_RX_ABORT_BY_TX_ACK_TIMEOUT - 1) | BIT(IEEE802154_RX_ABORT_BY_TX_ACK_COEX_BREAK - 1));
@@ -386,7 +386,7 @@ static IRAM_ATTR void next_operation(void)
             enable_rx();
         } else {
             ieee802154_set_state(IEEE802154_STATE_IDLE);
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
             ieee802154_sleep();
 #endif
         }
@@ -395,7 +395,7 @@ static IRAM_ATTR void next_operation(void)
 
 static void isr_handle_timer0_done(void)
 {
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
     if (s_ieee802154_state == IEEE802154_STATE_RX_ACK) {
         esp_ieee802154_transmit_failed(s_tx_frame, ESP_IEEE802154_TX_ERR_NO_ACK);
         NEEDS_NEXT_OPT(true);
@@ -408,7 +408,7 @@ static void isr_handle_timer0_done(void)
 static void isr_handle_timer1_done(void)
 {
     // timer 1 is now unused.
-#if CONFIG_IEEE802154_TEST
+#if CONFIG_IEEE802154_ESP32_TEST
     esp_ieee802154_timer1_done();
 #endif
 }
@@ -423,7 +423,7 @@ static IRAM_ATTR void isr_handle_tx_done(void)
         if (ieee802154_frame_is_ack_required(s_tx_frame) && ieee802154_ll_get_rx_auto_ack()) {
             extcoex_rx_stage_start();
             ieee802154_set_state(IEEE802154_STATE_RX_ACK);
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
             receive_ack_timeout_timer_start(200000); // 200ms for receive ack timeout
 #endif
         NEEDS_NEXT_OPT(false);
@@ -453,7 +453,7 @@ static IRAM_ATTR void isr_handle_rx_done(void)
             // For 2015 enh-ack, SW should generate an enh-ack then send it manually
             if (esp_ieee802154_enh_ack_generator(s_rx_frame[s_rx_index], &s_rx_frame_info[s_rx_index], s_enh_ack_frame) == ESP_OK) {
                 extcoex_tx_stage_start();
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
                 // Send the Enh-Ack frame if generator succeeds.
                 ieee802154_ll_set_tx_addr(s_enh_ack_frame);
                 s_tx_frame = s_enh_ack_frame;
@@ -510,7 +510,7 @@ static IRAM_ATTR void isr_handle_rx_phase_rx_abort(ieee802154_ll_rx_abort_reason
     case IEEE802154_RX_ABORT_BY_RX_RESTART:
     case IEEE802154_RX_ABORT_BY_COEX_BREAK:
         IEEE802154_ASSERT(s_ieee802154_state == IEEE802154_STATE_RX);
-#if CONFIG_IEEE802154_TEST
+#if CONFIG_IEEE802154_ESP32_TEST
         esp_ieee802154_receive_failed(rx_status);
 #endif
         break;
@@ -532,7 +532,7 @@ static IRAM_ATTR void isr_handle_rx_phase_rx_abort(ieee802154_ll_rx_abort_reason
 static IRAM_ATTR void isr_handle_tx_ack_phase_rx_abort(ieee802154_ll_rx_abort_reason_t rx_abort_reason)
 {
     event_end_process();
-#if CONFIG_IEEE802154_TEST
+#if CONFIG_IEEE802154_ESP32_TEST
     uint32_t rx_status = ieee802154_ll_get_rx_status();
 #endif
     switch (rx_abort_reason) {
@@ -553,7 +553,7 @@ static IRAM_ATTR void isr_handle_tx_ack_phase_rx_abort(ieee802154_ll_rx_abort_re
     case IEEE802154_RX_ABORT_BY_TX_ACK_TIMEOUT:
     case IEEE802154_RX_ABORT_BY_TX_ACK_COEX_BREAK:
         IEEE802154_ASSERT(s_ieee802154_state == IEEE802154_STATE_TX_ACK || s_ieee802154_state == IEEE802154_STATE_TX_ENH_ACK);
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
         ieee802154_receive_done((uint8_t *)s_rx_frame[s_rx_index], &s_rx_frame_info[s_rx_index]);
 #else
         esp_ieee802154_receive_failed(rx_status);
@@ -561,7 +561,7 @@ static IRAM_ATTR void isr_handle_tx_ack_phase_rx_abort(ieee802154_ll_rx_abort_re
         break;
     case IEEE802154_RX_ABORT_BY_ENHACK_SECURITY_ERROR:
         IEEE802154_ASSERT(s_ieee802154_state == IEEE802154_STATE_TX_ENH_ACK);
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
         ieee802154_receive_done((uint8_t *)s_rx_frame[s_rx_index], &s_rx_frame_info[s_rx_index]);
 #else
         esp_ieee802154_receive_failed(rx_status);
@@ -741,7 +741,7 @@ IEEE802154_NOINLINE static void ieee802154_isr(void *arg)
     }
 
     if (events & IEEE802154_EVENT_TIMER0_OVERFLOW) {
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
         IEEE802154_ASSERT(s_ieee802154_state == IEEE802154_STATE_RX_ACK);
 #else
         extern bool ieee802154_timer0_test;
@@ -787,7 +787,7 @@ esp_err_t ieee802154_mac_init(void)
     IEEE802154_TXRX_STATISTIC_CLEAR();
 
     ieee802154_ll_enable_events(IEEE802154_EVENT_MASK);
-#if !CONFIG_IEEE802154_TEST
+#if !CONFIG_IEEE802154_ESP32_TEST
     ieee802154_ll_disable_events((IEEE802154_EVENT_TIMER0_OVERFLOW) | (IEEE802154_EVENT_TIMER1_OVERFLOW));
 #endif
     ieee802154_ll_enable_tx_abort_events(BIT(IEEE802154_TX_ABORT_BY_RX_ACK_TIMEOUT - 1) | BIT(IEEE802154_TX_ABORT_BY_TX_COEX_BREAK - 1) | BIT(IEEE802154_TX_ABORT_BY_TX_SECURITY_ERROR - 1) | BIT(IEEE802154_TX_ABORT_BY_CCA_FAILED - 1) | BIT(IEEE802154_TX_ABORT_BY_CCA_BUSY - 1));
