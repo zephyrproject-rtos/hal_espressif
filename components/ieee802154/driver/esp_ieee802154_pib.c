@@ -38,8 +38,8 @@ void ieee802154_pib_init(void)
     s_ieee802154_pib.promiscuous = true;
     s_ieee802154_pib.rx_when_idle = false;
     s_ieee802154_pib.channel = 11;
-    s_ieee802154_pib.cca_threshold = CONFIG_IEEE802154_CCA_THRESHOLD;
-    s_ieee802154_pib.cca_mode = CONFIG_IEEE802154_CCA_MODE;
+    s_ieee802154_pib.cca_threshold = CONFIG_IEEE802154_ESP32_CCA_THRESHOLD;
+    s_ieee802154_pib.cca_mode = CONFIG_IEEE802154_ESP32_CCA_MODE;
     s_ieee802154_pib.txpower = IEEE802154_TXPOWER_VALUE_MAX;
 
     set_pending();

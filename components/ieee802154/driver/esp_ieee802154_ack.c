@@ -27,7 +27,7 @@ static IRAM_ATTR bool ieee802154_addr_in_pending_table(const uint8_t *addr, bool
 {
     bool ret = false;
     if (is_short) {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (BIT_IST(ieee802154_pending_table.short_addr_mask, index) &&
                     memcmp(addr, ieee802154_pending_table.short_addr[index], IEEE802154_FRAME_SHORT_ADDR_SIZE) == 0) {
                 ret = true;
@@ -35,7 +35,7 @@ static IRAM_ATTR bool ieee802154_addr_in_pending_table(const uint8_t *addr, bool
             }
         }
     } else {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (BIT_IST(ieee802154_pending_table.ext_addr_mask, index) &&
                     memcmp(addr, ieee802154_pending_table.ext_addr[index], IEEE802154_FRAME_EXT_ADDR_SIZE) == 0) {
                 ret = true;
@@ -51,7 +51,7 @@ esp_err_t ieee802154_add_pending_addr(const uint8_t *addr, bool is_short)
     esp_err_t ret = ESP_FAIL;
     int8_t first_empty_index = -1;
     if (is_short) {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (!BIT_IST(ieee802154_pending_table.short_addr_mask, index)) {
                 // record the first empty index
                 first_empty_index = (first_empty_index == -1 ? index : first_empty_index);
@@ -67,7 +67,7 @@ esp_err_t ieee802154_add_pending_addr(const uint8_t *addr, bool is_short)
             ret = ESP_OK;
         }
     } else {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (!BIT_IST(ieee802154_pending_table.ext_addr_mask, index)) {
                 first_empty_index = (first_empty_index == -1 ? index : first_empty_index);
             } else if (memcmp(addr, ieee802154_pending_table.ext_addr[index], IEEE802154_FRAME_EXT_ADDR_SIZE) == 0) {
@@ -90,7 +90,7 @@ esp_err_t ieee802154_clear_pending_addr(const uint8_t *addr, bool is_short)
     esp_err_t ret = ESP_FAIL;
     // Consider this function may be called in ISR, only clear the mask bits for finishing the process quickly.
     if (is_short) {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (BIT_IST(ieee802154_pending_table.short_addr_mask, index) &&
                     memcmp(addr, ieee802154_pending_table.short_addr[index], IEEE802154_FRAME_SHORT_ADDR_SIZE) == 0) {
                 BIT_CLR(ieee802154_pending_table.short_addr_mask, index);
@@ -99,7 +99,7 @@ esp_err_t ieee802154_clear_pending_addr(const uint8_t *addr, bool is_short)
             }
         }
     } else {
-        for (uint8_t index = 0; index < CONFIG_IEEE802154_PENDING_TABLE_SIZE; index++) {
+        for (uint8_t index = 0; index < CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE; index++) {
             if (BIT_IST(ieee802154_pending_table.ext_addr_mask, index) &&
                     memcmp(addr, ieee802154_pending_table.ext_addr[index], IEEE802154_FRAME_EXT_ADDR_SIZE) == 0) {
                 BIT_CLR(ieee802154_pending_table.ext_addr_mask, index);

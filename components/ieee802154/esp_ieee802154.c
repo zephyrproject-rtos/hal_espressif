@@ -128,7 +128,7 @@ esp_err_t esp_ieee802154_set_coordinator(bool enable)
     return ESP_OK;
 }
 
-#if CONFIG_IEEE802154_MULTI_PAN_ENABLE
+#if CONFIG_IEEE802154_ESP32_MULTI_PAN_ENABLE
 
 uint16_t esp_ieee802154_get_multipan_panid(esp_ieee802154_multipan_index_t index)
 {
@@ -218,7 +218,7 @@ esp_err_t esp_ieee802154_set_extended_address(const uint8_t *ext_addr)
     return ESP_OK;
 }
 
-#endif // CONFIG_IEEE802154_MULTI_PAN_ENABLE
+#endif // CONFIG_IEEE802154_ESP32_MULTI_PAN_ENABLE
 
 esp_ieee802154_pending_mode_t esp_ieee802154_get_pending_mode(void)
 {
@@ -405,7 +405,7 @@ __attribute__((weak)) void esp_ieee802154_timer1_done(void)
 
 }
 
-#if CONFIG_IEEE802154_TXRX_STATISTIC
+#if CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 void esp_ieee802154_txrx_statistic_clear(void)
 {
     ieee802154_txrx_statistic_clear();
@@ -415,4 +415,4 @@ void esp_ieee802154_txrx_statistic_print(void)
 {
     ieee802154_txrx_statistic_print();
 }
-#endif // CONFIG_IEEE802154_TXRX_STATISTIC
+#endif // CONFIG_IEEE802154_ESP32_TXRX_STATISTIC

@@ -21,10 +21,10 @@ extern "C" {
  */
 
 #define IEEE802154_PENDING_TABLE_MASK_BITS (8)
-#define IEEE802154_PENDING_TABLE_MASK_SIZE (((CONFIG_IEEE802154_PENDING_TABLE_SIZE - 1) / IEEE802154_PENDING_TABLE_MASK_BITS) + 1)
+#define IEEE802154_PENDING_TABLE_MASK_SIZE (((CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE - 1) / IEEE802154_PENDING_TABLE_MASK_BITS) + 1)
 typedef struct {
-    uint8_t short_addr[CONFIG_IEEE802154_PENDING_TABLE_SIZE][IEEE802154_FRAME_SHORT_ADDR_SIZE]; /*!< Short address table */
-    uint8_t ext_addr[CONFIG_IEEE802154_PENDING_TABLE_SIZE][IEEE802154_FRAME_EXT_ADDR_SIZE];     /*!< Extend address table */
+    uint8_t short_addr[CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE][IEEE802154_FRAME_SHORT_ADDR_SIZE]; /*!< Short address table */
+    uint8_t ext_addr[CONFIG_IEEE802154_ESP32_PENDING_TABLE_SIZE][IEEE802154_FRAME_EXT_ADDR_SIZE];     /*!< Extend address table */
     uint8_t short_addr_mask[IEEE802154_PENDING_TABLE_MASK_SIZE];                                /*!< The mask which the index of short address table is used */
     uint8_t ext_addr_mask[IEEE802154_PENDING_TABLE_MASK_SIZE];                                  /*!< The mask which the index of extended address table is used */
 } ieee802154_pending_table_t;

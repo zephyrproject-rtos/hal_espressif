@@ -608,7 +608,7 @@ esp_err_t esp_ieee802154_enh_ack_generator(uint8_t *frame, esp_ieee802154_frame_
 /**
  * The configurable definitions via Kconfig
  */
-#if CONFIG_IEEE802154_TXRX_STATISTIC
+#if CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 
 /**
  * @brief  Clear the current IEEE802.15.4 statistic.
@@ -621,7 +621,7 @@ void esp_ieee802154_txrx_statistic_clear(void);
  *
  */
 void esp_ieee802154_txrx_statistic_print(void);
-#endif // CONFIG_IEEE802154_TXRX_STATISTIC
+#endif // CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
 
 #ifdef __cplusplus
 }
