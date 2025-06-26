@@ -5,7 +5,7 @@ if(CONFIG_SOC_SERIES_ESP32)
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
 
-  zephyr_compile_definitions(CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5)
+  zephyr_compile_definitions(CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_4)
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
