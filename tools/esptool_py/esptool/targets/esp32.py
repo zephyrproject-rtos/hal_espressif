@@ -1,14 +1,14 @@
-# SPDX-FileCopyrightText: 2014-2022 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
 import time
-from typing import Dict, Optional
 
-from ..loader import ESPLoader
-from ..util import FatalError, NotSupportedError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError
 
 
 class ESP32ROM(ESPLoader):
@@ -16,18 +16,14 @@ class ESP32ROM(ESPLoader):
 
     CHIP_NAME = "ESP32"
     IMAGE_CHIP_ID = 0
-    IS_STUB = False
 
-    CHIP_DETECT_MAGIC_VALUE = [0x00F01D83]
+    MAGIC_VALUE = 0x00F01D83
 
     IROM_MAP_START = 0x400D0000
     IROM_MAP_END = 0x40400000
 
     DROM_MAP_START = 0x3F400000
     DROM_MAP_END = 0x3F800000
-
-    # ESP32 uses a 4 byte status reply
-    STATUS_BYTES_LENGTH = 4
 
     SPI_REG_BASE = 0x3FF42000
     SPI_USR_OFFS = 0x1C
@@ -125,8 +121,6 @@ class ESP32ROM(ESPLoader):
 
     UF2_FAMILY_ID = 0x1C5F21B0
 
-    KEY_PURPOSES: Dict[int, str] = {}
-
     """ Try to read the BLOCK1 (encryption key) and check if it is valid """
 
     def is_flash_encryption_key_valid(self):
@@ -201,9 +195,6 @@ class ESP32ROM(ESPLoader):
         pkg_version += ((word3 >> 2) & 0x1) << 3
         return pkg_version
 
-    def get_chip_revision(self):
-        return self.get_major_chip_version() * 100 + self.get_minor_chip_version()
-
     def get_minor_chip_version(self):
         return (self.read_efuse(5) >> 24) & 0x3
 
@@ -237,12 +228,12 @@ class ESP32ROM(ESPLoader):
             5: "ESP32-PICO-V3" if rev3 else "ESP32-PICO-D4",
             6: "ESP32-PICO-V3-02",
             7: "ESP32-D0WDR2-V3",
-        }.get(pkg_version, "unknown ESP32")
+        }.get(pkg_version, "Unknown ESP32")
 
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        features = ["WiFi"]
+        features = ["Wi-Fi"]
         word3 = self.read_efuse(3)
 
         # names of variables in this section are lowercase
@@ -255,9 +246,9 @@ class ESP32ROM(ESPLoader):
 
         chip_ver_dis_app_cpu = word3 & (1 << 0)
         if chip_ver_dis_app_cpu:
-            features += ["Single Core"]
+            features += ["Single Core + LP Core"]
         else:
-            features += ["Dual Core"]
+            features += ["Dual Core + LP Core"]
 
         chip_cpu_freq_rated = word3 & (1 << 13)
         if chip_cpu_freq_rated:
@@ -277,7 +268,7 @@ class ESP32ROM(ESPLoader):
         word4 = self.read_efuse(4)
         adc_vref = (word4 >> 8) & 0x1F
         if adc_vref:
-            features += ["VRef calibration in efuse"]
+            features += ["Vref calibration in eFuse"]
 
         blk3_part_res = word3 >> 14 & 0x1
         if blk3_part_res:
@@ -315,9 +306,6 @@ class ESP32ROM(ESPLoader):
         """Read the nth word of the ESP3x EFUSE region."""
         return self.read_reg(self.EFUSE_RD_REG_BASE + (4 * n))
 
-    def chip_id(self):
-        raise NotSupportedError(self, "Function chip_id")
-
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
         if mac_type != "BASE_MAC":
@@ -330,7 +318,7 @@ class ESP32ROM(ESPLoader):
     def get_erase_size(self, offset, size):
         return size
 
-    def _get_efuse_flash_voltage(self) -> Optional[str]:
+    def _get_efuse_flash_voltage(self) -> str | None:
         efuse = self.read_reg(self.EFUSE_VDD_SPI_REG)
         # check efuse setting
         if efuse & (self.VDD_SPI_FORCE | self.VDD_SPI_XPD | self.VDD_SPI_TIEH):
@@ -341,7 +329,7 @@ class ESP32ROM(ESPLoader):
             return "OFF"
         return None
 
-    def _get_rtc_cntl_flash_voltage(self) -> Optional[str]:
+    def _get_rtc_cntl_flash_voltage(self) -> str | None:
         reg = self.read_reg(self.RTC_CNTL_SDIO_CONF_REG)
         # check if override is set in RTC_CNTL_SDIO_CONF_REG
         if reg & self.RTC_CNTL_SDIO_FORCE:
@@ -365,16 +353,18 @@ class ESP32ROM(ESPLoader):
             strap_reg &= self.GPIO_STRAP_VDDSPI_MASK
             voltage = "1.8V" if strap_reg else "3.3V"
             source = "a strapping pin"
-        print(f"Flash voltage set by {source} to {voltage}")
+        log.print(f"Flash voltage set by {source}: {voltage}")
 
     def override_vddsdio(self, new_voltage):
         new_voltage = new_voltage.upper()
         if new_voltage not in self.OVERRIDE_VDDSDIO_CHOICES:
             raise FatalError(
-                f"The only accepted VDDSDIO overrides are {', '.join(self.OVERRIDE_VDDSDIO_CHOICES)}"
+                "The only accepted VDDSDIO overrides are , ".join(
+                    self.OVERRIDE_VDDSDIO_CHOICES
+                )
             )
         # RTC_CNTL_SDIO_TIEH is not used here, setting TIEH=1 would set 3.3V output,
-        # not safe for esptool.py to do
+        # not safe for esptool to do
 
         reg_val = self.RTC_CNTL_SDIO_FORCE  # override efuse setting
         reg_val |= self.RTC_CNTL_SDIO_PD_EN
@@ -387,7 +377,7 @@ class ESP32ROM(ESPLoader):
                 | self.RTC_CNTL_DREFL_SDIO_M
             )  # boost voltage
         self.write_reg(self.RTC_CNTL_SDIO_CONF_REG, reg_val)
-        print("VDDSDIO regulator set to %s" % new_voltage)
+        log.print(f"VDDSDIO regulator set to {new_voltage}.")
 
     def read_flash_slow(self, offset, length, progress_fn):
         BLOCK_LEN = 64  # ROM read limit per command (this limit is why it's so slow)
@@ -398,24 +388,23 @@ class ESP32ROM(ESPLoader):
             try:
                 r = self.check_command(
                     "read flash block",
-                    self.ESP_READ_FLASH_SLOW,
+                    self.ESP_CMDS["READ_FLASH_SLOW"],
                     struct.pack("<II", offset + len(data), block_len),
+                    resp_data_len=BLOCK_LEN,
                 )
             except FatalError:
-                print(
-                    "Hint: Consider specifying flash size using '--flash_size' argument"
-                )
+                log.note("Consider specifying the flash size argument.")
                 raise
             if len(r) < block_len:
                 raise FatalError(
-                    "Expected %d byte block, got %d bytes. Serial errors?"
-                    % (block_len, len(r))
+                    f"Expected {block_len} byte block, got {len(r)} bytes. "
+                    "Serial errors?"
                 )
             # command always returns 64 byte buffer,
             # regardless of how many bytes were actually read from flash
             data += r[:block_len]
             if progress_fn and (len(data) % 1024 == 0 or len(data) == length):
-                progress_fn(len(data), length)
+                progress_fn(len(data), length, offset)
         return data
 
     def get_rom_cal_crystal_freq(self):
@@ -439,9 +428,11 @@ class ESP32ROM(ESPLoader):
         valid_freq = 40000000 if rom_calculated_freq > 33000000 else 26000000
         false_rom_baud = int(baud * rom_calculated_freq // valid_freq)
 
-        print(f"Changing baud rate to {baud}")
-        self.command(self.ESP_CHANGE_BAUDRATE, struct.pack("<II", false_rom_baud, 0))
-        print("Changed.")
+        log.print(f"Changing baud rate to {baud}...")
+        self.command(
+            self.ESP_CMDS["CHANGE_BAUDRATE"], struct.pack("<II", false_rom_baud, 0)
+        )
+        log.print("Changed.")
         self._set_port_baudrate(baud)
         time.sleep(0.05)  # get rid of garbage sent during baud rate change
         self.flush_input()
@@ -452,19 +443,8 @@ class ESP32ROM(ESPLoader):
             raise FatalError("SPI Pin numbers must be in the range 0-29, 32, or 33.")
 
 
-class ESP32StubLoader(ESP32ROM):
-    """Access class for ESP32 stub loader, runs on top of ROM."""
-
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
-
-    def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+class ESP32StubLoader(StubMixin, ESP32ROM):
+    """Stub loader for ESP32, runs on top of ROM."""
 
     def change_baud(self, baud):
         ESPLoader.change_baud(self, baud)

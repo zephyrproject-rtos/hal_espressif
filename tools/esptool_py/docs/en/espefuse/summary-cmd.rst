@@ -3,7 +3,7 @@
 Summary
 =======
 
-The ``espefuse.py summary`` command reads the eFuses from the chip and outputs them in text or json format. It is also possible to save it to a file. The command also supports eFuse filtering by name.
+The ``espefuse summary`` command reads the eFuses from the chip and outputs them in text or json format. It is also possible to save it to a file. The command also supports eFuse filtering by name.
 
 Optional arguments:
 
@@ -11,7 +11,7 @@ Optional arguments:
     - ``summary`` - text format (default option).
     - ``json`` - json format. Usage ``--format json``.
     - ``value_only`` - only the value of the eFuse specified as an argument will be displayed. For more information, refer to the :ref:`Filtering eFuses <filtering-eFuses>` section.
-- ``--file`` - File to save the efuse summary. Usage ``--file efuses.json``.
+- ``--file`` - File to save the eFuse summary. Usage ``--file efuses.json``.
 - List of eFuses to filter. For more information, refer to the :ref:`Filtering eFuses <filtering-eFuses>` section.
 
 Text Format Summary
@@ -56,7 +56,7 @@ The json representation of eFuses for the ESP32 chip is shown below.
 
 .. code-block:: none
 
-    > espefuse.py summary --format json
+    > espefuse summary --format json
 
     {
         "ABS_DONE_0": {
@@ -107,10 +107,8 @@ Save Json Format Summary To File
 
 .. code-block:: none
 
-    > espefuse.py summary --format json --file efuses.json
+    > espefuse summary --format json --file efuses.json
 
-    Connecting..........
-    Detecting chip type... Unsupported detection protocol, switching and trying again...
     Connecting....
     Detecting chip type... ESP32
 
@@ -122,11 +120,11 @@ Save Json Format Summary To File
 Filtering Efuses and Displaying Only the Value
 ----------------------------------------------
 
-The ``espefuse.py summary`` command supports filtering eFuses by name. The eFuses to filter needs to be specified as positional arguments. If no eFuses are specified, complete summary will be displayed. Example:
+The ``espefuse summary`` command supports filtering eFuses by name. The eFuses to filter needs to be specified as positional arguments. If no eFuses are specified, complete summary will be displayed. Example:
 
 .. code-block:: none
 
-    > espefuse.py summary ABS_DONE_0 BLOCK1
+    > espefuse summary ABS_DONE_0 BLOCK1
 
     === Run "summary" command ===
     EFUSE_NAME (Block) Description  = [Meaningful Value] [Readable/Writeable] (Hex Value)
@@ -140,7 +138,7 @@ If ``--format value_only`` is specified, only the value of the eFuse specified a
 
 .. code-block:: none
 
-    > espefuse.py summary --format value_only MAC
+    > espefuse summary --format value_only MAC
 
     === Run "summary" command ===
     00:00:00:00:00:00 (CRC 0x00 OK)

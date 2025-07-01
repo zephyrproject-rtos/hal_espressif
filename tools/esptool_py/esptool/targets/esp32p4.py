@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: 2023 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2024-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
-from typing import Dict
+from time import sleep
 
 from .esp32 import ESP32ROM
-from ..loader import ESPLoader
-from ..util import FatalError, NotImplementedInROMError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError, NotSupportedError
 
 
 class ESP32P4ROM(ESP32ROM):
@@ -21,8 +22,6 @@ class ESP32P4ROM(ESP32ROM):
     DROM_MAP_END = 0x4C000000
 
     BOOTLOADER_FLASH_OFFSET = 0x2000  # First 2 sectors are reserved for FE purposes
-
-    CHIP_DETECT_MAGIC_VALUE = [0x0, 0x0ADDBAD0]
 
     UART_DATE_REG_ADDR = 0x500CA000 + 0x8C
 
@@ -39,6 +38,8 @@ class ESP32P4ROM(ESP32ROM):
     SPI_W0_OFFS = 0x58
 
     SPI_ADDR_REG_MSB = False
+
+    USES_MAGIC_VALUE = False
 
     EFUSE_RD_REG_BASE = EFUSE_BASE + 0x030  # BLOCK0 read base address
 
@@ -68,9 +69,20 @@ class ESP32P4ROM(ESP32ROM):
     PURPOSE_VAL_XTS_AES256_KEY_2 = 3
     PURPOSE_VAL_XTS_AES128_KEY = 4
 
+    USB_RAM_BLOCK = 0x800  # Max block size USB-OTG is used
+
+    GPIO_STRAP_REG = 0x500E0038
+    GPIO_STRAP_SPI_BOOT_MASK = 0x8  # Not download mode
+    RTC_CNTL_OPTION1_REG = 0x50110008
+    RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK = 0x4  # Is download mode forced over USB?
+
     SUPPORTS_ENCRYPTED_FLASH = True
 
     FLASH_ENCRYPTED_WRITE_ALIGN = 16
+
+    UARTDEV_BUF_NO = 0x4FF3FEC8  # Variable in ROM .bss which indicates the port in use
+    UARTDEV_BUF_NO_USB_OTG = 5  # The above var when USB-OTG is used
+    UARTDEV_BUF_NO_USB_JTAG_SERIAL = 6  # The above var when USB-JTAG/Serial is used
 
     MEMORY_MAP = [
         [0x00000000, 0x00010000, "PADDING"],
@@ -88,8 +100,7 @@ class ESP32P4ROM(ESP32ROM):
 
     UF2_FAMILY_ID = 0x3D308E94
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "ECDSA_KEY",
         2: "XTS_AES_256_KEY_1",
@@ -105,6 +116,17 @@ class ESP32P4ROM(ESP32ROM):
         12: "KM_INIT_KEY",
     }
 
+    DR_REG_LP_WDT_BASE = 0x50116000
+    RTC_CNTL_WDTCONFIG0_REG = DR_REG_LP_WDT_BASE + 0x0  # LP_WDT_CONFIG0_REG
+    RTC_CNTL_WDTCONFIG1_REG = DR_REG_LP_WDT_BASE + 0x0004  # LP_WDT_CONFIG1_REG
+    RTC_CNTL_WDTWPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0018  # LP_WDT_WPROTECT_REG
+    RTC_CNTL_WDT_WKEY = 0x50D83AA1
+
+    RTC_CNTL_SWD_CONF_REG = DR_REG_LP_WDT_BASE + 0x001C  # RTC_WDT_SWD_CONFIG_REG
+    RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18
+    RTC_CNTL_SWD_WPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0020  # RTC_WDT_SWD_WPROTECT_REG
+    RTC_CNTL_SWD_WKEY = 0x50D83AA1  # RTC_WDT_SWD_WKEY, same as WDT key in this case
+
     def get_pkg_version(self):
         num_word = 2
         return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 20) & 0x07
@@ -115,30 +137,29 @@ class ESP32P4ROM(ESP32ROM):
 
     def get_major_chip_version(self):
         num_word = 2
-        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 4) & 0x03
+        word = self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word))
+        return (((word >> 23) & 1) << 2) | ((word >> 4) & 0x03)
 
     def get_chip_description(self):
         chip_name = {
             0: "ESP32-P4",
-        }.get(self.get_pkg_version(), "unknown ESP32-P4")
+        }.get(self.get_pkg_version(), "Unknown ESP32-P4")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["High-Performance MCU"]
+        return ["Dual Core + LP Core", "400MHz"]
 
     def get_crystal_freq(self):
         # ESP32P4 XTAL is fixed to 40MHz
         return 40
 
     def get_flash_voltage(self):
-        pass  # not supported on ESP32-P4
+        raise NotSupportedError(self, "Reading flash voltage")
 
     def override_vddsdio(self, new_voltage):
-        raise NotImplementedInROMError(
-            "VDD_SDIO overrides are not supported for ESP32-P4"
-        )
+        raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -191,38 +212,79 @@ class ESP32P4ROM(ESP32ROM):
         ESPLoader.change_baud(self, baud)
 
     def _post_connect(self):
-        pass
-        # TODO: Disable watchdogs when USB modes are supported in the stub
-        # if not self.sync_stub_detected:  # Don't run if stub is reused
-        #     self.disable_watchdogs()
+        if self.uses_usb_otg():
+            self.ESP_RAM_BLOCK = self.USB_RAM_BLOCK
+        if not self.sync_stub_detected:  # Don't run if stub is reused
+            self.disable_watchdogs()
+
+    def uses_usb_otg(self):
+        """
+        Check the UARTDEV_BUF_NO register to see if USB-OTG console is being used
+        """
+        if self.secure_download_mode:
+            return False  # can't detect native USB in secure download mode
+        return self.get_uart_no() == self.UARTDEV_BUF_NO_USB_OTG
+
+    def uses_usb_jtag_serial(self):
+        """
+        Check the UARTDEV_BUF_NO register to see if USB-JTAG/Serial is being used
+        """
+        if self.secure_download_mode:
+            return False  # can't detect USB-JTAG/Serial in secure download mode
+        return self.get_uart_no() == self.UARTDEV_BUF_NO_USB_JTAG_SERIAL
+
+    def disable_watchdogs(self):
+        # When USB-JTAG/Serial is used, the RTC WDT and SWD watchdog are not reset
+        # and can then reset the board during flashing. Disable them.
+        if self.uses_usb_jtag_serial():
+            # Disable RTC WDT
+            self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_SWD_WKEY)
+            self.write_reg(self.RTC_CNTL_WDTCONFIG0_REG, 0)
+            self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, 0)
+
+            # Automatically feed SWD
+            self.write_reg(self.RTC_CNTL_SWD_WPROTECT_REG, self.RTC_CNTL_SWD_WKEY)
+            self.write_reg(
+                self.RTC_CNTL_SWD_CONF_REG,
+                self.read_reg(self.RTC_CNTL_SWD_CONF_REG)
+                | self.RTC_CNTL_SWD_AUTO_FEED_EN,
+            )
+            self.write_reg(self.RTC_CNTL_SWD_WPROTECT_REG, 0)
 
     def check_spi_connection(self, spi_connection):
         if not set(spi_connection).issubset(set(range(0, 55))):
             raise FatalError("SPI Pin numbers must be in the range 0-54.")
         if any([v for v in spi_connection if v in [24, 25]]):
-            print(
-                "WARNING: GPIO pins 24 and 25 are used by USB-Serial/JTAG, "
+            log.warning(
+                "GPIO pins 24 and 25 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
 
+    def watchdog_reset(self):
+        log.print("Hard resetting with a watchdog...")
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_WDT_WKEY)  # unlock
+        self.write_reg(self.RTC_CNTL_WDTCONFIG1_REG, 2000)  # set WDT timeout
+        self.write_reg(
+            self.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2
+        )  # enable WDT
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, 0)  # lock
+        sleep(0.5)  # wait for reset to take effect
 
-class ESP32P4StubLoader(ESP32P4ROM):
-    """Access class for ESP32P4 stub loader, runs on top of ROM.
+    def hard_reset(self):
+        if self.uses_usb_otg():
+            self.watchdog_reset()
+        else:
+            ESPLoader.hard_reset(self)
 
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
 
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
+class ESP32P4StubLoader(StubMixin, ESP32P4ROM):
+    """Stub loader for ESP32-P4, runs on top of ROM."""
 
     def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+        super().__init__(rom_loader)  # Initialize the mixin
+        if rom_loader.uses_usb_otg():
+            self.ESP_RAM_BLOCK = self.USB_RAM_BLOCK
+            self.FLASH_WRITE_SIZE = self.USB_RAM_BLOCK
 
 
 ESP32P4ROM.STUB_CLASS = ESP32P4StubLoader

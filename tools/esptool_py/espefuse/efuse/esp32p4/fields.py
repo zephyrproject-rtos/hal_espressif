@@ -10,6 +10,7 @@ import sys
 import time
 
 from bitstring import BitArray
+from esptool.logger import log
 
 import esptool
 
@@ -55,9 +56,6 @@ class EspEfuses(base_fields.EspEfusesBase):
     Wrapper object to manage the efuse fields in a connected ESP bootloader
     """
 
-    debug = False
-    do_not_confirm = False
-
     def __init__(
         self,
         esp,
@@ -66,14 +64,12 @@ class EspEfuses(base_fields.EspEfusesBase):
         do_not_confirm=False,
         extend_efuse_table=None,
     ):
+        super().__init__(esp, skip_connect, debug, do_not_confirm, extend_efuse_table)
         self.Blocks = EfuseDefineBlocks()
         self.Fields = EfuseDefineFields(extend_efuse_table)
         self.REGS = EfuseDefineRegisters
         self.BURN_BLOCK_DATA_NAMES = self.Blocks.get_burn_block_data_names()
         self.BLOCKS_FOR_KEYS = self.Blocks.get_blocks_for_keys()
-        self._esp = esp
-        self.debug = debug
-        self.do_not_confirm = do_not_confirm
         if esp.CHIP_NAME != "ESP32-P4":
             raise esptool.FatalError(
                 "Expected the 'esp' param for ESP32-P4 chip but got for '%s'."
@@ -102,12 +98,11 @@ class EspEfuses(base_fields.EspEfusesBase):
                 for efuse in self.Fields.BLOCK2_CALIBRATION_EFUSES
             ]
         else:
-            # TODO add processing of self.Fields.BLOCK2_CALIBRATION_EFUSES
-            # if self["BLK_VERSION_MINOR"].get() == 1:
-            #     self.efuses += [
-            #         EfuseField.convert(self, efuse)
-            #         for efuse in self.Fields.BLOCK2_CALIBRATION_EFUSES
-            #     ]
+            if self.get_block_version() >= 1:
+                self.efuses += [
+                    EfuseField.convert(self, efuse)
+                    for efuse in self.Fields.BLOCK2_CALIBRATION_EFUSES
+                ]
             self.efuses += [
                 EfuseField.convert(self, efuse) for efuse in self.Fields.CALC
             ]
@@ -137,14 +132,14 @@ class EspEfuses(base_fields.EspEfusesBase):
         self.coding_scheme = self.REGS.CODING_SCHEME_RS
 
     def print_status_regs(self):
-        print("")
+        log.print("")
         self.blocks[0].print_block(self.blocks[0].err_bitarray, "err__regs", debug=True)
-        print(
+        log.print(
             "{:27} 0x{:08x}".format(
                 "EFUSE_RD_RS_ERR0_REG", self.read_reg(self.REGS.EFUSE_RD_RS_ERR0_REG)
             )
         )
-        print(
+        log.print(
             "{:27} 0x{:08x}".format(
                 "EFUSE_RD_RS_ERR1_REG", self.read_reg(self.REGS.EFUSE_RD_RS_ERR1_REG)
             )
@@ -177,7 +172,7 @@ class EspEfuses(base_fields.EspEfusesBase):
                     # For PGM_CMD it is not necessary.
                     return
         raise esptool.FatalError(
-            "Timed out waiting for Efuse controller command to complete"
+            "Timed out waiting for eFuse controller command to complete"
         )
 
     def efuse_program(self, block):
@@ -205,30 +200,30 @@ class EspEfuses(base_fields.EspEfusesBase):
             try:
                 self._esp = self.reconnect_chip(self._esp)
             except esptool.FatalError:
-                print("Can not re-connect to the chip")
+                log.print("Can not re-connect to the chip.")
                 if not self["DIS_DOWNLOAD_MODE"].get() and self[
                     "DIS_DOWNLOAD_MODE"
                 ].get(from_read=False):
-                    print(
+                    log.print(
                         "This is the correct behavior as we are actually burning "
-                        "DIS_DOWNLOAD_MODE which disables the connection to the chip"
+                        "DIS_DOWNLOAD_MODE which disables the connection to the chip."
                     )
-                    print("DIS_DOWNLOAD_MODE is enabled")
-                    print("Successful")
+                    log.print("DIS_DOWNLOAD_MODE is enabled.")
+                    log.print("Successful.")
                     sys.exit(0)  # finish without errors
                 raise
 
-            print("Established a connection with the chip")
+            log.print("Established a connection with the chip.")
             if self._esp.secure_download_mode and not secure_download_mode_before:
-                print("Secure download mode is enabled")
+                log.print("Secure download mode is enabled.")
                 if not self["ENABLE_SECURITY_DOWNLOAD"].get() and self[
                     "ENABLE_SECURITY_DOWNLOAD"
                 ].get(from_read=False):
-                    print(
-                        "espefuse tool can not continue to work in Secure download mode"
+                    log.print(
+                        "espefuse can not continue to work in Secure download mode."
                     )
-                    print("ENABLE_SECURITY_DOWNLOAD is enabled")
-                    print("Successful")
+                    log.print("ENABLE_SECURITY_DOWNLOAD is enabled.")
+                    log.print("Successful.")
                     sys.exit(0)  # finish without errors
             raise
 
@@ -271,9 +266,9 @@ class EspEfuses(base_fields.EspEfusesBase):
                 block.num_errors = (reg_value >> err_num_offs) & err_num_mask
             ret_fail |= block.fail
             if not silent and (block.fail or block.num_errors):
-                print(
-                    "Error(s) in BLOCK%d [ERRORS:%d FAIL:%d]"
-                    % (block.id, block.num_errors, block.fail)
+                log.print(
+                    f"Error(s) in BLOCK{block.id} "
+                    f"[ERRORS:{block.num_errors} FAIL:{block.fail}]."
                 )
         if (self.debug or ret_fail) and not silent:
             self.print_status_regs()
@@ -292,7 +287,20 @@ class EfuseField(base_fields.EfuseFieldBase):
             "keypurpose": EfuseKeyPurposeField,
             "t_sensor": EfuseTempSensor,
             "adc_tp": EfuseAdcPointCalibration,
+            "wafer": EfuseWafer,
         }.get(efuse.class_type, EfuseField)(parent, efuse)
+
+
+class EfuseWafer(EfuseField):
+    def get(self, from_read=True):
+        hi_bits = self.parent["WAFER_VERSION_MAJOR_HI"].get(from_read)
+        assert self.parent["WAFER_VERSION_MAJOR_HI"].bit_len == 1
+        lo_bits = self.parent["WAFER_VERSION_MAJOR_LO"].get(from_read)
+        assert self.parent["WAFER_VERSION_MAJOR_LO"].bit_len == 2
+        return (hi_bits << 2) + lo_bits
+
+    def save(self, new_value):
+        raise esptool.FatalError(f"Burning {self.name} is not supported")
 
 
 class EfuseTempSensor(EfuseField):
@@ -342,7 +350,7 @@ class EfuseMacField(EfuseField):
     def check(self):
         errs, fail = self.parent.get_block_errors(self.block)
         if errs != 0 or fail:
-            output = "Block%d has ERRORS:%d FAIL:%d" % (self.block, errs, fail)
+            output = f"Block{self.block} has ERRORS:{errs} FAIL:{fail}."
         else:
             output = "OK"
         return "(" + output + ")"
@@ -363,10 +371,8 @@ class EfuseMacField(EfuseField):
 
     def save(self, new_value):
         def print_field(e, new_value):
-            print(
-                "    - '{}' ({}) {} -> {}".format(
-                    e.name, e.description, e.get_bitstring(), new_value
-                )
+            log.print(
+                f"    - '{e.name}' ({e.description}) {e.get_bitstring()} -> {new_value}"
             )
 
         if self.name == "CUSTOM_MAC":
@@ -376,7 +382,7 @@ class EfuseMacField(EfuseField):
         else:
             # Writing the BLOCK1 (MAC_SPI_8M_0) default MAC is not possible,
             # as it's written in the factory.
-            raise esptool.FatalError(f"Burning {self.name} is not supported")
+            raise esptool.FatalError(f"Burning {self.name} is not supported.")
 
 
 # fmt: off
@@ -411,9 +417,9 @@ class EfuseKeyPurposeField(EfuseField):
                 break
         if raw_val.isdigit():
             if int(raw_val) not in [p[1] for p in self.KEY_PURPOSES if p[1] > 0]:
-                raise esptool.FatalError("'%s' can not be set (value out of range)" % raw_val)
+                raise esptool.FatalError(f"'{raw_val}' can not be set (value out of range).")
         else:
-            raise esptool.FatalError("'%s' unknown name" % raw_val)
+            raise esptool.FatalError(f"'{raw_val}' unknown name.")
         return raw_val
 
     def need_reverse(self, new_key_purpose):

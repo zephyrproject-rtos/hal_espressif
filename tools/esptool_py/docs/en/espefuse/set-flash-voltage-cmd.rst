@@ -9,7 +9,7 @@ Set Flash Voltage
 {IDF_TARGET_VDD_REG:default="VDD_SPI_XPD",esp32="XPD_SDIO_REG"}
 {IDF_TARGET_VDD_GPIO:default="GPIO45",esp32="GPIO12"}
 
-The ``espefuse.py set_flash_voltage`` command permanently sets the internal flash voltage regulator to either 1.8V, 3.3V or OFF. This means a GPIO can be high or low at reset without changing the flash voltage.
+The ``espefuse set-flash-voltage`` command permanently sets the internal flash voltage regulator to either 1.8V, 3.3V or OFF. This means a GPIO can be high or low at reset without changing the flash voltage.
 
 Positional arguments:
 
@@ -19,14 +19,14 @@ Positional arguments:
 
     .. note::
 
-        This command is not supported. The tool prints the error ``set_flash_voltage not supported!``.
+        This command is not supported. The tool prints the error ``set-flash-voltage not supported!``.
 
 Setting Flash Voltage ({IDF_TARGET_VDD_SPI})
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After reset, the default {IDF_TARGET_NAME} behaviour is to enable and configure the flash voltage regulator ({IDF_TARGET_VDD_SPI}) based on the level of the MTDI pin ({IDF_TARGET_VDD_GPIO}).
+After reset, the default {IDF_TARGET_NAME} behavior is to enable and configure the flash voltage regulator ({IDF_TARGET_VDD_SPI}) based on the level of the MTDI pin ({IDF_TARGET_VDD_GPIO}).
 
-The default behaviour on reset is:
+The default behavior on reset is:
 
 +--------------------+--------------------+
 | MTDI               | Internal Regulator |
@@ -44,28 +44,28 @@ The default behaviour on reset is:
 
     Consult {IDF_TARGET_NAME} Technical Reference Manual for details.
 
-A combination of 3 efuses (``{IDF_TARGET_VDD_FORCE}``, ``{IDF_TARGET_VDD_REG}``, ``{IDF_TARGET_VDD_TIEH}``) can be burned in order to override this behaviour and disable {IDF_TARGET_VDD_SPI} regulator, or set it to a fixed voltage. These efuses can be burned with individual ``burn_efuse`` commands, but the ``set_flash_voltage`` command makes it easier:
+A combination of 3 eFuses (``{IDF_TARGET_VDD_FORCE}``, ``{IDF_TARGET_VDD_REG}``, ``{IDF_TARGET_VDD_TIEH}``) can be burned in order to override this behavior and disable {IDF_TARGET_VDD_SPI} regulator, or set it to a fixed voltage. These eFuses can be burned with individual ``burn-efuse`` commands, but the ``set-flash-voltage`` command makes it easier:
 
 Disable {IDF_TARGET_VDD_SPI} Regulator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
-    espefuse.py set_flash_voltage OFF
+    espefuse set-flash-voltage OFF
 
 Once set:
 
 * {IDF_TARGET_VDD_SPI} regulator always disabled.
 * MTDI pin ({IDF_TARGET_VDD_GPIO}) is ignored.
 * Flash must be powered externally and voltage supplied to {IDF_TARGET_VDD_SPI} pin of {IDF_TARGET_NAME}.
-* Efuse ``{IDF_TARGET_VDD_FORCE}`` is burned.
+* eFuse ``{IDF_TARGET_VDD_FORCE}`` is burned.
 
 Fixed 1.8V {IDF_TARGET_VDD_SPI}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
-    espefuse.py set_flash_voltage 1.8V
+    espefuse set-flash-voltage 1.8V
 
 Once set:
 
@@ -79,7 +79,7 @@ Fixed 3.3V {IDF_TARGET_VDD_SPI}
 
 .. code-block:: none
 
-    espefuse.py set_flash_voltage 3.3V
+    espefuse set-flash-voltage 3.3V
 
 Once set:
 
@@ -91,19 +91,19 @@ Once set:
 Subsequent Changes
 ^^^^^^^^^^^^^^^^^^
 
-Once an efuse is burned it cannot be un-burned. However, changes can be made by burning additional efuses:
+Once an eFuse is burned it cannot be un-burned. However, changes can be made by burning additional eFuses:
 
-*  ``set_flash_voltage OFF`` can be changed to ``1.8V`` or ``3.3V``
-*  ``set_flash_voltage 1.8V`` can be changed to ``3.3V``
+*  ``set-flash-voltage OFF`` can be changed to ``1.8V`` or ``3.3V``
+*  ``set-flash-voltage 1.8V`` can be changed to ``3.3V``
 
 
 .. only:: esp32s2 or esp32s3
 
     .. code-block:: none
 
-        > espefuse.py set_flash_voltage 1.8V
+        > espefuse set-flash-voltage 1.8V
 
-        === Run "set_flash_voltage" command ===
+        === Run "set-flash-voltage" command ===
         Set internal flash voltage regulator (VDD_SPI) to 1.8V.
 
         VDD_SPI setting complete.
@@ -122,9 +122,9 @@ Once an efuse is burned it cannot be un-burned. However, changes can be made by 
 
     .. code-block:: none
 
-        > espefuse.py set_flash_voltage 3.3V
+        > espefuse set-flash-voltage 3.3V
 
-        === Run "set_flash_voltage" command ===
+        === Run "set-flash-voltage" command ===
         Enable internal flash voltage regulator (VDD_SPI) to 3.3V.
 
         VDD_SPI setting complete.
@@ -143,9 +143,9 @@ Once an efuse is burned it cannot be un-burned. However, changes can be made by 
 
     .. code-block:: none
 
-        > espefuse.py set_flash_voltage OFF
+        > espefuse set-flash-voltage OFF
 
-        === Run "set_flash_voltage" command ===
+        === Run "set-flash-voltage" command ===
         Disable internal flash voltage regulator (VDD_SPI). SPI flash will
         VDD_SPI setting complete.
 

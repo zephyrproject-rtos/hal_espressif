@@ -6,7 +6,7 @@
 
 from collections import Counter, namedtuple
 import esptool
-from typing import Optional, List
+from esptool.logger import log
 
 from .csv_table_parser import CSVFuseTable
 
@@ -23,7 +23,7 @@ class EfuseRegistersBase(object):
 
 
 class EfuseBlocksBase(object):
-    BLOCKS: Optional[List] = None
+    BLOCKS: list = []
     NamedtupleBlock = namedtuple(
         "NamedtupleBlock",
         "name alias id rd_addr wr_addr write_disable_bit "
@@ -53,10 +53,10 @@ class Field:
     word = None
     pos = None
     bit_len = 0
-    alt_names: List[str] = []
+    alt_names: list[str] = []
     type = ""
     write_disable_bit = None
-    read_disable_bit = None
+    read_disable_bit: list[int] | None = None
     category = "config"
     class_type = ""
     description = ""
@@ -65,7 +65,7 @@ class Field:
 
 class EfuseFieldsBase(object):
     def __init__(self, e_desc, extend_efuse_table_file) -> None:
-        self.ALL_EFUSES: List = []
+        self.ALL_EFUSES: list = []
 
         def set_category_and_class_type(efuse, name):
             def includes(name, names):
@@ -140,7 +140,20 @@ class EfuseFieldsBase(object):
                 if name == "OPTIONAL_UNIQUE_ID":
                     efuse.class_type = "keyblock"
 
-            elif includes(name, ["ADC", "LDO", "DBIAS", "_HVT", "CALIB", "OCODE"]):
+            elif includes(
+                name,
+                [
+                    "ADC",
+                    "LDO",
+                    "DBIAS",
+                    "_HVT",
+                    "CALIB",
+                    "OCODE",
+                    "TEMPERATURE",
+                    "LSLP",
+                    "DSLP",
+                ],
+            ):
                 efuse.category = "calibration"
                 if name == "ADC_VREF":
                     efuse.class_type = "vref"
@@ -186,7 +199,7 @@ class EfuseFieldsBase(object):
         name_counts = Counter(names)
         duplicates = {name for name, count in name_counts.items() if count > 1}
         if duplicates:
-            print("Names that are not unique: " + ", ".join(duplicates))
+            log.print("Names that are not unique: " + ", ".join(duplicates))
             raise esptool.FatalError("Duplicate names found in eFuses")
 
     def extend_efuses(self, extend_efuse_table_file):

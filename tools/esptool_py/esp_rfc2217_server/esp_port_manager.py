@@ -74,11 +74,15 @@ class EspPortManager(serial.rfc2217.PortManager):
         """
         if self.logger:
             self.logger.info("Activating hard reset in thread")
-        HardReset(self.serial)()
+        cfg_custom_hard_reset_sequence = cfg.get("custom_hard_reset_sequence")
+        if cfg_custom_hard_reset_sequence is not None:
+            CustomReset(self.serial, cfg_custom_hard_reset_sequence)()
+        else:
+            HardReset(self.serial)()
 
     def _reset_thread(self):
         """
-        The reset logic is used from esptool.py because the RTS and DTR signals
+        The reset logic is used from esptool because the RTS and DTR signals
         cannot be retransmitted through RFC 2217 with proper timing.
         """
         if self.logger:

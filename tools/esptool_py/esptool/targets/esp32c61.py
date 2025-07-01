@@ -1,19 +1,18 @@
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2025 Fredrik Ahlberg, Angus Gratton,
+# Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
-from typing import Dict
 
+from .esp32c3 import ESP32C3ROM
 from .esp32c6 import ESP32C6ROM
+from ..loader import StubMixin
 
 
 class ESP32C61ROM(ESP32C6ROM):
     CHIP_NAME = "ESP32-C61"
     IMAGE_CHIP_ID = 20
-
-    # Magic value for ESP32C61
-    CHIP_DETECT_MAGIC_VALUE = [0x33F0206F, 0x2421606F]
 
     UART_DATE_REG_ADDR = 0x60000000 + 0x7C
 
@@ -53,12 +52,12 @@ class ESP32C61ROM(ESP32C6ROM):
 
     MEMORY_MAP = [
         [0x00000000, 0x00010000, "PADDING"],
-        [0x41800000, 0x42000000, "DROM"],
+        [0x42000000, 0x44000000, "DROM"],
         [0x40800000, 0x40860000, "DRAM"],
         [0x40800000, 0x40860000, "BYTE_ACCESSIBLE"],
         [0x4004AC00, 0x40050000, "DROM_MASK"],
         [0x40000000, 0x4004AC00, "IROM_MASK"],
-        [0x41000000, 0x41800000, "IROM"],
+        [0x42000000, 0x44000000, "IROM"],
         [0x40800000, 0x40860000, "IRAM"],
         [0x50000000, 0x50004000, "RTC_IRAM"],
         [0x50000000, 0x50004000, "RTC_DRAM"],
@@ -67,8 +66,7 @@ class ESP32C61ROM(ESP32C6ROM):
 
     UF2_FAMILY_ID = 0x77D850C4
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "ECDSA_KEY",
         2: "XTS_AES_256_KEY_1",
@@ -102,13 +100,13 @@ class ESP32C61ROM(ESP32C6ROM):
     def get_chip_description(self):
         chip_name = {
             0: "ESP32-C61",
-        }.get(self.get_pkg_version(), "unknown ESP32-C61")
+        }.get(self.get_pkg_version(), "Unknown ESP32-C61")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["WiFi 6", "BT 5"]
+        return ["Wi-Fi 6", "BT 5 (LE)", "Single Core", "160MHz"]
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -121,24 +119,15 @@ class ESP32C61ROM(ESP32C6ROM):
         }
         return macs.get(mac_type, None)
 
+    def watchdog_reset(self):
+        # Watchdog reset disabled in parent (ESP32-C6) ROM, re-enable it
+        ESP32C3ROM.watchdog_reset(self)
 
-class ESP32C61StubLoader(ESP32C61ROM):
-    """Access class for ESP32C61 stub loader, runs on top of ROM.
 
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
+class ESP32C61StubLoader(StubMixin, ESP32C61ROM):
+    """Stub loader for ESP32-C61, runs on top of ROM."""
 
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
-
-    def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+    pass
 
 
 ESP32C61ROM.STUB_CLASS = ESP32C61StubLoader

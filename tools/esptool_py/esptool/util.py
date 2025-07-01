@@ -1,12 +1,16 @@
-# SPDX-FileCopyrightText: 2014-2022 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-
+from __future__ import annotations
 import os
 import re
 import struct
-import sys
+
+from typing import IO, TypeAlias
+
+# Define a custom type for the input
+ImageSource: TypeAlias = str | bytes | IO[bytes]
 
 
 def byte(bitstr, index):
@@ -31,7 +35,7 @@ def div_roundup(a, b):
 
 
 def flash_size_bytes(size):
-    """Given a flash size of the type passed in args.flash_size
+    """Given a flash size of the type passed in size
     (ie 512KB or 1MB) then return the size in bytes.
     """
     if size is None:
@@ -41,7 +45,7 @@ def flash_size_bytes(size):
     elif "KB" in size:
         return int(size[: size.index("KB")]) * 1024
     else:
-        raise FatalError("Unknown size %s" % size)
+        raise FatalError(f"Unknown size {size}")
 
 
 def hexify(s, uppercase=True):
@@ -49,29 +53,12 @@ def hexify(s, uppercase=True):
     return "".join(format_str % c for c in s)
 
 
-def pad_to(data, alignment, pad_character=b"\xFF"):
+def pad_to(data, alignment, pad_character=b"\xff"):
     """Pad to the next alignment boundary"""
     pad_mod = len(data) % alignment
     if pad_mod != 0:
         data += pad_character * (alignment - pad_mod)
     return data
-
-
-def print_overwrite(message, last_line=False):
-    """Print a message, overwriting the currently printed line.
-
-    If last_line is False, don't append a newline at the end
-    (expecting another subsequent call will overwrite this one.)
-
-    After a sequence of calls with last_line=False, call once with last_line=True.
-
-    If output is not a TTY (for example redirected a pipe),
-    no overwriting happens and this function is the same as print().
-    """
-    if hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
-        print("\r%s" % message, end="\n" if last_line else "")
-    else:
-        print(message)
 
 
 def expand_chip_name(chip_name):
@@ -99,17 +86,73 @@ def get_file_size(path_to_file):
     return file_size
 
 
+def sanitize_string(byte_string):
+    return byte_string.decode("utf-8").replace("\0", "")
+
+
+def get_bytes(input: ImageSource) -> tuple[bytes, str | None]:
+    """
+    Normalize the input (file path, bytes, or an opened file-like object) into bytes
+    and provide a name of the source.
+
+    Args:
+        input: The input file path, bytes, or an opened file-like object.
+
+    Returns:
+        A tuple containing the normalized bytes and the source of the input.
+    """
+    if isinstance(input, str):
+        with open(input, "rb") as f:
+            data = f.read()
+            source = input
+    elif isinstance(input, bytes):
+        data = input
+        source = None
+    elif hasattr(input, "read") and hasattr(input, "write") and hasattr(input, "close"):
+        pos = input.tell()
+        data = input.read()
+        input.seek(pos)  # Reset the file pointer
+        source = input.name
+    else:
+        raise FatalError(f"Invalid input type {type(input)}")
+    return data, source
+
+
+def get_key_from_value(dict, val):
+    """
+    Get key from value in dictionary, assumes unique values in dictionary
+    """
+    for key, value in dict.items():
+        if value == val:
+            return key
+    return None
+
+
+def check_deprecated_py_suffix(module_name: str) -> None:
+    """Check if called with deprecated .py suffix"""
+    import sys
+    from esptool import log
+
+    script_name = sys.argv[0] if sys.argv else ""
+    if script_name.endswith(module_name + ".py"):
+        log.warning(
+            f"DEPRECATED: '{module_name}.py' is deprecated. Please use '{module_name}' "
+            "instead. The '.py' suffix will be removed in a future major release."
+        )
+
+
 class PrintOnce:
     """
     Class for printing messages just once. Can be useful when running in a loop
     """
 
-    def __init__(self) -> None:
+    def __init__(self, print_callback) -> None:
         self.already_printed = False
+        self.print_callback = print_callback
 
     def __call__(self, text) -> None:
         if not self.already_printed:
-            print(text)
+            self.print_callback(text)
             self.already_printed = True
 
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2014-2023 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,6 +8,7 @@ import os
 import struct
 import time
 
+from .logger import log
 from .util import FatalError, PrintOnce
 
 # Used for resetting into bootloader on Unix-like systems
@@ -27,7 +28,7 @@ DEFAULT_RESET_DELAY = 0.05  # default time to wait before releasing boot pin aft
 
 
 class ResetStrategy(object):
-    print_once = PrintOnce()
+    print_once = PrintOnce(log.warning)
 
     def __init__(self, port, reset_delay=DEFAULT_RESET_DELAY):
         self.port = port
@@ -50,10 +51,10 @@ class ResetStrategy(object):
                 # ENOTTY for TIOCMSET; EINVAL for TIOCMGET
                 if e.errno in [errno.ENOTTY, errno.EINVAL]:
                     self.print_once(
-                        "WARNING: Chip was NOT reset. Setting RTS/DTR lines is not "
-                        f"supported for port '{self.port.name}'. Set --before and --after "
-                        "arguments to 'no_reset' and switch to bootloader manually to "
-                        "avoid this warning."
+                        "Chip was NOT reset. Setting RTS/DTR lines is not "
+                        f"supported for port '{self.port.name}'. Set --before and "
+                        "--after arguments to 'no-reset' and switch to bootloader "
+                        "manually to avoid this warning."
                     )
                     break
                 elif not retry:
@@ -205,5 +206,5 @@ class CustomReset(ResetStrategy):
             cmds = seq_str.split("|")
             fn_calls_list = [self.format_dict[cmd[0]].format(cmd[1:]) for cmd in cmds]
         except Exception as e:
-            raise FatalError(f'Invalid "custom_reset_sequence" option format: {e}')
+            raise FatalError(f"Invalid custom reset sequence option format: {e}")
         return "\n".join(fn_calls_list)

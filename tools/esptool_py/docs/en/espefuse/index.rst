@@ -1,19 +1,19 @@
 .. _espefuse:
 
-espefuse.py
-===========
+espefuse
+========
 
-``espefuse.py`` is a tool for communicating with Espressif chips for the purpose of reading/writing ("burning") the one-time-programmable eFuses. Burning occurs only in one direction from 0 to 1 (never cleared 1->0).
+``espefuse`` is a tool for communicating with Espressif chips for the purpose of reading/writing ("burning") the one-time-programmable eFuses. Burning occurs only in one direction from 0 to 1 (never cleared 1->0).
 
 .. warning::
 
     Because eFuse is one-time-programmable, it is possible to permanently damage or "brick" your {IDF_TARGET_NAME} using this tool. Use it with great care.
 
-For more details about Espressif chips eFuse features, see the `Technical Reference Manual <https://www.espressif.com/en/support/documents/technical-documents>`__.
+For more details about Espressif chips eFuse features, see the `{IDF_TARGET_NAME} Technical Reference Manual <{IDF_TARGET_TRM_EN_URL}>`__.
 
-``espefuse.py`` is installed alongside ``esptool.py``, so if ``esptool.py`` (v2.0 or newer) is available on the PATH then ``espefuse.py`` should be as well.
+``espefuse`` is installed alongside ``esptool``, so if ``esptool`` (v2.0 or newer) is available on the PATH then ``espefuse`` should be as well.
 
-Initial State of Efuses
+Initial State of eFuses
 -----------------------
 
 On relatively new chip, most eFuses are unburned (value 0). Some eFuses are already burned at the factory stage:
@@ -31,34 +31,33 @@ Supported Commands
 
    dump <dump-cmd>
    summary <summary-cmd>
-   burn_efuse <burn-efuse-cmd>
-   burn_block_data <burn-block-data-cmd>
-   burn_bit <burn-bit-cmd>
-   read_protect_efuse and write_protect_efuse <read-write-protections-cmd>
-   burn_key <burn-key-cmd>
-   burn_key_digest <burn-key-digest-cmd>
-   burn_custom_mac <burn-custom-mac-cmd>
-   get_custom_mac <get-custom-mac-cmd>
-   adc_info <adc-info-cmd>
-   set_flash_voltage <set-flash-voltage-cmd>
-   execute_scripts <execute-scripts-cmd>
-   check_error <check-error-cmd>
+   burn-efuse <burn-efuse-cmd>
+   burn-block-data <burn-block-data-cmd>
+   burn-bit <burn-bit-cmd>
+   read-protect-efuse and write-protect-efuse <read-write-protections-cmd>
+   burn-key <burn-key-cmd>
+   burn-key-digest <burn-key-digest-cmd>
+   burn-custom-mac <burn-custom-mac-cmd>
+   get-custom-mac <get-custom-mac-cmd>
+   adc-info <adc-info-cmd>
+   set-flash-voltage <set-flash-voltage-cmd>
+   check-error <check-error-cmd>
 
 Optional General Arguments Of Commands
 --------------------------------------
 
-- ``-h``, ``--help`` - Show help message and exit. Use ``-h`` to see a summary of all available commands and command line options. To see all options for a particular chip and command, add ``-c {IDF_TARGET_NAME}`` and ``-h`` to the command name, i.e. ``espefuse.py -c {IDF_TARGET_NAME} burn_key -h``.
+- ``-h``, ``--help`` - Show help message and exit. Use ``-h`` to see a summary of all available commands and command line options. To see all options for a particular chip and command, add ``-c {IDF_TARGET_NAME}`` and ``-h`` to the command name, i.e. ``espefuse -c {IDF_TARGET_NAME} burn-key -h``.
 - ``--chip``, ``-c`` - Target chip type. If this argument is omitted, the tool automatically detects the chip type when connected. But if the command has a help option, the chip is not connected, and the default chip is ``esp32``, please specify the specific type of chip to get the correct help. Example of usage: ``-c esp32``, ``-c esp32c3``, ``-c esp32s2`` and others.
 - ``--baud``, ``-b`` - Serial port baud rate, the same as for esptool.
-- ``--port``, ``-p`` - Serial port device, ``-p /dev/ttyUSB0`` (Linux and macOS) or ``-p COM1`` (Windows).
-- ``--before`` -  What to do before connecting to the chip: ``default_reset``, ``no_reset``, ``esp32r1``, ``no_reset_no_sync``.
+- ``--port``, ``-p`` - Serial port device, for example: ``-p /dev/ttyUSB0`` (Linux and macOS) or ``-p COM1`` (Windows).
+- ``--before`` -  What to do before connecting to the chip: ``default-reset``, ``no-reset``, ``esp32r1``, ``no-reset-no-sync``.
 - ``--debug``, ``-d`` - Show debugging information.
 - ``--virt`` - For host tests. The tool will work in the virtual mode (without connecting to a chip).
 - ``--path-efuse-file`` - For host tests. Use it together with ``--virt`` option. The tool will work in the virtual mode (without connecting to a chip) and save eFuse memory to a given file. If the file does not exists the tool creates it. To reset written eFuses just delete the file. Usage: ``--path-efuse-file efuse_memory.bin``.
 - ``--do-not-confirm`` - Do not pause for confirmation before permanently writing eFuses. Use with caution. If this option is not used, a manual confirmation step is required, you need to enter the word ``BURN`` to continue burning.
 - ``--extend-efuse-table`` - CSV file from `ESP-IDF <https://docs.espressif.com/projects/esp-idf/>`_ (esp_efuse_custom_table.csv).
 
-Virtual mode
+Virtual Mode
 ^^^^^^^^^^^^
 
 This mode is enabled with the ``--virt`` flag (need to specify chip with ``--chip``). This helps to test commands without physical access to the chip. Burned data is not saved between commands. Using ``--path-efuse-file``, you can save the written data to a file. Delete the file to clear eFuses.
@@ -94,7 +93,7 @@ This tool automatically adds encoding data to the burning data if it requires. E
 
 All coding schemes (except ``None``) require additional encoding data to be provided at write time. Due to the encoding data, such blocks cannot be overwritten again without breaking the block's coding scheme. Use the :ref:`perform-multiple-operations` feature or list multiple eFuses/keys.
 
-Burning Efuse
+Burning eFuse
 -------------
 
 Burning occurs in order from BLOCK(max) to BLOCK0. This prevents read/write protection from being set before the data is set. After burning, the tool reads the written data back and compares the original data, and additionally checks the status of the coding scheme, if there are any errors, it re-burns the data again to correct it.
@@ -106,22 +105,22 @@ Perform Multiple Operations In A Single Espefuse Run
 
 Some eFuse blocks have an encoding scheme (Reed-Solomon or 3/4) that requires encoded data, making these blocks only writable once. If you need to write multiple keys/eFuses to one block using different commands, you can use this feature - multiple commands. This feature burns given data once at the end of all commands. All commands supported by version v3.2 or later are supported to be chained together.
 
-The example below shows how to use the two commands ``burn_key_digest`` and ``burn_key`` to write the Secure Boot key and Flash Encryption key into one BLOCK3 for the ``ESP32-C2`` chip. Using these commands individually will result in only one key being written correctly.
+The example below shows how to use the two commands ``burn-key-digest`` and ``burn-key`` to write the Secure Boot key and Flash Encryption key into one BLOCK3 for the ``ESP32-C2`` chip. Using these commands individually will result in only one key being written correctly.
 
 .. code-block:: none
 
-    > espefuse.py -c esp32c2  \
-                            burn_key_digest secure_images/ecdsa256_secure_boot_signing_key_v2.pem \
-                            burn_key BLOCK_KEY0 images/efuse/128bit_key.bin XTS_AES_128_KEY_DERIVED_FROM_128_EFUSE_BITS
+    > espefuse -c esp32c2  \
+                            burn-key-digest secure_images/ecdsa256_secure_boot_signing_key_v2.pem \
+                            burn-key BLOCK_KEY0 images/efuse/128bit_key.bin XTS_AES_128_KEY_DERIVED_FROM_128_EFUSE_BITS
 
-Extend Efuse Table
+Extend eFuse Table
 ------------------
 
 This tool supports the use of `CSV files <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/efuse.html#description-csv-file>`_ from the `ESP-IDF <https://docs.espressif.com/projects/esp-idf/>`_ (e.g., ``esp_efuse_custom_table.csv``) to add custom eFuse fields. You can use this argument with any supported commands to access these custom eFuses.
 
 .. code-block:: none
 
-    > espefuse.py -c esp32 --extend-efuse-table path/esp_efuse_custom_table.csv summary
+    > espefuse -c esp32 --extend-efuse-table path/esp_efuse_custom_table.csv summary
 
 Below is an example of an ``esp_efuse_custom_table.csv`` file. This example demonstrates how to define single eFuse fields, ``structured eFuse fields`` and ``non-sequential bit fields``:
 
@@ -160,16 +159,27 @@ When you include this CSV file, the tool will generate a new section in the summ
 
 You can reference these fields using the names and aliases provided in the CSV file. For non-sequential bits, the names are modified slightly with the addition of _0 and _1 postfixes for every sub-field, to ensure safer handling.
 
-For the current example, you can reference the custom fields with the following names: MODULE_VERSION, DEVICE_ROLE, SETTING_1, SETTING_2, ID_NUM_0, ID_NUM_1, ID_NUM_2, CUSTOM_SECURE_VERSION, ID_NUMK_0, ID_NUMK_1, MY_DATA, MY_DATA_FIELD1; and alises: SETTING_1_ALT_NAME, MY_ID_NUM_0, MY_ID_NUM_1, MY_ID_NUM_2, MY_ID_NUMK_0, MY_ID_NUMK_1.
+For the current example, you can reference the custom fields with the following names: MODULE_VERSION, DEVICE_ROLE, SETTING_1, SETTING_2, ID_NUM_0, ID_NUM_1, ID_NUM_2, CUSTOM_SECURE_VERSION, ID_NUMK_0, ID_NUMK_1, MY_DATA, MY_DATA_FIELD1; and aliases: SETTING_1_ALT_NAME, MY_ID_NUM_0, MY_ID_NUM_1, MY_ID_NUM_2, MY_ID_NUMK_0, MY_ID_NUMK_1.
 
 For convenience, the espefuse summary command includes the used bit range of the field in a comment, such as ``(150-157)`` len = 8 bits.
 
 For more details on the structure and usage of the CSV file, refer to the `eFuse Manager <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/efuse.html#description-csv-file>`_ chapter in the ESP-IDF documentation.
 
+Scripting
+---------
+
+Espefuse can be used as a Python library. See :ref:`espefuse Scripting <espefuse-scripting>` for more details.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   scripting
+
 Recommendations
 ---------------
 
-1. The `Technical Reference Manual <https://www.espressif.com/en/support/documents/technical-documents>`__ has a recommendation for reducing the number of burn operations as much as possible. The tool supports several ways to do this:
+1. The `{IDF_TARGET_NAME} Technical Reference Manual <{IDF_TARGET_TRM_EN_URL}>`__ has a recommendation for reducing the number of burn operations as much as possible. The tool supports several ways to do this:
 
     - Combine multiple commands into one with this :ref:`perform-multiple-operations` feature.
     - Most commands support getting a list of arguments (eFuse names, keys).

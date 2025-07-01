@@ -3,7 +3,7 @@
 Burn Key
 ========
 
-The ``espefuse.py burn_key`` command burns keys to eFuse blocks:
+The ``espefuse burn-key`` command burns keys to eFuse blocks:
 
 .. list::
 
@@ -78,18 +78,18 @@ Optional arguments:
 
 .. only:: esp32h2
 
-    {IDF_TARGET_NAME} has the ECDSA accelerator for signature purposes and supports private keys based on the NIST192p or NIST256p curve. These two commands below can be used to generate such keys (``PEM`` file). The ``burn_key`` command with the ``ECDSA_KEY`` purpose takes the ``PEM`` file and writes the private key into a eFuse block. The key is written to the block in reverse byte order.
+    {IDF_TARGET_NAME} has the ECDSA accelerator for signature purposes and supports private keys based on the NIST192p or NIST256p curve. These two commands below can be used to generate such keys (``PEM`` file). The ``burn-key`` command with the ``ECDSA_KEY`` purpose takes the ``PEM`` file and writes the private key into a eFuse block. The key is written to the block in reverse byte order.
 
     For NIST192p, the private key is 192 bits long, so 8 padding bytes ("0x00") are added.
 
     .. code-block:: none
 
-        > espsecure.py generate_signing_key -v 2 -s ecdsa192 ecdsa192.pem
+        > espsecure generate_signing_key -v 2 -s ecdsa192 ecdsa192.pem
         ECDSA NIST192p private key in PEM format written to ecdsa192.pem
 
     .. code-block:: none
 
-        > espsecure.py generate_signing_key -v 2 -s ecdsa256 ecdsa256.pem
+        > espsecure generate_signing_key -v 2 -s ecdsa256 ecdsa256.pem
         ECDSA NIST256p private key in PEM format written to ecdsa256.pem
 
 .. only:: esp32c2
@@ -146,7 +146,7 @@ By default, when an encryption key block is burned it is also read and write pro
 
 .. code-block:: none
 
-    espefuse.py burn_key secure_boot_v1 secure_boot_key_v1.bin
+    espefuse burn-key secure_boot_v1 secure_boot_key_v1.bin
 
 .. only:: esp32
 
@@ -155,7 +155,7 @@ By default, when an encryption key block is burned it is also read and write pro
 Force Writing a Key
 ^^^^^^^^^^^^^^^^^^^
 
-Normally, a key will only be burned if the efuse block has not been previously written to. The ``--force-write-always`` option can be used to ignore this and try to burn the key anyhow.
+Normally, a key will only be burned if the eFuse block has not been previously written to. The ``--force-write-always`` option can be used to ignore this and try to burn the key anyhow.
 
 Note that this option is still limited by the eFuse hardware - hardware does not allow any eFuse bits to be cleared 1->0, and can not write anything to write protected eFuse blocks.
 
@@ -166,9 +166,9 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py burn_key flash_encryption  256bit_fe_key.bin
+        > espefuse burn-key flash_encryption  256bit_fe_key.bin
 
-        === Run "burn_key" command ===
+        === Run "burn-key" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
         Burn keys to blocks:
         - BLOCK1 -> [?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ??]
@@ -194,7 +194,7 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py summary
+        > espefuse summary
         ...
         BLOCK1 (BLOCK1):                                   Flash encryption key
         = ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? -/-
@@ -209,9 +209,9 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py burn_key flash_encryption  256bit_fe_key.bin --no-protect-key
+        > espefuse burn-key flash_encryption  256bit_fe_key.bin --no-protect-key
 
-        === Run "burn_key" command ===
+        === Run "burn-key" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
         Burn keys to blocks:
         - BLOCK1 -> [?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ??]
@@ -234,7 +234,7 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py summary
+        > espefuse summary
         ...
         BLOCK1 (BLOCK1):                                   Flash encryption key
         = 1f 1e 1d 1c 1b 1a 19 18 17 16 15 14 13 12 11 10 0f 0e 0d 0c 0b 0a 09 08 07 06 05 04 03 02 01 00 R/W
@@ -256,9 +256,9 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py burn_key BLOCK_KEY0 ~/esp/tests/efuse/512bits_0.bin  XTS_AES_256_KEY --no-read-protect
+        > espefuse burn-key BLOCK_KEY0 ~/esp/tests/efuse/512bits_0.bin  XTS_AES_256_KEY --no-read-protect
 
-        === Run "burn_key" command ===
+        === Run "burn-key" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
         Burn keys to blocks:
         - BLOCK_KEY0 -> [?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ??]
@@ -290,7 +290,7 @@ Usage
         Reading updated efuses...
         Successful
 
-        > espefuse.py summary
+        > espefuse summary
         ...
         KEY_PURPOSE_0 (BLOCK0)                             KEY0 purpose                                       = XTS_AES_256_KEY_1 R/- (0x2)
         KEY_PURPOSE_1 (BLOCK0)                             KEY1 purpose                                       = XTS_AES_256_KEY_2 R/- (0x3)
@@ -308,11 +308,11 @@ Usage
 
     .. code-block:: none
 
-        > espefuse.py -c esp32c2  \
-                                burn_key_digest secure_images/ecdsa256_secure_boot_signing_key_v2.pem \
-                                burn_key BLOCK_KEY0 images/efuse/128bit_key.bin XTS_AES_128_KEY_DERIVED_FROM_128_EFUSE_BITS
+        > espefuse -c esp32c2  \
+                                burn-key-digest secure_images/ecdsa256_secure_boot_signing_key_v2.pem \
+                                burn-key BLOCK_KEY0 images/efuse/128bit_key.bin XTS_AES_128_KEY_DERIVED_FROM_128_EFUSE_BITS
 
-        === Run "burn_key_digest" command ===
+        === Run "burn-key-digest" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
         Burn keys to blocks:
         - BLOCK_KEY0_HI_128 -> [?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ??]
@@ -321,7 +321,7 @@ Usage
 
         Batch mode is enabled, the burn will be done at the end of the command.
 
-        === Run "burn_key" command ===
+        === Run "burn-key" command ===
         Sensitive data will be hidden (see --show-sensitive-info)
         Burn keys to blocks:
         - BLOCK_KEY0_LOW_128 -> [?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ??]

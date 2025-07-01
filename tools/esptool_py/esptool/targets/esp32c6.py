@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2024-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -6,7 +6,9 @@
 import struct
 
 from .esp32c3 import ESP32C3ROM
-from ..util import FatalError, NotImplementedInROMError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError, NotSupportedError
 
 
 class ESP32C6ROM(ESP32C3ROM):
@@ -19,9 +21,6 @@ class ESP32C6ROM(ESP32C3ROM):
     DROM_MAP_END = 0x43000000
 
     BOOTLOADER_FLASH_OFFSET = 0x0
-
-    # Magic value for ESP32C6
-    CHIP_DETECT_MAGIC_VALUE = [0x2CE0806F]
 
     SPI_REG_BASE = 0x60003000
     SPI_USR_OFFS = 0x18
@@ -72,6 +71,7 @@ class ESP32C6ROM(ESP32C3ROM):
 
     DR_REG_LP_WDT_BASE = 0x600B1C00
     RTC_CNTL_WDTCONFIG0_REG = DR_REG_LP_WDT_BASE + 0x0  # LP_WDT_RWDT_CONFIG0_REG
+    RTC_CNTL_WDTCONFIG1_REG = DR_REG_LP_WDT_BASE + 0x0004  # LP_WDT_RWDT_CONFIG1_REG
     RTC_CNTL_WDTWPROTECT_REG = DR_REG_LP_WDT_BASE + 0x0018  # LP_WDT_RWDT_WPROTECT_REG
 
     RTC_CNTL_SWD_CONF_REG = DR_REG_LP_WDT_BASE + 0x001C  # LP_WDT_SWD_CONFIG_REG
@@ -87,12 +87,12 @@ class ESP32C6ROM(ESP32C3ROM):
 
     MEMORY_MAP = [
         [0x00000000, 0x00010000, "PADDING"],
-        [0x42800000, 0x43000000, "DROM"],
+        [0x42000000, 0x43000000, "DROM"],
         [0x40800000, 0x40880000, "DRAM"],
         [0x40800000, 0x40880000, "BYTE_ACCESSIBLE"],
         [0x4004AC00, 0x40050000, "DROM_MASK"],
         [0x40000000, 0x4004AC00, "IROM_MASK"],
-        [0x42000000, 0x42800000, "IROM"],
+        [0x42000000, 0x43000000, "IROM"],
         [0x40800000, 0x40880000, "IRAM"],
         [0x50000000, 0x50004000, "RTC_IRAM"],
         [0x50000000, 0x50004000, "RTC_DRAM"],
@@ -117,22 +117,26 @@ class ESP32C6ROM(ESP32C3ROM):
         chip_name = {
             0: "ESP32-C6 (QFN40)",
             1: "ESP32-C6FH4 (QFN32)",
-        }.get(self.get_pkg_version(), "unknown ESP32-C6")
+        }.get(self.get_pkg_version(), "Unknown ESP32-C6")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["WiFi 6", "BT 5", "IEEE802.15.4"]
+        return [
+            "Wi-Fi 6",
+            "BT 5 (LE)",
+            "IEEE802.15.4",
+            "Single Core + LP Core",
+            "160MHz",
+        ]
 
     def get_crystal_freq(self):
         # ESP32C6 XTAL is fixed to 40MHz
         return 40
 
     def override_vddsdio(self, new_voltage):
-        raise NotImplementedInROMError(
-            "VDD_SDIO overrides are not supported for ESP32-C6"
-        )
+        raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -153,12 +157,6 @@ class ESP32C6ROM(ESP32C3ROM):
 
     def get_flash_crypt_config(self):
         return None  # doesn't exist on ESP32-C6
-
-    def get_secure_boot_enabled(self):
-        return (
-            self.read_reg(self.EFUSE_SECURE_BOOT_EN_REG)
-            & self.EFUSE_SECURE_BOOT_EN_MASK
-        )
 
     def get_key_block_purpose(self, key_block):
         if key_block < 0 or key_block > self.EFUSE_MAX_KEY:
@@ -188,29 +186,21 @@ class ESP32C6ROM(ESP32C3ROM):
         if not set(spi_connection).issubset(set(range(0, 31))):
             raise FatalError("SPI Pin numbers must be in the range 0-30.")
         if any([v for v in spi_connection if v in [12, 13]]):
-            print(
-                "WARNING: GPIO pins 12 and 13 are used by USB-Serial/JTAG, "
+            log.warning(
+                "GPIO pins 12 and 13 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
 
+    def watchdog_reset(self):
+        # Bug in the USB-Serial/JTAG controller can cause the port to disappear
+        # if watchdog reset happens, disable it on ESP32-C6
+        ESPLoader.watchdog_reset(self)
 
-class ESP32C6StubLoader(ESP32C6ROM):
-    """Access class for ESP32C6 stub loader, runs on top of ROM.
 
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
+class ESP32C6StubLoader(StubMixin, ESP32C6ROM):
+    """Stub loader for ESP32-C6, runs on top of ROM."""
 
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
-
-    def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+    pass
 
 
 ESP32C6ROM.STUB_CLASS = ESP32C6StubLoader

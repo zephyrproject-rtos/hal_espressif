@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: 2014-2022 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
-from typing import Dict
+from time import sleep
 
 from .esp32 import ESP32ROM
-from ..loader import ESPLoader
-from ..util import FatalError, NotImplementedInROMError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError, NotSupportedError
 
 
 class ESP32C3ROM(ESP32ROM):
@@ -30,10 +31,9 @@ class ESP32C3ROM(ESP32ROM):
 
     SPI_ADDR_REG_MSB = False
 
-    BOOTLOADER_FLASH_OFFSET = 0x0
+    USES_MAGIC_VALUE = False
 
-    # Magic values for ESP32-C3 eco 1+2, eco 3, eco 6, and eco 7 respectively
-    CHIP_DETECT_MAGIC_VALUE = [0x6921506F, 0x1B31506F, 0x4881606F, 0x4361606F]
+    BOOTLOADER_FLASH_OFFSET = 0x0
 
     UART_DATE_REG_ADDR = 0x60000000 + 0x7C
 
@@ -83,6 +83,7 @@ class ESP32C3ROM(ESP32ROM):
     RTC_CNTL_SWD_WKEY = 0x8F1D312A
 
     RTC_CNTL_WDTCONFIG0_REG = RTCCNTL_BASE_REG + 0x0090
+    RTC_CNTL_WDTCONFIG1_REG = RTCCNTL_BASE_REG + 0x0094
     RTC_CNTL_WDTWPROTECT_REG = RTCCNTL_BASE_REG + 0x00A8
     RTC_CNTL_WDT_WKEY = 0x50D83AA1
 
@@ -102,8 +103,7 @@ class ESP32C3ROM(ESP32ROM):
 
     UF2_FAMILY_ID = 0xD42BA06C
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "RESERVED",
         4: "XTS_AES_128_KEY",
@@ -146,13 +146,13 @@ class ESP32C3ROM(ESP32ROM):
             1: "ESP8685 (QFN28)",
             2: "ESP32-C3 AZ (QFN32)",
             3: "ESP8686 (QFN24)",
-        }.get(self.get_pkg_version(), "unknown ESP32-C3")
+        }.get(self.get_pkg_version(), "Unknown ESP32-C3")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        features = ["WiFi", "BLE"]
+        features = ["Wi-Fi", "BT 5 (LE)", "Single Core", "160MHz"]
 
         flash = {
             0: None,
@@ -170,12 +170,10 @@ class ESP32C3ROM(ESP32ROM):
         return 40
 
     def get_flash_voltage(self):
-        pass  # not supported on ESP32-C3
+        raise NotSupportedError(self, "Reading flash voltage")
 
     def override_vddsdio(self, new_voltage):
-        raise NotImplementedInROMError(
-            "VDD_SDIO overrides are not supported for ESP32-C3"
-        )
+        raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -252,33 +250,30 @@ class ESP32C3ROM(ESP32ROM):
         if not self.sync_stub_detected:  # Don't run if stub is reused
             self.disable_watchdogs()
 
+    def watchdog_reset(self):
+        log.print("Hard resetting with a watchdog...")
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_WDT_WKEY)  # unlock
+        self.write_reg(self.RTC_CNTL_WDTCONFIG1_REG, 2000)  # set WDT timeout
+        self.write_reg(
+            self.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2
+        )  # enable WDT
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, 0)  # lock
+        sleep(0.5)  # wait for reset to take effect
+
     def check_spi_connection(self, spi_connection):
         if not set(spi_connection).issubset(set(range(0, 22))):
             raise FatalError("SPI Pin numbers must be in the range 0-21.")
         if any([v for v in spi_connection if v in [18, 19]]):
-            print(
-                "WARNING: GPIO pins 18 and 19 are used by USB-Serial/JTAG, "
+            log.warning(
+                "GPIO pins 18 and 19 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
 
 
-class ESP32C3StubLoader(ESP32C3ROM):
-    """Access class for ESP32C3 stub loader, runs on top of ROM.
+class ESP32C3StubLoader(StubMixin, ESP32C3ROM):
+    """Stub loader for ESP32-C3, runs on top of ROM."""
 
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
-
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
-
-    def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+    pass
 
 
 ESP32C3ROM.STUB_CLASS = ESP32C3StubLoader

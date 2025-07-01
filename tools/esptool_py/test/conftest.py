@@ -1,4 +1,5 @@
 import pytest
+import os
 
 
 def pytest_addoption(parser):
@@ -59,3 +60,11 @@ def need_to_install_package_err():
         "Instructions: https://docs.espressif.com/projects/esptool/en/latest/"
         "contributing.html#development-setup"
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_terminal_properties():
+    """Make sure terminal width is set to 120 columns and color is disabled for
+    consistent test output."""
+    os.environ["COLUMNS"] = "120"
+    os.environ["NO_COLOR"] = "1"

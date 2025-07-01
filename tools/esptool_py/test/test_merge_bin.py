@@ -32,7 +32,7 @@ def read_image(filename):
 @pytest.mark.host_test
 class TestMergeBin:
     def run_merge_bin(self, chip, offsets_names, options=[], allow_warnings=False):
-        """Run merge_bin on a list of (offset, filename) tuples
+        """Run merge-bin on a list of (offset, filename) tuples
         with output to a named temporary file.
 
         Filenames are relative to the 'test/images' directory.
@@ -49,7 +49,7 @@ class TestMergeBin:
                 "esptool",
                 "--chip",
                 chip,
-                "merge_bin",
+                "merge-bin",
                 "-o",
                 output_file.name,
             ] + options
@@ -63,9 +63,9 @@ class TestMergeBin:
             output = output.decode("utf-8")
             print(output)
             if not allow_warnings:
-                assert (
-                    "warning" not in output.lower()
-                ), "merge_bin should not output warnings"
+                assert "warning" not in output.lower(), (
+                    "merge-bin should not output warnings"
+                )
 
             with open(output_file.name, "rb") as f:
                 return f.read()
@@ -78,7 +78,7 @@ class TestMergeBin:
     def assertAllFF(self, some_bytes):
         # this may need some improving as the failed assert messages may be
         # very long and/or useless!
-        assert b"\xFF" * len(some_bytes) == some_bytes
+        assert b"\xff" * len(some_bytes) == some_bytes
 
     def test_simple_merge(self):
         merged = self.run_merge_bin(
@@ -127,7 +127,7 @@ class TestMergeBin:
                 (0x1000, "bootloader_esp32.bin"),
                 (0x10000, "ram_helloworld/helloworld-esp32.bin"),
             ],
-            ["--flash_size", "2MB", "--flash_mode", "dout"],
+            ["--flash-size", "2MB", "--flash-mode", "dout"],
         )
         self.assertAllFF(merged[:0x1000])
 
@@ -169,9 +169,9 @@ class TestMergeBin:
         assert helloworld == merged[0xF000 : 0xF000 + len(helloworld)]
         self.assertAllFF(merged[0x1000 + len(bootloader) : 0xF000])
 
-    def test_fill_flash_size(self):
+    def test_pad_to_size(self):
         merged = self.run_merge_bin(
-            "esp32c3", [(0x0, "bootloader_esp32c3.bin")], ["--fill-flash-size", "4MB"]
+            "esp32c3", [(0x0, "bootloader_esp32c3.bin")], ["--pad-to-size", "4MB"]
         )
         bootloader = read_image("bootloader_esp32c3.bin")
 
@@ -179,14 +179,14 @@ class TestMergeBin:
         assert bootloader == merged[: len(bootloader)]
         self.assertAllFF(merged[len(bootloader) :])
 
-    def test_fill_flash_size_w_target_offset(self):
+    def test_pad_to_size_w_target_offset(self):
         merged = self.run_merge_bin(
             "esp32",
             [
                 (0x1000, "bootloader_esp32.bin"),
                 (0x10000, "ram_helloworld/helloworld-esp32.bin"),
             ],
-            ["--target-offset", "0x1000", "--fill-flash-size", "2MB"],
+            ["--target-offset", "0x1000", "--pad-to-size", "2MB"],
         )
 
         # full length is without target-offset arg
@@ -215,7 +215,7 @@ class TestMergeBin:
             merged = self.run_merge_bin(
                 "esp32",
                 [(0x1000, f.name), (0x10000, "ram_helloworld/helloworld-esp32.bin")],
-                ["--target-offset", "0x1000", "--fill-flash-size", "2MB"],
+                ["--target-offset", "0x1000", "--pad-to-size", "2MB"],
             )
         finally:
             os.unlink(f.name)
@@ -262,7 +262,7 @@ class TestMergeBin:
         )
         source = read_image("bootloader_esp32.bin")
         # verify that padding was done correctly
-        assert b"\xFF" * 0x1000 == merged_bin[:0x1000]
+        assert b"\xff" * 0x1000 == merged_bin[:0x1000]
         # verify the file itself
         assert source == merged_bin[0x1000:]
 
@@ -356,7 +356,7 @@ class TestUF2:
             "esptool",
             "--chip",
             chip_id,
-            "merge_bin",
+            "merge-bin",
             "--format",
             "uf2",
             "-o",
@@ -372,11 +372,13 @@ class TestUF2:
         output = subprocess.check_output(com_args + file_args, stderr=subprocess.STDOUT)
         output = output.decode("utf-8")
         print(output)
-        assert "warning" not in output.lower(), "merge_bin should not output warnings"
+        assert "warning" not in output.lower(), "merge-bin should not output warnings"
 
-        exp_list = [f"Adding {f} at {hex(addr)}" for addr, f in iter_addr_offset_tuples]
+        exp_list = [
+            f"Adding '{f}' at {hex(addr)}" for addr, f in iter_addr_offset_tuples
+        ]
         exp_list += [
-            f"bytes to file {of_name}, ready to be flashed with any ESP USB Bridge"
+            f"bytes to file '{of_name}', ready to be flashed with any ESP USB Bridge"
         ]
         for e in exp_list:
             assert e in output

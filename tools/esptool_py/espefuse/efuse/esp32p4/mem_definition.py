@@ -12,8 +12,8 @@ from ..mem_definition_base import (
     EfuseBlocksBase,
     EfuseFieldsBase,
     EfuseRegistersBase,
+    Field,
 )
-from typing import List
 
 
 class EfuseDefineRegisters(EfuseRegistersBase):
@@ -114,13 +114,9 @@ class EfuseDefineFields(EfuseFieldsBase):
     def __init__(self, extend_efuse_table) -> None:
         # List of efuse fields from TRM the chapter eFuse Controller.
         self.EFUSES = []
-
         self.KEYBLOCKS = []
-
-        # if BLK_VERSION_MINOR is 1, these efuse fields are in BLOCK2
         self.BLOCK2_CALIBRATION_EFUSES = []
-
-        self.CALC: List = []
+        self.CALC: list = []
 
         dir_name = os.path.dirname(os.path.abspath(__file__))
         dir_name, file_name = os.path.split(dir_name)
@@ -151,6 +147,16 @@ class EfuseDefineFields(EfuseFieldsBase):
             elif efuse.category == "calibration":
                 self.BLOCK2_CALIBRATION_EFUSES.append(efuse)
                 self.ALL_EFUSES[i] = None
+
+        f = Field()
+        f.name = "WAFER_VERSION_MAJOR"
+        f.block = 0
+        f.bit_len = 3
+        f.type = f"uint:{f.bit_len}"
+        f.category = "identity"
+        f.class_type = "wafer"
+        f.description = "calc WAFER VERSION MAJOR from (WAFER_VERSION_MAJOR_HI << 2) + WAFER_VERSION_MAJOR_LO (read only)"
+        self.CALC.append(f)
 
         for efuse in self.ALL_EFUSES:
             if efuse is not None:

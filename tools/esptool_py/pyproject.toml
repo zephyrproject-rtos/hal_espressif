@@ -11,7 +11,7 @@
     ]
     readme = {file = "README.md", content-type = "text/markdown"}
     license = {text = "GPLv2+"}
-    description = "A serial utility to communicate & flash code to Espressif chips."
+    description = "A serial utility for flashing, provisioning, and interacting with Espressif SoCs."
     classifiers = [
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -22,25 +22,23 @@
         "Topic :: Software Development :: Embedded Systems",
         "Environment :: Console",
         "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ]
-    requires-python = ">=3.7"
+    requires-python = ">=3.10"
     dynamic = ["version", "scripts"]
 
     dependencies = [
         "bitstring>=3.1.6,!=4.2.0",
-        "cryptography>=2.1.4",
-        "ecdsa>=0.16.0",
+        "cryptography>=43.0.0",
         "pyserial>=3.3",
         "reedsolo>=1.5.3,<1.8",
         "PyYAML>=5.1",
         "intelhex",
-        'argcomplete>=3; sys_platform != "win32"',
+        "rich_click",
+        "click<8.2.0",
     ]
 
 [project.urls]
@@ -58,9 +56,13 @@
         "pytest",
         "pytest-rerunfailures",
         "requests",
-        "commitizen",
+        "czespressif",
     ]
     hsm = ["python-pkcs11"]
+    docs = [
+        "esp-docs~=1.10",
+        "sphinx-tabs",
+    ]
 
 [tool.setuptools]
     include-package-data = true
@@ -75,7 +77,8 @@
     version = {attr = "esptool.__init__.__version__"}
 
 [tool.commitizen]
-    version = "4.8.1"
+    name = "czespressif"
+    version = "5.0.0"
     update_changelog_on_bump = true
     tag_format = "v$version"
     changelog_start_rev = "v4.2.1"
@@ -85,19 +88,7 @@
     version_files = [
         "esptool/__init__.py:__version__"
     ]
-    change_type_order = [
-        "BREAKING CHANGE",
-        "New Features",
-        "Bug Fixes",
-        "Code Refactoring",
-        "Performance Improvements"
-    ]
 
-[tool.commitizen.change_type_map]
-    feat = "New Features"
-    fix = "Bug Fixes"
-    refactor = "Code Refactoring"
-    perf = "Performance Improvements"
 
 [tool.codespell]
     skip = '*.bin,*test/images/efuse/*,*docs/en/espefuse/inc/*'
@@ -108,7 +99,7 @@
     disallow_incomplete_defs = false # Disallows defining functions with incomplete type annotations
     disallow_untyped_defs    = false # Disallows defining functions without type annotations or with incomplete type annotations
     ignore_missing_imports   = true  # Suppress error messages about imports that cannot be resolved
-    python_version           = "3.7" # Specifies the Python version used to parse and check the target program
+    python_version           = "3.10" # Specifies the Python version used to parse and check the target program
     warn_no_return           = true  # Shows errors for missing return statements on some execution paths
     warn_return_any          = true  # Shows a warning when returning a value with type Any from a function declared with a non- Any return type
 
@@ -122,18 +113,14 @@
     ]
 
     line-length = 88
-
-    select = ['E', 'F', 'W']
-    ignore = ["E203"]
-
-    target-version = "py37"
+    target-version = "py310"
 
 [tool.ruff.lint]
     # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
     # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
     # McCabe complexity (`C901`) by default.
-    select = ["E4", "E7", "E9", "F"]
-    ignore = []
+    select = ['E', 'F', 'W']
+    ignore = ["E203"]
 
     # Allow fix for all enabled rules (when `--fix`) is provided.
     fixable = ["ALL"]

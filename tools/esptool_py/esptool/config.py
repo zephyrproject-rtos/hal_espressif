@@ -1,10 +1,12 @@
-# SPDX-FileCopyrightText: 2014-2023 Espressif Systems (Shanghai) CO LTD,
+# SPDX-FileCopyrightText: 2014-2025 Espressif Systems (Shanghai) CO LTD,
 # other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import configparser
 import os
+
+from .logger import log
 
 CONFIG_OPTIONS = [
     "timeout",
@@ -21,6 +23,7 @@ CONFIG_OPTIONS = [
     "reset_delay",
     "open_port_attempts",
     "custom_reset_sequence",
+    "custom_hard_reset_sequence",
 ]
 
 
@@ -39,7 +42,7 @@ def _validate_config_file(file_path, verbose=False):
                 no_of_unknown_opts = len(unknown_opts)
                 if no_of_unknown_opts > 0:
                     suffix = "s" if no_of_unknown_opts > 1 else ""
-                    print(
+                    log.note(
                         "Ignoring unknown config file option{}: {}".format(
                             suffix, ", ".join(unknown_opts)
                         )
@@ -47,7 +50,7 @@ def _validate_config_file(file_path, verbose=False):
             return True
     except (UnicodeDecodeError, configparser.Error) as e:
         if verbose:
-            print(f"Ignoring invalid config file {file_path}: {e}")
+            log.note(f"Ignoring invalid config file {file_path}: {e}")
     return False
 
 
@@ -86,7 +89,7 @@ def load_config_file(verbose=False):
         cfg.read(cfg_file_path)
         if verbose:
             msg = " (set with ESPTOOL_CFGFILE)" if set_with_env_var else ""
-            print(
+            log.print(
                 f"Loaded custom configuration from "
                 f"{os.path.abspath(cfg_file_path)}{msg}"
             )

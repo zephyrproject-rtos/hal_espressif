@@ -3,20 +3,22 @@
 Basic Commands
 ==============
 
-Write Binary Data to Flash: write_flash
-----------------------------------------
+.. _write-flash:
 
-Binary data can be written to the ESP's flash chip via the serial ``write_flash`` command:
+Write Binary Data to Flash: ``write-flash``
+-------------------------------------------
+
+Binary data can be written to the ESP's flash chip via the serial ``write-flash`` command:
 
 ::
 
-    esptool.py --port COM4 write_flash 0x1000 my_app-0x01000.bin
+    esptool --port COM4 write-flash 0x1000 my_app-0x01000.bin
 
 Multiple flash addresses and file names can be given on the same command line:
 
 ::
 
-    esptool.py --port COM4 write_flash 0x00000 my_app.elf-0x00000.bin 0x40000 my_app.elf-0x40000.bin
+    esptool --port COM4 write-flash 0x00000 my_app.elf-0x00000.bin 0x40000 my_app.elf-0x40000.bin
 
 The ``--chip`` argument is optional when writing to flash, esptool will detect the type of chip when it connects to the serial port.
 
@@ -24,16 +26,16 @@ The ``--port`` argument is documented under :ref:`serial-port`.
 
 .. only:: esp8266
 
-    The next arguments to ``write_flash`` are one or more pairs of offset (address) and file name. When generating ESP8266 "version 1" images, the file names created by ``elf2image`` include the flash offsets as part of the file name.
+    The next arguments to ``write-flash`` are one or more pairs of offset (address) and file name. When generating ESP8266 "version 1" images, the file names created by ``elf2image`` include the flash offsets as part of the file name.
     For other types of images, consult your SDK documentation to determine the files to flash at which offsets.
 
 .. only:: not esp8266
 
-    The next arguments to ``write_flash`` are one or more pairs of offset (address) and file name. Consult your SDK documentation to determine the files to flash at which offsets.
+    The next arguments to ``write-flash`` are one or more pairs of offset (address) and file name. Consult your SDK documentation to determine the files to flash at which offsets.
 
-Numeric values passed to write_flash (and other commands) can be specified either in hex (ie 0x1000), or in decimal (ie 4096).
+Numeric values passed to write-flash (and other commands) can be specified either in hex (ie 0x1000), or in decimal (ie 4096).
 
-See the :ref:`troubleshooting` section if the ``write_flash`` command is failing, or the flashed module fails to boot.
+See the :ref:`troubleshooting` section if the ``write-flash`` command is failing, or the flashed module fails to boot.
 
 Setting Flash Mode and Size
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -42,7 +44,7 @@ You may also need to specify arguments for :ref:`flash mode and flash size <flas
 
 ::
 
-    esptool.py --port /dev/ttyUSB0 write_flash --flash_mode qio --flash_size 32m 0x0 bootloader.bin 0x1000 my_app.bin
+    esptool --port /dev/ttyUSB0 write-flash --flash-mode qio --flash-size 32m 0x0 bootloader.bin 0x1000 my_app.bin
 
 Since esptool v2.0, these options are not often needed as the default is to keep the flash mode and size from the ``.bin`` image file. See the :ref:`flash-modes` section for more details.
 
@@ -75,14 +77,14 @@ Use the ``-e/--erase-all`` option to erase all flash sectors (not just the write
 
     .. only:: esp32
 
-        Overwriting the encrypted firmware (bootloader, application, etc.) without the ``--encrypt`` option is disabled, if `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled and Encrypted Download being disabled (efuse bit ``EFUSE_DISABLE_DL_ENCRYPT`` is set).
+        Overwriting the encrypted firmware (bootloader, application, etc.) without the ``--encrypt`` option is disabled, if `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled and Encrypted Download being disabled (eFuse bit ``EFUSE_DISABLE_DL_ENCRYPT`` is set).
 
     .. only:: not esp32
 
         Overwriting the encrypted firmware (bootloader, application, etc.) without the ``--encrypt`` option is disabled, if:
 
         *  `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ and Secure Download Mode are enabled or
-        *  `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled but Encrypted Download is disabled (efuse bit ``EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT`` is set).
+        *  `Flash Encryption <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/security/flash-encryption.html>`_ is enabled but Encrypted Download is disabled (eFuse bit ``EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT`` is set).
 
     This is a safety measure to prevent accidentally overwriting the encrypted firmware with a plaintext binary, which **can ultimately lead to bricking the device**.
 
@@ -91,53 +93,55 @@ Use the ``-e/--erase-all`` option to erase all flash sectors (not just the write
     Flashing an Incompatible Image
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    ``esptool.py`` checks every binary before flashing. If a valid firmware image is detected, the ``Chip ID`` and ``Minimum chip revision`` fields in its :ref:`header <image-format>` are compared against the actually connected chip.
+    ``esptool`` checks every binary before flashing. If a valid firmware image is detected, the ``Chip ID`` and ``Minimum chip revision`` fields in its :ref:`header <image-format>` are compared against the actually connected chip.
     If the image turns out to be incompatible with the chip in use or requires a newer chip revision, flashing is stopped.
 
     This behavior can be overridden with the ``--force`` option.
 
-Read Flash Contents: read_flash
---------------------------------
+Read Flash Contents: ``read-flash``
+-----------------------------------
 
-The read_flash command allows reading back the contents of flash. The arguments to the command are an address, a size, and a filename to dump the output to. For example, to read a full 2MB of attached flash:
+The read-flash command allows reading back the contents of flash. The arguments to the command are an address, a size, and a file path to output to. For example, to read a full 2MB of attached flash:
 
 ::
 
-    esptool.py -p PORT -b 460800 read_flash 0 0x200000 flash_contents.bin
+    esptool -p PORT -b 460800 read-flash 0 0x200000 flash_contents.bin
 
+
+Size can be specified in bytes, or with suffixes like ``k`` and ``M``. So ``0x200000`` in example can be replaced with ``2M``.
 
 It is also possible to autodetect flash size by using ``ALL`` as size. The above example with autodetection would look like this:
 
 ::
 
-    esptool.py -p PORT -b 460800 read_flash 0 ALL flash_contents.bin
+    esptool -p PORT -b 460800 read-flash 0 ALL flash_contents.bin
 
 
 .. note::
 
-    When using the ``read_flash`` command in combination with the ``--no-stub`` argument, it may be necessary to also set the ``--flash_size`` argument to ensure proper reading of the flash contents by the ROM.
+    When using the ``read-flash`` command in combination with the ``--no-stub`` argument, it may be necessary to also set the ``--flash-size`` argument to ensure proper reading of the flash contents by the ROM.
 
 
 .. note::
 
-    If ``write_flash`` updated the boot image's :ref:`flash mode and flash size <flash-modes>` during flashing then these bytes may be different when read back.
+    If ``write-flash`` updated the boot image's :ref:`flash mode and flash size <flash-modes>` during flashing then these bytes may be different when read back.
 
-.. _erase_flash:
+.. _erase-flash:
 
-Erase Flash: erase_flash & erase_region
----------------------------------------
+Erase Flash: ``erase-flash`` & ``erase-region``
+-----------------------------------------------
 
 To erase the entire flash chip (all data replaced with 0xFF bytes):
 
 ::
 
-    esptool.py erase_flash
+    esptool erase-flash
 
-To erase a region of the flash, starting at address 0x20000 with length 0x4000 bytes (16KB):
+To erase a region of the flash, starting at address 0x20000 with length 16 kB (0x4000 bytes):
 
 ::
 
-    esptool.py erase_region 0x20000 0x4000
+    esptool erase-region 0x20000 16k
 
 The address and length must both be multiples of the SPI flash erase sector size. This is 0x1000 (4096) bytes for supported flash chips.
 
@@ -152,21 +156,21 @@ The address and length must both be multiples of the SPI flash erase sector size
 
     This behavior can be overridden with the ``--force`` option. **Use this only at your own risk and only if you know what you are doing!**
 
-Read Built-in MAC Address: read_mac
-------------------------------------
+Read Built-in MAC Address: ``read-mac``
+---------------------------------------
 
 ::
 
-    esptool.py read_mac
+    esptool read-mac
 
 .. _read-spi-flash-id:
 
-Read SPI Flash ID: flash_id
----------------------------
+Read SPI Flash ID: ``flash-id``
+-------------------------------
 
 ::
 
-    esptool.py flash_id
+    esptool flash-id
 
 Example output:
 
@@ -180,21 +184,21 @@ Refer to `flashrom source code <https://github.com/flashrom/flashrom/blob/master
 
 .. _elf-2-image:
 
-Convert ELF to Binary: elf2image
---------------------------------
+Convert ELF to Binary: ``elf2image``
+------------------------------------
 
 The ``elf2image`` command converts an ELF file (from compiler/linker output) into the binary executable images which can be flashed and then booted into:
 
 ::
 
-    esptool.py --chip {IDF_TARGET_NAME} elf2image my_app.elf
+    esptool --chip {IDF_TARGET_NAME} elf2image my_app.elf
 
 This command does not require a serial connection.
 
-``elf2image`` also accepts the `Flash Modes <#flash-modes>`__ arguments ``--flash_freq`` and ``--flash_mode``, which can be used to set the default values in the image header. This is important when generating any image which will be booted directly by the chip.
-These values can also be overwritten via the ``write_flash`` command, see the `write_flash command <#write-binary-data-to-flash-write-flash>`__ for details. Overwriting these values via the ``write_flash`` command will produce an image with a recalculated SHA256 digest, otherwise, the image SHA256 digest would be invalidated by rewriting the image header. There is an option to skip appending a SHA256 digest after the image with ``--dont-append-digest`` argument of the ``elf2image`` command.
+``elf2image`` also accepts the `Flash Modes <#flash-modes>`__ arguments ``--flash-freq`` and ``--flash-mode``, which can be used to set the default values in the image header. This is important when generating any image which will be booted directly by the chip.
+These values can also be overwritten via the ``write-flash`` command, see the `write-flash command <#write-binary-data-to-flash-write-flash>`__ for details. Overwriting these values via the ``write-flash`` command will produce an image with a recalculated SHA256 digest, otherwise, the image SHA256 digest would be invalidated by rewriting the image header. There is an option to skip appending a SHA256 digest after the image with ``--dont-append-digest`` argument of the ``elf2image`` command.
 
-By default, ``elf2image`` uses the sections in the ELF file to generate each segment in the binary executable. To use segments (PHDRs) instead, pass the ``--use_segments`` option.
+By default, ``elf2image`` uses the sections in the ELF file to generate each segment in the binary executable. To use segments (PHDRs) instead, pass the ``--use-segments`` option.
 
 .. only:: esp8266
 
@@ -204,61 +208,60 @@ By default, ``elf2image`` uses the sections in the ELF file to generate each seg
 
     ::
 
-        esptool.py --chip {IDF_TARGET_NAME} elf2image --version=2 -o my_app-ota.bin my_app.elf
+        esptool --chip {IDF_TARGET_NAME} elf2image --version=2 -o my_app-ota.bin my_app.elf
 
 .. only:: not esp8266
 
-    For {IDF_TARGET_NAME}, elf2image produces a single output binary "image file". By default this has the same name as the .elf file, with a .bin extension. For example:
+    For {IDF_TARGET_NAME}, elf2image produces a single output binary "image file". By default, this has the same name as the .elf file, with a .bin extension. For example:
 
     ::
 
-        esptool.py --chip {IDF_TARGET_NAME} elf2image my_esp_app.elf
+        esptool --chip {IDF_TARGET_NAME} elf2image my_esp_app.elf
 
     In the above example, the output image file would be called ``my_esp_app.bin``.
 
     The ``--ram-only-header`` configuration is mainly applicable for use within the Espressif's SIMPLE_BOOT option from 3rd party OSes such as ZephyrOS and NuttX OS.
+    For a detailed explanation of Simple Boot and how it works, see `Simple Boot explained <https://developer.espressif.com/blog/2025/06/simple-boot-explained/>`_.
     This option makes only the RAM segments visible to the ROM bootloader placing them at the beginning of the file and altering the segment count from the image header with the quantity of these segments, and also writing only their checksum. This segment placement may result in a more fragmented binary because of flash alignment constraints.
     It is strongly recommended to use this configuration with care, because the image built must then handle the basic hardware initialization and the flash mapping for code execution after ROM bootloader boot it.
 
 .. _image-info:
 
-Output .bin Image Details: image_info
--------------------------------------
+Output .bin Image Details: ``image-info``
+-----------------------------------------
 
-The ``image_info`` command outputs some information (load addresses, sizes, etc) about a ``.bin`` file created by ``elf2image``. Command also supports ``.hex`` file created by ``merge_bin`` command from supported ``.bin`` files.
-
-To view more information about the image, such as set flash size, frequency and mode, or extended header information, use the ``--version 2`` option. This extended output will become the default in a future major release.
+The ``image-info`` command outputs some information (load addresses, segment sizes, set flash size, frequency, and mode, extended header information, etc) about a ``.bin`` file created by ``elf2image``. Command also supports ``.hex`` file created by ``merge-bin`` command from supported ``.bin`` files.
 
 This information corresponds to the headers described in :ref:`image-format`.
 
 ::
 
-    esptool.py image_info --version 2 my_esp_app.bin
+    esptool image-info my_esp_app.bin
 
 .. only:: not esp8266
 
-    If the given binary file is an application and a valid `ESP-IDF application header <https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/app_image_format.html#application-description>`__ is detected in the image, specific fields describing the application are also displayed.
-
-    If the given binary file is a bootloader and a valid `ESP-IDF bootloader header <https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/bootloader_image_format.html#bootloader-description>`__ is detected in the image, specific fields describing the bootloader are also displayed.
+    If the given binary file is an application with a valid `ESP-IDF application header <https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/app_image_format.html#application-description>`__
+    or a bootloader with a valid `ESP-IDF bootloader header <https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/bootloader_image_format.html#bootloader-description>`__
+    detected in the image, specific fields describing the application or bootloader are also displayed.
 
 .. _merge-bin:
 
-Merge Binaries for Flashing: merge_bin
---------------------------------------
-The ``merge_bin`` command will merge multiple binary files (of any kind) into a single file that can be flashed to a device later. Any gaps between the input files are padded based on the selected output format.
+Merge Binaries for Flashing: ``merge-bin``
+------------------------------------------
+The ``merge-bin`` command will merge multiple binary files (of any kind) into a single file that can be flashed to a device later. Any gaps between the input files are padded based on the selected output format.
 
 For example:
 
 ::
 
-    esptool.py --chip {IDF_TARGET_NAME} merge_bin -o merged-flash.bin --flash_mode dio --flash_size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
+    esptool --chip {IDF_TARGET_NAME} merge-bin -o merged-flash.bin --flash-mode dio --flash-size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
 
-Will create a file ``merged-flash.bin`` with the contents of the other 3 files. This file can be later written to flash with ``esptool.py write_flash 0x0 merged-flash.bin``.
+Will create a file ``merged-flash.bin`` with the contents of the other 3 files. This file can be later written to flash with ``esptool write-flash 0x0 merged-flash.bin``.
 
 
 **Common options:**
 
-*  The ``merge_bin`` command supports the same ``--flash_mode``, ``--flash_size`` and ``--flash_freq`` options as the ``write_flash`` command to override the bootloader flash header (see above for details).
+*  The ``merge-bin`` command supports the same ``--flash-mode``, ``--flash-size`` and ``--flash-freq`` options as the ``write-flash`` command to override the bootloader flash header (see above for details).
    These options are applied to the output file contents in the same way as when writing to flash. Make sure to pass the ``--chip`` parameter if using these options, as the supported values and the bootloader offset both depend on the chip.
 *  The ``--format`` option will change the format of the output file. For more information about formats see formats description below.
 *  The input files can be in either ``bin`` or ``hex`` format and they will be automatically converted to type selected by ``--format`` argument.
@@ -267,7 +270,7 @@ Will create a file ``merged-flash.bin`` with the contents of the other 3 files. 
 .. code:: sh
 
     cd build    # The build directory of an ESP-IDF project
-    esptool.py --chip {IDF_TARGET_NAME} merge_bin -o merged-flash.bin @flash_args
+    esptool --chip {IDF_TARGET_NAME} merge-bin -o merged-flash.bin @flash_args
 
 
 HEX Output Format
@@ -281,9 +284,16 @@ Intel Hex format offers distinct advantages when compared to the binary format, 
 * **Size**: Data is carefully allocated to specific memory addresses eliminating the need for unnecessary padding. Binary images often lack detailed addressing information, leading to the inclusion of data for all memory locations from the file's initial address to its end.
 * **Validity Checks**: Each line in an Intel Hex file has a checksum to help find errors and make sure data stays unchanged.
 
+When using a merged Intel Hex file with the ``write-flash`` or ``image-info`` commands, the file is automatically split into temporary raw binary files at the gaps between input files.
+This splitting process allows each section to be analyzed independently, producing output similar to running ``image-info`` on the original files before merging (with the only difference being the splitting based on gaps).
+
+In contrast, analyzing a merged raw binary file only processes the header of the first file, providing less detailed information.
+
+The splitting behavior of Intel Hex files offers an additional advantage during flashing: since no padding is used between sections, flash sectors between input files remain unerased. This can significantly improve flashing speed compared to using a merged raw binary file.
+
 .. code:: sh
 
-    esptool.py --chip {IDF_TARGET_NAME} merge_bin --format hex -o merged-flash.hex --flash_mode dio --flash_size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
+    esptool --chip {IDF_TARGET_NAME} merge-bin --format hex -o merged-flash.hex --flash-mode dio --flash-size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
 
 .. note::
 
@@ -303,7 +313,7 @@ The output of the command will be in ``raw`` format and gaps between individual 
 
 **RAW options:**
 
-*  The ``--fill-flash-size SIZE`` option will pad the merged binary with `0xFF` bytes to the full flash specified size, for example ``--fill-flash-size 4MB`` will create a 4MB binary file.
+*  The ``--pad-to-size SIZE`` option will pad the merged binary with `0xFF` bytes to the full flash specified size, for example ``--pad-to-size 4MB`` will create a 4MB binary file.
 *  The ``--target-offset 0xNNN`` option will create a merged binary that should be flashed at the specified offset, instead of at offset 0x0.
 
 
@@ -322,7 +332,7 @@ Gaps between the files will be filled with `0x00` bytes.
 
 .. code:: sh
 
-    esptool.py --chip {IDF_TARGET_NAME} merge_bin --format uf2 -o merged-flash.uf2 --flash_mode dio --flash_size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
+    esptool --chip {IDF_TARGET_NAME} merge-bin --format uf2 -o merged-flash.uf2 --flash-mode dio --flash-size 4MB 0x1000 bootloader.bin 0x8000 partition-table.bin 0x10000 app.bin
 
 
 Advanced Commands
@@ -340,5 +350,4 @@ The following commands are less commonly used, or only of interest to advanced u
     *  :ref:`write-flash-status`
     *  :ref:`read-flash-sfdp`
     :esp8266: *  :ref:`chip-id`
-    :esp8266: *  :ref:`make-image`
     :esp8266: *  :ref:`run`

@@ -25,20 +25,20 @@ class EfuseDefineRegisters(EfuseRegistersBase):
     EFUSE_CHECK_VALUE0_REG = DR_REG_EFUSE_BASE + 0x020
     EFUSE_CLK_REG = DR_REG_EFUSE_BASE + 0x1C8
     EFUSE_CONF_REG = DR_REG_EFUSE_BASE + 0x1CC
-    EFUSE_STATUS_REG = DR_REG_EFUSE_BASE + 0x1D0
-    EFUSE_CMD_REG = DR_REG_EFUSE_BASE + 0x1D4
-    EFUSE_RD_RS_ERR0_REG = DR_REG_EFUSE_BASE + 0x1C0
-    EFUSE_RD_RS_ERR1_REG = DR_REG_EFUSE_BASE + 0x1C4
+    EFUSE_STATUS_REG = DR_REG_EFUSE_BASE + 0x1D4
+    EFUSE_CMD_REG = DR_REG_EFUSE_BASE + 0x1D8
+    EFUSE_RD_RS_ERR0_REG = DR_REG_EFUSE_BASE + 0x190
+    EFUSE_RD_RS_ERR1_REG = DR_REG_EFUSE_BASE + 0x194
     EFUSE_RD_REPEAT_ERR0_REG = DR_REG_EFUSE_BASE + 0x17C
     EFUSE_RD_REPEAT_ERR1_REG = DR_REG_EFUSE_BASE + 0x180
     EFUSE_RD_REPEAT_ERR2_REG = DR_REG_EFUSE_BASE + 0x184
     EFUSE_RD_REPEAT_ERR3_REG = DR_REG_EFUSE_BASE + 0x188
     EFUSE_RD_REPEAT_ERR4_REG = DR_REG_EFUSE_BASE + 0x18C
-    EFUSE_DAC_CONF_REG = DR_REG_EFUSE_BASE + 0x1E8
-    EFUSE_RD_TIM_CONF_REG = DR_REG_EFUSE_BASE + 0x1EC
-    EFUSE_WR_TIM_CONF1_REG = DR_REG_EFUSE_BASE + 0x1F0
-    EFUSE_WR_TIM_CONF2_REG = DR_REG_EFUSE_BASE + 0x1F4
-    EFUSE_DATE_REG = DR_REG_EFUSE_BASE + 0x1FC
+    EFUSE_DAC_CONF_REG = DR_REG_EFUSE_BASE + 0x1EC
+    EFUSE_RD_TIM_CONF_REG = DR_REG_EFUSE_BASE + 0x1F0
+    EFUSE_WR_TIM_CONF1_REG = DR_REG_EFUSE_BASE + 0x1F4
+    EFUSE_WR_TIM_CONF2_REG = DR_REG_EFUSE_BASE + 0x1F8
+    EFUSE_DATE_REG = DR_REG_EFUSE_BASE + 0x198
     EFUSE_WRITE_OP_CODE = 0x5A5A
     EFUSE_READ_OP_CODE = 0x5AA5
     EFUSE_PGM_CMD_MASK = 0x3
@@ -114,12 +114,8 @@ class EfuseDefineFields(EfuseFieldsBase):
     def __init__(self, extend_efuse_table) -> None:
         # List of efuse fields from TRM the chapter eFuse Controller.
         self.EFUSES = []
-
         self.KEYBLOCKS = []
-
-        # if BLK_VERSION_MINOR is 1, these efuse fields are in BLOCK2
         self.BLOCK2_CALIBRATION_EFUSES = []
-
         self.CALC = []
 
         dir_name = os.path.dirname(os.path.abspath(__file__))
@@ -160,6 +156,26 @@ class EfuseDefineFields(EfuseFieldsBase):
         f.category = "MAC"
         f.class_type = "mac"
         f.description = "calc MAC_EUI64 = MAC[0]:MAC[1]:MAC[2]:MAC_EXT[0]:MAC_EXT[1]:MAC[3]:MAC[4]:MAC[5]"
+        self.CALC.append(f)
+
+        f = Field()
+        f.name = "RECOVERY_BOOTLOADER_FLASH_SECTOR"
+        f.block = 0
+        f.bit_len = 12
+        f.type = f"uint:{f.bit_len}"
+        f.category = "config"
+        f.class_type = "recovery_bootloader"
+        f.description = "calc recovery_bootloader = recovery_bootloader_hi << 9 + recovery_bootloader_lo"
+        self.CALC.append(f)
+
+        f = Field()
+        f.name = "BOOTLOADER_ANTI_ROLLBACK_SECURE_VERSION"
+        f.block = 0
+        f.bit_len = 4
+        f.type = f"uint:{f.bit_len}"
+        f.category = "config"
+        f.class_type = "bootloader_anti_rollback"
+        f.description = "calc ANTI_ROLLBACK_SECURE_VERSION = ANTI_ROLLBACK_SECURE_VERSION_HI << 3 + ANTI_ROLLBACK_SECURE_VERSION_LO"
         self.CALC.append(f)
 
         for efuse in self.ALL_EFUSES:
