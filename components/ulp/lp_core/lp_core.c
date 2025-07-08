@@ -160,8 +160,8 @@ esp_err_t ulp_lp_core_load_binary(const uint8_t* program_binary, size_t program_
     uint32_t* base = RTC_SLOW_MEM;
 #endif
 
-    //Start by clearing memory reserved with zeros, this will also will initialize the bss:
-    memset(base, 0, ULP_COPROC_RESERVE_MEM);
+    /* Clear only program size bytes to avoid clearing the shared memory */
+    memset(base, 0, program_size_bytes);
     memcpy(base, program_binary, program_size_bytes);
 
     return ESP_OK;
