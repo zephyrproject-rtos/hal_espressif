@@ -55,6 +55,10 @@ void ulp_lp_core_intr_enable(void);
  */
 void ulp_lp_core_intr_disable(void);
 
+#if SOC_LP_CORE_SINGLE_INTERRUPT_VECTOR
+int ulp_lp_core_intr_set_handler(int intr_source, void (*handler)(void *arg), void *arg);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
