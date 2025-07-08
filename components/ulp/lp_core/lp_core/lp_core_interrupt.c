@@ -70,23 +70,40 @@ void __attribute__((weak, alias("ulp_lp_core_default_intr_handler"))) ulp_lp_cor
 
 #if SOC_LP_CORE_SINGLE_INTERRUPT_VECTOR
 
-static void* s_intr_handlers[] = {
-    ulp_lp_core_lp_io_intr_handler,
-    ulp_lp_core_lp_i2c_intr_handler,
-    ulp_lp_core_lp_uart_intr_handler,
-    ulp_lp_core_lp_timer_intr_handler,
-    0, // Reserved / Unused
-    ulp_lp_core_lp_pmu_intr_handler,
+typedef struct {
+    void (*handler)(void *arg);
+    void *arg;
+} ulp_lp_core_intr_handler_t;
+
+static ulp_lp_core_intr_handler_t s_intr_handlers[] = {
+    {(void (*)(void *))ulp_lp_core_lp_io_intr_handler, NULL},
+    {(void (*)(void *))ulp_lp_core_lp_i2c_intr_handler, NULL},
+    {(void (*)(void *))ulp_lp_core_lp_uart_intr_handler, NULL},
+    {(void (*)(void *))ulp_lp_core_lp_timer_intr_handler, NULL},
+    {NULL, NULL}, // Reserved / Unused
+    {(void (*)(void *))ulp_lp_core_lp_pmu_intr_handler, NULL},
 };
+
+int ulp_lp_core_intr_set_handler(int intr_source, void (*handler)(void *arg), void *arg)
+{
+    if (intr_source < 0 || intr_source >= sizeof(s_intr_handlers) / sizeof(s_intr_handlers[0])) {
+        return -1;
+    }
+
+    s_intr_handlers[intr_source].handler = handler;
+    s_intr_handlers[intr_source].arg = arg;
+
+    return 0;
+}
 
 void __attribute__((weak)) ulp_lp_core_intr_handler(void)
 {
     uint8_t intr_source = lp_core_ll_get_triggered_interrupt_srcs();
-    for (int i = 0; i < sizeof(s_intr_handlers) / 4; i++) {
+    for (int i = 0; i < sizeof(s_intr_handlers) / sizeof(s_intr_handlers[0]); i++) {
         if (intr_source & (1 << i)) {
-            void (*handler)(void) = s_intr_handlers[i];
-            if (handler) {
-                handler();
+            ulp_lp_core_intr_handler_t *handler_entry = &s_intr_handlers[i];
+            if (handler_entry->handler) {
+                handler_entry->handler(handler_entry->arg);
             }
         }
     }
