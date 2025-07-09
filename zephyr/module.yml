@@ -4,6 +4,10 @@ build:
   kconfig: zephyr/Kconfig
   settings:
     dts_root: .
+package-managers:
+  pip:
+    requirement-files:
+      - zephyr/requirements.txt
 blobs:
   - path: lib/esp32c6/libble_app.a
     sha256: fa816b02b51ae563003da5debad67ec9b80e90db9cd736bb2e0fb64224c7093b

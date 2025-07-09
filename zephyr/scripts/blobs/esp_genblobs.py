@@ -18,6 +18,10 @@ socs = ["esp32", "esp32s2", "esp32c2", "esp32c3", "esp32s3", "esp32c6"]
 
 module_yaml = """\
 name: hal_espressif
+package-managers:
+  pip:
+    requirement-files:
+      - zephyr/requirements.txt
 build:
   cmake: zephyr
   kconfig: zephyr/Kconfig
