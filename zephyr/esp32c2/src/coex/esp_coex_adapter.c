@@ -122,7 +122,7 @@ void IRAM_ATTR esp_coex_common_timer_arm_us_wrapper(void *ptimer, uint32_t us, b
 
 void *IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
 {
-	return wifi_malloc(size);
+	return k_malloc(size);
 }
 
 uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)

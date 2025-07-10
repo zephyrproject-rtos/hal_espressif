@@ -374,12 +374,12 @@ static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
 
 static void *IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
 {
-	return wifi_calloc(n, size);
+	return k_calloc(n, size);
 }
 
 static void *IRAM_ATTR zalloc_internal_wrapper(size_t size)
 {
-	return wifi_calloc(1, size);
+	return k_calloc(1, size);
 }
 
 uint32_t uxQueueMessagesWaiting(void *queue)
