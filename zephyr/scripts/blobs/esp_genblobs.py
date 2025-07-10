@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+# Copyright (c) 2022-2025 Espressif Systems (Shanghai) Co., Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -35,7 +35,7 @@ blob_item = '''
     type: lib
     version: '1.0'
     license-path: zephyr/blobs/license.txt
-    url: {URL}/raw/{REV}/{SOC}/{FILENAME}
+    url: {URL}/raw/{REV}/{URL_PATH}
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: {URL_BASE}'''
 
@@ -77,6 +77,23 @@ def get_file_sha256(path):
         return result.hexdigest()
 
 
+def add_blobs(file_out, soc, pathlist, git_url, git_rev, url_path_prefix):
+    for item in pathlist:
+        filename = path_leaf(str(item))
+        sha256 = get_file_sha256(item)
+        url_path = f"{url_path_prefix}/{filename}" if url_path_prefix else filename
+        file_out += blob_item.format(
+            SOC=soc,
+            FILENAME=filename,
+            SHA256=sha256,
+            URL=git_url,
+            REV=git_rev,
+            URL_PATH=url_path,
+            URL_BASE=git_url,
+        )
+    return file_out
+
+
 def generate_blob_list():
     file_out = module_yaml
 
@@ -84,26 +101,35 @@ def generate_blob_list():
     with open(SUBMODULES) as f:
         for submodule in f:
             git_rev, git_dir, git_url = submodule.split()
+            base_dir = Path(path, "temp", git_dir)
+            found_soc = False
 
             for s in socs:
-                folder = Path(path, "temp", git_dir, s)
-                pathlist = []
-                pathlist.extend(Path(folder).glob('**/*.a'))
-                pathlist.extend(Path(folder).glob('**/*.bin'))
-                for item in pathlist:
-                    path_in_str = str(item)
-                    filename = path_leaf(path_in_str)
-                    sha256 = get_file_sha256(path_in_str)
-                    file_out += blob_item.format(SOC=s,
-                                                 FILENAME=filename,
-                                                 SHA256=sha256,
-                                                 URL=git_url,
-                                                 REV=git_rev,
-                                                 URL_BASE=git_url)
+                soc_dir = base_dir / s
+                if soc_dir.exists():
+                    pathlist = list(soc_dir.glob('**/*.a')) + list(soc_dir.glob('**/*.bin'))
+                    file_out = add_blobs(file_out, s, pathlist, git_url, git_rev, url_path_prefix=s)
+                    found_soc = True
+
+            if not found_soc:
+                matched_soc = None
+                for s in sorted(socs, key=len, reverse=True):
+                    if f"/{s}" in f"/{git_dir.lower()}":
+                        matched_soc = s
+                        break
+
+                if matched_soc:
+                    print(f"[fallback] No subfolder found for {git_dir}, assuming SoC: {matched_soc}")
+                    fallback_folder = base_dir
+                    pathlist = list(fallback_folder.glob('**/*.a')) + list(fallback_folder.glob('**/*.bin'))
+                    file_out = add_blobs(file_out, matched_soc, pathlist, git_url, git_rev, url_path_prefix=None)
+                else:
+                    print(f"[warning] Skipping {git_dir}, no SoC match found.")
+
     file_out += "\r\n"
 
     try:
-        os.remove(filename)
+        os.remove(MODULE_PATH)
     except OSError:
         pass
 

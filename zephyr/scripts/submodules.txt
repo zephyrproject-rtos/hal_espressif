@@ -1,4 +1,5 @@
 250e75199e8772a9ce44c53e7747063107d36155 components/bt/controller/lib_esp32c6/esp32c6-bt-lib https://github.com/espressif/esp32c6-bt-lib
+3ad007058995a523c2cd212bcef4c6937533871e components/bt/controller/lib_esp32c2/esp32c2-bt-lib https://github.com/espressif/esp32c2-bt-lib
 3ff529142f6e2707d57b10eb87ac8d86e9098b88 components/bt/controller/lib_esp32c3_family https://github.com/espressif/esp32c3-bt-lib
 6d007b7167146b31256b29fed31e04dc46989885 components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
 52bbf235d23ef4c647cf95abe4952a260c4d0662 components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
