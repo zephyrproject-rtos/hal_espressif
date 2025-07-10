@@ -287,7 +287,7 @@ void ble_enc_funcs_reset(void)
 {
 }
 
-#ifdef CONFIG_SOC_SERIES_ESP32C6
+#if defined(CONFIG_SOC_SERIES_ESP32C2) || defined(CONFIG_SOC_SERIES_ESP32C6)
 
 /* Forward declarations of opaque types */
 struct osi_coex_funcs_t;
@@ -611,4 +611,49 @@ int r_os_mbuf_free_chain(struct os_mbuf *om)
 	(void)om;
 	return 0;
 }
-#endif /* CONFIG_SOC_SERIES_ESP32C6 */
+#endif /* CONFIG_SOC_SERIES_ESP32C2 || CONFIG_SOC_SERIES_ESP32C6 */
+
+#if defined(CONFIG_SOC_SERIES_ESP32C2)
+
+int esp_ble_rom_func_ptr_init_all(void)
+{
+	return 0;
+}
+
+int esp_ble_ll_set_public_addr(const uint8_t *addr)
+{
+	(void)addr;
+	return 0;
+}
+
+int ble_get_npl_element_info(esp_bt_controller_config_t *cfg,
+			       struct ble_npl_count_info_t *npl_info)
+{
+	(void)cfg;
+	(void)npl_info;
+	return 0;
+}
+
+int ble_controller_init(esp_bt_controller_config_t *cfg)
+{
+	(void)cfg;
+	return 0;
+}
+
+int ble_controller_deinit(void)
+{
+	return 0;
+}
+
+int ble_controller_enable(uint8_t mode)
+{
+	(void)mode;
+	return 0;
+}
+
+int ble_controller_disable(void)
+{
+	return 0;
+}
+
+#endif /* CONFIG_SOC_SERIES_ESP32C2 */

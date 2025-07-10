@@ -15,6 +15,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_include_directories(
     include
+    include/bt
     ../esp_shared/include
     ../esp_shared/components/include
     ../port/include
@@ -103,12 +104,17 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/mbedtls/port/include
 
     ../port/include/boot
+
+    ../port/bluetooth/include
+    ../port/bluetooth/npl/zephyr/include
+    ../port/bluetooth/transport/include
   )
 
   zephyr_link_libraries_ifdef(
     CONFIG_SOC_ESP32C2_REV_2_0
     gcc
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco4.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.ble-eco4.ld
   )
 
   zephyr_link_libraries(
@@ -116,6 +122,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/${CONFIG_SOC_SERIES}.rom.alias.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.api.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.ble.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libgcc.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.newlib.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.version.ld
@@ -379,15 +386,35 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   ## BT definitions
   if (CONFIG_BT)
-    zephyr_sources(src/bt/esp_bt_adapter.c)
-    zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
-    zephyr_link_libraries(
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      ../port/bluetooth/mem/bt_osi_mem.c
+      ../port/bluetooth/mem/os_msys_init.c
+      ../port/bluetooth/npl/zephyr/src/npl_os_zephyr.c
+      ../port/bluetooth/transport/driver/vhci/hci_driver_standard.c
+      ../port/bluetooth/transport/src/hci_transport.c
+      src/bt/esp_ble_adapter.c
+      src/bt/esp_bt_adapter.c
+      )
+
+    zephyr_compile_definitions(CONFIG_BT_ENABLED)
+    zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED)
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
       ## ble
       btbb
-      btdm_app
+      ble_app
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
       )
+
   endif()
 
   ## WIFI definitions
