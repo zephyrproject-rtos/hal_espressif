@@ -27,8 +27,7 @@ LOG_MODULE_REGISTER(esp32_ble_npl, CONFIG_LOG_DEFAULT_LEVEL);
 #define BLE_HOST_SEM_COUNT   (0)
 #define BLE_HOST_MUTEX_COUNT (0)
 
-#define MAX_EVENTS 64 /* TODO: evaluate this in the future */
-static char evq_buffer[sizeof(struct ble_npl_event) * MAX_EVENTS];
+static struct ble_npl_event **evq_buffer;
 
 struct os_mempool ble_zephyr_ev_pool;
 static os_membuf_t *ble_zephyr_ev_buf = NULL;
@@ -100,8 +99,10 @@ void npl_zephyr_eventq_init(struct ble_npl_eventq *evq)
 		eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
 		BLE_LL_ASSERT(eventq);
 		memset(eventq, 0, sizeof(*eventq));
-		/* point at our statically-allocated array of pointers */
-		k_msgq_init(&eventq->q, evq_buffer, sizeof(struct ble_npl_event *),
+		evq_buffer = bt_osi_mem_malloc_internal(
+			ble_zephyr_total_event_cnt * sizeof(struct ble_npl_event *));
+		BLE_LL_ASSERT(evq_buffer);
+		k_msgq_init(&eventq->q, (char *)evq_buffer, sizeof(struct ble_npl_event *),
 			    ble_zephyr_total_event_cnt);
 	} else {
 		eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
@@ -117,6 +118,7 @@ void npl_zephyr_eventq_deinit(struct ble_npl_eventq *evq)
 		return;
 	}
 	k_free(eventq);
+	k_free(evq_buffer);
 	evq->eventq = NULL;
 }
 
