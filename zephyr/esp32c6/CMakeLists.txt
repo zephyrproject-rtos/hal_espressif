@@ -112,9 +112,9 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/ulp/lp_core/shared/include
     ../../components/ulp/ulp_common/include
 
-    src/bt/porting/include
-    src/bt/porting/npl/zephyr/include
-    src/bt/porting/transport/include
+    ../port/bluetooth/include
+    ../port/bluetooth/npl/zephyr/include
+    ../port/bluetooth/transport/include
   )
 
   zephyr_link_libraries(
@@ -443,13 +443,13 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_sources(
       ../../components/esp_phy/src/btbb_init.c
-      src/bt/esp_bt_adapter.c
+      ../port/bluetooth/mem/bt_osi_mem.c
+      ../port/bluetooth/mem/os_msys_init.c
+      ../port/bluetooth/npl/zephyr/src/npl_os_zephyr.c
+      ../port/bluetooth/transport/driver/vhci/hci_driver_standard.c
+      ../port/bluetooth/transport/src/hci_transport.c
       src/bt/esp_ble_adapter.c
-      src/bt/porting/npl/zephyr/src/npl_os_zephyr.c
-      src/bt/porting/mem/bt_osi_mem.c
-      src/bt/porting/mem/os_msys_init.c
-      src/bt/porting/transport/src/hci_transport.c
-      src/bt/porting/transport/driver/vhci/hci_driver_standard.c
+      src/bt/esp_bt_adapter.c
       )
 
     zephyr_compile_definitions(CONFIG_BT_ENABLED)
