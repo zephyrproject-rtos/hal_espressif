@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-#include <sys/time.h>
 #include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -34,8 +33,6 @@
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
 #define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
-
-#define MHZ (1000000)
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 static __attribute__((unused)) void recalib_bbpll(void);

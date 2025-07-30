@@ -28,7 +28,7 @@ bool rtc_gpio_is_valid_gpio(gpio_num_t gpio_num);
 
 #define RTC_GPIO_IS_VALID_GPIO(gpio_num) rtc_gpio_is_valid_gpio(gpio_num)
 
-#if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
+#if SOC_RTCIO_PIN_COUNT > 0
 /**
  * @brief Get RTC IO index number by gpio number.
  *

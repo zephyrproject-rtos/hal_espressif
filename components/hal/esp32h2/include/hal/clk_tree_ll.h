@@ -25,7 +25,10 @@
 extern "C" {
 #endif
 
+#if !defined(DT_DRV_COMPAT)
+#undef MHZ
 #define MHZ                 (1000000)
+#endif
 
 #define CLK_LL_PLL_8M_FREQ_MHZ    (8)
 #define CLK_LL_PLL_48M_FREQ_MHZ   (48)

@@ -30,6 +30,10 @@
 #include "esp32c6/rom/cache.h"
 #include "soc/extmem_reg.h"
 #include "soc/ext_mem_defs.h"
+#elif CONFIG_SOC_SERIES_ESP32H2
+#include "esp32h2/rom/cache.h"
+#include "soc/extmem_reg.h"
+#include "soc/ext_mem_defs.h"
 #endif
 
 #include "esp_private/spi_flash_os.h"
@@ -74,12 +78,12 @@ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
 	s_intr_saved_state = irq_lock();
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6)
+	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
 	esp_intr_noniram_disable();
 #endif
 
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6)
+	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
 	int cpu_id = esp_cpu_get_core_id();
 #else
 	int cpu_id = PRO_CPU_NUM;
@@ -95,7 +99,7 @@ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 {
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6)
+	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
 	int cpu_id = esp_cpu_get_core_id();
 #else
 	int cpu_id = PRO_CPU_NUM;
@@ -108,7 +112,7 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 #endif
 
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6)
+	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
 	esp_intr_noniram_enable();
 #endif
 	irq_unlock(s_intr_saved_state);
@@ -195,7 +199,7 @@ esp_err_t esp_enable_cache_wrap(bool icache_wrap_enable, bool dcache_wrap_enable
 	bool flash_spiram_wrap_together, flash_support_wrap = true, spiram_support_wrap = true;
 	uint32_t drom0_in_icache = 1; // always 1 in esp32s2
 #if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 ||         \
-	CONFIG_IDF_TARGET_ESP32C6
+	CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
 	drom0_in_icache = 0;
 #endif
 
