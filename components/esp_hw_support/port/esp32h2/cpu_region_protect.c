@@ -127,9 +127,6 @@ void esp_cpu_configure_region_protection(void)
     _Static_assert(SOC_IROM_MASK_LOW < SOC_IROM_MASK_HIGH, "Invalid I/D-ROM region");
 
     if (esp_cpu_dbgr_is_attached()) {
-        // Anti-FI check that cpu is really in ocd mode
-        ESP_FAULT_ASSERT(esp_cpu_dbgr_is_attached());
-
         // 5. IRAM and DRAM
         PMP_ENTRY_SET(5, SOC_IRAM_LOW, NONE);
         PMP_ENTRY_SET(6, SOC_IRAM_HIGH, PMP_TOR | RWX);
