@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,6 +11,7 @@
 #include "esp_assert.h"
 #endif
 
+#include "soc/ext_mem_defs.h"
 #include "esp_bit_defs.h"
 #include "reg_base.h"
 
@@ -164,7 +165,7 @@
 #define SOC_IRAM_HIGH   0x40850000
 #define SOC_DRAM_LOW    0x40800000
 #define SOC_DRAM_HIGH   0x40850000
-#define SOC_RTC_IRAM_LOW  0x50000000 // ESP32-H2 only has 16k LP memory
+#define SOC_RTC_IRAM_LOW  0x50000000 // ESP32-H2 only has 4k LP memory
 #define SOC_RTC_IRAM_HIGH 0x50001000
 #define SOC_RTC_DRAM_LOW  0x50000000
 #define SOC_RTC_DRAM_HIGH 0x50001000
