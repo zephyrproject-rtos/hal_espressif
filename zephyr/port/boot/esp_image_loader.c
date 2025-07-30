@@ -17,7 +17,8 @@
 
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32C3) &&	\
-	!defined(CONFIG_SOC_SERIES_ESP32C6)
+	!defined(CONFIG_SOC_SERIES_ESP32C6) &&	\
+	!defined(CONFIG_SOC_SERIES_ESP32H2)
 #include "soc/dport_reg.h"
 #endif
 
@@ -47,6 +48,9 @@
 #define LP_RTC_PREFIX "RTC"
 #elif CONFIG_SOC_SERIES_ESP32C6
 #include "esp32c6/rom/uart.h"
+#define LP_RTC_PREFIX "LP"
+#elif CONFIG_SOC_SERIES_ESP32H2
+#include "esp32h2/rom/uart.h"
 #define LP_RTC_PREFIX "LP"
 #endif
 
