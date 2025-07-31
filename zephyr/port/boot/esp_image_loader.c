@@ -143,20 +143,20 @@ void esp_app_image_load(int image_index, int slot,
 
         /* Unless waking from deep sleep (implying RTC memory is intact), load its segments */
         if (reset_reason != RESET_REASON_CORE_DEEP_SLEEP) {
-            BOOT_LOG_INF("%s_RAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load", LP_RTC_PREFIX,
+            BOOT_LOG_INF("%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
                          (fap->fa_off + load_header.lp_rtc_dram_flash_offset), load_header.lp_rtc_dram_dest_addr,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_size);
             load_segment(fap, load_header.lp_rtc_dram_flash_offset,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_dest_addr);
         } else {
-            BOOT_LOG_INF("%s_RAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) noload", LP_RTC_PREFIX,
+            BOOT_LOG_INF("%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
                          load_header.lp_rtc_dram_flash_offset, load_header.lp_rtc_dram_dest_addr,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_size);
         }
     }
 
     if (load_header.lp_rtc_iram_size > 0) {
-        BOOT_LOG_INF("%s_IRAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load", LP_RTC_PREFIX,
+        BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
                      (fap->fa_off + load_header.lp_rtc_iram_flash_offset), load_header.lp_rtc_iram_dest_addr,
                      load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
         load_segment(fap, load_header.lp_rtc_iram_flash_offset,
@@ -164,13 +164,13 @@ void esp_app_image_load(int image_index, int slot,
     }
 #endif
 
-    BOOT_LOG_INF("DRAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load",
+    BOOT_LOG_INF("DRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
                  (fap->fa_off + load_header.dram_flash_offset), load_header.dram_dest_addr,
                  load_header.dram_size, load_header.dram_size);
     load_segment(fap, load_header.dram_flash_offset,
                  load_header.dram_size, load_header.dram_dest_addr);
 
-    BOOT_LOG_INF("IRAM segment: paddr=%08xh, vaddr=%08xh, size=%05xh (%6d) load",
+    BOOT_LOG_INF("IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
                  (fap->fa_off + load_header.iram_flash_offset), load_header.iram_dest_addr,
                  load_header.iram_size, load_header.iram_size);
     load_segment(fap, load_header.iram_flash_offset,
