@@ -172,15 +172,15 @@ if(CONFIG_SOC_SERIES_ESP32C2)
   endif()
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
-  zephyr_sources(
-  ../../components/esp_hw_support/sleep_gpio.c
-  ../../components/esp_hw_support/sleep_event.c
-	../../components/driver/gpio/rtc_io.c
-	../../components/esp_hw_support/sleep_modem.c
-	../../components/hal/rtc_io_hal.c
-	../../components/driver/gpio/gpio.c
-	../../components/esp_hw_support/sleep_cpu.c
-	)
+    zephyr_sources(
+    ../../components/esp_hw_support/sleep_gpio.c
+    ../../components/esp_hw_support/sleep_event.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/esp_hw_support/sleep_modem.c
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/gpio.c
+    ../../components/esp_hw_support/sleep_cpu.c
+    )
   endif()
 
   zephyr_sources_ifdef(
@@ -220,6 +220,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
@@ -347,10 +348,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
-      )
-
-    zephyr_sources(
-      ../../components/esp_hw_support/sleep_modes.c
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
