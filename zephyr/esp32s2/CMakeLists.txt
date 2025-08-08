@@ -166,6 +166,13 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/soc/lldesc.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_MSPI_ESP32
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    )
+
   if (CONFIG_ESP_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(

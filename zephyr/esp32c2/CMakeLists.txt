@@ -142,6 +142,14 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/hal/gdma_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_MSPI_ESP32
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
     ../../components/bootloader_support/src/flash_encrypt.c

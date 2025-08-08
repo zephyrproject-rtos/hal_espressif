@@ -173,6 +173,14 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
 
   zephyr_sources_ifdef(
+    CONFIG_MSPI_ESP32
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
+  zephyr_sources_ifdef(
     CONFIG_COUNTER_TMR_ESP32
     ../../components/hal/timer_hal.c
   )
