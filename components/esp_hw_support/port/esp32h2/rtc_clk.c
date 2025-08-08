@@ -159,8 +159,14 @@ soc_rtc_fast_clk_src_t rtc_clk_fast_src_get(void)
 
 static void rtc_clk_bbpll_disable(void)
 {
+#if defined(CLK_BBPLL_DISABLE)
+    /* Disabling BBPLL is commented due to issues when transitioning
+     * from PLL to XTAL clock sources. Comprehensive clock management
+     * must be implemented for peripherals as well (ZEP-827).
+     */
     clk_ll_bbpll_disable();
     s_cur_pll_freq = 0;
+#endif
 }
 
 static void rtc_clk_bbpll_enable(void)
