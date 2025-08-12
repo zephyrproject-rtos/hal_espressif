@@ -264,6 +264,64 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESP32_SPIM
+    ../../components/hal/spi_hal.c
+    ../../components/hal/spi_hal_iram.c
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_DMA_ESP32
+    ../../components/soc/lldesc.c
+    ../../components/hal/gdma_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_I2C_ESP32
+    ../../components/hal/i2c_hal_iram.c
+    ../../components/hal/i2c_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_I2S_ESP32
+    ../../components/hal/i2s_hal.c
+    )
+
+  if (CONFIG_ADC_ESP32)
+    zephyr_include_directories(
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_adc/include
+    ../../components/esp_adc/interface
+    )
+
+    zephyr_sources(
+    ../../components/hal/adc_hal.c
+    ../../components/hal/adc_hal_common.c
+    ../../components/hal/adc_oneshot_hal.c
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/esp_adc/adc_cali.c
+    ../../components/esp_adc/adc_cali_curve_fitting.c
+    ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    )
+  endif()
+
+  zephyr_sources_ifdef(
+    CONFIG_PWM_LED_ESP32
+    ../../components/soc/${CONFIG_SOC_SERIES}/ledc_periph.c
+    ../../components/hal/ledc_hal_iram.c
+    ../../components/hal/ledc_hal.c
+    )
+
+  zephyr_sources_ifdef(
+    CONFIG_PCNT_ESP32
+    ../../components/hal/pcnt_hal.c
+    )
+
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
