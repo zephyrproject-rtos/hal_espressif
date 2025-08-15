@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "stubs.h"
 #include "soc/soc.h"
 #include "soc/clk_tree_defs.h"
 
@@ -42,8 +43,6 @@ extern "C" {
  * - rtc_time: reading RTC counter, conversion between counter values and time
  * - rtc_sleep: entry into sleep modes
  */
-
-#define MHZ (1000000)
 
 #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
 #define RTC_SLOW_CLK_32K_CAL_TIMEOUT_THRES(cycles)   (cycles << 12)
