@@ -261,6 +261,13 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
     ../../components/soc/${CONFIG_SOC_SERIES}/adc_periph.c
     )
+
+    if (CONFIG_ADC_ESP32_DMA)
+      zephyr_sources(
+      ../../components/hal/adc_hal.c
+      ../../components/hal/i2s_hal.c
+      )
+    endif()
   endif()
 
   zephyr_link_libraries("-Wl,--wrap=longjmp")
