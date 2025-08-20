@@ -173,6 +173,7 @@ esp_err_t rtc_gpio_hold_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
+#if SOC_RTCIO_HOLD_SUPPORTED && SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 esp_err_t rtc_gpio_isolate(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
@@ -182,6 +183,7 @@ esp_err_t rtc_gpio_isolate(gpio_num_t gpio_num)
 
     return ESP_OK;
 }
+#endif // SOC_RTCIO_HOLD_SUPPORTED && SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
 
 esp_err_t rtc_gpio_force_hold_en_all(void)
 {
