@@ -233,6 +233,12 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_table.c
     )
+
+    if (CONFIG_ADC_ESP32_DMA)
+      zephyr_sources(
+      ../../components/hal/adc_hal.c
+      )
+    endif()
   endif()
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
