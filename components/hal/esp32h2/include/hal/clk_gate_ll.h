@@ -78,6 +78,8 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
             return PCR_TSENS_CLK_EN;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CLK_EN;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CLK_EN;
         // case PERIPH_WIFI_MODULE:
         //     return PCR_WIFI_CLK_WIFI_EN_M;
         // case PERIPH_BT_MODULE:
@@ -178,6 +180,8 @@ static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool en
             return PCR_DS_RST_EN;
         case PERIPH_ECDSA_MODULE:
             return PCR_ECDSA_RST_EN;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_RST_EN;
         // case PERIPH_RNG_MODULE:
         //     return PCR_WIFI_CLK_RNG_EN;
         // case PERIPH_WIFI_MODULE:
@@ -263,6 +267,8 @@ static uint32_t periph_ll_get_clk_en_reg(periph_module_t periph)
             return PCR_TSENS_CLK_CONF_REG;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CONF_REG;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CONF_REG;
         case PERIPH_RNG_MODULE:
             return LPPERI_CLK_EN_REG;
     default:
@@ -332,6 +338,8 @@ static uint32_t periph_ll_get_rst_en_reg(periph_module_t periph)
             return PCR_TSENS_CLK_CONF_REG;
         case PERIPH_REGDMA_MODULE:
             return PCR_REGDMA_CONF_REG;
+        case PERIPH_USB_DEVICE_MODULE:
+            return PCR_USB_DEVICE_CONF_REG;
     default:
         return 0;
     }
