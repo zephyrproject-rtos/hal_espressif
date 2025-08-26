@@ -21,23 +21,12 @@ extern "C" {
 #endif
 
 #define SYSTEM_CORE_1_CONTROL_0_REG          (DR_REG_SYSTEM_BASE + 0x0)
-#ifndef CONFIG_MCUBOOT_ESPRESSIF
 /* SYSTEM_CONTROL_CORE_1_RESETTING : R/W ;bitpos:[2] ;default: 1'b1 ; */
 /*description: .*/
 #define SYSTEM_CONTROL_CORE_1_RESETTING    (BIT(2))
 #define SYSTEM_CONTROL_CORE_1_RESETTING_M  (BIT(2))
 #define SYSTEM_CONTROL_CORE_1_RESETTING_V  0x1
 #define SYSTEM_CONTROL_CORE_1_RESETTING_S  2
-#else
-/* NOTE: the original ESP-IDF version used by MCUboot Espressif still have
- * the typo, thus the ifdef is needed */
-/* SYSTEM_CONTROL_CORE_1_RESETING : R/W ;bitpos:[2] ;default: 1'b1 ; */
-/*description: .*/
-#define SYSTEM_CONTROL_CORE_1_RESETING    (BIT(2))
-#define SYSTEM_CONTROL_CORE_1_RESETING_M  (BIT(2))
-#define SYSTEM_CONTROL_CORE_1_RESETING_V  0x1
-#define SYSTEM_CONTROL_CORE_1_RESETING_S  2
-#endif
 /* SYSTEM_CONTROL_CORE_1_CLKGATE_EN : R/W ;bitpos:[1] ;default: 1'b0 ; */
 /*description: .*/
 #define SYSTEM_CONTROL_CORE_1_CLKGATE_EN    (BIT(1))
