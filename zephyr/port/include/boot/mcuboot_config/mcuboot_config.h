@@ -7,8 +7,6 @@
 #ifndef __MCUBOOT_CONFIG_H__
 #define __MCUBOOT_CONFIG_H__
 
-#include <zephyr/devicetree.h>
-
 /*
  * Signature types
  *
@@ -31,13 +29,8 @@
 #define MCUBOOT_SIGN_ED25519
 #endif
 
-/* This mcuboot_config.h is used only by Zephyr builds, such as MCUboot
- * Zephyr Port for ESP chips or a Zephyr application with MCUboot
- * compatibilty (that builds the bootutil lib).
- * In these cases, MCUBOOT_BOOT_MAX_ALIGN value must be taken from DT if
- * the write-block-size is greater than 8 */
-#if DT_PROP(DT_CHOSEN(zephyr_flash), write_block_size) > 8
-#define MCUBOOT_BOOT_MAX_ALIGN DT_PROP(DT_CHOSEN(zephyr_flash), write_block_size)
+#if defined(CONFIG_SECURE_FLASH_ENC_ENABLED)
+#define MCUBOOT_BOOT_MAX_ALIGN 32
 #endif
 
 /*
