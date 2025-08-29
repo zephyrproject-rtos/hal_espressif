@@ -28,15 +28,12 @@
             Define all ADC DMA required operations here
 ---------------------------------------------------------------*/
 #if SOC_GDMA_SUPPORTED
-#define adc_dma_ll_rx_clear_intr(dev, chan, mask)       gdma_ll_rx_clear_interrupt_status(dev, chan, mask)
-#define adc_dma_ll_rx_enable_intr(dev, chan, mask)      gdma_ll_rx_enable_interrupt(dev, chan, mask, true)
-#define adc_dma_ll_rx_disable_intr(dev, chan, mask)     gdma_ll_rx_enable_interrupt(dev, chan, mask, false)
-#define adc_dma_ll_rx_reset_channel(dev, chan)          gdma_ll_rx_reset_channel(dev, chan)
-#define adc_dma_ll_rx_stop(dev, chan)                   gdma_ll_rx_stop(dev, chan)
-#define adc_dma_ll_rx_start(dev, chan, addr) do { \
-            gdma_ll_rx_set_desc_addr(dev, chan, (uint32_t)addr); \
-            gdma_ll_rx_start(dev, chan); \
-        } while (0)
+#define adc_dma_ll_rx_clear_intr(dev, chan, mask)
+#define adc_dma_ll_rx_enable_intr(dev, chan, mask)
+#define adc_dma_ll_rx_disable_intr(dev, chan, mask)
+#define adc_dma_ll_rx_reset_channel(dev, chan)
+#define adc_dma_ll_rx_stop(dev, chan)
+#define adc_dma_ll_rx_start(dev, chan, addr)
 #define adc_ll_digi_dma_set_eof_num(dev, num)           adc_ll_digi_dma_set_eof_num(num)
 #define adc_ll_digi_reset(dev)                          adc_ll_digi_reset()
 #define adc_ll_digi_trigger_enable(dev)                 adc_ll_digi_trigger_enable()
