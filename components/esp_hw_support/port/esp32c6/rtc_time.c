@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "esp32c6/rom/ets_sys.h"
 #include "soc/rtc.h"
+#include "soc/pcr_reg.h"
 #include "soc/lp_timer_reg.h"
 #include "hal/lp_timer_hal.h"
 #include "hal/clk_tree_ll.h"
@@ -135,6 +136,9 @@ static uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cyc
     } else if (cali_clk_sel == TIMG_RTC_CALI_CLK_SEL_RC_FAST) {
         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_FAST_CLK_20M_CAL_TIMEOUT_THRES(slowclk_cycles));
         expected_freq = SOC_CLK_RC_FAST_FREQ_APPROX;
+        if (ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 1)) {
+            expected_freq = expected_freq >> 5;
+        }
     } else {
         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
@@ -157,6 +161,7 @@ static uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cyc
             if (ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 1)) {
                 if (cal_clk == RTC_CAL_RC_FAST) {
                     cal_val = cal_val >> 5;
+                    CLEAR_PERI_REG_MASK(PCR_CTRL_TICK_CONF_REG, PCR_TICK_ENABLE);
                 }
             }
             break;
@@ -217,6 +222,7 @@ uint32_t rtc_clk_cal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles)
     if (ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 1)) {
         if (cal_clk == RTC_CAL_RC_FAST) {
             slowclk_cycles = slowclk_cycles >> 5;
+            SET_PERI_REG_MASK(PCR_CTRL_TICK_CONF_REG, PCR_TICK_ENABLE);
         }
     }
 
