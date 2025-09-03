@@ -81,10 +81,14 @@ if(CONFIG_SOC_SERIES_ESP32H2)
 
     ../../components/esp_mm/include
 
+    ../../components/esp_coex/include
     ../../components/esp_phy/include
     ../../components/esp_phy/include/esp_private
     ../../components/esp_phy/${CONFIG_SOC_SERIES}/include
     ../../components/esp_event/include
+
+    ../../components/ieee802154/include
+    ../../components/ieee802154/private_include
 
     ../port/include/boot
   )
@@ -321,6 +325,44 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     CONFIG_PCNT_ESP32
     ../../components/hal/pcnt_hal.c
     )
+
+  ## shared BT/IEEE802154 resources
+  if (CONFIG_IEEE802154)
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init_esp32hxx.c
+      ../../components/esp_phy/src/lib_printf.c
+      ../../components/esp_phy/src/phy_common.c
+      ../../components/esp_phy/src/phy_override.c
+      )
+
+    zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
+    zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      phy
+      btbb
+      ## esp-idf libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+      )
+  endif()
+
+  ## IEEE 802.15.4 definitions
+  if (CONFIG_IEEE802154)
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      ../../components/soc/${CONFIG_SOC_SERIES}/ieee802154_periph.c
+      ../../components/ieee802154/esp_ieee802154.c
+      ../../components/ieee802154/driver/esp_ieee802154_ack.c
+      ../../components/ieee802154/driver/esp_ieee802154_dev.c
+      ../../components/ieee802154/driver/esp_ieee802154_frame.c
+      ../../components/ieee802154/driver/esp_ieee802154_pib.c
+      ../../components/ieee802154/driver/esp_ieee802154_util.c
+      ../../components/ieee802154/driver/esp_ieee802154_sec.c
+      ../../components/ieee802154/driver/esp_ieee802154_timer.c
+      )
+  endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
