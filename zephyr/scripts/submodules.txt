@@ -4,6 +4,4 @@
 6d007b7167146b31256b29fed31e04dc46989885 components/bt/controller/lib_esp32 https://github.com/espressif/esp32-bt-lib
 52bbf235d23ef4c647cf95abe4952a260c4d0662 components/esp_wifi/lib https://github.com/espressif/esp32-wifi-lib
 fc76520d481fc3d08cbc001ef47804a4457fffd7 components/esp_phy/lib https://github.com/espressif/esp-phy-lib
-601990b1d81510a135da9bb0476d6ed3cb8c011b components/mbedtls/mbedtls https://github.com/espressif/mbedtls
 d13a28da1f1843cf19707f39d64970326e0e0cef components/esp_coex/lib https://github.com/espressif/esp-coex-lib
-102b03c8095de8a337c293f79dce189be63186f3 components/ieee802154/lib https://github.com/espressif/esp-ieee802154-lib
