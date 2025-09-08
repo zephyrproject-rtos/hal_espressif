@@ -695,10 +695,17 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/ieee802154/driver/esp_ieee802154_timer.c
       )
 
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
+
     zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
     zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
 
-    zephyr_link_libraries(
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
       btbb
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
       )
