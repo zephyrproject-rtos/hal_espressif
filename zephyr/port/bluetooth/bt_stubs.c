@@ -657,3 +657,26 @@ int ble_controller_disable(void)
 }
 
 #endif /* CONFIG_SOC_SERIES_ESP32C2 */
+
+#if defined(CONFIG_SOC_SERIES_ESP32H2) || defined(CONFIG_SOC_SERIES_ESP32C6)
+
+uint32_t bt_bb_get_rssi_comp(void)
+{
+	return 0;
+}
+
+void bt_bb_set_zb_tx_on_delay(uint16_t time)
+{
+	(void)time;
+}
+
+#endif /* CONFIG_SOC_SERIES_ESP32H2 || CONFIG_SOC_SERIES_ESP32C6 */
+
+#if defined(CONFIG_SOC_SERIES_ESP32H2)
+
+void bt_bb_v2_init_cmplx(uint8_t i)
+{
+	(void)i;
+}
+
+#endif /* CONFIG_SOC_SERIES_ESP32H2 */

@@ -14,6 +14,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
 
   zephyr_include_directories(
     include
+    include/bt
     ../port/include
     ../common/include
 
@@ -89,6 +90,12 @@ if(CONFIG_SOC_SERIES_ESP32H2)
 
     ../../components/ieee802154/include
     ../../components/ieee802154/private_include
+    # includes below are for CONFIG_BUILD_ONLY_NO_BLOBS only
+    ../../components/esp_netif/include
+    ../../components/esp_wifi/include
+    ../../components/wpa_supplicant/include
+    ../../components/wpa_supplicant/port/include
+    ../../components/wpa_supplicant/src
 
     ../port/include/boot
   )
@@ -337,6 +344,12 @@ if(CONFIG_SOC_SERIES_ESP32H2)
 
     zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
     zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
+
+    zephyr_sources_ifdef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/bluetooth/bt_stubs.c
+      ../port/phy/phy_stubs.c
+      )
 
     zephyr_link_libraries_ifndef(
       CONFIG_BUILD_ONLY_NO_BLOBS

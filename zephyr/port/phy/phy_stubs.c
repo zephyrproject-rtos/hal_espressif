@@ -165,3 +165,8 @@ void phy_wifi_enable_set(uint8_t enable)
 {
 	ARG_UNUSED(enable);
 }
+
+void phy_version_print(void)
+{
+	return;
+}
