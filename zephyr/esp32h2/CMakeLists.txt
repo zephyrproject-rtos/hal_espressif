@@ -98,6 +98,10 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/wpa_supplicant/src
 
     ../port/include/boot
+
+    ../port/bluetooth/include
+    ../port/bluetooth/npl/zephyr/include
+    ../port/bluetooth/transport/include
   )
 
   zephyr_link_libraries(
@@ -334,17 +338,59 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/hal/pcnt_hal.c
     )
 
-  ## shared BT/IEEE802154 resources
+  ## IEEE 802.15.4 definitions
   if (CONFIG_IEEE802154)
     zephyr_sources(
+      ../../components/soc/${CONFIG_SOC_SERIES}/ieee802154_periph.c
+      ../../components/ieee802154/esp_ieee802154.c
+      ../../components/ieee802154/driver/esp_ieee802154_ack.c
+      ../../components/ieee802154/driver/esp_ieee802154_dev.c
+      ../../components/ieee802154/driver/esp_ieee802154_frame.c
+      ../../components/ieee802154/driver/esp_ieee802154_pib.c
+      ../../components/ieee802154/driver/esp_ieee802154_util.c
+      ../../components/ieee802154/driver/esp_ieee802154_sec.c
+      ../../components/ieee802154/driver/esp_ieee802154_timer.c
+      )
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+    zephyr_sources(
+      ../port/bluetooth/mem/bt_osi_mem.c
+      ../port/bluetooth/mem/os_msys_init.c
+      ../port/bluetooth/npl/zephyr/src/npl_os_zephyr.c
+      ../port/bluetooth/transport/driver/vhci/hci_driver_standard.c
+      ../port/bluetooth/transport/src/hci_transport.c
+      src/bt/esp_ble_adapter.c
+      src/bt/esp_bt_adapter.c
+      )
+
+    zephyr_link_libraries_ifndef(
+      CONFIG_BUILD_ONLY_NO_BLOBS
+      ## ble
+      ble_app
+      )
+  endif()
+
+  ## shared BT/IEEE802154 resources
+  if (CONFIG_BT OR CONFIG_IEEE802154)
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
       ../../components/esp_phy/src/phy_init_esp32hxx.c
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
       ../../components/esp_phy/src/phy_override.c
       )
 
-    zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
-    zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
+    if (CONFIG_IEEE802154)
+      zephyr_compile_definitions(CONFIG_IEEE802154_ENABLED)
+      zephyr_compile_definitions(CONFIG_SOC_IEEE802154_SUPPORTED)
+    endif()
+
+    if (CONFIG_BT)
+      zephyr_compile_definitions(CONFIG_BT_ENABLED)
+      zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED)
+    endif()
 
     zephyr_sources_ifdef(
       CONFIG_BUILD_ONLY_NO_BLOBS
@@ -359,22 +405,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ## esp-idf libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
-      )
-  endif()
-
-  ## IEEE 802.15.4 definitions
-  if (CONFIG_IEEE802154)
-    zephyr_sources(
-      ../../components/esp_phy/src/btbb_init.c
-      ../../components/soc/${CONFIG_SOC_SERIES}/ieee802154_periph.c
-      ../../components/ieee802154/esp_ieee802154.c
-      ../../components/ieee802154/driver/esp_ieee802154_ack.c
-      ../../components/ieee802154/driver/esp_ieee802154_dev.c
-      ../../components/ieee802154/driver/esp_ieee802154_frame.c
-      ../../components/ieee802154/driver/esp_ieee802154_pib.c
-      ../../components/ieee802154/driver/esp_ieee802154_util.c
-      ../../components/ieee802154/driver/esp_ieee802154_sec.c
-      ../../components/ieee802154/driver/esp_ieee802154_timer.c
       )
   endif()
 
