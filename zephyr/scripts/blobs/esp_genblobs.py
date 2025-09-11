@@ -126,7 +126,7 @@ def generate_blob_list():
                 if matched_soc:
                     print(f"[fallback] No subfolder found for {git_dir}, assuming SoC: {matched_soc}")
                     fallback_folder = base_dir
-                    pathlist = list(fallback_folder.glob('**/*.a')) + list(fallback_folder.glob('**/*.bin'))
+                    pathlist = list(fallback_folder.glob('*.a')) + list(fallback_folder.glob('*.bin'))
                     file_out = add_blobs(file_out, matched_soc, pathlist, git_url, git_rev, url_path_prefix=None)
                 else:
                     print(f"[warning] Skipping {git_dir}, no SoC match found.")
