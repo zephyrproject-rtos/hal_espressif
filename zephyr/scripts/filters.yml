@@ -33,6 +33,7 @@ esp32c6:
   - phy
   - pp
 esp32h2:
+  - ble_app
   - btbb
   - phy
 esp32s2:
