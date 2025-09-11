@@ -25,6 +25,14 @@ blobs:
     url: https://github.com/espressif/esp32c2-bt-lib/raw/3ad007058995a523c2cd212bcef4c6937533871e/libble_app.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32c2-bt-lib
+  - path: lib/esp32h2/libble_app.a
+    sha256: 389cd27e255b0b3b789b3c88b345e57da2debfe4d5cebe6e2713f02222b67511
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32h2-bt-lib/raw/82cbc1dd9345010e7e6d78f8a7b022a7ae669e87/libble_app.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32h2-bt-lib
   - path: lib/esp32c3/libbtdm_app.a
     sha256: ba1807a2fdbb24f9c2e3de7bb803ec2c28b98e7f74056aa4c07ba8e41c546526
     type: lib
