@@ -284,6 +284,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
+    ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/sleep_modes.c

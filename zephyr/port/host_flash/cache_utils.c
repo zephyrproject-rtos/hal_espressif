@@ -77,10 +77,8 @@ void spi_flash_op_unlock(void)
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
 	s_intr_saved_state = irq_lock();
-#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
+
 	esp_intr_noniram_disable();
-#endif
 
 #if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
 	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
@@ -111,10 +109,8 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 	spi_flash_restore_cache(other_cpu, s_flash_op_cache_state[other_cpu]);
 #endif
 
-#if !defined(CONFIG_SOC_SERIES_ESP32C2) && !defined(CONFIG_SOC_SERIES_ESP32C3) &&                  \
-	!defined(CONFIG_SOC_SERIES_ESP32C6) && !defined(CONFIG_SOC_SERIES_ESP32H2)
 	esp_intr_noniram_enable();
-#endif
+
 	irq_unlock(s_intr_saved_state);
 }
 
