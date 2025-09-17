@@ -113,8 +113,10 @@ void adc_hal_digi_init(adc_hal_dma_ctx_t *hal)
     adc_ll_digi_output_invert(ADC_UNIT_2, ADC_LL_DIGI_DATA_INVERT_DEFAULT(ADC_UNIT_2));
     adc_ll_digi_set_clk_div(ADC_LL_DIGI_SAR_CLK_DIV_DEFAULT);
 
+#if !SOC_GDMA_SUPPORTED
     adc_dma_ll_rx_clear_intr(hal->dev, hal->dma_chan, ADC_HAL_DMA_INTR_MASK);
     adc_dma_ll_rx_enable_intr(hal->dev, hal->dma_chan, ADC_HAL_DMA_INTR_MASK);
+#endif /* !SOC_GDMA_SUPPORTED */
     adc_ll_digi_dma_set_eof_num(hal->dev, hal->eof_num);
 #if CONFIG_IDF_TARGET_ESP32
     i2s_ll_rx_set_sample_bit(hal->dev, SAMPLE_BITS, SAMPLE_BITS);
@@ -267,8 +269,10 @@ void adc_hal_digi_start(adc_hal_dma_ctx_t *hal, uint8_t *data_buf)
     //stop peripheral and DMA
     adc_hal_digi_stop(hal);
 
+#if !SOC_GDMA_SUPPORTED
     //reset DMA
     adc_dma_ll_rx_reset_channel(hal->dev, hal->dma_chan);
+#endif /* !SOC_GDMA_SUPPORTED */
     //reset peripheral
     adc_ll_digi_reset(hal->dev);
 
@@ -276,8 +280,10 @@ void adc_hal_digi_start(adc_hal_dma_ctx_t *hal, uint8_t *data_buf)
     hal->cur_desc_ptr = &hal->desc_dummy_head;
     adc_hal_digi_dma_link_descriptors(hal->rx_desc, data_buf, hal->eof_num * SOC_ADC_DIGI_DATA_BYTES_PER_CONV, hal->eof_step, hal->eof_desc_num);
 
+#if !SOC_GDMA_SUPPORTED
     //start DMA
     adc_dma_ll_rx_start(hal->dev, hal->dma_chan, (lldesc_t *)hal->rx_desc);
+#endif /* !SOC_GDMA_SUPPORTED */
     //connect DMA and peripheral
     adc_ll_digi_dma_enable();
     //start ADC
@@ -341,20 +347,26 @@ valid:
 
 void adc_hal_digi_clr_intr(adc_hal_dma_ctx_t *hal, uint32_t mask)
 {
+#if !SOC_GDMA_SUPPORTED
     adc_dma_ll_rx_clear_intr(hal->dev, hal->dma_chan, mask);
+#endif /* !SOC_GDMA_SUPPORTED */
 }
 
 void adc_hal_digi_dis_intr(adc_hal_dma_ctx_t *hal, uint32_t mask)
 {
+#if !SOC_GDMA_SUPPORTED
     adc_dma_ll_rx_disable_intr(hal->dev, hal->dma_chan, mask);
+#endif /* !SOC_GDMA_SUPPORTED */
 }
 
 void adc_hal_digi_stop(adc_hal_dma_ctx_t *hal)
 {
     //stop ADC
     adc_ll_digi_trigger_disable(hal->dev);
+#if !SOC_GDMA_SUPPORTED
     //stop DMA
     adc_dma_ll_rx_stop(hal->dev, hal->dma_chan);
+#endif /* !SOC_GDMA_SUPPORTED */
     //disconnect DMA and peripheral
     adc_ll_digi_dma_disable();
 }
