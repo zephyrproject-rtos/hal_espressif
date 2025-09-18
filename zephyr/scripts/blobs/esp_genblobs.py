@@ -7,14 +7,17 @@ import subprocess
 import shutil
 import ntpath
 import hashlib
+import yaml
 from pathlib import Path
 
 # This relies on this file being in hal_espressif/zephyr/scripts/esp_genblobs.py
 # If you move this file, you'll break it, so be careful.
 MODULE_PATH = Path(Path(__file__).resolve().parents[2], "module.yml")
 SUBMODULES = Path(Path(__file__).resolve().parents[1], "submodules.txt")
+FILTER_FILE = Path(Path(__file__).resolve().parents[1], "filters.yml")
 
-socs = ["esp32", "esp32s2", "esp32c2", "esp32c3", "esp32s3", "esp32c6", "esp32h2"]
+with open(FILTER_FILE) as f:
+    filters = yaml.safe_load(f)
 
 module_yaml = """\
 name: hal_espressif
@@ -78,44 +81,46 @@ def get_file_sha256(path):
 
 
 def add_blobs(file_out, soc, pathlist, git_url, git_rev, url_path_prefix):
+    allowed_libs = filters.get(soc, [])
     for item in pathlist:
         filename = path_leaf(str(item))
-        sha256 = get_file_sha256(item)
-        url_path = f"{url_path_prefix}/{filename}" if url_path_prefix else filename
-        file_out += blob_item.format(
-            SOC=soc,
-            FILENAME=filename,
-            SHA256=sha256,
-            URL=git_url,
-            REV=git_rev,
-            URL_PATH=url_path,
-            URL_BASE=git_url,
-        )
+        if any(filename == f"lib{lib}.a" for lib in allowed_libs):
+            sha256 = get_file_sha256(item)
+            url_path = f"{url_path_prefix}/{filename}" if url_path_prefix else filename
+            file_out += blob_item.format(
+                SOC=soc,
+                FILENAME=filename,
+                SHA256=sha256,
+                URL=git_url,
+                REV=git_rev,
+                URL_PATH=url_path,
+                URL_BASE=git_url,
+            )
     return file_out
 
 
 def generate_blob_list():
     file_out = module_yaml
-
     path = os.path.dirname(os.path.abspath(__file__))
+
     with open(SUBMODULES) as f:
         for submodule in f:
             git_rev, git_dir, git_url = submodule.split()
             base_dir = Path(path, "temp", git_dir)
             found_soc = False
 
-            for s in socs:
-                soc_dir = base_dir / s
+            for soc in filters.keys():
+                soc_dir = base_dir / soc
                 if soc_dir.exists():
                     pathlist = list(soc_dir.glob('**/*.a')) + list(soc_dir.glob('**/*.bin'))
-                    file_out = add_blobs(file_out, s, pathlist, git_url, git_rev, url_path_prefix=s)
+                    file_out = add_blobs(file_out, soc, pathlist, git_url, git_rev, url_path_prefix=soc)
                     found_soc = True
 
             if not found_soc:
                 matched_soc = None
-                for s in sorted(socs, key=len, reverse=True):
-                    if f"/{s}" in f"/{git_dir.lower()}":
-                        matched_soc = s
+                for soc in sorted(filters.keys(), key=len, reverse=True):
+                    if f"/{soc}" in f"/{git_dir.lower()}":
+                        matched_soc = soc
                         break
 
                 if matched_soc:
