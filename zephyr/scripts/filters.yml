@@ -1,0 +1,51 @@
+esp32:
+  - btdm_app
+  - coexist
+  - core
+  - net80211
+  - phy
+  - pp
+  - rtc
+esp32c2:
+  - ble_app
+  - btbb
+  - coexist
+  - core
+  - net80211
+  - phy
+  - pp
+esp32c3:
+  - btbb
+  - btdm_app
+  - coexist
+  - core
+  - mesh
+  - net80211
+  - phy
+  - pp
+esp32c6:
+  - ble_app
+  - btbb
+  - coexist
+  - core
+  - mesh
+  - net80211
+  - phy
+  - pp
+esp32h2:
+  - btbb
+  - phy
+esp32s2:
+  - coexist
+  - core
+  - net80211
+  - phy
+  - pp
+esp32s3:
+  - btbb
+  - btdm_app
+  - coexist
+  - core
+  - net80211
+  - phy
+  - pp
