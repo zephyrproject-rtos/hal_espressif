@@ -18,6 +18,12 @@ typedef struct {
 
 static hci_driver_vhci_env_t s_hci_driver_vhci_env;
 
+static inline void hci_driver_vhci_notify_send_available(void)
+{
+    const esp_vhci_host_callback_t *host_recv_cb = s_hci_driver_vhci_env.host_recv_cb;
+    if (host_recv_cb && host_recv_cb->notify_host_send_available) host_recv_cb->notify_host_send_available();
+}
+
 static int
 hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length)
 {
@@ -54,6 +60,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
 static int
 hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length)
 {
+    int rc;
     uint8_t *cmd;
     struct os_mbuf *om;
 
@@ -69,7 +76,11 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         data = cmd;
     }
 
-    return s_hci_driver_vhci_env.forward_cb(data_type, data, length, HCI_DRIVER_DIR_H2C);
+    rc = s_hci_driver_vhci_env.forward_cb(data_type, data, length, HCI_DRIVER_DIR_H2C);
+
+    hci_driver_vhci_notify_send_available();
+
+    return rc;
 }
 
 static int
@@ -132,6 +143,8 @@ esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback)
         s_hci_driver_vhci_env.host_recv_cb = NULL;
         return ESP_FAIL;
     }
+
+    hci_driver_vhci_notify_send_available();
 
     return ESP_OK;
 }
