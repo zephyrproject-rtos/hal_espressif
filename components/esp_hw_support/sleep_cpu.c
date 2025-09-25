@@ -47,6 +47,7 @@
 #include "soc/clint_reg.h"
 #include "esp32c6/rom/cache.h"
 #elif CONFIG_IDF_TARGET_ESP32H2
+#include "riscv/csr.h"
 #include "esp32h2/rom/rtc.h"
 #include "riscv/rvsleep-frames.h"
 #include "soc/intpri_reg.h"

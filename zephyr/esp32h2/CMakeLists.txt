@@ -338,6 +338,29 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/hal/pcnt_hal.c
     )
 
+  if(CONFIG_PM OR CONFIG_POWEROFF)
+    zephyr_sources(
+      ../../components/driver/gpio/gpio.c
+      ../../components/driver/gpio/rtc_io.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
+      ../../components/esp_hw_support/port/pau_regdma.c
+      ../../components/esp_hw_support/port/regdma_link.c
+      ../../components/esp_hw_support/sleep_clock.c
+      ../../components/esp_hw_support/sleep_cpu.c
+      ../../components/esp_hw_support/sleep_cpu_asm.S
+      ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/esp_hw_support/sleep_event.c
+      ../../components/esp_hw_support/sleep_console.c
+      ../../components/esp_hw_support/sleep_modem.c
+      ../../components/esp_hw_support/sleep_modes.c
+      ../../components/esp_hw_support/sleep_retention.c
+      ../../components/esp_hw_support/sleep_system_peripheral.c
+      ../../components/hal/${CONFIG_SOC_SERIES}/pau_hal.c
+      ../../components/hal/${CONFIG_SOC_SERIES}/pmu_hal.c
+      ../../components/hal/rtc_io_hal.c
+      )
+  endif()
+
   ## IEEE 802.15.4 definitions
   if (CONFIG_IEEE802154)
     zephyr_sources(
