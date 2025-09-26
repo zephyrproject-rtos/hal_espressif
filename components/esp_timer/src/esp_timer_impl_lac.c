@@ -12,7 +12,6 @@
 #include "esp_system.h"
 #include "esp_task.h"
 #include "esp_attr.h"
-#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/periph_ctrl.h"
@@ -23,6 +22,9 @@
 #include "hal/lact_ll.h"
 #include <zephyr/kernel.h>
 #include "esp_private/critical_section.h"
+#include "hal/timer_ll.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/irq.h>
 
 /**
  * @file esp_timer_lac.c
@@ -69,8 +71,6 @@ typedef struct {
         uint64_t val;
     };
 } timer_64b_reg_t;
-
-ESP_LOG_ATTR_TAG(TAG, "esp_timer_impl");
 
 #define NOT_USED 0xBAD00FAD
 
@@ -246,24 +246,8 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
-    esp_timer_impl_early_init();
-
-    if (s_timer_interrupt_handle[0] != NULL) {
-        ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    int isr_flags = 0;
-
-    esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
-                                   &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[0]);
-
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
-        return err;
-    }
+    IRQ_CONNECT(INTR_SOURCE_LACT, 1, timer_alarm_isr, NULL, ESP_INTR_FLAG_IRAM);
+    irq_enable(INTR_SOURCE_LACT);
 
     if (s_alarm_handler == NULL) {
         s_alarm_handler = alarm_handler;
@@ -281,12 +265,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
-    }
-
-    return err;
+    return 0;
 }
 
 void esp_timer_impl_deinit(void)
