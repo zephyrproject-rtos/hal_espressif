@@ -287,7 +287,8 @@ void ble_enc_funcs_reset(void)
 {
 }
 
-#if defined(CONFIG_SOC_SERIES_ESP32C2) || defined(CONFIG_SOC_SERIES_ESP32C6)
+#if defined(CONFIG_SOC_SERIES_ESP32C2) || defined(CONFIG_SOC_SERIES_ESP32C6) || \
+	defined(CONFIG_SOC_SERIES_ESP32H2)
 
 /* Forward declarations of opaque types */
 struct osi_coex_funcs_t;
@@ -524,10 +525,12 @@ void esp_ble_hci_trans_init(uint8_t param)
 	(void)param;
 }
 
+#if !defined(CONFIG_SOC_SERIES_ESP32H2)
 void bt_bb_v2_init_cmplx(int print_version)
 {
 	(void)print_version;
 }
+#endif
 
 int r_esp_ble_msys_init(uint16_t msys_size1, uint16_t msys_size2, uint16_t msys_cnt1,
 			uint16_t msys_cnt2, uint8_t from_heap)
@@ -611,7 +614,7 @@ int r_os_mbuf_free_chain(struct os_mbuf *om)
 	(void)om;
 	return 0;
 }
-#endif /* CONFIG_SOC_SERIES_ESP32C2 || CONFIG_SOC_SERIES_ESP32C6 */
+#endif /* CONFIG_SOC_SERIES_ESP32C2 || CONFIG_SOC_SERIES_ESP32C6 || CONFIG_SOC_SERIES_ESP32H2 */
 
 #if defined(CONFIG_SOC_SERIES_ESP32C2)
 
@@ -677,6 +680,11 @@ void bt_bb_set_zb_tx_on_delay(uint16_t time)
 void bt_bb_v2_init_cmplx(uint8_t i)
 {
 	(void)i;
+}
+
+void r_esp_ble_rtc_ticks_delay(uint32_t ticks)
+{
+	(void)ticks;
 }
 
 #endif /* CONFIG_SOC_SERIES_ESP32H2 */
