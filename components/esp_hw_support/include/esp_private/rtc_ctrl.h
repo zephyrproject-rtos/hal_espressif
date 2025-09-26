@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 #include "esp_err.h"
-#include "esp_intr_alloc.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #ifdef __cplusplus
 extern "C" {
