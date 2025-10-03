@@ -363,7 +363,7 @@ typedef union {
         /** pkt_thrs : R/W; bitpos: [12:0]; default: 128;
          *  a
          */
-        uint32_t pkt_thrs:13;
+        uint32_t thrs:13;
         uint32_t reserved_13:19;
     };
     uint32_t val;
