@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/param.h>  // For MIN/MAX(a, b)
+#include <zephyr/sys/util.h>
 
 #include <zephyr/kernel.h>
 #include <soc/soc.h>

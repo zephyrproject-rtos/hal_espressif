@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_types.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"

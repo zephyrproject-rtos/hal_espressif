@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 // #include <sys/time.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"

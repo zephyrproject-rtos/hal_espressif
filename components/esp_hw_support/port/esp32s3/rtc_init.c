@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "flash_init.h"
 #include "soc_flash_init.h"

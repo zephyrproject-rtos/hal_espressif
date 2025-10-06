@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp32h2/rom/sha.h"
 

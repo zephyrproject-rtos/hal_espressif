@@ -5,7 +5,7 @@
  */
 
 #include <stdarg.h>
-#include <sys/param.h>  //For max/min
+#include <zephyr/sys/util.h>  //For max/min
 #include "esp_attr.h"
 #include "esp_private/system_internal.h"
 #include "esp_flash.h"

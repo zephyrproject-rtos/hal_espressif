@@ -34,7 +34,7 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "encoding.h"
 #include "esp_assert.h"
 

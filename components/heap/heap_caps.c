@@ -7,7 +7,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_attr.h"
 #include "esp_heap_caps.h"
 #include "multi_heap.h"

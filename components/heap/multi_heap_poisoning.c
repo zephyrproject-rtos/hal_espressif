@@ -10,7 +10,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <multi_heap.h>
 #include "multi_heap_internal.h"
 

@@ -9,7 +9,7 @@
 #include "spi_flash_defs.h"
 #include "esp_log.h"
 #include "string.h"
-#include <sys/param.h> // For MIN/MAX
+#include <zephyr/sys/util.h>
 #include "hal/spi_flash_hal.h"
 
 #define CMD_OPI_FLASH_MXIC(cmd)              ((((~(cmd) & 0xff) << 8)) | ((cmd) & 0xff))

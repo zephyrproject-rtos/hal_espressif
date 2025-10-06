@@ -11,7 +11,7 @@
 #include "esp_log.h"
 #include "assert.h"
 #include "sdkconfig.h"
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 static const char *TAG = "efuse";
 

@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_attr.h"
 #include "esp_memory_utils.h"

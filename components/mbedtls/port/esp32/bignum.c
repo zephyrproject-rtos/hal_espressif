@@ -13,7 +13,7 @@
 #include "esp_private/periph_ctrl.h"
 #include <mbedtls/bignum.h>
 #include "bignum_impl.h"
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <sys/lock.h>
 
 static _lock_t mpi_lock;

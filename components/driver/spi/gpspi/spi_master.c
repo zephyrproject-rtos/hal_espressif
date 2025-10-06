@@ -111,7 +111,7 @@ We have two bits to control the interrupt:
 */
 
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_private/spi_common_internal.h"
 #include "driver/spi_master.h"
 #include "esp_clk_tree.h"

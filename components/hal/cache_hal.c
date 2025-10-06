@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <stdint.h>
 #include "sdkconfig.h"
 #include "esp_err.h"

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <inttypes.h>
 #include "sdkconfig.h"
 #include "rom/cache.h"

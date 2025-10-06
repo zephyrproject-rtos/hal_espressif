@@ -5,7 +5,7 @@
  */
 
 #include <zephyr/kernel.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_timer_impl.h"
 #include "esp_err.h"
