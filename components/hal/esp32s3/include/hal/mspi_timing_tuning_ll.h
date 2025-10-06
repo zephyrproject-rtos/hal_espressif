@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_bit_defs.h"
 #include "hal/assert.h"
 #include "soc/soc.h"

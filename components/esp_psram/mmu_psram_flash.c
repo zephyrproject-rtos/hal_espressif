@@ -16,7 +16,7 @@
  *    APIs in 2 will be refactored when MMU driver is ready
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_attr.h"

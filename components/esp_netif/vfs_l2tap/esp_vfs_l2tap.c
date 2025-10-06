@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdatomic.h>
 #include <sys/fcntl.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <sys/queue.h>
 #include "arpa/inet.h" // for ntohs, etc.
 #include "errno.h"

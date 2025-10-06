@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "driver/gpio.h"

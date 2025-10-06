@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "esp_err.h"

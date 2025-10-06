@@ -5,7 +5,7 @@
  */
 #include <stdbool.h>
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "rom/ecdsa.h"
 
 #define ROM_FUNC_TYPECAST  int(*)(const uint8_t*, const uint8_t*, int, const uint8_t*, uint8_t*)

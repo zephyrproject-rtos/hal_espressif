@@ -15,7 +15,7 @@
 #pragma once
 
 #include <stdlib.h>
-#include <sys/param.h> // For MIN/MAX
+#include <zephyr/sys/util.h>
 #include <stdbool.h>
 #include <string.h>
 

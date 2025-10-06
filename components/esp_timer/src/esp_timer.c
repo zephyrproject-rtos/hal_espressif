@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <zephyr/kernel.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <string.h>
 #include "soc/soc.h"
 #include "esp_types.h"

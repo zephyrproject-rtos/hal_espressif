@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "hal/dma_types.h"

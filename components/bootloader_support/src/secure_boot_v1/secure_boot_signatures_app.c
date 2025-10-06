@@ -18,7 +18,7 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
 static const char *TAG = "secure_boot_v1";

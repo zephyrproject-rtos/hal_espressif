@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_mbedtls_dynamic_impl.h"
 
 int __real_mbedtls_ssl_handshake_server_step(mbedtls_ssl_context *ssl);

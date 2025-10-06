@@ -14,7 +14,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_system.h"
 #include "esp_log.h"

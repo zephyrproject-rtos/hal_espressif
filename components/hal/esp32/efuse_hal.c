@@ -5,7 +5,7 @@
  */
 
 #include "sdkconfig.h"
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/soc_caps.h"
 #include "hal/efuse_ll.h"
 #include "hal/assert.h"

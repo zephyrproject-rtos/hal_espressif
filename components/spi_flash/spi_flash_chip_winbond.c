@@ -14,7 +14,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h> // For MIN/MAX
+#include <zephyr/sys/util.h>
 #include "esp_log.h"
 #include "spi_flash_chip_generic.h"
 #include "spi_flash_defs.h"

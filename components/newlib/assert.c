@@ -5,7 +5,7 @@
  */
 
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_system.h"
 #include "spi_flash_mmap.h"
 #include "soc/soc_memory_layout.h"

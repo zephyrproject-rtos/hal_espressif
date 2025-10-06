@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <mbedtls/sha256.h>
 
 bootloader_sha256_handle_t bootloader_sha256_start(void)

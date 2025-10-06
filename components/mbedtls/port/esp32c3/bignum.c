@@ -9,7 +9,7 @@
  * SPDX-FileContributor: 2016-2022 Espressif Systems (Shanghai) CO LTD
  */
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/hwcrypto_periph.h"
 #include "esp_private/periph_ctrl.h"
 #include "mbedtls/bignum.h"

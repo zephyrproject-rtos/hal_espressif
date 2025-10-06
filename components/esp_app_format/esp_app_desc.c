@@ -5,7 +5,7 @@
  */
 
 #include <assert.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_app_desc.h"
 #include "esp_attr.h"
 #include "sdkconfig.h"

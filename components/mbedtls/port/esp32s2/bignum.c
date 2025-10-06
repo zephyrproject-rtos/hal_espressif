@@ -14,7 +14,7 @@
 #include "bignum_impl.h"
 #include "soc/dport_reg.h"
 #include "soc/periph_defs.h"
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_crypto_lock.h"
 
 size_t esp_mpi_hardware_words(size_t words)

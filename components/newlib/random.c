@@ -5,7 +5,7 @@
  */
 
 #include <sys/random.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>

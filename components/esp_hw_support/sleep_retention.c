@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <zephyr/kernel.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_err.h"
 #include "esp_attr.h"

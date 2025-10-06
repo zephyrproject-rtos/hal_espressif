@@ -11,7 +11,7 @@
  *
  * When we add more types of external RAM memory, this can be made into a more intelligent dispatcher.
  *----------------------------------------------------------------------------------------------------*/
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_err.h"

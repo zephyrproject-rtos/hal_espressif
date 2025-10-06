@@ -18,7 +18,7 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_secure_boot.h"
 #include "esp_ota_ops.h"
 #include "esp_efuse.h"

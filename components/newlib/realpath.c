@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 /* realpath logic:
  * 1. prepend CWD (/)

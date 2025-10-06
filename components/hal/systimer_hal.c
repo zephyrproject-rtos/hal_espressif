@@ -5,7 +5,7 @@
  */
 
 #include <stddef.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/soc_caps.h"
 #include "hal/systimer_hal.h"
 #include "hal/systimer_ll.h"
