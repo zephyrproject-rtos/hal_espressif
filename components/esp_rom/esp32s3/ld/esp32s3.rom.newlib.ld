@@ -61,8 +61,6 @@ strsep = 0x40001410;
 strspn = 0x4000141c;
 strtok_r = 0x40001428;
 strupr = 0x40001434;
-longjmp = 0x40001440;
-setjmp = 0x4000144c;
 abs = 0x40001458;
 div = 0x40001464;
 labs = 0x40001470;
@@ -81,6 +79,8 @@ PROVIDE ( rand = 0x400014a0 );
 PROVIDE ( srand = 0x400014ac );
 PROVIDE ( strtol = 0x400014e8 );
 PROVIDE ( strtoul = 0x400014f4 );
+PROVIDE ( longjmp = 0x40001440 );
+PROVIDE ( setjmp = 0x4000144c );
 /*******************************************/
 
 PROVIDE( fflush = 0x40001500 );
