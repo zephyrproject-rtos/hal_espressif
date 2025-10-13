@@ -109,7 +109,6 @@ void regi2c_saradc_disable(void)
     unsigned int key = irq_lock();
     s_i2c_saradc_enable_cnt--;
     if (s_i2c_saradc_enable_cnt < 0){
-        irq_unlock(key);
         ESP_HW_LOGE(TAG, "REGI2C_SARADC is already disabled");
     } else if (s_i2c_saradc_enable_cnt == 0) {
         regi2c_ctrl_ll_i2c_saradc_disable();
