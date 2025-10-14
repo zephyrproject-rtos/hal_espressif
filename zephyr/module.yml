@@ -353,6 +353,14 @@ blobs:
     url: https://github.com/espressif/esp-coex-lib/raw/d13a28da1f1843cf19707f39d64970326e0e0cef/esp32c6/libcoexist.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-coex-lib
+  - path: lib/esp32h2/libcoexist.a
+    sha256: 2590acb9ac4ea87ff21f344533599ee585715b0554c7fe2f20f6d427b092c50b
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-coex-lib/raw/d13a28da1f1843cf19707f39d64970326e0e0cef/esp32h2/libcoexist.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-coex-lib
   - path: lib/esp32s2/libcoexist.a
     sha256: 4283eb2b427c052f2ccbb3cffec7d1afd2958fc3d855f941ea1a1392282b384d
     type: lib
