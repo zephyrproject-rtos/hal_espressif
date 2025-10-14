@@ -415,6 +415,19 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED)
     endif()
 
+    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
+      if(CONFIG_BUILD_ONLY_NO_BLOBS)
+        zephyr_sources(../port/coex/coex_stubs.c)
+      else()
+        zephyr_sources(src/coex/esp_coex_adapter.c)
+      endif()
+
+      zephyr_link_libraries(
+        coexist
+          -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+        )
+    endif()
+
     zephyr_sources_ifdef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       ../port/bluetooth/bt_stubs.c
