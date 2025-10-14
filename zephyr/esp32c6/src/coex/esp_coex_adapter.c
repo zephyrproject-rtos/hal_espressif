@@ -1,14 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "esp_private/wifi.h"
 #include "soc/soc_caps.h"
 #include "esp_attr.h"
-#include "esp32s3/rom/ets_sys.h"
-#include "esp_heap_adapter.h"
+#include "esp32c6/rom/ets_sys.h"
 #include "esp_timer.h"
 #include "soc/rtc.h"
 #include "esp_private/esp_clk.h"
@@ -16,13 +14,18 @@
 #include "soc/system_reg.h"
 
 #include <zephyr/logging/log.h>
+
+#if CONFIG_WIFI_ESP32
 LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
+#elif CONFIG_BT_ESP32
+LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_BT_LOG_LEVEL);
+#endif
 
 #define OSI_FUNCS_TIME_BLOCKING 0xffffffff
 
-void esp_wifi_free(void *mem)
+void esp_coex_free(void *mem)
 {
-	esp_wifi_free_func(mem);
+	k_free(mem);
 }
 
 bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
@@ -36,25 +39,25 @@ bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 
 void *esp_coex_common_spin_lock_create_wrapper(void)
 {
-	unsigned int *wifi_spin_lock = (unsigned int *)wifi_malloc(sizeof(unsigned int));
-	if (wifi_spin_lock == NULL) {
+	unsigned int *spin_lock = (unsigned int *)k_malloc(sizeof(unsigned int));
+	if (spin_lock == NULL) {
 		LOG_ERR("spin_lock_create_wrapper allocation failed");
 	}
 
-	return (void *)wifi_spin_lock;
+	return (void *)spin_lock;
 }
 
-uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *wifi_int_mux)
+uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *int_mux)
 {
-	unsigned int *int_mux = (unsigned int *)wifi_int_mux;
+	unsigned int *key = (unsigned int *)int_mux;
 
-	*int_mux = irq_lock();
+	*key = irq_lock();
 	return 0;
 }
 
-void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *wifi_int_mux, uint32_t tmp)
+void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *int_mux, uint32_t tmp)
 {
-	unsigned int *key = (unsigned int *)wifi_int_mux;
+	unsigned int *key = (unsigned int *)int_mux;
 
 	irq_unlock(*key);
 }
@@ -66,10 +69,11 @@ void IRAM_ATTR esp_coex_common_task_yield_from_isr_wrapper(void)
 
 void *esp_coex_common_semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-	struct k_sem *sem = (struct k_sem *)wifi_malloc(sizeof(struct k_sem));
+	struct k_sem *sem = (struct k_sem *)k_malloc(sizeof(struct k_sem));
 
 	if (sem == NULL) {
 		LOG_ERR("semphr_create_wrapper allocation failed");
+		return NULL;
 	}
 
 	k_sem_init(sem, init, max);
@@ -79,7 +83,7 @@ void *esp_coex_common_semphr_create_wrapper(uint32_t max, uint32_t init)
 
 void esp_coex_common_semphr_delete_wrapper(void *semphr)
 {
-	esp_wifi_free(semphr);
+	esp_coex_free(semphr);
 }
 
 int32_t esp_coex_common_semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
@@ -194,7 +198,7 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
 	._semphr_give = esp_coex_common_semphr_give_wrapper,
 	._is_in_isr = coex_is_in_isr_wrapper,
 	._malloc_internal = esp_coex_common_malloc_internal_wrapper,
-	._free = esp_wifi_free,
+	._free = esp_coex_free,
 	._esp_timer_get_time = esp_timer_get_time,
 	._env_is_chip = esp_coex_common_env_is_chip_wrapper,
 	._timer_disarm = esp_coex_common_timer_disarm_wrapper,
