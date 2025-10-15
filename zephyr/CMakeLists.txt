@@ -4,6 +4,8 @@ if(CONFIG_MCUBOOT_ESPRESSIF)
   return()
 endif()
 
+zephyr_link_libraries_ifdef(CONFIG_MBEDTLS mbedTLS)
+
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32 esp32)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C2 esp32c2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C3 esp32c3)

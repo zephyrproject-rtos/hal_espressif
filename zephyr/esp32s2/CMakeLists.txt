@@ -586,8 +586,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
 
-    zephyr_link_libraries(mbedTLS)
-
     zephyr_sources_ifdef(
       CONFIG_BUILD_ONLY_NO_BLOBS
       ../port/phy/phy_stubs.c
