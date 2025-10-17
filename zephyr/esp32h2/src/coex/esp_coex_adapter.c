@@ -6,7 +6,7 @@
 
 #include "soc/soc_caps.h"
 #include "esp_attr.h"
-#include "esp32c6/rom/ets_sys.h"
+#include "esp32h2/rom/ets_sys.h"
 #include "esp_timer.h"
 #include "soc/rtc.h"
 #include "esp_private/esp_clk.h"
@@ -14,12 +14,7 @@
 #include "soc/system_reg.h"
 
 #include <zephyr/logging/log.h>
-
-#if CONFIG_WIFI_ESP32
-LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
-#elif CONFIG_BT_ESP32
 LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_BT_LOG_LEVEL);
-#endif
 
 #define OSI_FUNCS_TIME_BLOCKING 0xffffffff
 
@@ -132,14 +127,6 @@ void IRAM_ATTR esp_coex_common_timer_arm_us_wrapper(void *ptimer, uint32_t us, b
 void *IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
 {
 	return k_malloc(size);
-}
-
-uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
-{
-	/* The bit width of WiFi light sleep clock calibration is 12 while the one of
-	 * system is 19. It should shift 19 - 12 = 7.
-	 */
-	return (esp_clk_slowclk_cal_get() >> (RTC_CLK_CAL_FRACT - SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH));
 }
 
 /* static wrapper */

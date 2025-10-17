@@ -409,16 +409,17 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/esp_phy/src/phy_override.c
       )
 
-    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
-      if (CONFIG_BUILD_ONLY_NO_BLOBS)
-        zephyr_sources(
-          ../port/coex/coex_stubs.c
-          )
+    if(CONFIG_ESP32_SW_COEXIST_ENABLE)
+      if(CONFIG_BUILD_ONLY_NO_BLOBS)
+        zephyr_sources(../port/coex/coex_stubs.c)
+      else()
+        zephyr_sources(src/coex/esp_coex_adapter.c)
       endif()
 
       zephyr_link_libraries(
         coexist
           -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
+          -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.coexist.ld
         )
     endif()
 
@@ -432,7 +433,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
-        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.coexist.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.pp.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.phy.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.net80211.ld
@@ -641,7 +641,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_sources(
       src/wifi/esp_wifi_adapter.c
-      src/coex/esp_coex_adapter.c
       ../port/wifi/wifi_init.c
       ${WPA_SUPPLICANT_SRCS}
       ${ESP_SUPPLICANT_SRCS}

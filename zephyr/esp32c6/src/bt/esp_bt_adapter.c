@@ -617,6 +617,10 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	}
 
 #if CONFIG_SW_COEXIST_ENABLE
+#ifndef CONFIG_WIFI_ESP32
+	esp_coex_adapter_register(&g_coex_adapter_funcs);
+	coex_pre_init();
+#endif
 	coex_init();
 #endif /* CONFIG_SW_COEXIST_ENABLE */
 

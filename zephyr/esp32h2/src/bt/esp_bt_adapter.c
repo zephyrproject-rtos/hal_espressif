@@ -560,6 +560,8 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 	}
 
 #if CONFIG_SW_COEXIST_ENABLE
+	esp_coex_adapter_register(&g_coex_adapter_funcs);
+	coex_pre_init();
 	coex_init();
 #endif /* CONFIG_SW_COEXIST_ENABLE */
 
