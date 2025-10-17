@@ -4,6 +4,13 @@ if(CONFIG_MCUBOOT_ESPRESSIF)
   return()
 endif()
 
+zephyr_sources_ifdef(
+  CONFIG_CRYPTO_ESP32
+  ../components/hal/aes_hal.c
+  ../components/hal/sha_hal.c
+  ../components/soc/dport_access_common.c
+  )
+
 zephyr_link_libraries_ifdef(CONFIG_MBEDTLS mbedTLS)
 
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32 esp32)
