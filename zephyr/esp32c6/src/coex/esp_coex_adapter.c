@@ -13,6 +13,7 @@
 #include "private/esp_coexist_adapter.h"
 #include "soc/system_reg.h"
 
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
 #if CONFIG_WIFI_ESP32

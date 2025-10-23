@@ -407,13 +407,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
       ../../components/esp_phy/src/phy_override.c
+      src/coex/esp_coex_adapter.c
       )
 
     if(CONFIG_ESP32_SW_COEXIST_ENABLE)
       if(CONFIG_BUILD_ONLY_NO_BLOBS)
         zephyr_sources(../port/coex/coex_stubs.c)
-      else()
-        zephyr_sources(src/coex/esp_coex_adapter.c)
       endif()
 
       zephyr_link_libraries(
