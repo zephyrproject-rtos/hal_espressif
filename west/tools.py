@@ -45,8 +45,6 @@ def cmd_exec(cmd, cwd=None, shell=False):
 def get_esp_serial_port(module_path):
     try:
         import serial.tools.list_ports
-        esptool_path = os.path.join(module_path, 'tools', 'esptool_py')
-        sys.path.insert(0, esptool_path)
         import esptool
         ports = list(sorted(p.device for p in serial.tools.list_ports.comports()))
         # high baud rate could cause the failure of creation of the connection
