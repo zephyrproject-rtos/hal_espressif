@@ -20,6 +20,8 @@
 LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
 #elif CONFIG_BT_ESP32
 LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_BT_LOG_LEVEL);
+#else
+LOG_MODULE_REGISTER(esp32_coex_adapter);
 #endif
 
 #define OSI_FUNCS_TIME_BLOCKING 0xffffffff
