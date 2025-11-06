@@ -221,7 +221,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
   endif()
 
-  if (CONFIG_UDC_DWC2)
+  if (CONFIG_UDC_DWC2 OR CONFIG_UHC_DWC2)
     zephyr_include_directories(
     ../../components/usb/include
     )
