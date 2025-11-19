@@ -343,13 +343,16 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/hal/pcnt_hal.c
     )
 
-  zephyr_sources_ifdef(
-    CONFIG_ESP32_TEMP
-    ../../components/driver/deprecated/rtc_temperature_legacy.c
-    ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
-    ../../components/esp_hw_support/adc_share_hw_ctrl.c
+  if (CONFIG_ESP32_TEMP)
+    zephyr_include_directories(
+    ../port/temperature_sensor/include
     )
+
+    zephyr_sources(
+    ../port/temperature_sensor/temperature_sensor.c
+    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    )
+  endif()
 
   if (CONFIG_ADC_ESP32)
     zephyr_include_directories(
