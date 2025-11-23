@@ -269,6 +269,11 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/cam_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_MIPI_DBI_ESP32
+    ../../components/hal/lcd_hal.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/driver/gpio/gpio.c
