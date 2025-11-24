@@ -1,6 +1,9 @@
 # Copyright (c) 2025 Espressif Systems (Shanghai) Co., Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
+# Usage:
+#  python3 esp_genpartition.py  <path/to/zephyr/dts/vendor/espressif/>
+
 import sys
 import os 
 from datetime import datetime
@@ -34,7 +37,7 @@ scheme_amp = [
     ("coredump",     "coredump",       4)
 ]
 
-flash_sizes_mb = [2, 4, 8, 16, 32]
+flash_sizes_mb = [2, 4, 8, 16, 32, 64, 128]
 flash_offsets_kb = [0, 4]
 default_flash_mb = 4
 
@@ -149,7 +152,7 @@ def generate_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme, scheme
         output.append(f"\t\t\tlabel = \"{label}\";")
         output.append(f"\t\t\treg = <0x{current_offset:X} DT_SIZE_K({int(size_kb)})>;")
         output.append("\t\t};")
-        print(f"{i}, {name:>16},{label:>16}, {current_offset:>8X}, DT_SIZE_K({size_kb})")
+        # print(f"{i}, {name:>16},{label:>16}, {current_offset:>8X}, DT_SIZE_K({size_kb})")
         current_offset += size
 
     output.append("\t};")
