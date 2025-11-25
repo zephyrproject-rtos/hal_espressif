@@ -7,7 +7,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #include "esp32/rom/sha.h"
 #include "soc/dport_reg.h"

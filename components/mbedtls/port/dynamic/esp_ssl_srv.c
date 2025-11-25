@@ -3,7 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_mbedtls_dynamic_impl.h"
 
 int __real_mbedtls_ssl_handshake_server_step(mbedtls_ssl_context *ssl);

@@ -7,7 +7,11 @@
 #include <stdio.h>
 #include <stdatomic.h>
 #include <sys/fcntl.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <sys/queue.h>
 #include "arpa/inet.h" // for ntohs, etc.
 #include "errno.h"

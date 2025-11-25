@@ -5,7 +5,11 @@
  */
 
 #include <sys/random.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <assert.h>
 #include <errno.h>
 #include <string.h>

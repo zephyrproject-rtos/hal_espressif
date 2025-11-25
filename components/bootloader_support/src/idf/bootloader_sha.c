@@ -8,7 +8,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <mbedtls/sha256.h>
 
 bootloader_sha256_handle_t bootloader_sha256_start(void)

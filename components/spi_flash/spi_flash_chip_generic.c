@@ -6,7 +6,11 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "spi_flash_chip_generic.h"
 #include "spi_flash_defs.h"
 #include "hal/spi_flash_encrypt_hal.h"

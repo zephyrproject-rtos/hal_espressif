@@ -13,7 +13,11 @@
 #include "esp_private/periph_ctrl.h"
 #include <mbedtls/bignum.h>
 #include "bignum_impl.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <sys/lock.h>
 
 static _lock_t mpi_lock;

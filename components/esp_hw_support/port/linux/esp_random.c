@@ -8,7 +8,11 @@
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #include "esp_log.h"
 

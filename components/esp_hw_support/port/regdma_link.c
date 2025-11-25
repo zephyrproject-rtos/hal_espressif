@@ -15,7 +15,11 @@
 #include "esp_log.h"
 #include "esp_regdma.h"
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #define REGDMA_LINK_ADDR_ALIGN      (4)
 #define REGDMA_LINK_MEM_TYPE_CAPS   (MALLOC_CAP_DMA | MALLOC_CAP_DEFAULT)

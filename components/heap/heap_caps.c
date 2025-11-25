@@ -7,7 +7,11 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_attr.h"
 #include "esp_heap_caps.h"
 #include "multi_heap.h"

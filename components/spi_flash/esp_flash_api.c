@@ -6,7 +6,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <string.h>
 
 #include <zephyr/kernel.h>

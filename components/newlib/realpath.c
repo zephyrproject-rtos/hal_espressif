@@ -9,7 +9,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 /* realpath logic:
  * 1. prepend CWD (/)

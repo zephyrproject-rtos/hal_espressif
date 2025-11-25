@@ -16,7 +16,11 @@
 #include "esp32/rom/sha.h"
 #include "uECC_verify_antifault.h"
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <string.h>
 
 static const char *TAG = "secure_boot";

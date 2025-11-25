@@ -10,7 +10,11 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/lock.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #include "esp_attr.h"
 #include "esp_memory_utils.h"
