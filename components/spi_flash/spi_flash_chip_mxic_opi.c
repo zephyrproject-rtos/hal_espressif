@@ -9,7 +9,11 @@
 #include "spi_flash_defs.h"
 #include "esp_log.h"
 #include "string.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "hal/spi_flash_hal.h"
 
 #define CMD_OPI_FLASH_MXIC(cmd)              ((((~(cmd) & 0xff) << 8)) | ((cmd) & 0xff))

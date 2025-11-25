@@ -5,7 +5,11 @@
  */
 
 #include <stdint.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"

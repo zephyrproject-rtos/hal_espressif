@@ -7,7 +7,11 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 // #include <sys/time.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"

@@ -19,7 +19,11 @@
 #include "hal/spi_types.h"
 #include "hal/spi_flash_types.h"
 #include "hal/misc.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <stdbool.h>
 #include <string.h>
 

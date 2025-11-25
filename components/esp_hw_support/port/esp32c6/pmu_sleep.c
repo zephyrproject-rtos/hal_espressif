@@ -6,7 +6,11 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "esp_err.h"

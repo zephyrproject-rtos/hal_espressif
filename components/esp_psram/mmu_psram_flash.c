@@ -16,7 +16,11 @@
  *    APIs in 2 will be refactored when MMU driver is ready
  */
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_attr.h"

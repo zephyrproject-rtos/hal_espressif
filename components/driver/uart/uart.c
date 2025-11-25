@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_types.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"

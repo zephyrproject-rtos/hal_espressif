@@ -5,7 +5,11 @@
  */
 #include <stdbool.h>
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "rom/ecdsa.h"
 
 #define ROM_FUNC_TYPECAST  int(*)(const uint8_t*, const uint8_t*, int, const uint8_t*, uint8_t*)
