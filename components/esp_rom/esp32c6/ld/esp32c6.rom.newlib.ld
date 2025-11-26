@@ -30,7 +30,6 @@ strncmp = 0x400004c4;
 strlen = 0x400004c8;
 strstr = 0x400004cc;
 bzero = 0x400004d0;
-_isatty_r = 0x400004d4;
 sbrk = 0x400004d8;
 isalnum = 0x400004dc;
 isalpha = 0x400004e0;
@@ -76,9 +75,11 @@ ldiv = 0x40000584;
 qsort = 0x40000588;
 utoa = 0x40000598;
 itoa = 0x4000059c;
-__smakebuf_r = 0x400005c0;
-__swhatbuf_r = 0x400005c4;
+
 /* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( _isatty_r = 0x400004d4 );
+PROVIDE ( __smakebuf_r = 0x400005c0 );
+PROVIDE ( __swhatbuf_r = 0x400005c4 );
 PROVIDE ( strdup = 0x40000530 );
 PROVIDE ( strndup = 0x40000554 );
 PROVIDE ( rand = 0x40000590 );
@@ -88,15 +89,15 @@ PROVIDE ( atoi = 0x400005a0 );
 PROVIDE ( atol = 0x400005a4 );
 PROVIDE ( strtol = 0x400005a8 );
 PROVIDE ( strtoul = 0x400005ac );
-/*******************************************/
-
 PROVIDE( fflush = 0x400005b0 );
 PROVIDE( _fflush_r = 0x400005b4 );
 PROVIDE( _fwalk = 0x400005b8 );
 PROVIDE( _fwalk_reent = 0x400005bc );
 PROVIDE( __swbuf_r = 0x400005c8 );
+PROVIDE ( __swsetup_r = 0x400005d0 );
+/*******************************************/
+
 __swbuf = 0x400005cc;
-__swsetup_r = 0x400005d0;
 /* Data (.data, .bss, .rodata) */
 syscall_table_ptr = 0x4087ffd4;
 _global_impure_ptr = 0x4087ffd0;
