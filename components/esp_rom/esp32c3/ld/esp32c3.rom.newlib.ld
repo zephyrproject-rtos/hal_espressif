@@ -81,13 +81,13 @@ PROVIDE ( atoi = 0x4000044c );
 PROVIDE ( atol = 0x40000450 );
 PROVIDE ( strtol = 0x40000454 );
 PROVIDE ( strtoul = 0x40000458 );
-/*******************************************/
-
 PROVIDE( fflush = 0x4000045c );
 PROVIDE( _fflush_r = 0x40000460 );
 PROVIDE( _fwalk = 0x40000464 );
 PROVIDE( _fwalk_reent = 0x40000468 );
 PROVIDE( __swbuf_r = 0x40000474 );
+/*******************************************/
+
 __swbuf = 0x40000478;
 /* Data (.data, .bss, .rodata) */
 syscall_table_ptr = 0x3fcdffe0;

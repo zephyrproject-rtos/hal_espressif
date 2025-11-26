@@ -30,7 +30,6 @@ strncmp = 0x400004a4;
 strlen = 0x400004a8;
 strstr = 0x400004ac;
 bzero = 0x400004b0;
-_isatty_r = 0x400004b4;
 sbrk = 0x400004b8;
 isalnum = 0x400004bc;
 isalpha = 0x400004c0;
@@ -76,10 +75,7 @@ ldiv = 0x40000564;
 qsort = 0x40000568;
 utoa = 0x40000578;
 itoa = 0x4000057c;
-__smakebuf_r = 0x400005a0;
-__swhatbuf_r = 0x400005a4;
 __swbuf = 0x400005ac;
-__swsetup_r = 0x400005b0;
 _strtod_l = 0x400005b4;
 _strtod_r = 0x400005b8;
 strtod_l = 0x400005bc;
@@ -132,6 +128,10 @@ syscall_table_ptr = 0x3fcdffd8;
 _global_impure_ptr = 0x3fcdffd4;
 
 /* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( _isatty_r = 0x400004b4 );
+PROVIDE ( __smakebuf_r = 0x400005a0 );
+PROVIDE ( __swhatbuf_r = 0x400005a4 );
+PROVIDE ( __swsetup_r = 0x400005b0 );
 PROVIDE ( puts = 0x4000065c );
 PROVIDE ( strdup = 0x40000510 );
 PROVIDE ( strndup = 0x40000534 );
@@ -142,10 +142,9 @@ PROVIDE ( atoi = 0x40000580 );
 PROVIDE ( atol = 0x40000584 );
 PROVIDE ( strtol = 0x40000588 );
 PROVIDE ( strtoul = 0x4000058c );
-/*******************************************/
-
 PROVIDE( fflush = 0x40000590 );
 PROVIDE( _fflush_r = 0x40000594 );
 PROVIDE( _fwalk = 0x40000598 );
 PROVIDE( _fwalk_reent = 0x4000059c );
 PROVIDE( __swbuf_r = 0x400005a8 );
+/*******************************************/
