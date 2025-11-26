@@ -12,7 +12,7 @@
 #define MSPI_TIMING_CONFIG_NUM_DEFAULT               20  //This should be larger than the max available timing config num
 #define MSPI_TIMING_TEST_DATA_LEN                    64
 #define MSPI_TIMING_PSRAM_TEST_DATA_ADDR             0
-#define MSPI_TIMING_FLASH_TEST_DATA_ADDR             ESP_BOOTLOADER_OFFSET
+#define MSPI_TIMING_FLASH_TEST_DATA_ADDR             0x3b0000 //ESP_BOOTLOADER_OFFSET
 /**
  * @note BACKGOURND:
  *
@@ -37,13 +37,15 @@
  * 2. DDR mode requires the core clock divider (core_clk / div = module_clk) to be power of 2.
  */
 //--------------------------------------FLASH Sampling Mode --------------------------------------//
-#define MSPI_TIMING_FLASH_DTR_MODE                   CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR
-#define MSPI_TIMING_FLASH_STR_MODE                   CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_STR
+#define MSPI_TIMING_FLASH_DTR_MODE                   1 //CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR
+#define MSPI_TIMING_FLASH_STR_MODE                   0 //CONFIG_ ESPTOOLPY_FLASH_SAMPLE_MODE_STR
 //--------------------------------------FLASH Module Clock --------------------------------------//
 #if CONFIG_ESPTOOLPY_FLASHFREQ_20M
 #define MSPI_TIMING_FLASH_MODULE_CLOCK               20
+#error
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_40M
 #define MSPI_TIMING_FLASH_MODULE_CLOCK               40
+#error
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
 #define MSPI_TIMING_FLASH_MODULE_CLOCK               80
 #else //CONFIG_ESPTOOLPY_FLASHFREQ_120M
