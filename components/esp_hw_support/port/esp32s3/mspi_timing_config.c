@@ -191,6 +191,7 @@ void mspi_timing_config_psram_set_din_mode_num(uint8_t spi_num, uint8_t din_mode
 void mspi_timing_config_psram_set_extra_dummy(uint8_t spi_num, uint8_t extra_dummy)
 {
 #if CONFIG_SPIRAM_MODE_OCT
+ets_printf(":: %s(%d, %d)\n", __func__, spi_num, extra_dummy);
     mspi_timing_ll_set_octal_psram_extra_dummy(spi_num, extra_dummy);
 #elif CONFIG_SPIRAM_MODE_QUAD
     //HW workaround: Use normal dummy register to set extra dummy, the calibration dedicated extra dummy register doesn't work for quad mode
