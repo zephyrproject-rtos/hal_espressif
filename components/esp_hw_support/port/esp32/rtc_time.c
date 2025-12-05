@@ -8,11 +8,13 @@
 #include "esp_rom_sys.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/rtc_cntl_ll.h"
+#include "hal/timer_ll.h"
 #include "soc/rtc.h"
 #include "soc/timer_periph.h"
 #include "esp_hw_log.h"
+#include "esp_private/periph_ctrl.h"
 
-static const char* TAG = "rtc_time";
+static const char *TAG = "rtc_time";
 
 /* Calibration of RTC_SLOW_CLK is performed using a special feature of TIMG0.
  * This feature counts the number of XTAL clock cycles within a given number of
@@ -55,10 +57,10 @@ static uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cyc
     uint32_t expected_freq;
     soc_rtc_slow_clk_src_t slow_clk_src = rtc_clk_slow_src_get();
     if (cal_clk == RTC_CAL_32K_XTAL ||
-        (cal_clk == RTC_CAL_RTC_MUX && slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K)) {
+            (cal_clk == RTC_CAL_RTC_MUX && slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K)) {
         expected_freq = SOC_CLK_XTAL32K_FREQ_APPROX; /* standard 32k XTAL */
     } else if (cal_clk == RTC_CAL_8MD256 ||
-            (cal_clk == RTC_CAL_RTC_MUX && slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256)) {
+               (cal_clk == RTC_CAL_RTC_MUX && slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256)) {
         expected_freq = SOC_CLK_RC_FAST_D256_FREQ_APPROX;
     } else {
         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX; /* 150k internal oscillator */
@@ -117,7 +119,7 @@ uint32_t rtc_clk_cal_ratio(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles)
     return ratio;
 }
 
-static inline bool rtc_clk_cal_32k_valid(rtc_xtal_freq_t xtal_freq, uint32_t slowclk_cycles, uint64_t actual_xtal_cycles)
+static inline bool rtc_clk_cal_32k_valid(uint32_t xtal_freq, uint32_t slowclk_cycles, uint64_t actual_xtal_cycles)
 {
     uint64_t expected_xtal_cycles = (xtal_freq * 1000000ULL * slowclk_cycles) >> 15; // xtal_freq(hz) * slowclk_cycles / 32768
     uint64_t delta = expected_xtal_cycles / 2000;                                    // 5/10000
@@ -130,7 +132,7 @@ uint32_t rtc_clk_cal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles)
     rtc_xtal_freq_t xtal_freq = rtc_clk_xtal_freq_get();
     uint64_t xtal_cycles = rtc_clk_cal_internal(cal_clk, slowclk_cycles);
 
-    if ((cal_clk == RTC_CAL_32K_XTAL) && !rtc_clk_cal_32k_valid(xtal_freq, slowclk_cycles, xtal_cycles)) {
+    if ((cal_clk == RTC_CAL_32K_XTAL) && !rtc_clk_cal_32k_valid((uint32_t)xtal_freq, slowclk_cycles, xtal_cycles)) {
         return 0;
     }
 
