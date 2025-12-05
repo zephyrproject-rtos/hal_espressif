@@ -10,7 +10,9 @@
 #include "soc/rtc_cntl_reg.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/rtc_cntl_ll.h"
+#include "hal/timer_ll.h"
 #include "soc/timer_group_reg.h"
+#include "esp_private/periph_ctrl.h"
 
 /* Calibration of RTC_SLOW_CLK is performed using a special feature of TIMG0.
  * This feature counts the number of XTAL clock cycles within a given number of
@@ -114,7 +116,7 @@ static uint32_t rtc_clk_cal_internal_cycling(rtc_cal_sel_t cal_clk, uint32_t slo
 }
 
 /**
- * @brief Slowclk period calculating funtion used by rtc_clk_cal and rtc_clk_cal_cycling
+ * @brief Slowclk period calculating function used by rtc_clk_cal and rtc_clk_cal_cycling
  * @param xtal_cycles number of xtal cycles count
  * @param slowclk_cycles number of slow clock cycles to count
  * @return slow clock period
@@ -138,7 +140,7 @@ static uint32_t rtc_clk_xtal_to_slowclk(uint64_t xtal_cycles, uint32_t slowclk_c
 uint32_t rtc_clk_cal_internal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles, uint32_t cal_mode)
 {
     /* On ESP32S2, choosing RTC_CAL_RTC_MUX results in calibration of
-     * the 90k RTC clock regardless of the currenlty selected SLOW_CLK.
+     * the 90k RTC clock regardless of the currently selected SLOW_CLK.
      * On the ESP32, it used the currently selected SLOW_CLK.
      * The following code emulates ESP32 behavior:
      */
@@ -197,7 +199,7 @@ uint32_t rtc_clk_cal_ratio(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles)
     return ratio;
 }
 
-static inline bool rtc_clk_cal_32k_valid(rtc_xtal_freq_t xtal_freq, uint32_t slowclk_cycles, uint64_t actual_xtal_cycles)
+static inline bool rtc_clk_cal_32k_valid(uint32_t xtal_freq, uint32_t slowclk_cycles, uint64_t actual_xtal_cycles)
 {
     uint64_t expected_xtal_cycles = (xtal_freq * 1000000ULL * slowclk_cycles) >> 15; // xtal_freq(hz) * slowclk_cycles / 32768
     uint64_t delta = expected_xtal_cycles / 2000;                                    // 5/10000
@@ -208,7 +210,7 @@ uint32_t rtc_clk_cal(rtc_cal_sel_t cal_clk, uint32_t slowclk_cycles)
 {
     uint64_t xtal_cycles = rtc_clk_cal_internal(cal_clk, slowclk_cycles, RTC_TIME_CAL_ONEOFF_MODE);
 
-    if ((cal_clk == RTC_CAL_32K_XTAL) && !rtc_clk_cal_32k_valid(rtc_clk_xtal_freq_get(), slowclk_cycles, xtal_cycles)) {
+    if ((cal_clk == RTC_CAL_32K_XTAL) && !rtc_clk_cal_32k_valid((uint32_t)rtc_clk_xtal_freq_get(), slowclk_cycles, xtal_cycles)) {
         return 0;
     }
 
