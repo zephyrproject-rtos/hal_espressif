@@ -101,16 +101,27 @@ void esp_cpu_configure_region_protection(void)
      *      We set PMP to cover entire valid IRAM and DRAM region.
      *      We also lock these entries so the R/W/X permissions are enforced even for machine mode
      */
-    const unsigned NONE    = PMP_L;
-    __attribute__((unused)) const unsigned R       = PMP_L | PMP_R;
-    const unsigned RW      = PMP_L | PMP_R | PMP_W;
-    const unsigned RX      = PMP_L | PMP_R | PMP_X;
-    const unsigned RWX     = PMP_L | PMP_R | PMP_W | PMP_X;
 
     //
     // Configure all the invalid address regions using PMA
     //
     esp_cpu_configure_invalid_regions();
+
+#if defined(CONFIG_RISCV_PMP) || defined(CONFIG_MCUBOOT)
+    /*
+     * Skip HAL PMP configuration when:
+     * - CONFIG_RISCV_PMP: Zephyr application will manage PMP entries
+     * - CONFIG_MCUBOOT: Bootloader should not set locked PMP entries that
+     *   would prevent the application from reconfiguring PMP
+     */
+    return;
+#endif
+
+    const unsigned NONE    = PMP_L;
+    __attribute__((unused)) const unsigned R       = PMP_L | PMP_R;
+    const unsigned RW      = PMP_L | PMP_R | PMP_W;
+    const unsigned RX      = PMP_L | PMP_R | PMP_X;
+    const unsigned RWX     = PMP_L | PMP_R | PMP_W | PMP_X;
 
     //
     // Configure all the valid address regions using PMP
