@@ -463,3 +463,52 @@ sdhc0:
     sigi: host_card_write_prt_2
     gpio: [[5, 11], [16, 23], [25, 27], [32, 39]]
 
+rmt:
+  out0:
+    sigo: rmt_sig_out0
+    gpio: [[0, 39]]
+  out1:
+    sigo: rmt_sig_out1
+    gpio: [[0, 39]]
+  out2:
+    sigo: rmt_sig_out2
+    gpio: [[0, 39]]
+  out3:
+    sigo: rmt_sig_out3
+    gpio: [[0, 39]]
+  out4:
+    sigo: rmt_sig_out4
+    gpio: [[0, 39]]
+  out5:
+    sigo: rmt_sig_out5
+    gpio: [[0, 39]]
+  out6:
+    sigo: rmt_sig_out6
+    gpio: [[0, 39]]
+  out7:
+    sigo: rmt_sig_out7
+    gpio: [[0, 39]]
+  in0:
+    sigi: rmt_sig_in0
+    gpio: [[0, 39]]
+  in1:
+    sigi: rmt_sig_in1
+    gpio: [[0, 39]]
+  in2:
+    sigi: rmt_sig_in2
+    gpio: [[0, 39]]
+  in3:
+    sigi: rmt_sig_in3
+    gpio: [[0, 39]]
+  in4:
+    sigi: rmt_sig_in4
+    gpio: [[0, 39]]
+  in5:
+    sigi: rmt_sig_in5
+    gpio: [[0, 39]]
+  in6:
+    sigi: rmt_sig_in6
+    gpio: [[0, 39]]
+  in7:
+    sigi: rmt_sig_in7
+    gpio: [[0, 39]]

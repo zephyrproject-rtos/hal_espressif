@@ -141,3 +141,17 @@ ledc:
   ch5:
     sigo: ledc_ls_sig_out5
     gpio: [[0, 21]]
+
+rmt:
+  out0:
+    sigo: rmt_sig_out0
+    gpio: [[0, 21]]
+  out1:
+    sigo: rmt_sig_out1
+    gpio: [[0, 21]]
+  in0:
+    sigi: rmt_sig_in0
+    gpio: [[0, 21]]
+  in1:
+    sigi: rmt_sig_in1
+    gpio: [[0, 21]]
