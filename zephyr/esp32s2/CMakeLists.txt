@@ -57,6 +57,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_rmt/include
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
     ../../components/esp_hal_rtc_timer/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_security/include
@@ -201,7 +203,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
-      ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
       ../../components/esp_hw_support/esp_gpio_reserve.c
       ../../components/hal/mmu_hal.c
@@ -262,6 +263,14 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     endif()
   endif()
 
+  zephyr_sources_ifdef(CONFIG_ESPRESSIF_RMT
+    ../../components/esp_hal_rmt/rmt_hal.c
+    ../../components/esp_hal_gpio/gpio_hal.c
+    ../../components/esp_driver_gpio/src/gpio.c
+    ../../components/esp_driver_gpio/src/rtc_io.c
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/esp_hw_support/sleep_gpio.c
@@ -271,7 +280,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_legacy_hal.c
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
-      ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
     )
   endif()
@@ -329,6 +337,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
