@@ -65,6 +65,8 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_rmt/include
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include/
     ../../components/esp_hal_rtc_timer/include
     ../../components/esp_hal_rtc_timer/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_security/include
@@ -226,12 +228,15 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
     ../../components/esp_hal_gpio/rtc_io_hal.c
+    ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
+    ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
     ../../components/esp_hal_systimer/systimer_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/modem/modem_clock.c
@@ -251,6 +256,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
+    ../../components/esp_hw_support/port/pau_regdma.c
     ../../components/esp_hw_support/port/regdma_link.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hw_support/rtc_module.c
@@ -372,6 +378,14 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_pcnt/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(CONFIG_ESPRESSIF_RMT
+    ../../components/esp_hal_rmt/rmt_hal.c
+    ../../components/esp_hal_gpio/gpio_hal.c
+    ../../components/esp_driver_gpio/src/gpio.c
+    ../../components/esp_driver_gpio/src/rtc_io.c
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/esp_driver_gpio/src/gpio.c
@@ -392,7 +406,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
-      ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
       ../common/pm_impl_zephyr.c
       )
