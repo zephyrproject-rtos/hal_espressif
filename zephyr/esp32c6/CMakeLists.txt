@@ -65,6 +65,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_rmt/include
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
     ../../components/esp_hal_rtc_timer/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_sd/include
@@ -230,10 +232,19 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_ESPRESSIF_RMT
+    ../../components/esp_hal_rmt/rmt_hal.c
+    ../../components/esp_hal_gpio/gpio_hal.c
+    ../../components/esp_driver_gpio/src/gpio.c
+    ../../components/esp_driver_gpio/src/rtc_io.c
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
   zephyr_sources(
     ../../components/esp_driver_gpio/src/gpio.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
+    ../../components/esp_hw_support/port/pau_regdma.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
@@ -244,10 +255,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/sleep_system_peripheral.c
+    ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
     ../../components/esp_hw_support/sleep_uart.c
     ../../components/esp_hw_support/clk_utils.c
-    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
     ../common/pm_impl_zephyr.c
     )
@@ -291,6 +302,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/modem/modem_clock.c
