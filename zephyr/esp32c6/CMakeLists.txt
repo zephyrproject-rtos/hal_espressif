@@ -182,7 +182,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   if(CONFIG_PM OR CONFIG_POWEROFF)
   zephyr_sources(
     ../../components/driver/gpio/gpio.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
     ../../components/esp_hw_support/sleep_clock.c
     ../../components/esp_hw_support/sleep_cpu.c
@@ -195,7 +194,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/sleep_system_peripheral.c
     ../../components/hal/${CONFIG_SOC_SERIES}/pmu_hal.c
-    ../../components/hal/rtc_io_hal.c
     )
   endif()
 
@@ -228,6 +226,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   zephyr_sources_ifdef(
     CONFIG_SOC_ESP32C6_HPCORE
 
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
@@ -365,8 +365,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/hal/adc_hal.c
     ../../components/hal/adc_hal_common.c
     ../../components/hal/adc_oneshot_hal.c
-    ../../components/hal/rtc_io_hal.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
@@ -391,16 +389,16 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/hal/rtc_io_hal.c
       )
 
-      zephyr_sources_ifdef(
-        CONFIG_SOC_ESP32C6_LPCORE
-        ../../components/ulp/lp_core/lp_core/lp_core_interrupt.c
-        ../../components/ulp/lp_core/lp_core/lp_core_utils.c
-        ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
-        ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-        ../../components/hal/uart_hal_iram.c
-	../../components/hal/rtc_io_hal.c
-	../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
-	)
+    zephyr_sources_ifdef(
+      CONFIG_SOC_ESP32C6_LPCORE
+      ../../components/ulp/lp_core/lp_core/lp_core_interrupt.c
+      ../../components/ulp/lp_core/lp_core/lp_core_utils.c
+      ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
+      ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
+      ../../components/hal/uart_hal_iram.c
+      ../../components/hal/rtc_io_hal.c
+      ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+      )
   endif()
 
   ## shared WIFI/BT/IEEE802154 resources

@@ -208,9 +208,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_hw_support/sleep_console.c
-      ../../components/driver/gpio/rtc_io.c
       ../../components/esp_hw_support/sleep_modem.c
-      ../../components/hal/rtc_io_hal.c
       ../../components/driver/gpio/gpio.c
       ../../components/esp_hw_support/sleep_cpu.c
       ../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
@@ -242,8 +240,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/adc_hal_common.c
     ../../components/hal/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/hal/rtc_io_hal.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
@@ -279,6 +275,8 @@ if(CONFIG_SOC_SERIES_ESP32C3)
   endif()
 
   zephyr_sources(
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
 
     ../../components/esp_hw_support/cpu.c
