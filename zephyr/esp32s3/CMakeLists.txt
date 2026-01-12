@@ -211,8 +211,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/adc_hal_common.c
     ../../components/hal/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/hal/rtc_io_hal.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
@@ -228,7 +226,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     zephyr_sources(
     ../../components/driver/gpio/gpio.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/hal/usb_wrap_hal.c
     )
   endif()
@@ -280,9 +277,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_hw_support/sleep_console.c
-      ../../components/driver/gpio/rtc_io.c
       ../../components/esp_hw_support/sleep_modem.c
-      ../../components/hal/rtc_io_hal.c
       ../../components/hal/esp32s3/touch_sensor_hal.c
       ../../components/esp_hw_support/sleep_cpu.c
       ../../components/hal/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
@@ -292,9 +287,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   zephyr_sources_ifdef(
     CONFIG_INPUT_ESP32_TOUCH_SENSOR
     ../../components/soc/esp32s3/touch_sensor_periph.c
-    ../../components/driver/gpio/rtc_io.c
     ../../components/driver/touch_sensor/touch_sensor_common.c
-    ../../components/hal/rtc_io_hal.c
     ../../components/hal/touch_sensor_hal.c
     ../../components/hal/esp32s3/touch_sensor_hal.c
     )
@@ -334,6 +327,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   endif()
 
   zephyr_sources(
+    ../../components/hal/rtc_io_hal.c
+    ../../components/driver/gpio/rtc_io.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
     ../../components/soc/${CONFIG_SOC_SERIES}/rtc_io_periph.c
 
