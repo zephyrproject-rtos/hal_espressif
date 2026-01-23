@@ -8,6 +8,7 @@
 #define __MCUBOOT_CONFIG_H__
 
 #include <zephyr/devicetree.h>
+#include <watchdog.h>
 
 /*
  * Signature types
@@ -177,21 +178,6 @@
 /* Serial extensions are not implemented
  */
 #define MCUBOOT_PERUSER_MGMT_GROUP_ENABLED 0
-
-/*
- * Watchdog feeding
- */
-
-/* This macro might be implemented if the OS / HW watchdog is enabled while
- * doing a swap upgrade and the time it takes for a swapping is long enough
- * to cause an unwanted reset. If implementing this, the OS main.c must also
- * enable the watchdog (if required)!
- */
-#include <bootloader_wdt.h>
-  #define MCUBOOT_WATCHDOG_FEED() \
-      do { \
-          bootloader_wdt_feed(); \
-      } while (0)
 
 #define MCUBOOT_CPU_IDLE() \
     do {                   \
