@@ -105,8 +105,6 @@ void esp_restart(void)
 		}
 	}
 
-	k_sched_lock();
-
 	bool digital_reset_needed = false;
 #if CONFIG_ESP_SYSTEM_MEMPROT_FEATURE
 #if CONFIG_IDF_TARGET_ESP32S2
