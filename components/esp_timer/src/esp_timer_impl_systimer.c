@@ -5,7 +5,11 @@
  */
 
 #include <zephyr/kernel.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "sdkconfig.h"
 #include "esp_timer_impl.h"
 #include "esp_err.h"

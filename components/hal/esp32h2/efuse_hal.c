@@ -5,7 +5,11 @@
  */
 
 #include "sdkconfig.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "soc/soc_caps.h"
 #include "hal/assert.h"
 #include "hal/efuse_hal.h"

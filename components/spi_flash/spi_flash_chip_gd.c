@@ -6,7 +6,11 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_log.h"
 #include "spi_flash_chip_generic.h"
 #include "spi_flash_chip_gd.h"

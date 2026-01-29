@@ -5,7 +5,11 @@
  */
 
 #include <assert.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_app_desc.h"
 #include "esp_attr.h"
 #include "sdkconfig.h"

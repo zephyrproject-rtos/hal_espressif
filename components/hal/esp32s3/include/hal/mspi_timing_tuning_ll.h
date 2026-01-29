@@ -14,7 +14,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_bit_defs.h"
 #include "hal/assert.h"
 #include "soc/soc.h"

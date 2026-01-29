@@ -5,7 +5,11 @@
  */
 
 #include <stddef.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "soc/soc_caps.h"
 #include "hal/systimer_hal.h"
 #include "hal/systimer_ll.h"

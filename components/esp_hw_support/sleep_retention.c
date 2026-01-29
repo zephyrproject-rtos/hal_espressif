@@ -7,7 +7,11 @@
 #include <stddef.h>
 #include <string.h>
 #include <zephyr/kernel.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #include "esp_err.h"
 #include "esp_attr.h"

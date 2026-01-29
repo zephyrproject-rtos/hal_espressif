@@ -8,7 +8,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_attr.h"
 #include "esp_cpu.h"
 #include "soc/wdev_reg.h"

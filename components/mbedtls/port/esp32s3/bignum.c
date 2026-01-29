@@ -15,7 +15,11 @@
 #include "soc/dport_reg.h"
 #include "soc/system_reg.h"
 #include "soc/periph_defs.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_crypto_lock.h"
 
 size_t esp_mpi_hardware_words(size_t words)
