@@ -254,3 +254,17 @@ pcnt3:
   ch1ctrl:
     sigi: pcnt_ctrl_ch1_in3
     gpio: [[0, 5], [8, 14], [22, 27]]
+
+rmt:
+  out0:
+    sigo: rmt_sig_out0
+    gpio: [[0, 27]]
+  out1:
+    sigo: rmt_sig_out1
+    gpio: [[0, 27]]
+  in0:
+    sigi: rmt_sig_in0
+    gpio: [[0, 27]]
+  in1:
+    sigi: rmt_sig_in1
+    gpio: [[0, 27]]

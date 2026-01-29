@@ -341,6 +341,15 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/hal/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESPRESSIF_RMT
+    ../../components/hal/rmt_hal.c
+    ../../components/hal/gpio_hal.c
+    ../../components/driver/gpio/gpio.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/soc/esp32h2/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/driver/gpio/gpio.c

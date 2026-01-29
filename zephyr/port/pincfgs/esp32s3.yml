@@ -560,3 +560,29 @@ lcd_cam:
   lcd_clk:
     sigo: lcd_pclk
     gpio: [[0, 21], [26, 48]]
+
+rmt:
+  out0:
+    sigo: rmt_sig_out0
+    gpio: [[0, 48]]
+  out1:
+    sigo: rmt_sig_out1
+    gpio: [[0, 48]]
+  out2:
+    sigo: rmt_sig_out2
+    gpio: [[0, 48]]
+  out3:
+    sigo: rmt_sig_out3
+    gpio: [[0, 48]]
+  in0:
+    sigi: rmt_sig_in0
+    gpio: [[0, 48]]
+  in1:
+    sigi: rmt_sig_in1
+    gpio: [[0, 48]]
+  in2:
+    sigi: rmt_sig_in2
+    gpio: [[0, 48]]
+  in3:
+    sigi: rmt_sig_in3
+    gpio: [[0, 48]]
