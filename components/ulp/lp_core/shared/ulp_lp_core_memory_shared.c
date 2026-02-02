@@ -12,7 +12,7 @@
 
 #define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
 
-#define ULP_COPROC_RESERVE_MEM (0x4000)
+#define ULP_COPROC_RESERVE_MEM CONFIG_ULP_COPROC_RESERVE_MEM
 #define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(shmlp))
 
 /* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
