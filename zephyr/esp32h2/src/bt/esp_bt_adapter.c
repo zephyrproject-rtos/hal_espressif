@@ -465,24 +465,27 @@ static void ble_rtc_clk_init(esp_bt_controller_config_t *cfg)
 #if CONFIG_ESP32_BT_LE_LP_CLK_SRC_MAIN_XTAL
 		s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
 #else
-#if CONFIG_RTC_CLK_SRC_INT_RC
-		s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC_SLOW;
-#elif CONFIG_RTC_CLK_SRC_EXT_CRYS
-		if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
+		soc_rtc_slow_clk_src_t slow_clk_src = rtc_clk_slow_src_get();
+
+		switch (slow_clk_src) {
+		case SOC_RTC_SLOW_CLK_SRC_RC_SLOW:
+			s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC_SLOW;
+			break;
+		case SOC_RTC_SLOW_CLK_SRC_XTAL32K:
 			s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_XTAL32K;
-		} else {
-			LOG_WRN("32.768kHz XTAL not detected, fall back to "
+			break;
+		case SOC_RTC_SLOW_CLK_SRC_RC32K:
+			s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC32K;
+			break;
+		case SOC_RTC_SLOW_CLK_SRC_OSC_SLOW:
+			s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_EXT32K;
+			break;
+		default:
+			LOG_WRN("Unsupported slow clock source, fall back to "
 				"main XTAL as Bluetooth sleep clock");
 			s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
+			break;
 		}
-#elif CONFIG_RTC_CLK_SRC_INT_RC32K
-		s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC32K;
-#elif CONFIG_RTC_CLK_SRC_EXT_OSC
-		s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_EXT32K;
-#else
-		LOG_ERR("Unsupported clock source");
-		assert(0);
-#endif
 #endif /* CONFIG_ESP32_BT_LE_LP_CLK_SRC_MAIN_XTAL */
 	}
 
