@@ -13,7 +13,7 @@
 #define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
 
 #define ULP_COPROC_RESERVE_MEM CONFIG_ULP_COPROC_RESERVE_MEM
-#define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(shmlp))
+#define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
 
 /* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
    The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
@@ -24,7 +24,7 @@
 
 #if IS_ULP_COCPU
 static ulp_lp_core_memory_shared_cfg_t __attribute__((section(".shared_mem"))) s_shared_mem = {};
-ESP_STATIC_ASSERT(CONFIG_ULP_SHARED_MEM == sizeof(ulp_lp_core_memory_shared_cfg_t));
+ESP_STATIC_ASSERT(DT_REG_SIZE(DT_NODELABEL(ulp_shm)) >= sizeof(ulp_lp_core_memory_shared_cfg_t));
 #endif
 
 ulp_lp_core_memory_shared_cfg_t* ulp_lp_core_memory_shared_cfg_get(void)
