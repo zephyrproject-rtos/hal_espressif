@@ -19,7 +19,7 @@
 #include "hal/lp_core_ll.h"
 #include <zephyr/devicetree.h>
 
-#define ULP_COPROC_RESERVE_MEM (0x4000)
+#define ULP_COPROC_RESERVE_MEM CONFIG_ULP_COPROC_RESERVE_MEM
 
 #if CONFIG_IDF_TARGET_ESP32P4
 #include "esp32p4/rom/rtc.h"
