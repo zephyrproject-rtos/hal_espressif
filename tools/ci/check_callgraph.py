@@ -8,7 +8,7 @@ import argparse
 import os
 import re
 from functools import partial
-from typing import BinaryIO, Callable, Dict, Generator, List, Optional, Tuple
+from typing import BinaryIO, Callable, Dict, Generator, List, Optional, Tuple, Set
 
 import elftools
 from elftools.elf import elffile
@@ -60,22 +60,33 @@ TARGET_SECTIONS: Dict[str, List[SectionAddressRange]] = {
 
 
 class Symbol(object):
-    def __init__(self, name: str, addr: int, local: bool, filename: Optional[str], section: Optional[str]) -> None:
+    def __init__(self, name: str, addr: int, local: bool, filename: Optional[str], section: Optional[str], st_type: Optional[str] = None, bind: Optional[str] = None, origin: Optional[str] = None) -> None:
         self.name = name
         self.addr = addr
         self.local = local
         self.filename = filename
         self.section = section
+        self.st_type = st_type
+        self.bind = bind
+        self.origin = origin
         self.refers_to: List[Symbol] = list()
         self.referred_from: List[Symbol] = list()
 
+    def is_func(self) -> bool:
+        return self.st_type == 'STT_FUNC'
+
+    def is_object(self) -> bool:
+        return self.st_type in ('STT_OBJECT',)
+
     def __str__(self) -> str:
-        return '{} @0x{:08x} [{}]{} {}'.format(
+        return '{} @0x{:08x} [{}]{} {}{}{}'.format(
             self.name,
             self.addr,
             self.section or 'unknown',
             ' (local)' if self.local else '',
-            self.filename
+            self.filename or '',
+            f' [{self.st_type}]' if self.st_type else '',
+            f' <{self.origin}>' if self.origin else ''
         )
 
 
@@ -114,11 +125,14 @@ class ElfInfo(object):
                 continue
             filename = None
             for sym in s.iter_symbols():
-                sym_type = sym.entry['st_info']['type']
+                st_info = sym.entry['st_info']
+                sym_type = st_info['type']
+                bind = st_info['bind']
                 if sym_type == 'STT_FILE':
                     filename = sym.name
+                    continue
                 if sym_type in ['STT_NOTYPE', 'STT_FUNC', 'STT_OBJECT']:
-                    local = sym.entry['st_info']['bind'] == 'STB_LOCAL'
+                    local = bind == 'STB_LOCAL'
                     addr = sym.entry['st_value']
                     symbols.append(
                         Symbol(
@@ -127,6 +141,8 @@ class ElfInfo(object):
                             local,
                             filename if local else None,
                             self.section_for_addr(addr),
+                            sym_type,
+                            bind,
                         )
                     )
         return symbols
@@ -320,14 +336,127 @@ def match_rtl_funcs_to_symbols(rtl_functions: List[RtlFunction], elfinfo: ElfInf
     return symbols, refs
 
 
-def get_symbols_and_refs(rtl_list: List[str], elf_file: BinaryIO, ignore_pairs: List[IgnorePair]) -> Tuple[List[Symbol], List[Reference]]:
+def _classify_placement(sym: Symbol, iram_like: List[str], dram_like: List[str]) -> Optional[str]:
+    sec = sym.section or ''
+    # IRAM code placement: any function in text/iram sections
+    if sym.is_func() and any(sec.startswith(s) for s in iram_like + ['.text', '.iram', '.iram.text', '.iram0.text']):
+        return 'IRAM_LOADER'
+    # DRAM data/rodata/bss placement
+    if (sym.is_object() or sec.startswith('.rodata') or sec.startswith('.bss') or '.rodata' in sec or '.bss' in sec or '.data' in sec):
+        if any(sec.startswith(s) for s in dram_like + ['.dram', '.dram0', '.dram0.bss', '.dram0.data', '.dram0.rodata']):
+            return 'DRAM_LOADER'
+    return None
+
+
+def _in_loader_section(sec: Optional[str]) -> bool:
+    return bool(sec) and ('loader' in sec)
+
+
+def _origin_pattern(origin: str) -> str:
+    import os as _os
+    # Try archive(object) form
+    if '(' in origin and ')' in origin:
+        arch = _os.path.basename(origin.split('(')[0])
+        inside = origin[origin.find('(')+1:origin.rfind(')')]
+        obj = _os.path.basename(inside)
+        stem = obj.split('.')[0]
+        return f'*{arch}:{stem}.*'
+    # Try plain object path
+    base = _os.path.basename(origin)
+    if base.endswith(('.o', '.obj')):
+        stem = base.split('.')[0]
+        return f'*{stem}.*'
+    # Try plain source file name
+    if base.endswith(('.c', '.cpp', '.cc', '.S', '.s')):
+        stem = base.rsplit('.', 1)[0]
+        return f'*{stem}.*'
+    # Fallback
+    return f'*{base}*'
+
+
+def build_origin_map(map_path: str, symbol_names: Set[str]) -> Dict[str, str]:
+    """
+    Parse GNU ld map to associate symbols with their archive(object) origin.
+    Only records origins for symbols in symbol_names.
+    """
+    origins: Dict[str, str] = {}
+    origin_re = re.compile(r'(?P<origin>\S+\([^\)]+\)|\S+\.(?:o|obj))\s*$')
+    sym_line_re = re.compile(r'^\s*0x[0-9A-Fa-f]+\s+(?P<symbol>\S+)\s*$')
+    current_origin: Optional[str] = None
+    try:
+        with open(map_path, 'r', encoding='utf-8', errors='ignore') as mf:
+            for raw in mf:
+                line = raw.rstrip()
+                m_origin = origin_re.search(line)
+                if m_origin and (line.lstrip().startswith('.') or '0x' in line):
+                    current_origin = m_origin.group('origin')
+                    continue
+                m_sym = sym_line_re.match(line)
+                if m_sym and current_origin:
+                    sym = m_sym.group('symbol')
+                    if sym in symbol_names and sym not in origins:
+                        origins[sym] = current_origin
+    except OSError:
+        pass
+    return origins
+
+
+def compute_minset(symbols: List[Symbol], refs: List[Reference], root_names: List[str], iram_like: List[str], dram_like: List[str]) -> List[Tuple[str, Symbol]]:
+    # Build adjacency from existing references
+    adj: Dict[Symbol, List[Symbol]] = {}
+    by_name: Dict[str, List[Symbol]] = {}
+    for s in symbols:
+        by_name.setdefault(s.name, []).append(s)
+    for r in refs:
+        adj.setdefault(r.from_sym, []).append(r.to_sym)
+
+    # Initialize frontier with all symbol objects that match roots
+    sym_queue: List[Symbol] = []
+    for rn in root_names:
+        sym_queue.extend(by_name.get(rn, []))
+
+    visited: Set[Tuple[str, int]] = set()
+    required: List[Tuple[str, Symbol]] = []
+
+    while sym_queue:
+        cur = sym_queue.pop(0)
+        key = (cur.name, cur.addr)
+        if key in visited:
+            continue
+        visited.add(key)
+
+        # Classify current symbol placement
+        placement = _classify_placement(cur, iram_like, dram_like)
+        if placement:
+            required.append((placement, cur))
+
+        # Only enqueue callees when current is a function
+        if cur.is_func():
+            for nxt in adj.get(cur, []):
+                nkey = (nxt.name, nxt.addr)
+                if nkey not in visited:
+                    sym_queue.append(nxt)
+
+    return required
+
+
+def get_symbols_and_refs(rtl_list: List[str], elf_file: BinaryIO, ignore_pairs: List[IgnorePair], map_path: Optional[str] = None) -> Tuple[List[Symbol], List[Reference]]:
     elfinfo = ElfInfo(elf_file)
 
     rtl_functions: List[RtlFunction] = []
     for file_name in rtl_list:
         load_rtl_file(file_name, file_name, rtl_functions, ignore_pairs)
 
-    return match_rtl_funcs_to_symbols(rtl_functions, elfinfo)
+    symbols, refs = match_rtl_funcs_to_symbols(rtl_functions, elfinfo)
+
+    # Optionally annotate symbols with origin from map
+    if map_path:
+        symbol_names: Set[str] = {s.name for s in symbols}
+        origin_map = build_origin_map(map_path, symbol_names)
+        for s in symbols:
+            s.origin = origin_map.get(s.name)
+
+    return symbols, refs
 
 
 def list_refs_from_to_sections(refs: List[Reference], from_sections: List[str], to_sections: List[str]) -> int:
@@ -391,7 +520,18 @@ def main() -> None:
         help='Print the list of all references',
     )
 
-    parser.parse_args()
+    # New: subcommand for evaluating the minimum set for iram_loader_seg and dram_loader_seg
+    minset_parser = action_sub.add_parser(
+        'find-loader-minset',
+        help='Compute minimal IRAM/DRAM LOADER symbol set reachable from --roots.'
+    )
+    minset_parser.add_argument('--roots', required=True, help='Comma-separated loader root functions')
+    minset_parser.add_argument('--iram-sections', default='', help='Comma-separated IRAM-like section prefixes')
+    minset_parser.add_argument('--dram-sections', default='', help='Comma-separated DRAM-like section prefixes')
+    minset_parser.add_argument('--map', required=True, help='Path to linker map file for origin grouping')
+    minset_parser.add_argument('--summary', action='store_true', help='Emit grouped summary by origin')
+    minset_parser.add_argument('--show-all', action='store_true', help='Print all required symbols, not only outplacers')
+
     args = parser.parse_args()
     if args.rtl_list:
         with open(args.rtl_list, 'r') as rtl_list_file:
@@ -408,10 +548,17 @@ def main() -> None:
         raise RuntimeError('No RTL files specified')
 
     ignore_pairs = []
-    for pair in args.ignore_symbols.split(',') if args.ignore_symbols else []:
+    ignore_symbols_arg = getattr(args, 'ignore_symbols', None)
+    for pair in (ignore_symbols_arg.split(',') if ignore_symbols_arg else []):
         ignore_pairs.append(IgnorePair(pair))
 
-    _, refs = get_symbols_and_refs(rtl_list, args.elf_file, ignore_pairs)
+    # Compute symbols and refs once and reuse across actions
+    symbols: List[Symbol] = []
+    refs: List[Reference] = []
+    if args.action in ('find-refs', 'all-refs', 'find-loader-minset'):
+        symbols, refs = get_symbols_and_refs(
+            rtl_list, args.elf_file, ignore_pairs, getattr(args, 'map', None)
+        )
 
     if args.action == 'find-refs':
         from_sections = args.from_sections.split(',') if args.from_sections else []
@@ -424,6 +571,65 @@ def main() -> None:
     elif args.action == 'all-refs':
         for r in refs:
             print(str(r))
+    elif args.action == 'find-loader-minset':
+        # Prepare inputs
+        roots = [r for r in (p.strip() for p in args.roots.split(',')) if r]
+        iram_like = [p.strip() for p in (args.iram_sections or '').split(',') if p.strip()]
+        dram_like = [p.strip() for p in (args.dram_sections or '').split(',') if p.strip()]
+        # Use preloaded symbols + refs to compute minimal set
+        required = compute_minset(symbols, refs, roots, iram_like, dram_like)
+
+        if not required:
+            print('No required loader symbols found.')
+            raise SystemExit(0)
+
+        def origin_for(sym: Symbol) -> str:
+            return sym.origin or sym.filename or '<unknown-origin>'
+
+        # Select outplacers if not show-all
+        def sort_key_item(item: Tuple[str, Symbol]):
+            placement, s = item
+            return (
+                0 if placement == 'IRAM_LOADER' else 1,
+                origin_for(s),
+                s.section or '',
+                s.name or '',
+                s.addr,
+            )
+
+        def print_csv(items: List[Tuple[str, Symbol]]):
+            print('placement,symbol,section,address,type,origin,filename')
+            for placement, s in sorted(items, key=sort_key_item):
+                stype = 'FUNC' if s.is_func() else 'OBJECT'
+                print(f'{placement},{s.name},{s.section},0x{s.addr:08x},{stype},{origin_for(s)},{s.filename or ""}')
+
+        outplacers: List[Tuple[str, Symbol]] = []
+        for placement, s in required:
+            if placement in ('IRAM_LOADER', 'DRAM_LOADER') and not _in_loader_section(s.section):
+                outplacers.append((placement, s))
+
+        objs: List[Tuple[str, Symbol]] = required if args.show_all else outplacers
+
+        if args.summary:
+            groups: Dict[Tuple[str, str], List[Symbol]] = {}
+            for placement, s in objs:
+                key = (placement, origin_for(s))
+                groups.setdefault(key, []).append(s)
+            if groups:
+                print('placement,origin,count,symbols')
+                ordered = sorted(groups.items(), key=lambda x: (0 if x[0][0]=='IRAM_LOADER' else 1, x[0][1]))
+                for (placement, origin), items in ordered:
+                    names = sorted({i.name for i in items})
+                    print(f'{placement},{origin},{len(names)},{";".join(names)}')
+                    patt = _origin_pattern(origin)
+                    print(f'{patt}(.literal .text .literal.* .text.* .iram0 .iram0.* .iram1 .iram1.*)')
+                    print(f'{patt}(.sbss .sbss.* .sbss2 .sbss2.* .bss .bss.*)')
+                    print(f'{patt}(.data .data.* .rodata .rodata.* .sdata .sdata.* .sdata2 .sdata2.* .srodata .srodata.* .dram*)')
+        else:
+            print_csv(objs)
+
+        # Exit code: non-zero if outplacers exist
+        raise SystemExit(1 if outplacers and not args.show_all else 0)
 
 
 if __name__ == '__main__':
