@@ -12,10 +12,10 @@
 
 #define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
 
-#define ULP_COPROC_RESERVE_MEM CONFIG_ULP_COPROC_RESERVE_MEM
+#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
 #define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
 
-/* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
+/* The last CONFIG_ESP32_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
    The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
    esp32ulp_mapgen.py, but this is not available when compiling the ULP library.
 

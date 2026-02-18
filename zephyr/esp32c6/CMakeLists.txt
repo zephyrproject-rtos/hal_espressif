@@ -382,7 +382,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     zephyr_ld_options("-Wl,--gc-sections")
   endif()
 
-  if(CONFIG_ULP_COPROC_ENABLED)
+  if(CONFIG_ESP32_ULP_COPROC_ENABLED)
     zephyr_sources_ifdef(
       CONFIG_SOC_ESP32C6_HPCORE
       ../../components/ulp/lp_core/lp_core.c

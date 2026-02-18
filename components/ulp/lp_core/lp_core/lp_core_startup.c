@@ -18,7 +18,7 @@ extern void main();
 void lp_core_startup()
 {
 
-#if CONFIG_ULP_HP_UART_CONSOLE_PRINT && ESP_ROM_HAS_LP_ROM
+#if CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT && ESP_ROM_HAS_LP_ROM
     ets_install_putc1(lp_core_print_char);
 #endif
 

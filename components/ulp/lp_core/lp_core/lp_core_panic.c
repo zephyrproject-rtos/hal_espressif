@@ -10,7 +10,7 @@
 #include "ulp_lp_core_print.h"
 #include "riscv/rvruntime-frames.h"
 
-#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
+#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
 
 static void dump_stack(RvExcFrame *frame, int exccause)
 {
@@ -85,4 +85,4 @@ void ulp_lp_core_panic_handler(RvExcFrame *frame, int exccause)
     }
 }
 
-#endif //#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
+#endif //#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
