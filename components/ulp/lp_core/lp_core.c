@@ -19,7 +19,7 @@
 #include "hal/lp_core_ll.h"
 #include <zephyr/devicetree.h>
 
-#define ULP_COPROC_RESERVE_MEM CONFIG_ULP_COPROC_RESERVE_MEM
+#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
 
 #if CONFIG_IDF_TARGET_ESP32P4
 #include "esp32p4/rom/rtc.h"
@@ -108,7 +108,7 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
     /* Enable reset CPU when going to sleep */
     /* Avoid resetting chip in sleep mode when debugger is attached,
        otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
-    lp_core_ll_rst_at_sleep_enable(!(CONFIG_ULP_NORESET_UNDER_DEBUG && esp_cpu_dbgr_is_attached()));
+    lp_core_ll_rst_at_sleep_enable(!(CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG && esp_cpu_dbgr_is_attached()));
 
     /* Set wake-up sources */
     lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
@@ -175,7 +175,7 @@ void ulp_lp_core_stop(void)
         lp_core_ll_stall_at_sleep_request(true);
         /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
-        lp_core_ll_rst_at_sleep_enable(!CONFIG_ULP_NORESET_UNDER_DEBUG);
+        lp_core_ll_rst_at_sleep_enable(!CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG);
         lp_core_ll_debug_module_enable(true);
     }
     /* Disable wake-up source and put lp core to sleep */

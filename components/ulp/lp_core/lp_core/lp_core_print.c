@@ -14,7 +14,7 @@
 
 #define is_digit(c) ((c >= '0') && (c <= '9'))
 
-#if CONFIG_ULP_HP_UART_CONSOLE_PRINT
+#if CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT
 void __attribute__((alias("hp_uart_send_char"))) lp_core_print_char(char c);
 
 static void hp_uart_send_char(char t)
@@ -26,7 +26,7 @@ static void hp_uart_send_char(char t)
     }
     uart_ll_write_txfifo(uart, &t, 1);
 }
-#elif !CONFIG_ULP_ROM_PRINT_ENABLE
+#elif !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
 void __attribute__((alias("lp_uart_send_char"))) lp_core_print_char(char c);
 static void lp_uart_send_char(char c)
 {
@@ -44,9 +44,9 @@ static void lp_rom_send_char(char c)
 {
     esp_rom_output_putc(c);
 }
-#endif // CONFIG_ULP_HP_UART_CONSOLE_PRINT
+#endif // CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT
 
-#if !CONFIG_ULP_ROM_PRINT_ENABLE
+#if !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
 
 // Ported over ROM function _cvt()
 static int lp_core_cvt(unsigned long long val, char *buf, long radix, char *digits)
@@ -297,7 +297,7 @@ int lp_core_printf(const char* format, ...)
     return ret;
 }
 
-#endif /* !CONFIG_ULP_ROM_PRINT_ENABLE */
+#endif /* !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
 
 void lp_core_print_str(const char *str)
 {

@@ -19,15 +19,15 @@ extern "C" {
  * @param ...           variable argument list
  *
  */
-#if CONFIG_ULP_ROM_PRINT_ENABLE
+#if CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
 extern int ets_printf(const char* format, ...);
 #define lp_core_printf ets_printf
 #else
 //TODO: Change return type from void to int in IDF 6.0
 void lp_core_printf(const char* format, ...);
-#endif /* CONFIG_ULP_ROM_PRINT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
 
-#if CONFIG_ULP_ROM_PRINT_ENABLE
+#if CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
 /**
  * @brief Install LP ROM UART printf function as standard putc handler to enable prints
  *
@@ -38,7 +38,7 @@ void lp_core_printf(const char* format, ...);
  */
 extern void ets_install_uart_printf(void);
 #define lp_core_install_uart_print ets_install_uart_printf
-#endif /* CONFIG_ULP_ROM_PRINT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
 
 /**
  * @brief Print a single character from the LP core

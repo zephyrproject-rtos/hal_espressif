@@ -795,24 +795,24 @@ static esp_err_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags, esp_sleep_mode_t m
     }
 #endif
 
-#if CONFIG_ULP_COPROC_ENABLED
+#if CONFIG_ESP32_ULP_COPROC_ENABLED
     // Enable ULP wakeup
-#if CONFIG_ULP_COPROC_TYPE_FSM
+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
     if (s_config.wakeup_triggers & RTC_ULP_TRIG_EN) {
-#elif CONFIG_ULP_COPROC_TYPE_RISCV
+#elif CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
     if (s_config.wakeup_triggers & (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN)) {
-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
+#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
     if (s_config.wakeup_triggers & RTC_LP_CORE_TRIG_EN) {
 #endif
 #ifdef CONFIG_IDF_TARGET_ESP32
         rtc_hal_ulp_wakeup_enable();
-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
+#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
         pmu_ll_hp_clear_sw_intr_status(&PMU);
 #else
         rtc_hal_ulp_int_clear();
 #endif
     }
-#endif // CONFIG_ULP_COPROC_ENABLED
+#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
 
     misc_modules_sleep_prepare(deep_sleep);
 
@@ -1433,7 +1433,7 @@ esp_err_t esp_sleep_disable_wakeup_source(esp_sleep_source_t source)
     } else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_UART, (RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN))) {
         s_config.wakeup_triggers &= ~(RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN);
     }
-#if CONFIG_ULP_COPROC_TYPE_FSM
+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
     else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_ULP, RTC_ULP_TRIG_EN)) {
         s_config.wakeup_triggers &= ~RTC_ULP_TRIG_EN;
     }
@@ -1447,9 +1447,9 @@ esp_err_t esp_sleep_disable_wakeup_source(esp_sleep_source_t source)
 
 esp_err_t esp_sleep_enable_ulp_wakeup(void)
 {
-#ifndef CONFIG_ULP_COPROC_ENABLED
+#ifndef CONFIG_ESP32_ULP_COPROC_ENABLED
     return ESP_ERR_INVALID_STATE;
-#endif // CONFIG_ULP_COPROC_ENABLED
+#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
 #if CONFIG_IDF_TARGET_ESP32
 #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
     ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
@@ -1461,18 +1461,18 @@ esp_err_t esp_sleep_enable_ulp_wakeup(void)
     }
 #endif //CONFIG_IDF_TARGET_ESP32
 
-#if CONFIG_ULP_COPROC_TYPE_FSM
+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
     s_config.wakeup_triggers |= RTC_ULP_TRIG_EN;
     return ESP_OK;
-#elif CONFIG_ULP_COPROC_TYPE_RISCV
+#elif CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
     s_config.wakeup_triggers |= (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
     return ESP_OK;
-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
+#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
     s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN;
     return ESP_OK;
 #else
     return ESP_ERR_NOT_SUPPORTED;
-#endif //CONFIG_ULP_COPROC_TYPE_FSM
+#endif //CONFIG_ESP32_ULP_COPROC_TYPE_FSM
 }
 
 esp_err_t esp_sleep_enable_timer_wakeup(uint64_t time_in_us)
