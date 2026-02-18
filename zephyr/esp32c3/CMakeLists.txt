@@ -203,6 +203,15 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/hal/ledc_hal.c
     )
 
+  zephyr_sources_ifdef(
+    CONFIG_ESPRESSIF_RMT
+    ../../components/hal/rmt_hal.c
+    ../../components/hal/gpio_hal.c
+    ../../components/driver/gpio/gpio.c
+    ../../components/driver/gpio/rtc_io.c
+    ../../components/soc/esp32c3/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/esp_hw_support/sleep_gpio.c
