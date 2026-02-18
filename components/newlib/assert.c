@@ -5,7 +5,11 @@
  */
 
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_system.h"
 #include "spi_flash_mmap.h"
 #include "soc/soc_memory_layout.h"

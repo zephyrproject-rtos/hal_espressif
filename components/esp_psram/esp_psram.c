@@ -11,7 +11,11 @@
  *
  * When we add more types of external RAM memory, this can be made into a more intelligent dispatcher.
  *----------------------------------------------------------------------------------------------------*/
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_err.h"

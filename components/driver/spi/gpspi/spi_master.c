@@ -111,7 +111,11 @@ We have two bits to control the interrupt:
 */
 
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_private/spi_common_internal.h"
 #include "driver/spi_master.h"
 #include "esp_clk_tree.h"

@@ -7,7 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #include "flash_init.h"
 #include "soc_flash_init.h"

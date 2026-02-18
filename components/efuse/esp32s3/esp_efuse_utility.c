@@ -10,7 +10,11 @@
 #include "esp_log.h"
 #include "assert.h"
 #include "sdkconfig.h"
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 static const char *TAG = "efuse";
 

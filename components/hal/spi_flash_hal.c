@@ -7,7 +7,11 @@
 // HAL for SPI Flash (non-IRAM part)
 // The IRAM part is in spi_flash_hal_iram.c, spi_flash_hal_gpspi.c, spi_flash_hal_common.inc.
 
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

@@ -18,7 +18,11 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include <string.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 
 #ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
 static const char *TAG = "secure_boot_v1";

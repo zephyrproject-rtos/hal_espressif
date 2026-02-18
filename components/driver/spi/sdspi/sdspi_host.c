@@ -9,7 +9,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stddef.h>
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
 #include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "driver/gpio.h"

@@ -5,7 +5,11 @@
  */
 
 #include <stdarg.h>
-#include <zephyr/sys/util.h>  //For max/min
+#ifndef CONFIG_MCUBOOT_ESPRESSIF
+#include <zephyr/sys/util.h>
+#else
+#include <sys/param.h>
+#endif  //For max/min
 #include "esp_attr.h"
 #include "esp_private/system_internal.h"
 #include "esp_flash.h"
