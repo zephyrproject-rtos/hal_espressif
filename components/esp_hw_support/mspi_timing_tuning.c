@@ -25,6 +25,10 @@
 #include "esp32s3/rom/cache.h"
 #endif
 
+#if MSPI_TIMING_PSRAM_STR_MODE
+#error
+#endif
+
 #if MSPI_TIMING_FLASH_NEEDS_TUNING || MSPI_TIMING_PSRAM_NEEDS_TUNING
 const static char *TAG = "MSPI Timing";
 static mspi_timing_tuning_param_t s_flash_best_timing_tuning_config;
@@ -421,12 +425,15 @@ void mspi_timing_flash_tuning(void)
     mspi_timing_config_t timing_configs = {0};
     get_flash_tuning_configs(&timing_configs);
 
+ets_printf("::start:: %s\n", __func__);
     do_tuning(reference_data, &timing_configs, true);
     mspi_timing_enter_high_speed_mode(true);
+ets_printf("::done:: %s\n", __func__);
 }
 #else
 void mspi_timing_flash_tuning(void)
 {
+#error
     //Empty function for compatibility, therefore upper layer won't need to know that FLASH in which operation mode and frequency config needs to be tuned
 }
 #endif  //MSPI_TIMING_FLASH_NEEDS_TUNING
@@ -482,6 +489,7 @@ void mspi_timing_psram_tuning(void)
 #else
 void mspi_timing_psram_tuning(void)
 {
+#error
     //Empty function for compatibility, therefore upper layer won't need to know that FLASH in which operation mode and frequency config needs to be tuned
 }
 #endif  //MSPI_TIMING_PSRAM_NEEDS_TUNING

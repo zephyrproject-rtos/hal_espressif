@@ -852,7 +852,8 @@ esp_err_t IRAM_ATTR esp_flash_read(esp_flash_t *chip, void *buffer, uint32_t add
 {
     esp_err_t err = rom_spiflash_api_funcs->chip_check(&chip);
     VERIFY_CHIP_OP(read);
-    if (buffer == NULL || address > chip->size || address+length > chip->size) {
+    if (buffer == NULL /* || address > chip->size || address+length > chip->size*/) {
+	    ets_printf("chip.size=%x buffer=%x address=%x end=%x\n", chip->size, buffer, address, address+length);
         return ESP_ERR_INVALID_ARG;
     }
     if (length == 0) {
@@ -1012,7 +1013,7 @@ esp_err_t IRAM_ATTR esp_flash_write(esp_flash_t *chip, const void *buffer, uint3
     esp_err_t err = rom_spiflash_api_funcs->chip_check(&chip);
     VERIFY_CHIP_OP(write);
     CHECK_WRITE_ADDRESS(chip, address, length);
-    if (buffer == NULL || address > chip->size || address+length > chip->size) {
+    if (buffer == NULL /* || address > chip->size || address+length > chip->size*/) {
         return ESP_ERR_INVALID_ARG;
     }
     if (length == 0) {
