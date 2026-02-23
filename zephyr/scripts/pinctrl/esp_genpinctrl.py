@@ -24,23 +24,28 @@ file_out_head = (
 
 /**
  * @file
- * @brief Devicetree pin control helpers for {SOC}
+ * @brief Devicetree pin control helpers for Espressif {SOC}
  * @ingroup pinctrl_{soc}
  */
 
-#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_
-#define ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
 
 /**
- * @defgroup pinctrl_{soc} {SOC} pin control helpers
- * @brief Macros for pin control configuration of {SOC}
+ * @addtogroup espressif_pinctrl Espressif pin control helpers
  * @ingroup devicetree-pinctrl
+ */
+
+/**
+ * @defgroup pinctrl_{soc} Espressif {SOC} pin control helpers
+ * @brief Macros for pin control configuration of Espressif {SOC}
+ * @ingroup espressif_pinctrl
  *
  * The macros follow a naming convention: `<PERIPHERAL>_<SIGNAL>_GPIO<PIN>`.
  * For example, `I2C0_SCL_GPIO1` corresponds to the `SCL` signal of `I2C0`
  * mapped to `GPIO1`.
  *
- * @code
+ * @code{.dts}
  * #include <zephyr/dt-bindings/pinctrl/esp-pinctrl-common.h>
  * #include <zephyr/dt-bindings/pinctrl/{soc}-pinctrl.h>
  * #include <zephyr/dt-bindings/pinctrl/{soc}-gpio-sigmap.h>
@@ -71,7 +76,7 @@ file_out_tail = """
 
 /** @} */
 
-#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_ */
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_ */
 """
 
 file_out_path = 'include/zephyr/dt-bindings/pinctrl/'
