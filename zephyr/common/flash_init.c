@@ -23,16 +23,17 @@ static const char *TAG = "flash_init";
 
 bool flash_is_octal_mode_enabled(void)
 {
-#if SOC_SPI_MEM_SUPPORT_OPI_MODE
+#if SOC_SPI_MEM_SUPPORT_FLASH_OPI_MODE
 	return efuse_ll_get_flash_type();
 #else
 	return false;
 #endif
 }
 
-int spi_flash_init_chip_state(void)
+/* This weak version is only used when flash_ops.c is not compiled */
+__attribute__((weak)) int spi_flash_init_chip_state(void)
 {
-#if SOC_SPI_MEM_SUPPORT_OPI_MODE
+#if SOC_SPI_MEM_SUPPORT_FLASH_OPI_MODE
 	if (flash_is_octal_mode_enabled()) {
 		return esp_opiflash_init(rom_spiflash_legacy_data->chip.device_id);
 	}
@@ -51,15 +52,16 @@ void esp_flash_config(void)
 
 	spi_flash_init_chip_state();
 
+	esp_mspi_pin_init();
+
+	/* Switch to OS-aware functions for runtime flash operations */
 	esp_flash_app_init();
 
 	ret = esp_flash_init_default_chip();
 	if (ret != ESP_OK) {
-		ESP_EARLY_LOGE(TAG, "Failed to init flash chip: %d ", ret);
+		ESP_EARLY_LOGE(TAG, "Failed to init flash chip: %d", ret);
 		abort();
 	}
-
-	esp_mspi_pin_init();
 
 #if SOC_MEMSPI_SRC_FREQ_120M
 	mspi_timing_flash_tuning();

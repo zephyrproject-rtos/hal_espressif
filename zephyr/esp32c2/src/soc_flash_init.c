@@ -24,10 +24,20 @@
 #include "bootloader_init.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
+#include "hal/cache_ll.h"
 #include "hal/mmu_ll.h"
 
 #define FLASH_IO_MATRIX_DUMMY_40M 0
 #define FLASH_IO_MATRIX_DUMMY_80M 0
+
+/* SPI flash pin definitions for ESP32-C2 */
+#define SPI_CLK_GPIO_NUM    6
+#define SPI_Q_GPIO_NUM      2
+#define SPI_D_GPIO_NUM      7
+#define SPI_CS0_GPIO_NUM    12
+#define SPI_HD_GPIO_NUM     4
+#define SPI_WP_GPIO_NUM     5
+#define MAX_PAD_GPIO_NUM    21
 
 #define TAG "soc_flash_init"
 
@@ -124,14 +134,23 @@ static void update_flash_config(const esp_image_header_t *bootloader_hdr)
 	case ESP_IMAGE_FLASH_SIZE_16MB:
 		size = 16;
 		break;
+	case ESP_IMAGE_FLASH_SIZE_32MB:
+		size = 32;
+		break;
+	case ESP_IMAGE_FLASH_SIZE_64MB:
+		size = 64;
+		break;
+	case ESP_IMAGE_FLASH_SIZE_128MB:
+		size = 128;
+		break;
 	default:
 		size = 2;
 	}
-	cache_hal_disable(CACHE_TYPE_ALL);
+	cache_hal_disable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 	/* Set flash chip size */
 	esp_rom_spiflash_config_param(rom_spiflash_legacy_data->chip.device_id, size * 0x100000,
 				      0x10000, 0x1000, 0x100, 0xffff);
-	cache_hal_enable(CACHE_TYPE_ALL);
+	cache_hal_enable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 }
 
 static void print_flash_info(const esp_image_header_t *bootloader_hdr)
@@ -198,6 +217,15 @@ static void print_flash_info(const esp_image_header_t *bootloader_hdr)
 		break;
 	case ESP_IMAGE_FLASH_SIZE_16MB:
 		str = "16MB";
+		break;
+	case ESP_IMAGE_FLASH_SIZE_32MB:
+		str = "32MB";
+		break;
+	case ESP_IMAGE_FLASH_SIZE_64MB:
+		str = "64MB";
+		break;
+	case ESP_IMAGE_FLASH_SIZE_128MB:
+		str = "128MB";
 		break;
 	default:
 		str = "2MB";

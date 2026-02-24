@@ -9,6 +9,7 @@
 #include <soc/soc.h>
 #include "soc/lp_analog_peri_reg.h"
 #include "hal/clk_tree_ll.h"
+#include "hal/brownout_ll.h"
 #include "soc/system_reg.h"
 #include "soc/assist_debug_reg.h"
 #include "esp_private/regi2c_ctrl.h"
@@ -17,16 +18,30 @@
 #include "modem/modem_lpcon_reg.h"
 #include "soc/pcr_reg.h"
 #include "soc/lp_wdt_reg.h"
+#include "soc/pmu_reg.h"
+#include "hal/lpwdt_ll.h"
+#include "hal/regi2c_ctrl_ll.h"
 #include "esp_log.h"
 
 const static char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+	/* Disable RF pll by default */
+	CLEAR_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_RFPLL);
+	SET_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_FORCE_RFPLL);
+
 	/* Enable analog i2c master clock */
-	SET_PERI_REG_MASK(MODEM_LPCON_CLK_CONF_REG, MODEM_LPCON_CLK_I2C_MST_EN);
-	/* Fix low temp issue, need to increase this internal voltage */
-	REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_0P8, 8);
+	_regi2c_ctrl_ll_master_enable_clock(true);
+	regi2c_ctrl_ll_master_configure_clock();
+
+	/*
+	 * Fix low temp issue, need to increase this internal voltage.
+	 * Use ROM function directly instead of REGI2C_WRITE_MASK macro
+	 * which requires kernel services (irq_lock) not available during early boot.
+	 */
+	esp_rom_regi2c_write_mask(I2C_BIAS, I2C_BIAS_HOSTID, I2C_BIAS_DREG_0P8,
+				  I2C_BIAS_DREG_0P8_MSB, I2C_BIAS_DREG_0P8_LSB, 8);
 }
 
 void ana_super_wdt_reset_config(bool enable)
@@ -38,15 +53,7 @@ void ana_super_wdt_reset_config(bool enable)
 
 void ana_bod_reset_config(bool enable)
 {
-	REG_CLR_BIT(LP_ANALOG_PERI_LP_ANA_FIB_ENABLE_REG, LP_ANALOG_PERI_LP_ANA_FIB_BOD_RST);
-
-	if (enable) {
-		REG_SET_BIT(LP_ANALOG_PERI_LP_ANA_BOD_MODE1_CNTL_REG,
-				LP_ANALOG_PERI_LP_ANA_BOD_MODE1_RESET_ENA);
-	} else {
-		REG_CLR_BIT(LP_ANALOG_PERI_LP_ANA_BOD_MODE1_CNTL_REG,
-				LP_ANALOG_PERI_LP_ANA_BOD_MODE1_RESET_ENA);
-	}
+	brownout_ll_ana_reset_enable(enable);
 }
 
 void ana_reset_config(void)
@@ -91,3 +98,54 @@ void ana_clock_glitch_reset_config(bool enable)
 {
 	(void)enable;
 }
+
+#if defined(CONFIG_ESP_SIMPLE_BOOT)
+#include "esp_rom_serial_output.h"
+#include "modem/modem_lpcon_struct.h"
+
+void bootloader_clock_configure(void)
+{
+	esp_rom_output_tx_wait_idle(0);
+
+	MODEM_LPCON.rst_conf.rst_i2c_mst = 1;
+	MODEM_LPCON.rst_conf.rst_i2c_mst = 0;
+
+	clk_ll_bbpll_enable();
+
+	regi2c_ctrl_ll_master_force_enable_clock(true);
+	regi2c_ctrl_ll_bbpll_calibration_start();
+
+	clk_ll_bbpll_set_config(CLK_LL_PLL_96M_FREQ_MHZ, SOC_XTAL_FREQ_32M);
+
+	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+		;
+	}
+	esp_rom_delay_us(10);
+
+	regi2c_ctrl_ll_bbpll_calibration_stop();
+	regi2c_ctrl_ll_master_force_enable_clock(false);
+
+	clk_ll_cpu_set_divider(1);
+	clk_ll_ahb_set_divider(3);
+
+	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+	clk_ll_bus_update();
+	esp_rom_set_cpu_ticks_per_us(CLK_LL_PLL_96M_FREQ_MHZ);
+
+	clk_ll_xtal_store_freq_mhz(SOC_XTAL_FREQ_32M);
+
+	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);
+	CLEAR_PERI_REG_MASK(LP_ANALOG_PERI_LP_ANA_LP_INT_ENA_REG,
+			    LP_ANALOG_PERI_LP_ANA_BOD_MODE0_LP_INT_ENA);
+	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_LP_WDT_INT_ENA);
+	CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_WAKEUP_INT_ENA);
+	CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_SLEEP_REJECT_INT_ENA);
+
+	SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_SUPER_WDT_INT_CLR);
+	SET_PERI_REG_MASK(LP_ANALOG_PERI_LP_ANA_LP_INT_CLR_REG,
+			  LP_ANALOG_PERI_LP_ANA_BOD_MODE0_LP_INT_CLR);
+	SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);
+	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_WAKEUP_INT_CLR);
+	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_SLEEP_REJECT_INT_CLR);
+}
+#endif /* CONFIG_ESP_SIMPLE_BOOT */

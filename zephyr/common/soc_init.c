@@ -46,7 +46,7 @@ void print_banner(void)
 int read_bootloader_header(void)
 {
 	/* load bootloader image header */
-	if (esp_rom_flash_read(PARTITION_OFFSET(boot_partition), &bootloader_image_hdr,
+	if (esp_rom_flash_read(CONFIG_BOOTLOADER_OFFSET_IN_FLASH, &bootloader_image_hdr,
 				      sizeof(esp_image_header_t), true) != 0) {
 		ESP_EARLY_LOGE(TAG, "failed to load bootloader image header!");
 		return -EIO;
@@ -108,6 +108,7 @@ void config_wdt(void)
 
 	wdt_hal_write_protect_disable(&rwdt_ctx);
 	wdt_hal_set_flashboot_en(&rwdt_ctx, false);
+	wdt_hal_disable(&rwdt_ctx);
 	wdt_hal_write_protect_enable(&rwdt_ctx);
 
 	/* Disable MWDT0 flashboot protection. But only after we've enabled the RWDT first so that
@@ -143,7 +144,7 @@ int check_bootloader_validity(void)
 			TAG,
 			"If you choose to continue, please enable "
 			"'CONFIG_ESP32_USE_UNSUPPORTED_REVISION=y' in your project configuration.");
-		config_wdt(); // disable watchdog to avoid reset
+		config_wdt();
 		abort();
 #endif /* !CONFIG_ESP32_USE_UNSUPPORTED_REVISION */
 	}

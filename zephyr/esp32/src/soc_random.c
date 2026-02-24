@@ -1,25 +1,22 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "bootloader_random.h"
+#include "soc_random.h"
 #include "soc/rtc_periph.h"
 #include "soc/sens_periph.h"
-#include "soc/syscon_periph.h"
+#include "soc/syscon_reg.h"
 #include "soc/dport_reg.h"
-#include "soc/i2s_periph.h"
+#include "soc/i2s_reg.h"
 #include "esp_log.h"
 #include "soc/io_mux_reg.h"
 #include "esp_private/periph_ctrl.h"
 
 void soc_random_enable(void)
 {
-	/* Ensure the hardware RNG is enabled following a soft reset.  This should always be the
-	 * case already (this clock is never disabled while the CPU is running), this is a "belts
-	 * and braces" type check.
-	 */
-	periph_module_enable(PERIPH_RNG_MODULE);
+	/* Enable Wi-Fi clock for RNG module (direct register access, no kernel needed) */
+	DPORT_SET_PERI_REG_MASK(DPORT_WIFI_CLK_EN_REG, DPORT_WIFI_CLK_RNG_EN);
 
 	/* Enable SAR ADC in test mode to feed ADC readings of the 1.1V
 	 * reference via I2S into the RNG entropy input.

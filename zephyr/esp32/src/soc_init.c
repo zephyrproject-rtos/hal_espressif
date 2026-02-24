@@ -8,9 +8,14 @@
 #include "esp_log.h"
 #include "rom/cache.h"
 #include "soc/dport_reg.h"
+#include "hal/mmu_hal.h"
 #include <stdint.h>
 
 static const char *TAG = "soc_init";
+
+void soc_hw_init(void)
+{
+}
 
 void wdt_reset_info_dump(int cpu)
 {
@@ -77,13 +82,40 @@ void reset_mmu(void)
 {
 	/* completely reset MMU in case serial bootloader was running */
 	Cache_Read_Disable(0);
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+	Cache_Read_Disable(1);
+#endif
 	Cache_Flush(0);
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+	Cache_Flush(1);
+#endif
 	mmu_init(0);
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+	/*
+	 * The lines which manipulate DPORT_APP_CACHE_MMU_IA_CLR bit are
+	 * necessary to work around a hardware bug.
+	 */
+	DPORT_REG_SET_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MMU_IA_CLR);
+	mmu_init(1);
+	DPORT_REG_CLR_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MMU_IA_CLR);
+#endif
+
+	mmu_hal_config_t mmu_config = {
+#if CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+		.core_nums = 1,
+#else
+		.core_nums = SOC_CPU_CORES_NUM,
+#endif
+	};
+	mmu_hal_ctx_init(&mmu_config);
 
 	/* normal ROM boot exits with DROM0 cache unmasked,
 	 * but serial bootloader exits with it masked.
 	 */
 	DPORT_REG_CLR_BIT(DPORT_PRO_CACHE_CTRL1_REG, DPORT_PRO_CACHE_MASK_DROM0);
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+	DPORT_REG_CLR_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MASK_DROM0);
+#endif
 }
 
 /* Not supported but common bootloader calls the function. Do nothing */
@@ -91,3 +123,37 @@ void ana_clock_glitch_reset_config(bool enable)
 {
 	(void)enable;
 }
+
+#if defined(CONFIG_ESP_SIMPLE_BOOT)
+#include "soc/rtc.h"
+#include "soc/rtc_cntl_reg.h"
+#include "hal/regi2c_ctrl_ll.h"
+#include "hal/clk_tree_ll.h"
+#include "esp_rom_sys.h"
+#include "esp_rom_serial_output.h"
+
+void bootloader_clock_configure(void)
+{
+	esp_rom_output_tx_wait_idle(0);
+
+	/*
+	 * After a WDT reset, the CPU may still be running from PLL.
+	 * Switch to XTAL so the actual APB frequency matches what we
+	 * store in RTC_APB_FREQ_REG below. Without this, esp_console_init()
+	 * computes a wrong UART baud rate and boot output is garbled.
+	 */
+	if (clk_ll_cpu_get_src() == SOC_CPU_CLK_SRC_PLL) {
+		clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+	}
+
+	regi2c_ctrl_ll_i2c_reset();
+	regi2c_ctrl_ll_i2c_bbpll_enable();
+	regi2c_ctrl_ll_i2c_apll_enable();
+
+	rtc_clk_xtal_freq_update(CONFIG_XTAL_FREQ);
+	rtc_clk_apb_freq_update(CONFIG_XTAL_FREQ * MHZ(1));
+
+	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
+	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+}
+#endif /* CONFIG_ESP_SIMPLE_BOOT */

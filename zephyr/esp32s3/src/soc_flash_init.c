@@ -20,8 +20,19 @@
 #include "esp_rom_gpio.h"
 #include "flash_qio_mode.h"
 
-#include "hal/cache_ll.h"
 #include "hal/cache_hal.h"
+#include "hal/cache_ll.h"
+#include "soc/spi_pins.h"
+#include "soc/soc_caps.h"
+
+/* Legacy SPI pin macro compatibility */
+#define SPI_CLK_GPIO_NUM   MSPI_IOMUX_PIN_NUM_CLK
+#define SPI_Q_GPIO_NUM     MSPI_IOMUX_PIN_NUM_MISO
+#define SPI_D_GPIO_NUM     MSPI_IOMUX_PIN_NUM_MOSI
+#define SPI_CS0_GPIO_NUM   MSPI_IOMUX_PIN_NUM_CS0
+#define SPI_HD_GPIO_NUM    MSPI_IOMUX_PIN_NUM_HD
+#define SPI_WP_GPIO_NUM    MSPI_IOMUX_PIN_NUM_WP
+#define MAX_PAD_GPIO_NUM   SOC_GPIO_PIN_COUNT
 
 #define FLASH_IO_MATRIX_DUMMY_40M       0
 #define FLASH_IO_MATRIX_DUMMY_80M       0
@@ -223,11 +234,11 @@ static void update_flash_config(const esp_image_header_t *bootloader_hdr)
 		size = 2;
 	}
 
-	cache_hal_disable(CACHE_TYPE_ALL);
+	cache_hal_disable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 	/* Set flash chip size */
 	esp_rom_spiflash_config_param(g_rom_flashchip.device_id, size * 0x100000, 0x10000, 0x1000,
 				      0x100, 0xffff);
-	cache_hal_enable(CACHE_TYPE_ALL);
+	cache_hal_enable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 }
 
 int init_spi_flash(void)

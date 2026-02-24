@@ -12,16 +12,6 @@
 #include <esp_attr.h>
 #include <esp_heap_caps.h>
 
-#if (CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0)
-char __aligned(sizeof(void *)) __NOINIT_ATTR dram0_seg_1_heap[CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE];
-STRUCT_SECTION_ITERABLE(k_heap, _internal_heap_1) = {
-    .heap = {
-        .init_mem = dram0_seg_1_heap,
-        .init_bytes = CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE,
-    }
-};
-#endif /* CONFIG_ESP_HEAP_MEM_POOL_REGION_1_SIZE > 0 */
-
 static esp_alloc_failed_hook_t alloc_failed_callback;
 
 esp_err_t heap_caps_register_failed_alloc_callback(esp_alloc_failed_hook_t callback)

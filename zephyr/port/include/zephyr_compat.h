@@ -132,4 +132,11 @@
 #define CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH CONFIG_ESP32_EFUSE_VIRTUAL_KEEP_IN_FLASH
 #endif
 
+/*
+ * ESP-NOW encryption support - default value if not set
+ */
+#ifndef CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM
+#define CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM 7
+#endif
+
 #endif /* ZEPHYR_COMPAT_H */

@@ -3,6 +3,120 @@
 
 if SOC_FAMILY_ESPRESSIF_ESP32
 
+# ESP-IDF platform marker - enables ESP-IDF-specific code paths
+config ESP_PLATFORM
+	bool
+	default y
+
+# Include SoC capabilities from ESP-IDF soc component
+# These define CONFIG_SOC_* options based on hardware capabilities
+if SOC_SERIES_ESP32
+rsource "../components/soc/esp32/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32S2
+rsource "../components/soc/esp32s2/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32S3
+rsource "../components/soc/esp32s3/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32C2
+rsource "../components/soc/esp32c2/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32C3
+rsource "../components/soc/esp32c3/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32C6
+rsource "../components/soc/esp32c6/include/soc/Kconfig.soc_caps.in"
+endif
+
+if SOC_SERIES_ESP32H2
+rsource "../components/soc/esp32h2/include/soc/Kconfig.soc_caps.in"
+endif
+
+# XTAL frequency in Hz from devicetree
+config XTAL_FREQ_HZ
+	int
+	default $(dt_node_int_prop_int,/cpus/cpu@0,xtal-freq)
+
+# XTAL frequency in MHz for ESP-IDF components
+config XTAL_FREQ
+	int
+	default 26 if XTAL_FREQ_HZ = 26000000
+	default 32 if XTAL_FREQ_HZ = 32000000
+	default 40 if XTAL_FREQ_HZ = 40000000
+
+# XTAL frequency selection flags for ESP-IDF
+config XTAL_FREQ_26
+	bool
+	default y if XTAL_FREQ = 26
+
+config XTAL_FREQ_32
+	bool
+	default y if XTAL_FREQ = 32
+
+config XTAL_FREQ_40
+	bool
+	default y if XTAL_FREQ = 40
+
+config BOOTLOADER_OFFSET_IN_FLASH
+	hex
+	default $(dt_node_reg_addr_hex,$(dt_nodelabel_path,boot_partition))
+
+config BOOTLOADER_CPU_CLK_FREQ_MHZ
+	int
+	default 120 if SOC_SERIES_ESP32C2
+	default 160 if SOC_SERIES_ESP32C6
+	default 96 if SOC_SERIES_ESP32H2
+	default 80
+
+config ESP_SYSTEM_RTC_EXT_XTAL_BOOTSTRAP_CYCLES
+	int "Bootstrap cycles for external 32kHz crystal"
+	depends on CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS
+	default 5 if SOC_SERIES_ESP32
+	default 0
+	range 0 32768
+	help
+	  To reduce the startup time of an external RTC crystal,
+	  we bootstrap it with a 32kHz square wave for a fixed number of cycles.
+	  Setting 0 will disable bootstrapping (if disabled, the crystal may take
+	  longer to start up or fail to oscillate under some conditions).
+
+	  If this value is too high, a faulty crystal may initially start and then fail.
+	  If this value is too low, an otherwise good crystal may not start.
+
+	  To accurately determine if the crystal has started,
+	  set a larger "Number of cycles for RTC_SLOW_CLK calibration" (about 3000).
+
+# CPU frequency in MHz derived from devicetree clock-frequency property
+config ESP_DEFAULT_CPU_FREQ_MHZ
+	int
+	default 96 if ESP_CLK_FREQ_HZ = 96000000
+	default 120 if ESP_CLK_FREQ_HZ = 120000000
+	default 160 if ESP_CLK_FREQ_HZ = 160000000
+	default 240 if ESP_CLK_FREQ_HZ = 240000000
+
+# CPU clock frequency in Hz from devicetree
+config ESP_CLK_FREQ_HZ
+	int
+	default $(dt_node_int_prop_int,/cpus/cpu@0,clock-frequency)
+
+# Console serial port number for ESP-IDF ROM functions
+config ESP_CONSOLE_ROM_SERIAL_PORT_NUM
+	int
+	default ESP_CONSOLE_UART_NUM
+
+# ESP timer interrupt level (only ESP32 supports 1-3, others only 1)
+config ESP_TIMER_INTERRUPT_LEVEL
+	int
+	default 1
+	range 1 3 if SOC_SERIES_ESP32
+	range 1 1
+
 config BOOTLOADER_LOG_LEVEL
 	int
 	default 3
@@ -15,13 +129,38 @@ config ESP32_DPORT_DIS_INTERRUPT_LVL
 	int
 	default 5 if SOC_SERIES_ESP32 || SOC_SERIES_ESP32S3
 
-config FREERTOS_UNICORE
+config ESP_SYSTEM_SINGLE_CORE_MODE
 	bool
 	default y if !SMP
 
-config ESP_SYSTEM_SINGLE_CORE_MODE
+config IDF_TARGET_ARCH_RISCV
+	bool
+	default y if RISCV
+
+config IDF_TARGET_ARCH_XTENSA
+	bool
+	default y if XTENSA
+
+config SPI_FLASH_PLACE_FUNCTIONS_IN_IRAM
+	bool
+	default y
+
+config ESP_SYSTEM_CHECK_INT_LEVEL_4
 	bool
 	default y if SOC_SERIES_ESP32
+
+config ESP_PHY_ENABLED
+	bool
+	default y if (SOC_PHY_SUPPORTED)
+
+config SOC_XTAL_FREQ_MHZ
+	int
+	default XTAL_FREQ if SOC_SERIES_ESP32C2
+
+# FreeRTOS compatibility: number of processors
+config portNUM_PROCESSORS
+	int
+	default SOC_CPU_CORES_NUM
 
 config IDF_FIRMWARE_CHIP_ID
 	hex
@@ -31,7 +170,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x000C if SOC_SERIES_ESP32C2
 	default 0x0005 if SOC_SERIES_ESP32C3
 	default 0x000D if SOC_SERIES_ESP32C6
-	default 0x0010 if IDF_TARGET_ESP32H2
+	default 0x0010 if SOC_SERIES_ESP32H2
 
 config SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY
 	bool
@@ -81,7 +220,7 @@ config ESP_TIMER_IMPL_TG0_LAC
 config ESP_TIMER_IMPL_SYSTIMER
 	bool
 	default y
-	depends on !IDF_TARGET_ESP32
+	depends on !SOC_SERIES_ESP32
 
 menu "Wi-Fi config"
 
@@ -114,7 +253,7 @@ menu "Sleep config"
 
 config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
 	int "Extra delay (in us) after flash powerdown sleep wakeup to wait flash ready"
-	default 2000 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32S3
+	default 2000 if SOC_SERIES_ESP32 || SOC_SERIES_ESP32S3
 	default 0
 	range 0 5000
 	help
