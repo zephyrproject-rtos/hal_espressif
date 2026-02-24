@@ -15,23 +15,6 @@
 extern "C" {
 #endif
 
-/** \defgroup WiFi_APIs WiFi Related APIs
-  * @brief WiFi APIs
-  */
-
-/** @addtogroup WiFi_APIs
-  * @{
-  */
-
-/** \defgroup ESPNOW_APIs  ESPNOW APIs
-  * @brief ESP32 ESPNOW APIs
-  *
-  */
-
-/** @addtogroup ESPNOW_APIs
-  * @{
-  */
-
 #define ESP_ERR_ESPNOW_BASE         (ESP_ERR_WIFI_BASE + 100) /*!< ESPNOW error number base. */
 #define ESP_ERR_ESPNOW_NOT_INIT     (ESP_ERR_ESPNOW_BASE + 1) /*!< ESPNOW is not initialized. */
 #define ESP_ERR_ESPNOW_ARG          (ESP_ERR_ESPNOW_BASE + 2) /*!< Invalid argument */
@@ -41,6 +24,7 @@ extern "C" {
 #define ESP_ERR_ESPNOW_INTERNAL     (ESP_ERR_ESPNOW_BASE + 6) /*!< Internal error */
 #define ESP_ERR_ESPNOW_EXIST        (ESP_ERR_ESPNOW_BASE + 7) /*!< ESPNOW peer has existed */
 #define ESP_ERR_ESPNOW_IF           (ESP_ERR_ESPNOW_BASE + 8) /*!< Interface error */
+#define ESP_ERR_ESPNOW_CHAN         (ESP_ERR_ESPNOW_BASE + 9) /*!< Channel error */
 
 #define ESP_NOW_ETH_ALEN             6         /*!< Length of ESPNOW peer MAC address */
 #define ESP_NOW_KEY_LEN              16        /*!< Length of ESPNOW peer local master key */
@@ -50,13 +34,14 @@ extern "C" {
 
 #define ESP_NOW_MAX_IE_DATA_LEN      250       /**< Maximum data length in a vendor-specific element */
 #define ESP_NOW_MAX_DATA_LEN  ESP_NOW_MAX_IE_DATA_LEN   /**< Maximum length of data sent in each ESPNOW transmission for v1.0 */
+#define ESP_NOW_MAX_DATA_LEN_V2      1470      /**< Maximum length of data sent in each ESPNOW transmission for v2.0 */
 
 /**
  * @brief Status of sending ESPNOW data .
  */
 typedef enum {
-    ESP_NOW_SEND_SUCCESS = 0,       /**< Send ESPNOW data successfully */
-    ESP_NOW_SEND_FAIL,              /**< Send ESPNOW data fail */
+    ESP_NOW_SEND_SUCCESS = WIFI_SEND_SUCCESS,       /**< Send ESPNOW data successfully */
+    ESP_NOW_SEND_FAIL = WIFI_SEND_FAIL,             /**< Send ESPNOW data fail */
 } esp_now_send_status_t;
 
 /**
@@ -82,7 +67,7 @@ typedef struct esp_now_peer_num {
 } esp_now_peer_num_t;
 
 /**
- * @brief ESPNOW packet information
+ * @brief ESPNOW receive packet information
  */
 typedef struct esp_now_recv_info {
     uint8_t * src_addr;                      /**< Source address of ESPNOW packet */
@@ -91,9 +76,39 @@ typedef struct esp_now_recv_info {
 } esp_now_recv_info_t;
 
 /**
+ * @brief ESPNOW sending packet information
+ */
+typedef wifi_tx_info_t esp_now_send_info_t;
+
+/**
  * @brief ESPNOW rate config
  */
 typedef wifi_tx_rate_config_t esp_now_rate_config_t;
+
+/**
+ * @brief ESPNOW switch channel information
+ */
+typedef struct {
+    wifi_action_tx_t type;          /**< ACTION TX operation type */
+    uint8_t channel;                /**< Channel on which to perform ESPNOW TX Operation */
+    wifi_second_chan_t sec_channel; /**< Secondary channel */
+    uint32_t wait_time_ms;          /**< Duration to wait for on target channel */
+    uint8_t op_id;                  /**< Unique Identifier for operation provided by wifi driver */
+    uint8_t dest_mac[6];            /**< Destination MAC address */
+    uint16_t data_len;              /**< Length of the appended Data */
+    uint8_t data[0];                /**< Appended Data payload */
+} esp_now_switch_channel_t;
+
+/**
+ * @brief ESPNOW remain on channel information
+ */
+typedef struct {
+    wifi_roc_t type;                 /**< ROC operation type */
+    uint8_t channel;                 /**< Channel on which to perform ESPNOW ROC Operation */
+    wifi_second_chan_t sec_channel;  /**< Secondary channel */
+    uint32_t wait_time_ms;           /**< Duration to wait for on target channel */
+    uint8_t op_id;                   /**< ID of this specific ROC operation provided by wifi driver */
+} esp_now_remain_on_channel_t;
 
 /**
   * @brief     Callback function of receiving ESPNOW data
@@ -106,10 +121,10 @@ typedef void (*esp_now_recv_cb_t)(const esp_now_recv_info_t * esp_now_info, cons
 
 /**
   * @brief     Callback function of sending ESPNOW data
-  * @param     mac_addr peer MAC address
-  * @param     status status of sending ESPNOW data (succeed or fail)
+  * @param     tx_info Sending information for ESPNOW data
+  * @param     status status of sending ESPNOW data (succeed or fail). This is will be removed later, since the tx_info->tx_status also works.
   */
-typedef void (*esp_now_send_cb_t)(const uint8_t *mac_addr, esp_now_send_status_t status);
+typedef void (*esp_now_send_cb_t)(const esp_now_send_info_t *tx_info, esp_now_send_status_t status);
 
 /**
   * @brief     Initialize ESPNOW function
@@ -129,10 +144,12 @@ esp_err_t esp_now_init(void);
 esp_err_t esp_now_deinit(void);
 
 /**
-  * @brief     Get the version of ESPNOW. Currently, ESPNOW supports one version: v1.0.
+  * @brief     Get the version of ESPNOW. Currently, ESPNOW supports two versions: v1.0 and v2.0.
   *
-  *            The v1.0 devices can receive packets if the packet length is less than or equal to ESP_NOW_MAX_IE_DATA_LEN.
-  *            For packets exceeding this length, the v1.0 devices will discard the packet entirely.
+  *            The v2.0 devices are capable of receiving packets from both v2.0 and v1.0 devices. In contrast, v1.0 devices can only receive packets from other v1.0 devices.
+  *            However, v1.0 devices can receive v2.0 packets if the packet length is less than or equal to ESP_NOW_MAX_IE_DATA_LEN.
+  *            For packets exceeding this length, the v1.0 devices will either truncate the data to the first ESP_NOW_MAX_IE_DATA_LEN bytes or discard the packet entirely.
+  *            For detailed behavior, please refer to the documentation corresponding to the specific IDF version.
   *
   * @param     version  ESPNOW version
   *
@@ -203,7 +220,8 @@ esp_err_t esp_now_unregister_send_cb(void);
   *          - ESP_ERR_ESPNOW_INTERNAL : internal error
   *          - ESP_ERR_ESPNOW_NO_MEM : out of memory, when this happens, you can delay a while before sending the next data
   *          - ESP_ERR_ESPNOW_NOT_FOUND : peer is not found
-  *          - ESP_ERR_ESPNOW_IF : current WiFi interface doesn't match that of peer
+  *          - ESP_ERR_ESPNOW_IF : current Wi-Fi interface doesn't match that of peer
+  *          - ESP_ERR_ESPNOW_CHAN: current Wi-Fi channel doesn't match that of peer
   */
 esp_err_t esp_now_send(const uint8_t *peer_addr, const uint8_t *data, size_t len);
 
@@ -247,25 +265,6 @@ esp_err_t esp_now_del_peer(const uint8_t *peer_addr);
   *          - ESP_ERR_ESPNOW_FULL : peer list is full
   */
 esp_err_t esp_now_mod_peer(const esp_now_peer_info_t *peer);
-
-/**
-  * @brief      Config ESPNOW rate of specified interface
-  *
-  * @deprecated please use esp_now_set_peer_rate_config() instead.
-  *
-  * @attention  1. This API should be called after esp_wifi_start().
-  * @attention  2. This API only work when not use Wi-Fi 6 and esp_now_set_peer_rate_config() not called.
-  *
-  * @param      ifx  Interface to be configured.
-  * @param      rate Phy rate to be configured.
-  *
-  * @return
-  *    - ESP_OK: succeed
-  *    - others: failed
-  */
-esp_err_t esp_wifi_config_espnow_rate(wifi_interface_t ifx, wifi_phy_rate_t rate)
-      __attribute__((deprecated("This API can be only used when rate is non-HE rate, \
-                                please use esp_now_set_peer_rate_config if you want full support of the rate.")));
 
 /**
   * @brief      Set ESPNOW rate config for each peer
@@ -364,12 +363,51 @@ esp_err_t esp_now_set_pmk(const uint8_t *pmk);
 esp_err_t esp_now_set_wake_window(uint16_t window);
 
 /**
-  * @}
+  * @brief     Set the OUI (Organization Identifier) in the vendor-specific element for ESPNOW.
+  *
+  * @param     oui  The oui should occupy 3 bytes. If the oui is NULL, then use the default value (0x18fe34).
+  *
+  * @return
+  *          - ESP_OK : succeed
   */
+esp_err_t esp_now_set_user_oui(uint8_t *oui);
 
 /**
-  * @}
+  * @brief     Get the OUI (Organization Identifier) in the vendor-specific element for ESPNOW.
+  *
+  * @param     oui  user configured OUI.
+  *
+  * @return
+  *          - ESP_OK : succeed
+  *          - ESP_ERR_ESPNOW_ARG : invalid argument
   */
+esp_err_t esp_now_get_user_oui(uint8_t *oui);
+
+/**
+  * @brief     ESPNOW switch to a specific channel for a required duration, and send one ESPNOW data.
+  *
+  * @param     config  ESPNOW switch channel relevant information
+  *
+  * @return
+  *          - ESP_OK : succeed
+  *          - ESP_ERR_NO_MEM: failed to allocate memory
+  *          - ESP_ERR_INVALID_ARG: the <channel, sec_channel> pair is invalid
+  *          - ESP_FAIL: failed to send frame
+  */
+esp_err_t esp_now_switch_channel_tx(esp_now_switch_channel_t *config);
+
+/**
+  * @brief     ESPNOW remain on the target channel for required duration.
+  *
+  * @param     config  ESPNOW remain on channel relevant information
+  *
+  * @return
+  *          - ESP_OK : succeed
+  *          - ESP_ERR_NO_MEM: failed to allocate memory
+  *          - ESP_ERR_INVALID_ARG: the <channel, sec_channel> pair is invalid
+  *          - ESP_FAIL: failed to perform roc operation
+  */
+esp_err_t esp_now_remain_on_channel(esp_now_remain_on_channel_t *config);
 
 #ifdef __cplusplus
 }

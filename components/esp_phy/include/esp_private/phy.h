@@ -7,24 +7,21 @@
 #pragma once
 #include "sdkconfig.h"
 #include "esp_phy_init.h"
+#include "soc/soc_caps.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define ESP_CAL_DATA_CHECK_FAIL 1
-
-typedef enum {
-    PHY_I2C_MST_CMD_TYPE_OFF = 0,
-    PHY_I2C_MST_CMD_TYPE_ON,
-    PHY_I2C_MST_CMD_TYPE_MAX
-} phy_i2c_master_command_type_t;
+#define ESP_MODEM_RF_FLAG_UPDATE_CB_REQUIRED (SOC_PM_MODEM_RF_FLAG_UPDATE_WORKAROUND || CONFIG_ESP_WIFI_MODEM_RF_FLAG_UPDATE_DEBUG)
 
 typedef struct {
+    uint8_t cmd_type;   /* the command type of the current phy i2c master command memory config */
     struct {
         uint8_t start, end; /* the start and end index of phy i2c master command memory */
         uint8_t host_id;    /* phy i2c master host id */
-    } config[PHY_I2C_MST_CMD_TYPE_MAX];
+    } config;
 } phy_i2c_master_command_attribute_t;
 
 /**
@@ -89,13 +86,14 @@ void phy_xpd_tsens(void);
 void phy_init_flag(void);
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32C6
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE
 /**
  * @brief Get the configuration info of PHY i2c master command memory.
  *
- * @param   attr the configuration info of PHY i2c master command memory
+ * @param[out] attr  the configuration info of PHY i2c master command memory
+ * @param[out] size  the count of PHY i2c master command memory configuration
  */
-void phy_i2c_master_mem_cfg(phy_i2c_master_command_attribute_t *attr);
+void phy_i2c_master_command_mem_cfg(phy_i2c_master_command_attribute_t *attr, int *size);
 #endif
 
 /**
@@ -134,7 +132,7 @@ void phy_eco_version_sel(uint8_t chip_ver);
  * @brief Improve Wi-Fi receive 11b pkts when modules with high interference.
  *
  * @attention 1.This is a workaround to improve Wi-Fi receive 11b pkts for some modules using AC-DC power supply with high interference.
- * @attention 2.Enable this will sacrifice Wi-Fi OFDM receive performance. But to guarantee 11b receive performance serves as a bottom line in this case.
+ * @attention 2.Enable this will sacrifice Wi-Fi OFDM receive performance.But to guarantee 11b receive performance serves as a bottom line in this case.
  *
  * @param     enable  Enable or disable.
  */
@@ -182,6 +180,60 @@ struct k_mutex *phy_get_lock(void);
  */
 void phy_track_pll(void);
 
+/**
+ * @brief PHY antenna default configuration
+ *
+ */
+void ant_dft_cfg(bool default_ant);
+
+/**
+ * @brief PHY tx antenna config
+ *
+ */
+void ant_tx_cfg(uint8_t ant0);
+
+/**
+ * @brief PHY rx antenna config
+ *
+ */
+void ant_rx_cfg(bool auto_en, uint8_t ant0, uint8_t ant1);
+
+/**
+ * @brief PHY antenna need update
+ *
+ */
+bool phy_ant_need_update(void);
+
+/**
+ * @brief PHY antenna need update
+ *
+ */
+void phy_ant_clr_update_flag(void);
+
+/**
+ * @brief PHY antenna configuration update
+ *
+ */
+void phy_ant_update(void);
+
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE
+/**
+ * @brief Get the REGDMA config value of the BBPLL in analog i2c master burst mode
+ *
+ * @return  the BBPLL REGDMA configure value of i2c master burst mode
+ */
+uint32_t phy_ana_i2c_master_burst_bbpll_config(void);
+
+/**
+ * @brief Get the REGDMA config value of the RF PHY on or off in analog i2c master burst mode
+ *
+ * @param[in] on true for enable RF PHY, false for disable RF PHY.
+ *
+ * @return  the RF on or off configure value of i2c master burst mode
+ */
+uint32_t phy_ana_i2c_master_burst_rf_onoff(bool on);
+#endif
+
 #if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 /**
  * @brief On sleep->modem->active wakeup process, since RF has been turned on by hardware in
@@ -191,6 +243,29 @@ void phy_track_pll(void);
  */
 void phy_wakeup_from_modem_state_extra_init(void);
 #endif
+
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP && ESP_MODEM_RF_FLAG_UPDATE_CB_REQUIRED
+/**
+ * @brief Update modem RF flag
+ *
+ * This function is called as a callback during MAC/BB power down operations.
+ * It checks if modem RF is already enabled and clears the RF power state accordingly.
+ */
+void esp_phy_modem_rf_flag_update(void);
+#endif
+
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_MAC_BB_PD
+/**
+ * @brief PHY module sleep data (includes AGC, TX, NRX, BB, FE, etc..) initialize.
+ */
+void esp_phy_sleep_data_init(void);
+
+/**
+ * @brief PHY module sleep data de-initialize.
+ */
+void esp_phy_sleep_data_deinit(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,6 +7,9 @@
 #include <stdint.h>
 #include "../curve_fitting_coefficients.h"
 
+#define COEFF_GROUP_NUM    4
+#define TERM_MAX           5
+
 /**
  * @note Error Calculation
  * Coefficients for calculating the reading voltage error.
@@ -21,26 +24,26 @@
  * @note ADC1 and ADC2 use same coefficients
  */
 const static uint64_t adc1_error_coef_atten[COEFF_GROUP_NUM][TERM_MAX][2] = {
-                                                {{225966470500043, 1e15}, {7265418501948, 1e16}, {109410402681, 1e16}, {0, 0}, {0, 0}},                         //atten0
-                                                {{4229623392600516, 1e16}, {731527490903, 1e16}, {88166562521, 1e16}, {0, 0}, {0, 0}},                          //atten1
-                                                {{1017859239236435, 1e15}, {97159265299153, 1e16}, {149794028038, 1e16}, {0, 0}, {0, 0}},                       //atten2
-                                                {{14912262772850453, 1e16}, {228549975564099, 1e16}, {356391935717, 1e16}, {179964582, 1e16}, {42046, 1e16}}    //atten3
-                                                };
+    {{225966470500043, 1e15}, {7265418501948, 1e16}, {109410402681, 1e16}, {0, 0}, {0, 0}},                         //atten0
+    {{4229623392600516, 1e16}, {731527490903, 1e16}, {88166562521, 1e16}, {0, 0}, {0, 0}},                          //atten1
+    {{1017859239236435, 1e15}, {97159265299153, 1e16}, {149794028038, 1e16}, {0, 0}, {0, 0}},                       //atten2
+    {{14912262772850453, 1e16}, {228549975564099, 1e16}, {356391935717, 1e16}, {179964582, 1e16}, {42046, 1e16}}    //atten3
+};
 /**
  * Term sign
  */
 const static int32_t adc1_error_sign[COEFF_GROUP_NUM][TERM_MAX] = {
-                                        {-1, -1, 1,  0,  0}, //atten0
-                                        { 1, -1, 1,  0,  0}, //atten1
-                                        {-1, -1, 1,  0,  0}, //atten2
-                                        {-1, -1, 1, -1,  1}  //atten3
-                                    };
+    {-1, -1, 1,  0,  0}, //atten0
+    { 1, -1, 1,  0,  0}, //atten1
+    {-1, -1, 1,  0,  0}, //atten2
+    {-1, -1, 1, -1,  1}  //atten3
+};
 
 void curve_fitting_get_second_step_coeff(const adc_cali_curve_fitting_config_t *config, cali_chars_second_step_t *ctx)
 {
     ctx->term_num = (config->atten == 3) ? 5 : 3;
     // On esp32c3, ADC1 and ADC2 share the second step coefficients
     // And if the target only has 1 ADC peripheral, just use the ADC1 directly
-    ctx->coeff = &adc1_error_coef_atten;
-    ctx->sign = &adc1_error_sign;
+    ctx->coeff = adc1_error_coef_atten[config->atten];
+    ctx->sign = adc1_error_sign[config->atten];
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,6 +17,7 @@
 #include "hal/memprot_types.h"
 #include "esp_private/esp_memprot_internal.h"
 #include "esp_memprot.h"
+#include <inttypes.h>
 
 /*
  * LD section boundaries
@@ -899,7 +900,7 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
     if (memp_config->mem_type_mask == MEMPROT_TYPE_NONE) {
         return ESP_ERR_NO_MEM;
     }
-    if (memp_config->target_cpu_count < 1 || memp_config->target_cpu_count > portNUM_PROCESSORS) {
+    if (memp_config->target_cpu_count < 1 || memp_config->target_cpu_count > CONFIG_FREERTOS_NUMBER_OF_CORES) {
         return ESP_ERR_MEMPROT_CPUID_INVALID;
     }
 
@@ -996,7 +997,7 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
         }
     }
 
-    //reenable the protection
+    //re-enable the protection
     if (use_iram0) {
         for (size_t x = 0; x < core_count; x++) {
             ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_monitor_clear_intr(MEMPROT_TYPE_IRAM0_SRAM, memp_config->target_cpu[x]))
@@ -1042,7 +1043,6 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
         }
     }
 
-    //sanity check (RTC FAST tbd within IDF-5208)
     if (use_iram0 || use_dram0) {
 
         uint32_t check_val;
@@ -1052,19 +1052,19 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
 
         if (memprot_ll_get_iram0_split_line_main_I_D_regval() != check_val) {
             esp_rom_printf(
-                "Fatal error: Main I/D split line configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
+                "Fatal error: Main I/D split line configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
                 check_val, memprot_ll_get_iram0_split_line_main_I_D_regval());
             abort();
         }
         if (memprot_ll_get_iram0_split_line_main_I_0_regval() != check_val) {
             esp_rom_printf(
-                "Fatal error: IRAM0 I_0 split line configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
+                "Fatal error: IRAM0 I_0 split line configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
                 check_val, memprot_ll_get_iram0_split_line_main_I_0_regval());
             abort();
         }
         if (memprot_ll_get_iram0_split_line_main_I_1_regval() != check_val) {
             esp_rom_printf(
-                "Fatal error: IRAM0 I_1 split line configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
+                "Fatal error: IRAM0 I_1 split line configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
                 check_val, memprot_ll_get_iram0_split_line_main_I_1_regval());
             abort();
         }
@@ -1074,13 +1074,13 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
 
         if (memprot_ll_get_dram0_split_line_main_D_0_regval() != check_val) {
             esp_rom_printf(
-                "Fatal error: DRAM0 D_0 split line configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
+                "Fatal error: DRAM0 D_0 split line configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
                 check_val, memprot_ll_get_dram0_split_line_main_D_0_regval());
             abort();
         }
         if (memprot_ll_get_dram0_split_line_main_D_1_regval() != check_val) {
             esp_rom_printf(
-                "Fatal error: DRAM0 D_1 split line configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
+                "Fatal error: DRAM0 D_1 split line configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
                 check_val, memprot_ll_get_dram0_split_line_main_D_1_regval());
             abort();
         }
@@ -1088,58 +1088,58 @@ esp_err_t esp_mprot_set_prot(const esp_memp_config_t *memp_config)
         //IRAM0 perms
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_IRAM0_0, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_EXEC)) {
-            esp_rom_printf("Fatal error: IRAM0 PMS AREA_0 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
+            esp_rom_printf("Fatal error: IRAM0 PMS AREA_0 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_IRAM0_1, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_EXEC)) {
-            esp_rom_printf("Fatal error: IRAM0 PMS AREA_1 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
+            esp_rom_printf("Fatal error: IRAM0 PMS AREA_1 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_IRAM0_2, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_EXEC)) {
-            esp_rom_printf("Fatal error: IRAM0 PMS AREA_2 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
+            esp_rom_printf("Fatal error: IRAM0 PMS AREA_2 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_EXEC, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_IRAM0_3, &check_val, DEFAULT_CPU_NUM))
         if (check_val != MEMPROT_OP_NONE) {
-            esp_rom_printf("Fatal error: IRAM0 PMS AREA_3 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_NONE, check_val);
+            esp_rom_printf("Fatal error: IRAM0 PMS AREA_3 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                          (uint32_t) MEMPROT_OP_NONE, check_val);
             abort();
         }
 
         //DRAM0 perms
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_DRAM0_0, &check_val, DEFAULT_CPU_NUM))
         if (check_val != MEMPROT_OP_READ) {
-            esp_rom_printf("Fatal error: DRAM0 PMS AREA_0 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ, check_val);
+            esp_rom_printf("Fatal error: DRAM0 PMS AREA_0 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_DRAM0_1, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_WRITE)) {
-            esp_rom_printf("Fatal error: DRAM0 PMS AREA_1 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
+            esp_rom_printf("Fatal error: DRAM0 PMS AREA_1 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_DRAM0_2, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_WRITE)) {
-            esp_rom_printf("Fatal error: DRAM0 PMS AREA_2 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
+            esp_rom_printf("Fatal error: DRAM0 PMS AREA_2 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
             abort();
         }
 
         ESP_MEMPROT_ERR_CHECK(ret, esp_mprot_get_pms_area(MEMPROT_PMS_AREA_DRAM0_3, &check_val, DEFAULT_CPU_NUM))
         if (check_val != (MEMPROT_OP_READ | MEMPROT_OP_WRITE)) {
-            esp_rom_printf("Fatal error: DRAM0 PMS AREA_3 configuration corrupted (expected 0x%08X, stored 0x%08X)\n",
-                           MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
+            esp_rom_printf("Fatal error: DRAM0 PMS AREA_3 configuration corrupted (expected 0x%08" PRIX32 ", stored 0x%08" PRIX32 ")\n",
+                           (uint32_t)MEMPROT_OP_READ | MEMPROT_OP_WRITE, check_val);
             abort();
         }
 
@@ -1251,7 +1251,7 @@ esp_err_t esp_mprot_dump_configuration(char **dump_info_string)
 
     sprintf(*dump_info_string,
             "Memory sections:\n"
-            " _iram_text_start: 0x%08X\n _iram_text_end: 0x%08X\n",
+            " _iram_text_start: 0x%08"PRIX32"\n _iram_text_end: 0x%08"PRIX32"\n",
             (uint32_t)&_iram_text_start, (uint32_t)&_iram_text_end);
 
     uint32_t offset = strlen(*dump_info_string);
@@ -1270,8 +1270,8 @@ esp_err_t esp_mprot_dump_configuration(char **dump_info_string)
 
     sprintf((*dump_info_string + offset),
             "Split line settings (lock=%u):\n"
-            " IRAM0:\n   line ID (main): 0x%08X (cat=0x%08X)\n   line I0: 0x%08X (cat=0x%08X)\n   line I1: 0x%08X (cat=0x%08X)\n"
-            " DRAM0:\n   line D0: 0x%08X (cat=0x%08X)\n   line D1: 0x%08X (cat=0x%08X)\n",
+            " IRAM0:\n   line ID (main): 0x%08"PRIX32" (cat=0x%08"PRIX32")\n   line I0: 0x%08"PRIX32" (cat=0x%08"PRIX32")\n   line I1: 0x%08"PRIX32" (cat=0x%08"PRIX32")\n"
+            " DRAM0:\n   line D0: 0x%08"PRIX32" (cat=0x%08"PRIX32")\n   line D1: 0x%08"PRIX32" (cat=0x%08"PRIX32")\n",
             line_lock, line_ID, line_ID_cat, line_I0, line_I0_cat, line_I1, line_I1_cat, line_D0, line_D0_cat, line_D1, line_D1_cat);
 
     offset = strlen(*dump_info_string);
@@ -1281,7 +1281,7 @@ esp_err_t esp_mprot_dump_configuration(char **dump_info_string)
     if (err != ESP_OK) {
         sprintf((*dump_info_string + offset), " RTCFAST:\n   line main: N/A (world=0) - %s\n", esp_err_to_name(err));
     } else {
-        sprintf((*dump_info_string + offset), " RTCFAST:\n   line main: 0x%08X (world=0)\n", (uint32_t)line_RTC);
+        sprintf((*dump_info_string + offset), " RTCFAST:\n   line main: 0x%08"PRIX32" (world=0)\n", (uint32_t)line_RTC);
     }
     offset = strlen(*dump_info_string);
 

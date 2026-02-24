@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -35,7 +35,6 @@ void esp_rtc_init(void);
  * performs RTC slow clock calibration.
  */
 void esp_clk_init(void);
-
 
 /**
  * @brief Disables clock of some peripherals

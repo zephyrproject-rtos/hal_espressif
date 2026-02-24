@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+#include "sdkconfig.h"
+
 /**
  * @brief Print from the LP core
  *

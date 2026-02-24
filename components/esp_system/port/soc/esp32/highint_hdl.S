@@ -8,7 +8,7 @@
 #include <xtensa/coreasm.h>
 #include <xtensa/corebits.h>
 #include <xtensa/config/system.h>
-#include "freertos/xtensa_context.h"
+#include "xtensa_context.h"
 #include "freertos/xtensa_rtos.h"
 #include "esp_private/panic_reason.h"
 #include "sdkconfig.h"
@@ -32,8 +32,8 @@ Interrupt , a high-priority interrupt, is used for several things:
 #define LX_INTR_A2_OFFSET   0
 #define LX_INTR_A3_OFFSET   4
 #define LX_INTR_A4_OFFSET   8
-#define EPC_X               EPC_5
-#define EXCSAVE_X           EXCSAVE_5
+#define XT_REG_EPC_X        XT_REG_EPC_5
+#define XT_REG_EXCSAVE_X    XT_REG_EXCSAVE_5
 #define RFI_X               5
 #define xt_highintx         xt_highint5
 
@@ -43,8 +43,8 @@ Interrupt , a high-priority interrupt, is used for several things:
 #define LX_INTR_A2_OFFSET   0
 #define LX_INTR_A3_OFFSET   4
 #define LX_INTR_A4_OFFSET   8
-#define EPC_X               EPC_4
-#define EXCSAVE_X           EXCSAVE_4
+#define XT_REG_EPC_X        XT_REG_EPC_4
+#define XT_REG_EXCSAVE_X    XT_REG_EXCSAVE_4
 #define RFI_X               4
 #define xt_highintx         xt_highint4
 
@@ -70,6 +70,8 @@ Interrupt , a high-priority interrupt, is used for several things:
 #define TIMG1_WDT_STG1_HOLD_OFFSET          TIMG1_REG_OFFSET(TIMG_WDTCONFIG3_REG(1))
 #define TIMG1_WDT_FEED_OFFSET               TIMG1_REG_OFFSET(TIMG_WDTFEED_REG(1))
 #define UART0_DATA_REG                      (0x3FF40078)
+#define TIMG_WDT_WKEY_VALUE                 0x50D83AA1
+#define ETS_TG1_WDT_LEVEL_INTR_SOURCE       20
 
     .macro wdt_clr_intr_status  dev
     movi    a2, \dev
@@ -112,7 +114,7 @@ Interrupt , a high-priority interrupt, is used for several things:
     .endm
 
     .macro get_int_status_tg1wdt reg
-    rsr     \reg, INTERRUPT
+    rsr     \reg, XT_REG_INTERRUPT
     extui   \reg, \reg, ETS_T1_WDT_CACHEERR_INUM, 1
     beqz    \reg, 99f        /* not ETS_T1_WDT_INUM or ETS_CACHEERR_INUM */
 
@@ -137,7 +139,7 @@ Interrupt , a high-priority interrupt, is used for several things:
 
     .data
 _lx_intr_stack:
-    .space      LX_INTR_STACK_SIZE*portNUM_PROCESSORS /* This allocates stacks for each individual CPU. */
+    .space      LX_INTR_STACK_SIZE*CONFIG_FREERTOS_NUMBER_OF_CORES /* This allocates stacks for each individual CPU. */
 
 #if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX && CONFIG_ESP_INT_WDT
     .global _lx_intr_livelock_counter
@@ -161,9 +163,9 @@ _lx_intr_livelock_pro:
     .align      4
 xt_highintx:
 
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifndef CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     /* See if we're here for the IPC_ISR interrupt */
-    rsr     a0, INTERRUPT
+    rsr     a0, XT_REG_INTERRUPT
     extui   a0, a0, ETS_IPC_ISR_INUM, 1
     beqz    a0, 1f
     /* Jump to `esp_ipc_isr_handler` which is non-returning. We need to use `jx`
@@ -174,16 +176,16 @@ xt_highintx:
     movi    a0, esp_ipc_isr_handler
     jx      a0
 1:
-#endif /* not CONFIG_FREERTOS_UNICORE */
+#endif /* not CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE */
 
 #if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX && CONFIG_ESP_INT_WDT
 
 #if CONFIG_BTDM_CTRL_HLI
     /* Timer 2 interrupt */
-    rsr     a0, INTENABLE
+    rsr     a0, XT_REG_INTENABLE
     extui   a0, a0, 16, 1
     beqz    a0, 1f
-    rsr     a0, INTERRUPT
+    rsr     a0, XT_REG_INTERRUPT
     extui   a0, a0, 16, 1
     bnez    a0, .handle_multicore_debug_int
 1:
@@ -217,11 +219,11 @@ xt_highintx:
     #if XCHAL_HAVE_WINDOWED
     s32e    a0, sp, -12                     /* for debug backtrace */
     #endif
-    rsr     a0, PS                          /* save interruptee's PS */
+    rsr     a0, XT_REG_PS                   /* save interruptee's PS */
     s32i    a0, sp, XT_STK_PS
-    rsr     a0, EPC_X                       /* save interruptee's PC */
+    rsr     a0, XT_REG_EPC_X                /* save interruptee's PC */
     s32i    a0, sp, XT_STK_PC
-    rsr     a0, EXCSAVE_X                   /* save interruptee's a0 */
+    rsr     a0, XT_REG_EXCSAVE_X            /* save interruptee's a0 */
     s32i    a0, sp, XT_STK_A0
     #if XCHAL_HAVE_WINDOWED
     s32e    a0, sp, -16                     /* for debug backtrace */
@@ -231,7 +233,7 @@ xt_highintx:
     call0   _xt_context_save
 
     /* Save vaddr into exception frame */
-    rsr     a0, EXCVADDR
+    rsr     a0, XT_REG_EXCVADDR
     s32i    a0, sp, XT_STK_EXCVADDR
 
     /* Figure out reason, save into EXCCAUSE reg */
@@ -247,10 +249,10 @@ xt_highintx:
 #endif /* CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5 */
 
     /* Kill this interrupt; we cannot reset it. */
-    rsr     a0, INTENABLE
+    rsr     a0, XT_REG_INTENABLE
     movi    a4, ~(1<<ETS_MEMACCESS_ERR_INUM)
     and     a0, a4, a0
-    wsr     a0, INTENABLE
+    wsr     a0, XT_REG_INTENABLE
     movi    a0, PANIC_RSN_CACHEERR
     j 9f
 1:
@@ -276,7 +278,7 @@ xt_highintx:
 
     /* Set up PS for C, disable all interrupts except NMI and debug, and clear EXCM. */
     movi    a0, PS_INTLEVEL(5) | PS_UM | PS_WOE
-    wsr     a0, PS
+    wsr     a0, XT_REG_PS
 
     /* Call panic handler */
     mov     a6,sp
@@ -284,14 +286,14 @@ xt_highintx:
 
     call0   _xt_context_restore
     l32i    a0, sp, XT_STK_PS               /* retrieve interruptee's PS */
-    wsr     a0, PS
+    wsr     a0, XT_REG_PS
     l32i    a0, sp, XT_STK_PC               /* retrieve interruptee's PC */
-    wsr     a0, EPC_X
+    wsr     a0, XT_REG_EPC_X
     l32i    a0, sp, XT_STK_A0               /* retrieve interruptee's A0 */
     l32i    sp, sp, XT_STK_A1               /* remove exception frame */
     rsync                                   /* ensure PS and EPC written */
 
-    rsr     a0, EXCSAVE_X                   /* restore a0 */
+    rsr     a0, XT_REG_EXCSAVE_X            /* restore a0 */
     rfi     RFI_X
 
 
@@ -339,7 +341,7 @@ xt_highintx:
 
     rsr     a2, depc
 
-    rsr     a0, EXCSAVE_5                   /* restore a0 */
+    rsr     a0, XT_REG_EXCSAVE_5            /* restore a0 */
     rfi     5
 #endif /* CONFIG_BTDM_CTRL_HLI */
 
@@ -506,7 +508,7 @@ xt_highintx:
     /* Feed watchdog */
 8:  wdt_feed    TIMERG1
 
-9:  wsr     a0, PS                          /* restore interrupt level */
+9:  wsr     a0, XT_REG_PS                   /* restore interrupt level */
 
     movi    a0, 0
     beqz    a5, 1f
@@ -534,7 +536,7 @@ xt_highintx:
 
     rsr     a5, depc
 
-    rsr     a0, EXCSAVE_X                   /* restore a0 */
+    rsr     a0, XT_REG_EXCSAVE_X            /* restore a0 */
     rfi     RFI_X
 
 #endif

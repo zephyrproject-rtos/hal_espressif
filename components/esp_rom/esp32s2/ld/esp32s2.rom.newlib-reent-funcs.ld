@@ -1,0 +1,66 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+PROVIDE ( _cleanup_r = 0x4001a480 );
+creat = 0x4000788c;
+open = 0x400080c4;
+fclose = 0x4001a804;
+PROVIDE ( _fclose_r = 0x4001a714 );
+PROVIDE ( fflush = 0x40001bb8 );
+PROVIDE ( _fflush_r = 0x40001b30 );
+PROVIDE ( __fp_unlock_all = 0x4001a64c );
+PROVIDE ( __fputwc = 0x40001770 );
+fputwc = 0x40001864;
+PROVIDE ( _fputwc_r = 0x400017f8 );
+PROVIDE ( _fwalk = 0x4001bcec );
+PROVIDE ( _fwalk_reent = 0x4001bd24 );
+PROVIDE ( __sflush_r = 0x400019dc );
+PROVIDE ( __swbuf = 0x4000167c );
+PROVIDE ( __swbuf_r = 0x400015bc );
+PROVIDE ( __swrite = 0x4001a698 );
+PROVIDE ( __sread = 0x4001a660 );
+PROVIDE ( __sseek = 0x4001a6cc );
+PROVIDE ( srand = 0x40007a24 );
+PROVIDE ( rand_r = 0x40007af4 );
+PROVIDE ( __ascii_mbtowc = 0x40007a04 );
+PROVIDE ( __ascii_wctomb = 0x400018d0 );
+PROVIDE ( _mbtowc_r = 0x400079e0 );
+PROVIDE ( __sclose = 0x4001a700 );
+PROVIDE ( __seofread = 0x4001a690 );
+setlocale = 0x40001c44;
+PROVIDE ( _setlocale_r = 0x40001bdc );
+PROVIDE ( __sfmoreglue = 0x4001a4c8 );
+PROVIDE ( __sfp = 0x4001a590 );
+PROVIDE ( __sfp_lock_acquire = 0x4001a508 );
+PROVIDE ( __sfp_lock_release = 0x4001a514 );
+PROVIDE ( __sinit = 0x4001a538 );
+PROVIDE ( __sinit_lock_acquire = 0x4001a520 );
+PROVIDE ( __sinit_lock_release = 0x4001a52c );
+PROVIDE ( strndup = 0x40007fe8 );
+PROVIDE ( strdup = 0x40007d84 );
+PROVIDE ( _strndup_r = 0x40007ffc );
+wcrtomb = 0x400012f4;
+PROVIDE ( _wcrtomb_r = 0x400012a0 );
+PROVIDE ( _wctomb_r = 0x400018ac );
+PROVIDE ( _strdup_r = 0x40007d98 );
+PROVIDE ( __locale_ctype_ptr = 0x40001c2c );
+PROVIDE ( __locale_ctype_ptr_l = 0x40001c24 );
+PROVIDE ( __locale_mb_cur_max = 0x40001c0c );
+strcasecmp = 0x40007b38;
+strcasestr = 0x40007b7c;
+tolower = 0x40008158;
+toupper = 0x40008174;
+isalnum = 0x400078d8;
+isalpha = 0x400078e8;
+isdigit = 0x40007930;
+islower = 0x40007948;
+isspace = 0x400079ac;
+isupper = 0x400079c4;
+strcoll = 0x40007ce8;
+strlwr = 0x40007e68;
+strncasecmp = 0x40007e94;
+strupr = 0x40008084;
+PROVIDE ( hmac_md5 = 0x40005490 );
+PROVIDE ( hmac_md5_vector = 0x400053a0 );

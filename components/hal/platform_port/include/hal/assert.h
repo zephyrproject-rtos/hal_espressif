@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,8 +11,22 @@
 extern "C" {
 #endif
 
-extern void __assert_func(const char *file, int line, const char *func, const char *expr);
-extern void abort(void);
+#ifndef __noreturn
+#if CONFIG_LIBC_PICOLIBC
+#if defined(__cplusplus) && __cplusplus >= 201103L
+#define __noreturn [[noreturn]]
+#elif __has_attribute(__noreturn__)
+#define __noreturn __attribute__((__noreturn__))
+#else
+#define __noreturn
+#endif
+#else
+#define __noreturn
+#endif
+#endif
+
+__noreturn void __assert_func(const char *file, int line, const char *func, const char *expr);
+__noreturn void abort(void);
 
 #ifndef __ASSERT_FUNC
 #ifdef __ASSERT_FUNCTION
@@ -38,7 +52,7 @@ extern void abort(void);
 #elif CONFIG_HAL_DEFAULT_ASSERTION_LEVEL == 2 // full assertion
 #define HAL_ASSERT(__e) (__builtin_expect(!!(__e), 1) ? (void)0 : __assert_func(__FILE__, __LINE__, __ASSERT_FUNC, #__e))
 #else // no assert
-#define HAL_ASSERT(__e) ((void)(__e))
+#define HAL_ASSERT(__e) (__builtin_expect(!!(__e), 1) ? (void)0 : __builtin_unreachable())
 #endif
 
 #ifdef __cplusplus

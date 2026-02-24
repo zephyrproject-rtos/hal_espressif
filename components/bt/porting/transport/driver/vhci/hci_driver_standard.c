@@ -1,15 +1,18 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <string.h>
 #include <stdio.h>
+/* Zephyr: soc_caps.h must be included before os_mbuf.h to define SOC_ESP_NIMBLE_CONTROLLER */
+#include "soc/soc_caps.h"
 #include "os/os_mbuf.h"
 #include "esp_hci_transport.h"
 #include "esp_hci_internal.h"
 #include "esp_hci_driver.h"
 #include "esp_bt.h"
+#include <zephyr/kernel.h>
 
 typedef struct {
     hci_driver_forward_fn *forward_cb;
@@ -17,6 +20,14 @@ typedef struct {
 } hci_driver_vhci_env_t;
 
 static hci_driver_vhci_env_t s_hci_driver_vhci_env;
+
+static inline void hci_driver_vhci_notify_send_available(void)
+{
+    const esp_vhci_host_callback_t *host_recv_cb = s_hci_driver_vhci_env.host_recv_cb;
+    if (host_recv_cb && host_recv_cb->notify_host_send_available) {
+        host_recv_cb->notify_host_send_available();
+    }
+}
 
 static int
 hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length)
@@ -29,7 +40,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
     if (data_type == HCI_DRIVER_TYPE_ACL) {
         om = (struct os_mbuf *)data;
         buf_len = length + 1;
-        buf = malloc(buf_len);
+        buf = k_malloc(buf_len);
         /* TODO: If there is no memory, should handle it in the controller. */
         assert(buf);
         buf[0] = HCI_DRIVER_TYPE_ACL;
@@ -37,16 +48,24 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
         os_mbuf_free_chain(om);
     } else if (data_type == HCI_DRIVER_TYPE_EVT) {
         buf_len = length + 1;
-        buf = malloc(buf_len);
+        buf = k_malloc(buf_len);
         /* TODO: If there is no memory, should handle it in the controller. */
         assert(buf != NULL);
         buf[0] = HCI_DRIVER_TYPE_EVT;
         memcpy(&buf[1], data, length);
         r_ble_hci_trans_buf_free(data);
+    } else if (data_type == HCI_DRIVER_TYPE_ISO) {
+        buf_len = length + 1;
+        buf = k_malloc(buf_len);
+        /* TODO: If there is no memory, should handle it in the controller. */
+        assert(buf);
+        buf[0] = HCI_DRIVER_TYPE_ISO;
+        memcpy(&buf[1], data, length);
+        k_free(data);
     }
 
     rc = s_hci_driver_vhci_env.forward_cb(data_type, buf, buf_len, HCI_DRIVER_DIR_C2H);
-    free(buf);
+    k_free(buf);
 
     return rc;
 }
@@ -54,6 +73,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
 static int
 hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length)
 {
+    int rc;
     uint8_t *cmd;
     struct os_mbuf *om;
 
@@ -69,7 +89,11 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         data = cmd;
     }
 
-    return s_hci_driver_vhci_env.forward_cb(data_type, data, length, HCI_DRIVER_DIR_H2C);
+    rc = s_hci_driver_vhci_env.forward_cb(data_type, data, length, HCI_DRIVER_DIR_H2C);
+
+    hci_driver_vhci_notify_send_available();
+
+    return rc;
 }
 
 static int
@@ -132,6 +156,8 @@ esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback)
         s_hci_driver_vhci_env.host_recv_cb = NULL;
         return ESP_FAIL;
     }
+
+    hci_driver_vhci_notify_send_available();
 
     return ESP_OK;
 }

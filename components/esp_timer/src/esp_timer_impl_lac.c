@@ -3,11 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 
-#include <stdlib.h>
-
+#include "sdkconfig.h"
 #include "sys/param.h"
 #include "esp_timer_impl.h"
 #include "esp_timer.h"
@@ -23,8 +20,9 @@
 #include "soc/soc.h"
 #include "soc/timer_group_reg.h"
 #include "soc/rtc.h"
-#include "hal/timer_ll.h"
-#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include "hal/lact_ll.h"
+#include <zephyr/kernel.h>
+#include "esp_private/critical_section.h"
 
 /**
  * @file esp_timer_lac.c
@@ -61,9 +59,6 @@
 #define INT_ST_REG      (TIMG_INT_ST_TIMERS_REG(LACT_MODULE))
 #define INT_CLR_REG     (TIMG_INT_CLR_TIMERS_REG(LACT_MODULE))
 
-/* Function prototype for alarm interrupt handler function */
-typedef void (*alarm_intr_handler_t)(const void *arg);
-
 /* Helper type to convert between a 64-bit value and a pair of 32-bit values without shifts and masks */
 typedef struct {
     union {
@@ -75,19 +70,27 @@ typedef struct {
     };
 } timer_64b_reg_t;
 
-static const char* TAG = "esp_timer_impl";
+ESP_LOG_ATTR_TAG(TAG, "esp_timer_impl");
 
 #define NOT_USED 0xBAD00FAD
+
+/* Interrupt handle returned by the interrupt allocator */
+/* Zephyr uses single ISR handler */
+#define ISR_HANDLERS (1)
+static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
 
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
  */
-static alarm_intr_handler_t s_alarm_handler;
+static intr_handler_t s_alarm_handler = NULL;
+
+/* Spinlock used to protect access to the hardware registers. */
+extern unsigned int s_time_update_lock;
 
 /* Alarm values to generate interrupt on match */
 extern uint64_t timestamp_id[2];
 
-uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
+uint64_t ESP_TIMER_IRAM_ATTR esp_timer_impl_get_counter_reg(void)
 {
     uint32_t lo, hi;
     uint32_t lo_start = REG_READ(COUNT_LO_REG);
@@ -118,16 +121,17 @@ uint64_t IRAM_ATTR esp_timer_impl_get_counter_reg(void)
     return result.val;
 }
 
-int64_t IRAM_ATTR esp_timer_impl_get_time(void)
+int64_t ESP_TIMER_IRAM_ATTR esp_timer_impl_get_time(void)
 {
     return esp_timer_impl_get_counter_reg() / LACT_TICKS_PER_US;
 }
 
 int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")));
 
-void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
+void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
-    esp_timer_impl_lock();
+    assert(alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]));
+    esp_os_enter_critical_safe(&s_time_update_lock);
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
     if (timestamp != UINT64_MAX) {
@@ -142,34 +146,72 @@ void IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id
             now_time = esp_timer_impl_get_counter_reg();
             int64_t delta = (int64_t)alarm.val - (int64_t)now_time;
             if (delta <= 0 && REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST) == 0) {
-                // new alarm is less than the counter and the interrupt flag is not set
+                /* new alarm is less than the counter and the interrupt flag is not set */
                 offset += llabs(delta) + LACT_TICKS_PER_US * 2;
                 alarm.val = now_time + offset;
             } else {
-                // finish if either (alarm > counter) or the interrupt flag is already set.
+                /* finish if either (alarm > counter) or the interrupt flag is already set. */
                 break;
             }
-        } while(1);
+        } while (1);
     }
-    esp_timer_impl_unlock();
+    esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
-static void IRAM_ATTR timer_alarm_isr(void *arg)
+static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
 {
+#if ISR_HANDLERS == 1
     /* Clear interrupt status */
     REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
+
     /* Call the upper layer handler */
     (*s_alarm_handler)(arg);
+#else
+    static volatile uint32_t processed_by = NOT_USED;
+    static volatile bool pending_alarm = false;
+    /* CRITICAL section ensures the read/clear is atomic between cores */
+    esp_os_enter_critical_isr(&s_time_update_lock);
+    if (REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST)) {
+        // Clear interrupt status
+        REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
+        // Is the other core already processing a previous alarm?
+        if (processed_by == NOT_USED) {
+            // Current core is not processing an alarm yet
+            processed_by = xPortGetCoreID();
+            do {
+                pending_alarm = false;
+                // Clear interrupt status
+                REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
+                esp_os_exit_critical_isr(&s_time_update_lock);
+
+                (*s_alarm_handler)(arg);
+
+                esp_os_enter_critical_isr(&s_time_update_lock);
+                // Another alarm could have occurred while were handling the previous alarm.
+                // Check if we need to call the s_alarm_handler again:
+                //   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
+                //   2) handle pending alarm that was cleared by the other core in time when this core worked with the current alarm.
+            } while (REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST) || pending_alarm);
+            processed_by = NOT_USED;
+        } else {
+            // Current core arrived at ISR but the other core is still handling a previous alarm.
+            // Once we already cleared the ISR status we need to let the other core know that it was.
+            // Set the flag to handle the current alarm by the other core later.
+            pending_alarm = true;
+        }
+    }
+    esp_os_exit_critical_isr(&s_time_update_lock);
+#endif // ISR_HANDLERS != 1
 }
 
 void esp_timer_impl_set(uint64_t new_us)
 {
-    esp_timer_impl_lock();
+    esp_os_enter_critical(&s_time_update_lock);
     timer_64b_reg_t dst = { .val = new_us * LACT_TICKS_PER_US };
     REG_WRITE(LOAD_LO_REG, dst.lo);
     REG_WRITE(LOAD_HI_REG, dst.hi);
     REG_WRITE(LOAD_REG, 1);
-    esp_timer_impl_unlock();
+    esp_os_exit_critical(&s_time_update_lock);
 }
 
 void esp_timer_impl_advance(int64_t time_diff_us)
@@ -180,7 +222,12 @@ void esp_timer_impl_advance(int64_t time_diff_us)
 
 esp_err_t esp_timer_impl_early_init(void)
 {
-    periph_module_enable(PERIPH_LACT);
+    PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_LACT, ref_count) {
+        if (ref_count == 0) {
+            timg_ll_enable_bus_clock(LACT_MODULE, true);
+            timg_ll_reset_register(LACT_MODULE);
+        }
+    }
 
     REG_WRITE(CONFIG_REG, 0);
     REG_WRITE(LOAD_LO_REG, 0);
@@ -191,18 +238,27 @@ esp_err_t esp_timer_impl_early_init(void)
     REG_SET_BIT(INT_CLR_REG, TIMG_LACT_INT_CLR);
     REG_SET_FIELD(CONFIG_REG, TIMG_LACT_DIVIDER, APB_CLK_FREQ / 1000000 / LACT_TICKS_PER_US);
     REG_SET_BIT(CONFIG_REG, TIMG_LACT_INCREASE |
-        TIMG_LACT_LEVEL_INT_EN |
-        TIMG_LACT_EN);
+                TIMG_LACT_LEVEL_INT_EN |
+                TIMG_LACT_EN);
 
     return ESP_OK;
 }
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    int isr_flags = ESP_INTR_FLAG_IRAM;
+    /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
+    esp_timer_impl_early_init();
+
+    if (s_timer_interrupt_handle[0] != NULL) {
+        ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    int isr_flags = 0;
 
     esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
-       (intr_handler_t)timer_alarm_isr, NULL, NULL);
+                                   &timer_alarm_isr, NULL,
+                                   &s_timer_interrupt_handle[0]);
 
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
@@ -210,17 +266,24 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
     }
 
     if (s_alarm_handler == NULL) {
-        s_alarm_handler = (alarm_intr_handler_t) alarm_handler;
+        s_alarm_handler = alarm_handler;
         /* In theory, this needs a shared spinlock with the timer group driver.
         * However since esp_timer_impl_init is called early at startup, this
         * will not cause issues in practice.
         */
         REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
-        timer_ll_set_lact_clock_prescale(TIMER_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
-        // Set the step for the sleep mode when the timer will work
-        // from a slow_clk frequency instead of the APB frequency.
+        esp_os_enter_critical_safe(&s_time_update_lock);
+        lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
+        esp_os_exit_critical_safe(&s_time_update_lock);
+        /* Set the step for the sleep mode when the timer will work
+         * from a slow_clk frequency instead of the APB frequency. */
         uint32_t slowclk_ticks_per_us = esp_clk_slowclk_cal_get() * LACT_TICKS_PER_US;
         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
+    }
+
+    err = esp_intr_enable(s_timer_interrupt_handle[0]);
+    if (err != ESP_OK) {
+        ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
     }
 
     return err;
@@ -231,17 +294,29 @@ void esp_timer_impl_deinit(void)
     REG_WRITE(CONFIG_REG, 0);
     REG_SET_BIT(INT_CLR_REG, TIMG_LACT_INT_CLR);
     /* TODO: also clear TIMG_LACT_INT_ENA; however see the note in esp_timer_impl_init. */
+    for (unsigned i = 0; i < ISR_HANDLERS; i++) {
+        if (s_timer_interrupt_handle[i] != NULL) {
+            esp_intr_disable(s_timer_interrupt_handle[i]);
+            esp_intr_free(s_timer_interrupt_handle[i]);
+            s_timer_interrupt_handle[i] = NULL;
+        }
+    }
     s_alarm_handler = NULL;
+    PERIPH_RCC_RELEASE_ATOMIC(PERIPH_LACT, ref_count) {
+        if (ref_count == 0) {
+            timg_ll_enable_bus_clock(LACT_MODULE, false);
+        }
+    }
 }
 
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
-    esp_timer_impl_lock();
+    esp_os_enter_critical_safe(&s_time_update_lock);
     timer_64b_reg_t alarm = {
         .lo = REG_READ(ALARM_LO_REG),
         .hi = REG_READ(ALARM_HI_REG)
     };
-    esp_timer_impl_unlock();
+    esp_os_exit_critical_safe(&s_time_update_lock);
     return alarm.val;
 }
 

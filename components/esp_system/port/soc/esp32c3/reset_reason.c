@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,7 +7,6 @@
 #include "esp_system.h"
 #include "esp_rom_sys.h"
 #include "esp_private/system_internal.h"
-#include "soc/rtc_periph.h"
 #include "esp32c3/rom/rtc.h"
 
 static void esp_reset_reason_clear_hint(void);
@@ -26,9 +25,9 @@ static esp_reset_reason_t get_reset_reason(soc_reset_reason_t rtc_reset_reason, 
     case RESET_REASON_CPU0_SW:
     case RESET_REASON_CORE_SW:
         if (reset_reason_hint == ESP_RST_PANIC ||
-            reset_reason_hint == ESP_RST_BROWNOUT ||
-            reset_reason_hint == ESP_RST_TASK_WDT ||
-            reset_reason_hint == ESP_RST_INT_WDT) {
+                reset_reason_hint == ESP_RST_BROWNOUT ||
+                reset_reason_hint == ESP_RST_TASK_WDT ||
+                reset_reason_hint == ESP_RST_INT_WDT) {
             return reset_reason_hint;
         }
         return ESP_RST_SW;
@@ -52,6 +51,10 @@ static esp_reset_reason_t get_reset_reason(soc_reset_reason_t rtc_reset_reason, 
 
     case RESET_REASON_SYS_BROWN_OUT:
         return ESP_RST_BROWNOUT;
+
+    case RESET_REASON_CORE_USB_UART:
+    case RESET_REASON_CORE_USB_JTAG:
+        return ESP_RST_USB;
 
     default:
         return ESP_RST_UNKNOWN;
@@ -89,7 +92,7 @@ esp_reset_reason_t esp_reset_reason(void)
 #define RST_REASON_SHIFT 16
 
 /* in IRAM, can be called from panic handler */
-void IRAM_ATTR esp_reset_reason_set_hint(esp_reset_reason_t hint)
+void esp_reset_reason_set_hint(esp_reset_reason_t hint)
 {
     assert((hint & (~RST_REASON_MASK)) == 0);
     uint32_t val = hint | (hint << RST_REASON_SHIFT) | RST_REASON_BIT;

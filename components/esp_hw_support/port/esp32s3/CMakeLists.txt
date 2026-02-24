@@ -1,4 +1,4 @@
-target_include_directories(${COMPONENT_LIB} PUBLIC .)
+target_include_directories(${COMPONENT_LIB} PUBLIC . include)
 
 set(srcs
     "rtc_clk.c"
@@ -10,10 +10,9 @@ set(srcs
     )
 
 if(NOT BOOTLOADER_BUILD)
-    list(APPEND srcs "esp_crypto_lock.c"
-                     "sar_periph_ctrl.c")
+    list(APPEND srcs "sar_periph_ctrl.c")
 
-    if(CONFIG_ESP_SYSTEM_MEMPROT_FEATURE)
+    if(CONFIG_ESP_SYSTEM_MEMPROT AND CONFIG_ESP_SYSTEM_MEMPROT_PMS)
         list(APPEND srcs "esp_memprot.c" "../esp_memprot_conv.c")
     endif()
 endif()

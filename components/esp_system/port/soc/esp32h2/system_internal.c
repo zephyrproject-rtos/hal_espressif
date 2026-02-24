@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_macros.h"
 #include "esp_system.h"
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
@@ -13,27 +14,31 @@
 #include "esp_rom_sys.h"
 #include "riscv/rv_utils.h"
 #include "riscv/interrupt.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "soc/gpio_reg.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
 #include "esp_private/rtc_clk.h"
-#include "soc/rtc_periph.h"
 #include "soc/uart_reg.h"
 #include "hal/wdt_hal.h"
+#include "hal/uart_ll.h"
 #include "hal/spimem_flash_ll.h"
+#include "hal/uart_ll.h"
 #include "esp_private/cache_err_int.h"
-#include "esp_private/spi_flash_os.h"
+#include "esp_private/mspi_timing_tuning.h"
 
 #include "esp32h2/rom/cache.h"
 #include "esp32h2/rom/rtc.h"
 #include "soc/pcr_reg.h"
 
-void IRAM_ATTR esp_system_reset_modules_on_exit(void)
+void esp_system_reset_modules_on_exit(void)
 {
     // Flush any data left in UART FIFOs before reset the UART peripheral
-    esp_rom_uart_tx_wait_idle(0);
-    esp_rom_uart_tx_wait_idle(1);
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+        if (uart_ll_is_enabled(i)) {
+            esp_rom_output_tx_wait_idle(i);
+        }
+    }
 
     // Set Peripheral clk rst
     SET_PERI_REG_MASK(PCR_MSPI_CONF_REG, PCR_MSPI_RST_EN);
@@ -45,6 +50,7 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
     SET_PERI_REG_MASK(PCR_PWM_CONF_REG, PCR_PWM_RST_EN);
     //ETM may directly control the GPIO or other peripherals even after CPU reset. Reset to stop these control.
     SET_PERI_REG_MASK(PCR_ETM_CONF_REG, PCR_ETM_RST_EN);
+    SET_PERI_REG_MASK(PCR_REGDMA_CONF_REG, PCR_REGDMA_RST_EN);
 
     // Clear Peripheral clk rst
     CLEAR_PERI_REG_MASK(PCR_MSPI_CONF_REG, PCR_MSPI_RST_EN);
@@ -55,6 +61,7 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
     CLEAR_PERI_REG_MASK(PCR_MODEM_CONF_REG, PCR_MODEM_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_PWM_CONF_REG, PCR_PWM_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_ETM_CONF_REG, PCR_ETM_RST_EN);
+    CLEAR_PERI_REG_MASK(PCR_REGDMA_CONF_REG, PCR_REGDMA_RST_EN);
 
     // Reset crypto peripherals. This ensures a clean state for the crypto peripherals after a CPU restart
     // and hence avoiding any possibility with crypto failure in ROM security workflows.
@@ -72,13 +79,17 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
     CLEAR_PERI_REG_MASK(PCR_HMAC_CONF_REG, PCR_HMAC_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_RSA_CONF_REG, PCR_RSA_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_SHA_CONF_REG, PCR_SHA_RST_EN);
+
+    // UART's sclk is controlled in the PCR register and does not reset with the UART module. The ROM missed enabling
+    // it when initializing the ROM UART. If it is not turned on, it will trigger LP_WDT in the ROM.
+    uart_ll_sclk_enable(&UART0);
 }
 
 /* "inner" restart function for after RTOS, interrupts & anything else on this
  * core are already stopped. Stalls other core, resets hardware,
  * triggers restart.
 */
-void IRAM_ATTR esp_restart_noos(void)
+void esp_restart_noos(void)
 {
     // Disable interrupts
     rv_utils_intr_global_disable();
@@ -113,8 +124,15 @@ void IRAM_ATTR esp_restart_noos(void)
 
     esp_system_reset_modules_on_exit();
 
-    // If we set mspi clock frequency to PLL, but ROM does not have such clock source option. So reset the clock to XTAL when software restart.
-    spi_flash_set_clock_src(MSPI_CLK_SRC_ROM_DEFAULT);
+#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+    /**
+     * Turn down MSPI speed
+     *
+     * We set MSPI clock to a high speed one before, ROM doesn't have such high speed clock source option.
+     * This function will change clock source to a ROM supported one when system restarts.
+     */
+    mspi_timing_change_speed_mode_cache_safe(true);
+#endif  //#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
 
     // Set CPU back to XTAL source, same as hard reset, but keep BBPLL on so that USB Serial JTAG can log at 1st stage bootloader.
 #if !CONFIG_IDF_ENV_FPGA
@@ -124,7 +142,5 @@ void IRAM_ATTR esp_restart_noos(void)
     // Reset CPU
     esp_rom_software_reset_cpu(0);
 
-    while (true) {
-        ;
-    }
+    ESP_INFINITE_LOOP();
 }

@@ -6,19 +6,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "freertos/FreeRTOS.h"
+#include "esp_macros.h"
 #include "esp_err.h"
 #include "esp_attr.h"
+#include "esp_compiler.h"
 
 #include "esp_private/system_internal.h"
-#include "esp_private/usb_console.h"
 
 #include "esp_cpu.h"
 #include "soc/rtc.h"
 #include "hal/timer_hal.h"
 #include "hal/wdt_types.h"
 #include "hal/wdt_hal.h"
-#include "hal/mwdt_ll.h"
 #include "esp_private/esp_int_wdt.h"
 
 #include "esp_private/panic_internal.h"
@@ -27,27 +26,20 @@
 
 #include "sdkconfig.h"
 
+#if !CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT
 #if __has_include("esp_app_desc.h")
 #define WITH_ELF_SHA256
 #include "esp_app_desc.h"
 #endif
+#endif // CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT
 
 #if CONFIG_ESP_COREDUMP_ENABLE
 #include "esp_core_dump.h"
 #endif
 
-#if CONFIG_APPTRACE_ENABLE
-#include "esp_app_trace.h"
-#if CONFIG_APPTRACE_SV_ENABLE
-#include "SEGGER_RTT.h"
+#if CONFIG_ESP_TRACE_ENABLE
+#include "esp_trace.h"
 #endif
-
-#if CONFIG_APPTRACE_ONPANIC_HOST_FLUSH_TMO == -1
-#define APPTRACE_ONPANIC_HOST_FLUSH_TMO   ESP_APPTRACE_TMO_INFINITE
-#else
-#define APPTRACE_ONPANIC_HOST_FLUSH_TMO   (1000*CONFIG_APPTRACE_ONPANIC_HOST_FLUSH_TMO)
-#endif
-#endif // CONFIG_APPTRACE_ENABLE
 
 #if !CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT
 #include "hal/uart_hal.h"
@@ -61,13 +53,17 @@
 #include "hal/usb_serial_jtag_ll.h"
 #endif
 
+#if CONFIG_ESP_CONSOLE_USB_CDC
+#include "esp_private/usb_console.h"
+#endif
+
 #ifdef __XTENSA__
 #include "xtensa/semihosting.h"
 #elif __riscv
 #include "riscv/semihosting.h"
 #endif
 
-#define ESP_SEMIHOSTING_SYS_PANIC_REASON	0x116
+#define ESP_SEMIHOSTING_SYS_PANIC_REASON    0x116
 
 #define MWDT_DEFAULT_TICKS_PER_US       500
 
@@ -78,7 +74,7 @@ char *g_panic_abort_details = NULL;
 
 static wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
 
-static uint32_t DRAM_ATTR g_panic_entry_count[portNUM_PROCESSORS] = {0}; // Number of times panic handler has been entered per core since multiple cores can enter the panic handler simultaneously
+static uint32_t DRAM_ATTR g_panic_entry_count[CONFIG_FREERTOS_NUMBER_OF_CORES] = {0}; // Number of times panic handler has been entered per core since multiple cores can enter the panic handler simultaneously
 
 #if !CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT
 
@@ -94,7 +90,6 @@ static void panic_print_char_uart(const char c)
     uart_hal_write_txfifo(&s_panic_uart, (uint8_t *) &c, 1, &sz);
 }
 #endif // CONFIG_ESP_CONSOLE_UART
-
 
 #if CONFIG_ESP_CONSOLE_USB_CDC
 static void panic_print_char_usb_cdc(const char c)
@@ -123,7 +118,6 @@ static void panic_print_char_usb_serial_jtag(const char c)
     }
 }
 #endif //CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG || CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG
-
 
 void panic_print_char(const char c)
 {
@@ -191,12 +185,12 @@ void esp_panic_handler_disable_timg_wdts(void)
     wdt_hal_disable(&wdt0_context);
     wdt_hal_write_protect_enable(&wdt0_context);
 
-#if SOC_TIMER_GROUPS >= 2
+#if TIMG_LL_GET(INST_NUM) >= 2
     wdt_hal_context_t wdt1_context = {.inst = WDT_MWDT1, .mwdt_dev = &TIMERG1};
     wdt_hal_write_protect_disable(&wdt1_context);
     wdt_hal_disable(&wdt1_context);
     wdt_hal_write_protect_enable(&wdt1_context);
-#endif /* SOC_TIMER_GROUPS >= 2 */
+#endif /* TIMG_LL_GET(INST_NUM) >= 2 */
 }
 
 /* This function enables the RTC WDT with the given timeout in milliseconds */
@@ -231,7 +225,7 @@ void esp_panic_handler_feed_wdts(void)
         wdt_hal_write_protect_enable(&wdt0_context);
     }
 
-#if SOC_TIMER_GROUPS >= 2
+#if TIMG_LL_GET(INST_NUM) >= 2
     // Feed Timer Group 1 WDT
     wdt_hal_context_t wdt1_context = {.inst = WDT_MWDT1, .mwdt_dev = &TIMERG1};
     if (wdt_hal_is_enabled(&wdt1_context)) {
@@ -239,7 +233,7 @@ void esp_panic_handler_feed_wdts(void)
         wdt_hal_feed(&wdt1_context);
         wdt_hal_write_protect_enable(&wdt1_context);
     }
-#endif /* SOC_TIMER_GROUPS >= 2 */
+#endif /* TIMG_LL_GET(INST_NUM) >= 2 */
 
     // Feed RTC WDT
     if (wdt_hal_is_enabled(&rtc_wdt_ctx)) {
@@ -259,6 +253,14 @@ static inline void disable_all_wdts(void)
     wdt_hal_write_protect_disable(&rtc_wdt_ctx);
     wdt_hal_disable(&rtc_wdt_ctx);
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
+}
+
+/* IRAM-only halt stub: reset modules, then loop */
+void IRAM_ATTR esp_panic_handler_reset_modules_on_exit_and_halt(void)
+{
+    // Do not print or call non-IRAM functions beyond this point
+    esp_system_reset_modules_on_exit();
+    ESP_INFINITE_LOOP();
 }
 
 /********************** Panic handler functions **********************/
@@ -356,13 +358,9 @@ void esp_panic_handler(panic_info_t *info)
         panic_print_str("Setting breakpoint at 0x");
         panic_print_hex((uint32_t)info->addr);
         panic_print_str(" and returning...\r\n");
-#if CONFIG_APPTRACE_ENABLE
-#if CONFIG_APPTRACE_SV_ENABLE
-        SEGGER_RTT_ESP_FlushNoLock(CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
-#else
-        esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH,
-                                  APPTRACE_ONPANIC_HOST_FLUSH_TMO);
-#endif
+
+#if CONFIG_ESP_TRACE_ENABLE
+        esp_trace_panic_handler(info);
 #endif
 
         disable_all_wdts();
@@ -379,6 +377,9 @@ void esp_panic_handler(panic_info_t *info)
     PANIC_INFO_DUMP(info, state);
     panic_print_str("\r\n");
 
+    // Now, after all panic info was printed we can clear active interrupts
+    panic_clear_active_interrupts(info->frame);
+
     /* No matter if we come here from abort or an exception, this variable must be reset.
      * Else, any exception/error occurring during the current panic handler would considered
      * an abort. Do this after PANIC_INFO_DUMP(info, state) as it also checks this variable.
@@ -389,23 +390,16 @@ void esp_panic_handler(panic_info_t *info)
 
 #ifdef WITH_ELF_SHA256
     panic_print_str("\r\nELF file SHA256: ");
-    char sha256_buf[65];
-    esp_app_get_elf_sha256(sha256_buf, sizeof(sha256_buf));
-    panic_print_str(sha256_buf);
+    panic_print_str(esp_app_get_elf_sha256_str());
     panic_print_str("\r\n");
-#endif
+#endif // WITH_ELF_SHA256
 
     panic_print_str("\r\n");
 
-#if CONFIG_APPTRACE_ENABLE
+#if CONFIG_ESP_TRACE_ENABLE
     esp_panic_handler_feed_wdts();
-#if CONFIG_APPTRACE_SV_ENABLE
-    SEGGER_RTT_ESP_FlushNoLock(CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
-#else
-    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH,
-                              APPTRACE_ONPANIC_HOST_FLUSH_TMO);
+    esp_trace_panic_handler(info);
 #endif
-#endif // CONFIG_APPTRACE_ENABLE
 
 #if CONFIG_ESP_COREDUMP_ENABLE
     esp_panic_handler_feed_wdts();
@@ -456,42 +450,41 @@ void esp_panic_handler(panic_info_t *info)
     panic_print_str("Rebooting...\r\n");
     panic_restart();
 #else /* CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT || CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT */
+    esp_panic_handler_feed_wdts();
     panic_print_str("CPU halted.\r\n");
-    esp_system_reset_modules_on_exit();
     disable_all_wdts();
-    while (1);
+    esp_panic_handler_reset_modules_on_exit_and_halt();
 #endif /* CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT || CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT */
 #endif /* CONFIG_ESP_SYSTEM_PANIC_GDBSTUB */
 }
 
-
-void IRAM_ATTR __attribute__((noreturn, no_sanitize_undefined)) panic_abort(const char *details)
+void __attribute__((noreturn, no_sanitize_undefined)) panic_abort(const char *details)
 {
     g_panic_abort = true;
     g_panic_abort_details = (char *) details;
 
-#if CONFIG_APPTRACE_ENABLE
-#if CONFIG_APPTRACE_SV_ENABLE
-    SEGGER_RTT_ESP_FlushNoLock(CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
-#else
-    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_APPTRACE_POSTMORTEM_FLUSH_THRESH,
-                              APPTRACE_ONPANIC_HOST_FLUSH_TMO);
-#endif
+#if CONFIG_ESP_TRACE_ENABLE
+    esp_trace_panic_handler(NULL);
 #endif
 
-    *((volatile int *) 0) = 0; // NOLINT(clang-analyzer-core.NullDereference) should be an invalid operation on targets
-    while (1);
+#ifdef __XTENSA__
+    asm("ill");     // should be an invalid operation on xtensa targets
+#elif __riscv
+    asm("unimp");   // should be an invalid operation on RISC-V targets
+#endif
+
+    ESP_INFINITE_LOOP();
 }
 
 /* Weak versions of reset reason hint functions.
  * If these weren't provided, reset reason code would be linked into the app
  * even if the app never called esp_reset_reason().
  */
-void IRAM_ATTR __attribute__((weak)) esp_reset_reason_set_hint(esp_reset_reason_t hint)
+void __attribute__((weak)) esp_reset_reason_set_hint(esp_reset_reason_t hint)
 {
 }
 
-esp_reset_reason_t IRAM_ATTR  __attribute__((weak)) esp_reset_reason_get_hint(void)
+esp_reset_reason_t __attribute__((weak)) esp_reset_reason_get_hint(void)
 {
     return ESP_RST_UNKNOWN;
 }

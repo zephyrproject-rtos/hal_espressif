@@ -15,7 +15,7 @@
 #include "soc/soc_caps.h"
 #include "sdkconfig.h"
 
-static __attribute__((unused)) const char *TAG = "flash_encrypt";
+ESP_LOG_ATTR_TAG(TAG, "flash_encrypt");
 
 esp_err_t esp_flash_encryption_enable_secure_features(void)
 {
@@ -36,7 +36,7 @@ esp_err_t esp_flash_encryption_enable_secure_features(void)
 
     esp_efuse_write_field_bit(ESP_EFUSE_DIS_DIRECT_BOOT);
 
-#if defined(CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE) && defined(SOC_FLASH_ENCRYPTION_XTS_AES_SUPPORT_PSEUDO_ROUND)
+#if CONFIG_SECURE_FLASH_PSEUDO_ROUND_FUNC
     if (spi_flash_encrypt_ll_is_pseudo_rounds_function_supported()) {
         ESP_LOGI(TAG, "Enable XTS-AES pseudo rounds function...");
         uint8_t xts_pseudo_level = CONFIG_SECURE_FLASH_PSEUDO_ROUND_FUNC_STRENGTH;
@@ -55,7 +55,7 @@ esp_err_t esp_flash_encryption_enable_secure_features(void)
     // esp32h2 has DIS_ICACHE. Write-protection bit = 2.
     // List of eFuses with the same write protection bit:
     // DIS_ICACHE, DIS_USB_JTAG, POWERGLITCH_EN, DIS_FORCE_DOWNLOAD, SPI_DOWNLOAD_MSPI_DIS,
-    // DIS_TWAI, JTAG_SEL_ENABLE, DIS_PAD_JTAG, DIS_DOWNLOAD_MANUAL_ENCRYPT
+    // DIS_TWAI, JTAG_SEL_ENABLE, DIS_PAD_JTAG, DIS_DOWNLOAD_MANUAL_ENCRYPT, DIS_USB_SERIAL_JTAG
     esp_efuse_write_field_bit(ESP_EFUSE_WR_DIS_DIS_ICACHE);
 #endif
 

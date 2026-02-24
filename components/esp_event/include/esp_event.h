@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,7 +8,6 @@
 #define ESP_EVENT_H_
 
 #include "esp_err.h"
-
 
 #include "esp_event_base.h"
 
@@ -114,7 +113,9 @@ esp_err_t esp_event_loop_run(esp_event_loop_handle_t event_loop, uint32_t ticks_
  *
  * Registering multiple handlers to events is possible. Registering a single handler to multiple events is
  * also possible. However, registering the same handler to the same event multiple times would cause the
- * previous registrations to be overwritten.
+ * overwriting of the event_handler_arg but the handler will be kept at the same position in the list associated
+ * with the event that triggers it. It means that the call order of registered handlers for that event will remain
+ * the same.
  *
  * @param[in] event_base the base ID of the event to register the handler for
  * @param[in] event_id the ID of the event to register the handler for
@@ -195,6 +196,8 @@ esp_err_t esp_event_handler_register_with(esp_event_loop_handle_t event_loop,
  * @note the event loop library does not maintain a copy of event_handler_arg, therefore the user should
  * ensure that event_handler_arg still points to a valid location by the time the handler gets called
  *
+ * @note Calling this function with instance set to NULL is equivalent to calling esp_event_handler_register_with.
+ *
  * @return
  *  - ESP_OK: Success
  *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
@@ -202,11 +205,11 @@ esp_err_t esp_event_handler_register_with(esp_event_loop_handle_t event_loop,
  *  - Others: Fail
  */
 esp_err_t esp_event_handler_instance_register_with(esp_event_loop_handle_t event_loop,
-                                                  esp_event_base_t event_base,
-                                                  int32_t event_id,
-                                                  esp_event_handler_t event_handler,
-                                                  void *event_handler_arg,
-                                                  esp_event_handler_instance_t *instance);
+                                                   esp_event_base_t event_base,
+                                                   int32_t event_id,
+                                                   esp_event_handler_t event_handler,
+                                                   void *event_handler_arg,
+                                                   esp_event_handler_instance_t *instance);
 
 /**
  * @brief Register an instance of event handler to the default loop.
@@ -228,6 +231,8 @@ esp_err_t esp_event_handler_instance_register_with(esp_event_loop_handle_t event
  * @note the event loop library does not maintain a copy of event_handler_arg, therefore the user should
  * ensure that event_handler_arg still points to a valid location by the time the handler gets called
  *
+ * @note Calling this function with instance set to NULL is equivalent to calling esp_event_handler_register.
+ *
  * @return
  *  - ESP_OK: Success
  *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
@@ -235,10 +240,10 @@ esp_err_t esp_event_handler_instance_register_with(esp_event_loop_handle_t event
  *  - Others: Fail
  */
 esp_err_t esp_event_handler_instance_register(esp_event_base_t event_base,
-                                             int32_t event_id,
-                                             esp_event_handler_t event_handler,
-                                             void *event_handler_arg,
-                                             esp_event_handler_instance_t *instance);
+                                              int32_t event_id,
+                                              esp_event_handler_t event_handler,
+                                              void *event_handler_arg,
+                                              esp_event_handler_instance_t *instance);
 
 /**
  * @brief Unregister a handler with the system event loop (legacy).

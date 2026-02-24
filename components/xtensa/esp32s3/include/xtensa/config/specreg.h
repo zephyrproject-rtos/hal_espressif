@@ -28,6 +28,13 @@
 #ifndef XTENSA_SPECREG_H
 #define XTENSA_SPECREG_H
 
+/*
+ * This deprecated header is kept because Zephyr arch/xtensa code uses the
+ * bare register names (EXCCAUSE, PS, etc.) defined here. The new
+ * xt_specreg.h uses XT_REG_ prefixed names which are not compatible.
+ */
+#include <xtensa/config/xt_specreg.h>
+
 /*  Include these special register bitfield definitions, for historical reasons:  */
 #include <xtensa/corebits.h>
 

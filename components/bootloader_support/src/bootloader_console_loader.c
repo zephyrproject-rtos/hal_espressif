@@ -12,7 +12,7 @@
 #include <stddef.h>
 #include "sdkconfig.h"
 #include "bootloader_console.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
 #if CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/usb/chip_usb_dw_wrapper.h"
@@ -67,7 +67,7 @@ void bootloader_console_deinit(void)
 {
 #ifdef CONFIG_ESP_CONSOLE_UART
     /* Ensure any buffered log output is displayed */
-    esp_rom_uart_flush_tx(CONFIG_ESP_CONSOLE_UART_NUM);
+    esp_rom_output_flush_tx(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
 #endif // CONFIG_ESP_CONSOLE_UART
 
 #ifdef CONFIG_ESP_CONSOLE_USB_CDC

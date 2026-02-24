@@ -108,18 +108,20 @@ enum sae_state {
 struct sae_data {
 	enum sae_state state;
 	u16 send_confirm;
-	u8 pmk[SAE_PMK_LEN];
+	u8 pmk[SAE_PMK_LEN_MAX];
 	size_t pmk_len;
+	int akmp; /* WPA_KEY_MGMT_* used in key derivation */
+	u32 own_akm_suite_selector;
+	u32 peer_akm_suite_selector;
 	u8 pmkid[SAE_PMKID_LEN];
-
 	struct crypto_bignum *peer_commit_scalar;
 	struct crypto_bignum *peer_commit_scalar_accepted;
 	int group;
 	unsigned int sync; /* protocol instance variable: Sync */
 	u16 rc; /* protocol instance variable: Rc (received send-confirm) */
-	struct sae_temporary_data *tmp;
 	unsigned int h2e:1;
 	unsigned int pk:1;
+	struct sae_temporary_data *tmp;
 };
 
 int sae_set_group(struct sae_data *sae, int group);

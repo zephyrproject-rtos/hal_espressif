@@ -4,13 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// The LL layer for ESP32-H2 LP CLKRST register operations
+// The LL layer for ESP32-H2 LP CLKRST & LP PERI register operations
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include "soc/soc.h"
 #include "soc/lp_clkrst_struct.h"
+#include "soc/lpperi_struct.h"
+#include "hal/modem_clock_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,10 +56,22 @@ static inline uint32_t lp_clkrst_ll_get_ble_rtc_timer_divisor_value(lp_clkrst_de
 }
 
 __attribute__((always_inline))
-static inline void lp_clkrst_ll_select_modem_32k_clock_source(lp_clkrst_dev_t *hw, uint32_t src)
+static inline void lp_clkrst_ll_select_modem_32k_clock_source(lp_clkrst_dev_t *hw, modem_clock_32k_clk_src_t src)
 {
     hw->lpperi.lp_bletimer_32k_sel = src;
 }
+
+__attribute__((always_inline))
+static inline void _lp_clkrst_ll_enable_rng_clock(bool en)
+{
+    LPPERI_REG_SET(clk_en.rng_ck_en, en);
+}
+
+/// LPPERI.clk_en is a shared register, so this function must be used in an atomic way
+#define lp_clkrst_ll_enable_rng_clock(...) do { \
+        (void)__DECLARE_RCC_ATOMIC_ENV; \
+        _lp_clkrst_ll_enable_rng_clock(__VA_ARGS__); \
+    } while(0)
 
 #ifdef __cplusplus
 }

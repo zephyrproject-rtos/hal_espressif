@@ -119,7 +119,7 @@ STAILQ_HEAD(g_hci_rxinfo_list, hci_message);
 
 DRAM_ATTR struct g_hci_rxinfo_list g_hci_rxinfo_head;
 static DRAM_ATTR struct uart_env_tag uart_env;
-static volatile uhci_dev_t *s_uhci_hw = &UHCI0;
+static uhci_dev_t *s_uhci_hw = &UHCI0;
 static DRAM_ATTR gdma_channel_handle_t s_rx_channel;
 static DRAM_ATTR gdma_channel_handle_t s_tx_channel;
 
@@ -437,18 +437,9 @@ static void hci_driver_uart_dma_install(void)
     periph_module_enable(PERIPH_UHCI0_MODULE);
     periph_module_reset(PERIPH_UHCI0_MODULE);
     // install DMA driver
-    gdma_channel_alloc_config_t tx_channel_config = {
-        .flags.reserve_sibling = 1,
-        .direction = GDMA_CHANNEL_DIRECTION_TX,
-    };
+    gdma_channel_alloc_config_t channel_config = {0};
 
-    ESP_ERROR_CHECK(gdma_new_channel(&tx_channel_config, &s_tx_channel));
-    gdma_channel_alloc_config_t rx_channel_config = {
-        .direction = GDMA_CHANNEL_DIRECTION_RX,
-        .sibling_chan = s_tx_channel,
-    };
-
-    ESP_ERROR_CHECK(gdma_new_channel(&rx_channel_config, &s_rx_channel));
+    ESP_ERROR_CHECK(gdma_new_ahb_channel(&channel_config, &s_tx_channel, &s_rx_channel));
     gdma_connect(s_tx_channel, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_UHCI, 0));
     gdma_connect(s_rx_channel, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_UHCI, 0));
     gdma_strategy_config_t strategy_config = {
@@ -470,8 +461,8 @@ static void hci_driver_uart_dma_install(void)
     gdma_register_tx_event_callbacks(s_tx_channel, &tx_cbs, NULL);
     // configure UHCI
     uhci_ll_init((uhci_dev_t *)s_uhci_hw);
-    // uhci_ll_set_eof_mode((uhci_dev_t *)s_uhci_hw, UHCI_RX_LEN_EOF);
-    uhci_ll_set_eof_mode((uhci_dev_t *)s_uhci_hw, UHCI_RX_IDLE_EOF);
+    // uhci_ll_rx_set_eof_mode((uhci_dev_t *)s_uhci_hw, UHCI_RX_LEN_EOF);
+    uhci_ll_rx_set_eof_mode((uhci_dev_t *)s_uhci_hw, UHCI_RX_IDLE_EOF);
     // disable software flow control
     s_uhci_hw->escape_conf.val = 0;
     uhci_ll_attach_uart_port((uhci_dev_t *)s_uhci_hw, s_hci_driver_uart_dma_env.hci_uart_params->hci_uart_port);
@@ -590,7 +581,7 @@ hci_driver_uart_dma_deinit(void)
 
     ESP_ERROR_CHECK(uart_driver_delete(s_hci_driver_uart_dma_env.hci_uart_params->hci_uart_port));
     hci_driver_uart_dma_memory_deinit();
-    if (!s_hci_driver_uart_dma_env.process_sem) {
+    if (s_hci_driver_uart_dma_env.process_sem) {
         vSemaphoreDelete(s_hci_driver_uart_dma_env.process_sem);
     }
 

@@ -1,23 +1,23 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stddef.h>
 #include <string.h>
+#include <zephyr/kernel.h>
 
 #include "sdkconfig.h"
 #include "soc/soc_caps.h"
 #include "esp_private/sleep_event.h"
-
+#include "esp_private/critical_section.h"
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include "esp_attr.h"
 
-#include <zephyr/kernel.h>
-
-static __attribute__((unused)) const char *TAG = "sleep_event";
+ESP_LOG_ATTR_TAG(TAG, "sleep_event");
 
 #if CONFIG_ESP_SLEEP_EVENT_CALLBACKS
 esp_sleep_event_cbs_config_t g_sleep_event_cbs_config;
@@ -27,17 +27,17 @@ esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id,
     if (event_cb_conf == NULL || event_id >= SLEEP_EVENT_CB_INDEX_NUM) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)heap_caps_malloc(sizeof(esp_sleep_event_cb_config_t), MALLOC_CAP_INTERNAL);
+    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)k_malloc(sizeof(esp_sleep_event_cb_config_t));
     if (new_config == NULL) {
         return ESP_ERR_NO_MEM; /* Memory allocation failed */
     }
 
-    s_sleep_event_mutex = irq_lock();
+    esp_os_enter_critical(&s_sleep_event_mutex);
     esp_sleep_event_cb_config_t **current_ptr = &(g_sleep_event_cbs_config.sleep_event_cb_config[event_id]);
     while (*current_ptr != NULL) {
         if (((*current_ptr)->cb) == (event_cb_conf->cb)) {
-            free(new_config);
-            irq_unlock(s_sleep_event_mutex);
+            k_free(new_config);
+            esp_os_exit_critical(&s_sleep_event_mutex);
             return ESP_FAIL;
         }
         current_ptr = &((*current_ptr)->next);
@@ -49,7 +49,7 @@ esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id,
     }
     new_config->next = *current_ptr;
     *current_ptr = new_config;
-    irq_unlock(s_sleep_event_mutex);
+    esp_os_exit_critical(&s_sleep_event_mutex);
     return ESP_OK;
 }
 
@@ -57,18 +57,18 @@ esp_err_t esp_sleep_unregister_event_callback(esp_sleep_event_cb_index_t event_i
     if (cb == NULL || event_id >= SLEEP_EVENT_CB_INDEX_NUM) {
         return ESP_ERR_INVALID_ARG;
     }
-    s_sleep_event_mutex = irq_lock();
+    esp_os_enter_critical(&s_sleep_event_mutex);
     esp_sleep_event_cb_config_t **current_ptr = &(g_sleep_event_cbs_config.sleep_event_cb_config[event_id]);
     while (*current_ptr != NULL) {
         if (((*current_ptr)->cb) == cb) {
             esp_sleep_event_cb_config_t *temp = *current_ptr;
             *current_ptr = (*current_ptr)->next;
-            free(temp);
+            k_free(temp);
             break;
         }
         current_ptr = &((*current_ptr)->next);
     }
-    irq_unlock(s_sleep_event_mutex);
+    esp_os_exit_critical(&s_sleep_event_mutex);
     return ESP_OK;
 }
 #endif

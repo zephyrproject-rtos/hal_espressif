@@ -8,16 +8,15 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp32s3/rom/rtc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
-#include "hal/clk_tree_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_hw_log.h"
 #include "esp_cpu.h"
 
-static const char *TAG = "rtc_clk_init";
+ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk_init");
 
 void rtc_clk_init(rtc_clk_config_t cfg)
 {
@@ -45,10 +44,10 @@ void rtc_clk_init(rtc_clk_config_t cfg)
     /* Enable the internal bus used to configure BBPLL */
     regi2c_ctrl_ll_i2c_bbpll_enable(); // TODO: This should be moved to bbpll_set_config
 
-    rtc_xtal_freq_t xtal_freq = cfg.xtal_freq;
-    esp_rom_uart_tx_wait_idle(0);
+    soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+    esp_rom_output_tx_wait_idle(0);
     rtc_clk_xtal_freq_update(xtal_freq);
-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
+    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
 
     /* Set CPU frequency */
     rtc_clk_cpu_freq_get_config(&old_config);

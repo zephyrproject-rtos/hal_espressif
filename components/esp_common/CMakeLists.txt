@@ -2,13 +2,11 @@ idf_build_get_property(target IDF_TARGET)
 
 if(${target} STREQUAL "linux")
     set(ldfragments)
-    set(srcs "src/esp_err_check_linux.c")
 else()
     set(ldfragments common.lf soc.lf)
-    set(srcs)
 endif()
 
-list(APPEND srcs "src/esp_err_to_name.c")
+set(srcs "src/esp_err_to_name.c")
 
 # Note: esp_ipc, esp_pm added as a public requirement to keep compatibility as to be located here.
 idf_component_register(SRCS "${srcs}"
@@ -34,12 +32,17 @@ set(optional_reqs ulp
                     soc
                     esp-tls
                     esp_https_ota
+                    esp_hal_mspi
                     esp_hw_support)
 
-idf_build_get_property(build_components BUILD_COMPONENTS)
-foreach(req ${optional_reqs})
-    if(req IN_LIST build_components)
-        idf_component_get_property(req_lib ${req} COMPONENT_LIB)
-        target_link_libraries(${COMPONENT_LIB} PRIVATE ${req_lib})
-    endif()
-endforeach()
+if(IDF_BUILD_V2)
+    idf_component_optional_requires(PRIVATE ${optional_reqs})
+else()
+    idf_build_get_property(build_components BUILD_COMPONENTS)
+    foreach(req ${optional_reqs})
+        if(req IN_LIST build_components)
+            idf_component_get_property(req_lib ${req} COMPONENT_LIB)
+            target_link_libraries(${COMPONENT_LIB} PRIVATE ${req_lib})
+        endif()
+    endforeach()
+endif()

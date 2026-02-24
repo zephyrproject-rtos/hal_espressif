@@ -19,6 +19,8 @@
 extern "C" {
 #endif
 
+#define MMU_LL_END_DROM_ENTRY_VADDR         (SOC_DRAM_FLASH_ADDRESS_HIGH - 0x10000)
+#define MMU_LL_END_DROM_ENTRY_ID            (SOC_MMU_ENTRY_NUM - 1)
 /**
  * Convert MMU virtual address to linear address
  *
@@ -36,11 +38,13 @@ static inline uint32_t mmu_ll_vaddr_to_laddr(uint32_t vaddr)
  *
  * @param laddr       linear address
  * @param vaddr_type  virtual address type, could be instruction type or data type. See `mmu_vaddr_t`
+ * @param target      virtual address aimed physical memory target, not used
  *
  * @return virtual address
  */
-static inline uint32_t mmu_ll_laddr_to_vaddr(uint32_t laddr, mmu_vaddr_t vaddr_type)
+static inline uint32_t mmu_ll_laddr_to_vaddr(uint32_t laddr, mmu_vaddr_t vaddr_type, mmu_target_t target)
 {
+    (void)target;
     uint32_t vaddr_base = 0;
     if (vaddr_type == MMU_VADDR_DATA) {
         vaddr_base = SOC_MMU_DBUS_VADDR_BASE;
@@ -98,11 +102,11 @@ static inline bool mmu_ll_check_valid_ext_vaddr_region(uint32_t mmu_id, uint32_t
     bool valid = false;
 
     if (type & MMU_VADDR_INSTRUCTION) {
-        valid |= (ADDRESS_IN_IRAM0_CACHE(vaddr_start) && ADDRESS_IN_IRAM0_CACHE(vaddr_end));
+        valid |= (SOC_ADDRESS_IN_IRAM0_CACHE(vaddr_start) && SOC_ADDRESS_IN_IRAM0_CACHE(vaddr_end));
     }
 
     if (type & MMU_VADDR_DATA) {
-        valid |= (ADDRESS_IN_DRAM0_CACHE(vaddr_start) && ADDRESS_IN_DRAM0_CACHE(vaddr_end));
+        valid |= (SOC_ADDRESS_IN_DRAM0_CACHE(vaddr_start) && SOC_ADDRESS_IN_DRAM0_CACHE(vaddr_end));
     }
 
     return valid;
@@ -121,9 +125,9 @@ static inline bool mmu_ll_check_valid_ext_vaddr_region(uint32_t mmu_id, uint32_t
 static inline bool mmu_ll_check_valid_paddr_region(uint32_t mmu_id, uint32_t paddr_start, uint32_t len)
 {
     (void)mmu_id;
-    return (paddr_start < (mmu_ll_get_page_size(mmu_id) * MMU_MAX_PADDR_PAGE_NUM)) &&
-           (len < (mmu_ll_get_page_size(mmu_id) * MMU_MAX_PADDR_PAGE_NUM)) &&
-           ((paddr_start + len - 1) < (mmu_ll_get_page_size(mmu_id) * MMU_MAX_PADDR_PAGE_NUM));
+    return (paddr_start < (mmu_ll_get_page_size(mmu_id) * SOC_MMU_MAX_PADDR_PAGE_NUM)) &&
+           (len < (mmu_ll_get_page_size(mmu_id) * SOC_MMU_MAX_PADDR_PAGE_NUM)) &&
+           ((paddr_start + len - 1) < (mmu_ll_get_page_size(mmu_id) * SOC_MMU_MAX_PADDR_PAGE_NUM));
 }
 
 /**
@@ -139,7 +143,7 @@ __attribute__((always_inline))
 static inline uint32_t mmu_ll_get_entry_id(uint32_t mmu_id, uint32_t vaddr)
 {
     (void)mmu_id;
-    return ((vaddr & MMU_VADDR_MASK) >> 16);
+    return ((vaddr & SOC_MMU_VADDR_MASK) >> 16);
 }
 
 /**
@@ -173,9 +177,9 @@ static inline void mmu_ll_write_entry(uint32_t mmu_id, uint32_t entry_id, uint32
 {
     (void)mmu_id;
     HAL_ASSERT(target == MMU_TARGET_FLASH0);
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
-    *(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) = mmu_val | MMU_ACCESS_FLASH | MMU_VALID;
+    *(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) = mmu_val | SOC_MMU_ACCESS_FLASH | SOC_MMU_VALID;
 }
 
 /**
@@ -189,7 +193,7 @@ __attribute__((always_inline))
 static inline uint32_t mmu_ll_read_entry(uint32_t mmu_id, uint32_t entry_id)
 {
     (void)mmu_id;
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
     return *(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4);
 }
@@ -204,9 +208,9 @@ __attribute__((always_inline))
 static inline void mmu_ll_set_entry_invalid(uint32_t mmu_id, uint32_t entry_id)
 {
     (void)mmu_id;
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
-    *(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) = MMU_INVALID;
+    *(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) = SOC_MMU_INVALID;
 }
 
 /**
@@ -217,7 +221,7 @@ static inline void mmu_ll_set_entry_invalid(uint32_t mmu_id, uint32_t entry_id)
 __attribute__((always_inline))
 static inline void mmu_ll_unmap_all(uint32_t mmu_id)
 {
-    for (int i = 0; i < MMU_ENTRY_NUM; i++) {
+    for (int i = 0; i < SOC_MMU_ENTRY_NUM; i++) {
         mmu_ll_set_entry_invalid(mmu_id, i);
     }
 }
@@ -228,14 +232,14 @@ static inline void mmu_ll_unmap_all(uint32_t mmu_id)
  * @param mmu_id   MMU ID
  * @param entry_id MMU entry ID
  *
- * @return         Ture for MMU entry is valid; False for invalid
+ * @return         True for MMU entry is valid; False for invalid
  */
 static inline bool mmu_ll_check_entry_valid(uint32_t mmu_id, uint32_t entry_id)
 {
     (void)mmu_id;
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
-    return (*(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) & MMU_INVALID) ? false : true;
+    return (*(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4) & SOC_MMU_INVALID) ? false : true;
 }
 
 /**
@@ -249,7 +253,7 @@ static inline bool mmu_ll_check_entry_valid(uint32_t mmu_id, uint32_t entry_id)
 static inline mmu_target_t mmu_ll_get_entry_target(uint32_t mmu_id, uint32_t entry_id)
 {
     (void)mmu_id;
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
     return MMU_TARGET_FLASH0;
 }
@@ -265,9 +269,9 @@ static inline mmu_target_t mmu_ll_get_entry_target(uint32_t mmu_id, uint32_t ent
 static inline uint32_t mmu_ll_entry_id_to_paddr_base(uint32_t mmu_id, uint32_t entry_id)
 {
     (void)mmu_id;
-    HAL_ASSERT(entry_id < MMU_ENTRY_NUM);
+    HAL_ASSERT(entry_id < SOC_MMU_ENTRY_NUM);
 
-    return ((*(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4)) & MMU_VALID_VAL_MASK) << 16;
+    return ((*(uint32_t *)(DR_REG_MMU_TABLE + entry_id * 4)) & SOC_MMU_VALID_VAL_MASK) << 16;
 }
 
 /**
@@ -284,10 +288,10 @@ static inline uint32_t mmu_ll_entry_id_to_paddr_base(uint32_t mmu_id, uint32_t e
 static inline int mmu_ll_find_entry_id_based_on_map_value(uint32_t mmu_id, uint32_t mmu_val, mmu_target_t target)
 {
     (void)mmu_id;
-    for (int i = 0; i < MMU_ENTRY_NUM; i++) {
+    for (int i = 0; i < SOC_MMU_ENTRY_NUM; i++) {
         if (mmu_ll_check_entry_valid(mmu_id, i)) {
             if (mmu_ll_get_entry_target(mmu_id, i) == target) {
-                if (((*(uint32_t *)(DR_REG_MMU_TABLE + i * 4)) & MMU_VALID_VAL_MASK) == mmu_val) {
+                if (((*(uint32_t *)(DR_REG_MMU_TABLE + i * 4)) & SOC_MMU_VALID_VAL_MASK) == mmu_val) {
                     return i;
                 }
             }
@@ -309,7 +313,11 @@ static inline uint32_t mmu_ll_entry_id_to_vaddr_base(uint32_t mmu_id, uint32_t e
     (void)mmu_id;
     uint32_t laddr = entry_id << 16;
 
-    return mmu_ll_laddr_to_vaddr(laddr, type);
+    /**
+     * For `mmu_ll_laddr_to_vaddr`, target is for compatibility on this chip.
+     * Here we just pass MMU_TARGET_FLASH0 to get vaddr
+     */
+    return mmu_ll_laddr_to_vaddr(laddr, type, MMU_TARGET_FLASH0);
 }
 
 #ifdef __cplusplus

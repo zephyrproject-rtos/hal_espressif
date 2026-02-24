@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,10 +9,6 @@
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "soc/soc_caps.h"
-#ifndef BOOTLOADER_BUILD
-#include "spi_flash_mmap.h"
-#endif
-#include "hal/efuse_ll.h"
 #include "sdkconfig.h"
 
 #ifdef __cplusplus
@@ -38,8 +34,11 @@ typedef enum {
  *
  * Flash encryption is enabled if the FLASH_CRYPT_CNT efuse has an odd number of bits set.
  *
+ * @deprecated This function is deprecated. Use esp_efuse_is_flash_encryption_enabled() instead.
+ *
  * @return true if flash encryption is enabled.
  */
+__attribute__((deprecated("Use esp_efuse_is_flash_encryption_enabled() instead")))
 bool esp_flash_encryption_enabled(void);
 
 /* @brief Update on-device flash encryption
@@ -82,7 +81,7 @@ bool esp_flash_encryption_enabled(void);
  * @note RTC_WDT will reset while encryption operations will be performed (if RTC_WDT is configured).
  *
  * @return ESP_OK if all operations succeeded, ESP_ERR_INVALID_STATE
- * if a fatal error occured during encryption of all partitions.
+ * if a fatal error occurred during encryption of all partitions.
  */
 esp_err_t esp_flash_encrypt_check_and_update(void);
 
@@ -178,12 +177,25 @@ esp_flash_enc_mode_t esp_get_flash_encryption_mode(void);
  */
 void esp_flash_encryption_init_checks(void);
 
+
+#if BOOTLOADER_BUILD && CONFIG_SECURE_FLASH_ENC_ENABLED
 /** @brief Set all secure eFuse features related to flash encryption
  *
  * @return
- *  - ESP_OK - Successfully
+ *  - ESP_OK - On success
  */
 esp_err_t esp_flash_encryption_enable_secure_features(void);
+
+#if SOC_KEY_MANAGER_FE_KEY_DEPLOY
+/** @brief Enable the key manager for flash encryption
+ *
+ * @return
+ *  - ESP_OK - On success
+ */
+esp_err_t esp_flash_encryption_use_efuse_key(void);
+#endif // SOC_KEY_MANAGER_FE_KEY_DEPLOY
+
+#endif /* BOOTLOADER_BUILD && CONFIG_SECURE_FLASH_ENC_ENABLED */
 
 /** @brief Returns the verification status for all physical security features of flash encryption in release mode
  *
@@ -205,6 +217,10 @@ bool esp_flash_encryption_cfg_verify_release_mode(void);
  * It burns:
  *  - "disable encrypt in dl mode"
  *  - set FLASH_CRYPT_CNT efuse to max
+ *
+ * In case of the targets that support the XTS-AES peripheral's pseudo rounds function,
+ * this API would configure the pseudo rounds level efuse bit to level low if the efuse bit
+ * is not set already.
  */
 void esp_flash_encryption_set_release_mode(void);
 

@@ -1,25 +1,24 @@
 /*
- * SPDX-FileCopyrightText: 2016-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2016-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#include <zephyr/kernel.h>
-#include <esp_heap_caps.h>
 
 #include <stdlib.h>
 #include <ctype.h>
 #include "sdkconfig.h"
 #include "esp_types.h"
 #include "esp_log.h"
+#include <zephyr/kernel.h>
 #include "soc/rtc_periph.h"
-#include "soc/syscon_periph.h"
 #include "soc/rtc.h"
 #include "soc/periph_defs.h"
 #include "esp_intr_alloc.h"
 #include "sys/lock.h"
 #include "esp_private/rtc_ctrl.h"
+#include "esp_private/critical_section.h"
 #include "esp_attr.h"
+
 
 #ifndef NDEBUG
 // Enable built-in checks in queue.h in debug builds
@@ -27,17 +26,16 @@
 #endif
 #include "sys/queue.h"
 
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
-static const char *TAG = "rtc_module";
+#if !SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
+ESP_LOG_ATTR_TAG(TAG, "rtc_module");
 #endif
 
-#if !CONFIG_IDF_TARGET_ESP32C6 && !CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+// rtc_spinlock is used by other peripheral drivers
+unsigned int rtc_spinlock;
+
+#if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
 
 #define NOT_REGISTERED      (-1)
-
-static DRAM_ATTR int s_rtc_isr_handler_list_lock;
-#define RTC_ISR_HANDLER_ENTER_CRITICAL()    do { s_rtc_isr_handler_list_lock = irq_lock(); } while(0)
-#define RTC_ISR_HANDLER_EXIT_CRITICAL()    irq_unlock(s_rtc_isr_handler_list_lock);
 
 // Disable the interrupt which cannot work without cache.
 static DRAM_ATTR uint32_t rtc_intr_cache;
@@ -61,28 +59,29 @@ typedef struct rtc_isr_handler_ {
 
 static DRAM_ATTR SLIST_HEAD(rtc_isr_handler_list_, rtc_isr_handler_) s_rtc_isr_handler_list =
         SLIST_HEAD_INITIALIZER(s_rtc_isr_handler_list);
+static DRAM_ATTR unsigned int s_rtc_isr_handler_list_lock;
 static intr_handle_t s_rtc_isr_handle;
 
 IRAM_ATTR static void rtc_isr(void* arg)
 {
     uint32_t status = REG_READ(RTC_CNTL_INT_ST_REG);
     rtc_isr_handler_t* it;
-    RTC_ISR_HANDLER_ENTER_CRITICAL();
+    esp_os_enter_critical_isr(&s_rtc_isr_handler_list_lock);
     SLIST_FOREACH(it, &s_rtc_isr_handler_list, next) {
         if (it->mask & status) {
-            RTC_ISR_HANDLER_EXIT_CRITICAL();
+            esp_os_exit_critical_isr(&s_rtc_isr_handler_list_lock);
             (*it->handler)(it->handler_arg);
-            RTC_ISR_HANDLER_ENTER_CRITICAL();
+            esp_os_enter_critical_isr(&s_rtc_isr_handler_list_lock);
         }
     }
-    RTC_ISR_HANDLER_EXIT_CRITICAL();
+    esp_os_exit_critical_isr(&s_rtc_isr_handler_list_lock);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, status);
 }
 
 static esp_err_t rtc_isr_ensure_installed(void)
 {
     esp_err_t err = ESP_OK;
-    RTC_ISR_HANDLER_ENTER_CRITICAL();
+    esp_os_enter_critical(&s_rtc_isr_handler_list_lock);
     if (s_rtc_isr_handle) {
         goto out;
     }
@@ -95,14 +94,14 @@ static esp_err_t rtc_isr_ensure_installed(void)
     }
     rtc_isr_cpu = esp_intr_get_cpu(s_rtc_isr_handle);
 out:
-    RTC_ISR_HANDLER_EXIT_CRITICAL();
+    esp_os_exit_critical(&s_rtc_isr_handler_list_lock);
     return err;
 }
-#endif // !CONFIG_IDF_TARGET_ESP32C6 TODO: IDF-5645
+#endif // SOC_LP_PERIPH_SHARE_INTERRUPT TODO: IDF-8008
 
 esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t rtc_intr_mask, uint32_t flags)
 {
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+#if !SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
     ESP_EARLY_LOGW(TAG, "rtc_isr_register() has not been implemented yet");
     return ESP_OK;
 #else
@@ -111,7 +110,7 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t r
         return err;
     }
 
-    rtc_isr_handler_t* item = heap_caps_malloc(sizeof(*item), MALLOC_CAP_INTERNAL);
+    rtc_isr_handler_t* item = k_malloc(sizeof(*item));
     if (item == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -119,28 +118,28 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t r
     item->handler_arg = handler_arg;
     item->mask = rtc_intr_mask;
     item->flags = flags;
-    RTC_ISR_HANDLER_ENTER_CRITICAL();
+    esp_os_enter_critical(&s_rtc_isr_handler_list_lock);
     if (flags & RTC_INTR_FLAG_IRAM) {
         s_rtc_isr_noniram_hook(rtc_intr_mask);
     } else {
         s_rtc_isr_noniram_hook_relieve(rtc_intr_mask);
     }
     SLIST_INSERT_HEAD(&s_rtc_isr_handler_list, item, next);
-    RTC_ISR_HANDLER_EXIT_CRITICAL();
+    esp_os_exit_critical(&s_rtc_isr_handler_list_lock);
     return ESP_OK;
 #endif
 }
 
 esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
 {
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+#if !SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
     ESP_EARLY_LOGW(TAG, "rtc_isr_deregister() has not been implemented yet");
     return ESP_OK;
 #else
     rtc_isr_handler_t* it;
     rtc_isr_handler_t* prev = NULL;
     bool found = false;
-    RTC_ISR_HANDLER_ENTER_CRITICAL();
+    esp_os_enter_critical(&s_rtc_isr_handler_list_lock);
     SLIST_FOREACH(it, &s_rtc_isr_handler_list, next) {
         if (it->handler == handler && it->handler_arg == handler_arg) {
             if (it == SLIST_FIRST(&s_rtc_isr_handler_list)) {
@@ -152,17 +151,17 @@ esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
             if (it->flags & RTC_INTR_FLAG_IRAM) {
                 s_rtc_isr_noniram_hook_relieve(it->mask);
             }
-            free(it);
+            k_free(it);
             break;
         }
         prev = it;
     }
-    RTC_ISR_HANDLER_EXIT_CRITICAL();
+    esp_os_exit_critical(&s_rtc_isr_handler_list_lock);
     return found ? ESP_OK : ESP_ERR_INVALID_STATE;
 #endif
 }
 
-#if !CONFIG_IDF_TARGET_ESP32C6 && !CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+#if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
 /**
  * @brief This helper function can be used to avoid the interrupt to be triggered with cache disabled.
  *        There are lots of different signals on RTC module (i.e. sleep_wakeup, wdt, brownout_detect, etc.)
@@ -185,7 +184,7 @@ static void s_rtc_isr_noniram_hook_relieve(uint32_t rtc_intr_mask)
 
 IRAM_ATTR void rtc_isr_noniram_disable(uint32_t cpu)
 {
-#if !CONFIG_IDF_TARGET_ESP32C6 && !CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+#if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
     if (rtc_isr_cpu == cpu) {
         rtc_intr_enabled |= RTCCNTL.int_ena.val;
         RTCCNTL.int_ena.val &= rtc_intr_cache;
@@ -195,7 +194,7 @@ IRAM_ATTR void rtc_isr_noniram_disable(uint32_t cpu)
 
 IRAM_ATTR void rtc_isr_noniram_enable(uint32_t cpu)
 {
-#if !CONFIG_IDF_TARGET_ESP32C6 && !CONFIG_IDF_TARGET_ESP32H2 // TODO: IDF-5645
+#if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
     if (rtc_isr_cpu == cpu) {
         RTCCNTL.int_ena.val = rtc_intr_enabled;
         rtc_intr_enabled = 0;

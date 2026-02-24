@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,8 +19,8 @@
 #include "hal/lp_i2s_ll.h"
 #endif
 
-#if SOC_LP_TIMER_SUPPORTED
-#include "hal/lp_timer_ll.h"
+#if SOC_RTC_TIMER_V2_SUPPORTED
+#include "hal/rtc_timer_ll.h"
 #endif
 
 #include "esp_cpu.h"
@@ -42,17 +42,20 @@ static uint32_t lp_wakeup_cause = 0;
 
 void ulp_lp_core_update_wakeup_cause(void)
 {
+    lp_wakeup_cause = 0;
     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_HP_CPU) \
             && (pmu_ll_lp_get_interrupt_raw(&PMU) & PMU_HP_SW_TRIGGER_INT_RAW)) {
         lp_wakeup_cause |= LP_CORE_LL_WAKEUP_SOURCE_HP_CPU;
         pmu_ll_lp_clear_intsts_mask(&PMU, PMU_HP_SW_TRIGGER_INT_CLR);
     }
 
+#if SOC_ULP_LP_UART_SUPPORTED
     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_LP_UART) \
             && (uart_ll_get_intraw_mask(&LP_UART) & LP_UART_WAKEUP_INT_RAW)) {
         lp_wakeup_cause |= LP_CORE_LL_WAKEUP_SOURCE_LP_UART;
         uart_ll_clr_intsts_mask(&LP_UART, LP_UART_WAKEUP_INT_CLR);
     }
+#endif
 
     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_LP_IO) \
             && rtcio_ll_get_interrupt_status()) {
@@ -79,13 +82,13 @@ void ulp_lp_core_update_wakeup_cause(void)
     }
 #endif /* SOC_ETM_SUPPORTED */
 
-#if SOC_LP_TIMER_SUPPORTED
+#if SOC_RTC_TIMER_V2_SUPPORTED
     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER) \
-            && (lp_timer_ll_get_lp_intr_raw(&LP_TIMER) & LP_TIMER_MAIN_TIMER_LP_INT_RAW)) {
+            && (rtc_timer_ll_get_intr_raw(&LP_TIMER, 1) & LP_TIMER_MAIN_TIMER_LP_INT_RAW)) {
         lp_wakeup_cause |= LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER;
-        lp_timer_ll_clear_lp_intsts_mask(&LP_TIMER, LP_TIMER_MAIN_TIMER_LP_INT_CLR);
+        rtc_timer_ll_clear_alarm_intr_status(&LP_TIMER, 1);
     }
-#endif /* SOC_LP_TIMER_SUPPORTED */
+#endif /* SOC_RTC_TIMER_V2_SUPPORTED */
 
 }
 
@@ -137,6 +140,15 @@ void ulp_lp_core_delay_cycles(uint32_t cycles)
     }
 }
 
+#if SOC_ULP_LP_UART_SUPPORTED
+
+void ulp_lp_core_lp_uart_reset_wakeup_en(void)
+{
+    lp_core_ll_enable_lp_uart_wakeup(false);
+    lp_core_ll_enable_lp_uart_wakeup(true);
+}
+#endif
+
 void ulp_lp_core_halt(void)
 {
     lp_core_ll_request_sleep();
@@ -151,6 +163,15 @@ void ulp_lp_core_stop_lp_core(void)
     lp_core_ll_request_sleep();
 }
 
+// #if IS_ULP_COCPU
+// void __attribute__((noreturn)) abort(void)
+// {
+//     /* Cause an exception so a debugger can inspect the backtrace */
+//     esp_cpu_dbgr_break();
+//     while (1);
+// }
+// #endif
+
 void __attribute__((noreturn)) ulp_lp_core_abort(void)
 {
     /* Stop the LP Core */
@@ -159,15 +180,32 @@ void __attribute__((noreturn)) ulp_lp_core_abort(void)
     while (1);
 }
 
-void ulp_lp_core_sw_intr_enable(bool enable)
+void ulp_lp_core_sw_intr_to_hp_trigger(void)
+{
+    pmu_ll_lp_trigger_sw_intr(&PMU);
+}
+
+void ulp_lp_core_sw_intr_from_hp_enable(bool enable)
 {
     pmu_ll_lp_enable_sw_intr(&PMU, enable);
 }
 
-void ulp_lp_core_sw_intr_clear(void)
+void ulp_lp_core_sw_intr_from_hp_clear(void)
 {
     pmu_ll_lp_clear_sw_intr_status(&PMU);
 }
+
+#if SOC_RTC_TIMER_V2_SUPPORTED
+void ulp_lp_core_lp_timer_intr_enable(bool enable)
+{
+    rtc_timer_ll_alarm_intr_enable(&LP_TIMER, 1, enable);
+}
+
+void ulp_lp_core_lp_timer_intr_clear(void)
+{
+    rtc_timer_ll_clear_alarm_intr_status(&LP_TIMER, 1);
+}
+#endif
 
 void ulp_lp_core_wait_for_intr(void)
 {

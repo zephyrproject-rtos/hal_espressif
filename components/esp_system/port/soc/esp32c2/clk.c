@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
+#include <sys/time.h>
 #include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -22,15 +23,14 @@
 #include "soc/rtc_periph.h"
 #include "hal/wdt_hal.h"
 #include "esp_private/periph_ctrl.h"
-#include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
 /* Indicates that this 32k oscillator gets input from external oscillator, rather
  * than a crystal.
@@ -50,8 +50,7 @@ typedef enum {
 static void select_rtc_slow_clk(slow_clk_sel_t slow_clk);
 static __attribute__((unused)) void recalib_bbpll(void);
 
-static const char *TAG = "clk";
-
+ESP_LOG_ATTR_TAG(TAG, "clk");
 
 void esp_rtc_init(void)
 {
@@ -104,9 +103,9 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);
@@ -131,14 +130,16 @@ __attribute__((weak)) void esp_clk_init(void)
 
     // Wait for UART TX to finish, otherwise some UART output will be lost
     // when switching APB frequency
-    esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+    if (CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM != -1) {
+        esp_rom_output_tx_wait_idle(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
+    }
 
     if (res)  {
         rtc_clk_cpu_freq_set_config(&new_config);
     }
 
     // Re calculate the ccount to make time calculation correct.
-    esp_cpu_set_cycle_count( (uint64_t)esp_cpu_get_cycle_count() * new_freq_mhz / old_freq_mhz );
+    esp_cpu_set_cycle_count((uint64_t)esp_cpu_get_cycle_count() * new_freq_mhz / old_freq_mhz);
 }
 
 static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
@@ -150,7 +151,9 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
      */
     int retry_ext_clk = 3;
 
+    soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
+        bool revoke_32k_enable = false;
         if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {
             /* external clock needs to be connected to PIN0 before it can
              * be used. Here we use rtc_clk_cal function to count
@@ -163,33 +166,35 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
 
             // When SLOW_CLK_CAL_CYCLES is set to 0, clock calibration will not be performed at startup.
             if (SLOW_CLK_CAL_CYCLES > 0) {
-                cal_val = rtc_clk_cal(RTC_CAL_32K_OSC_SLOW, SLOW_CLK_CAL_CYCLES);
+                cal_val = rtc_clk_cal(CLK_CAL_32K_OSC_SLOW, SLOW_CLK_CAL_CYCLES);
                 if (cal_val == 0) {
                     if (retry_ext_clk-- > 0) {
                         continue;
                     }
                     ESP_EARLY_LOGW(TAG, "external clock connected to pin0 not found, switching to internal 150 kHz oscillator");
                     rtc_slow_clk_src = SOC_RTC_SLOW_CLK_SRC_RC_SLOW;
+                    revoke_32k_enable = true;
                 }
             }
         } else if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) {
             rtc_clk_8m_enable(true, true);
         }
         rtc_clk_slow_src_set(rtc_slow_clk_src);
-        if (rtc_slow_clk_src != SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {
+        if (revoke_32k_enable || \
+                ((old_rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) && (rtc_slow_clk_src != SOC_RTC_SLOW_CLK_SRC_OSC_SLOW))) {
             rtc_clk_32k_disable_external();
         }
         if (SLOW_CLK_CAL_CYCLES > 0) {
             /* TODO: 32k XTAL oscillator has some frequency drift at startup.
              * Improve calibration routine to wait until the frequency is stable.
              */
-            cal_val = rtc_clk_cal(RTC_CAL_RTC_MUX, SLOW_CLK_CAL_CYCLES);
+            cal_val = rtc_clk_cal(CLK_CAL_RTC_SLOW, SLOW_CLK_CAL_CYCLES);
         } else {
             const uint64_t cal_dividend = (1ULL << RTC_CLK_CAL_FRACT) * 1000000ULL;
-            cal_val = (uint32_t) (cal_dividend / rtc_clk_slow_freq_get_hz());
+            cal_val = (uint32_t)(cal_dividend / rtc_clk_slow_freq_get_hz());
         }
     } while (cal_val == 0);
-    ESP_EARLY_LOGD(TAG, "RTC_SLOW_CLK calibration value: %d", cal_val);
+    ESP_EARLY_LOGD(TAG, "RTC_SLOW_CLK calibration value: %" PRIu32, cal_val);
     esp_clk_slowclk_cal_set(cal_val);
 }
 
@@ -245,6 +250,13 @@ __attribute__((weak)) void esp_perip_clk_init(void)
                         SYSTEM_I2C_EXT0_CLK_EN;
     common_perip_clk1 = 0;
 
+#if !CONFIG_ESP_SYSTEM_HW_PC_RECORD
+    /* Disable ASSIST Debug module clock if PC recoreding function is not used,
+     * if stack guard function needs it, it will be re-enabled at esp_hw_stack_guard_init */
+    CLEAR_PERI_REG_MASK(SYSTEM_CPU_PERI_CLK_EN_REG, SYSTEM_CLK_EN_ASSIST_DEBUG);
+    SET_PERI_REG_MASK(SYSTEM_CPU_PERI_RST_EN_REG, SYSTEM_RST_EN_ASSIST_DEBUG);
+#endif
+
     /* Disable some peripheral clocks. */
     CLEAR_PERI_REG_MASK(SYSTEM_PERIP_CLK_EN0_REG, common_perip_clk);
     SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG, common_perip_clk);
@@ -267,19 +279,10 @@ __attribute__((weak)) void esp_perip_clk_init(void)
 
     /* Enable RNG clock. */
     periph_module_enable(PERIPH_RNG_MODULE);
-
-    /* Enable TimerGroup 0 clock to ensure its reference counter will never
-     * be decremented to 0 during normal operation and preventing it from
-     * being disabled.
-     * If the TimerGroup 0 clock is disabled and then reenabled, the watchdog
-     * registers (Flashboot protection included) will be reenabled, and some
-     * seconds later, will trigger an unintended reset.
-     */
-    periph_module_enable(PERIPH_TIMG0_MODULE);
 }
 
 // Workaround for bootloader not calibrated well issue.
-// Placed in IRAM because disabling BBPLL may influence the cache
+// Placed in IRAM because disabling BBPLL may influence the cache.
 static void IRAM_ATTR NOINLINE_ATTR recalib_bbpll(void)
 {
     rtc_cpu_freq_config_t old_config;

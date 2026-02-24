@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,9 +16,8 @@
 extern "C" {
 #endif
 
-
-/**
- * @brief Driver Backgrounds
+/*
+ * Driver Backgrounds
  *
  * --------------------------------------------------------------------------------------------------------
  * |                              Conversion Frame                                                        |
@@ -34,8 +33,7 @@ extern "C" {
  *                          structure is `adc_digi_output_data_t`, including ADC Unit, ADC Channel and Raw Data.
  *
  * For example:
- * conv_frame_size = 100,
- * then one Conversion Frame contains (100 / `SOC_ADC_DIGI_RESULT_BYTES`) pieces of Conversion Results
+ * conv_frame_size = 100 indicates one Conversion Frame contains (100 / `SOC_ADC_DIGI_RESULT_BYTES`) pieces of Conversion Results.
  */
 
 /**
@@ -52,8 +50,11 @@ typedef struct adc_continuous_ctx_t *adc_continuous_handle_t;
  * @brief ADC continuous mode driver initial configurations
  */
 typedef struct {
-    uint32_t max_store_buf_size;    ///< Max length of the conversion Results that driver can store, in bytes.
+    uint32_t max_store_buf_size;    ///< Max length of the conversion results that driver can store, in bytes.
     uint32_t conv_frame_size;       ///< Conversion frame size, in bytes. This should be in multiples of `SOC_ADC_DIGI_DATA_BYTES_PER_CONV`.
+    struct {
+        uint32_t flush_pool: 1;     ///< Flush the internal pool when the pool is full.
+    } flags;                        ///< Driver flags
 } adc_continuous_handle_cfg_t;
 
 /**
@@ -64,7 +65,7 @@ typedef struct {
     adc_digi_pattern_config_t *adc_pattern; ///< List of configs for each ADC channel that will be used
     uint32_t sample_freq_hz;                /*!< The expected ADC sampling frequency in Hz. Please refer to `soc/soc_caps.h` to know available sampling frequency range*/
     adc_digi_convert_mode_t conv_mode;      ///< ADC DMA conversion mode, see `adc_digi_convert_mode_t`.
-    adc_digi_output_format_t format;        ///< ADC DMA conversion output format, see `adc_digi_output_format_t`.
+    adc_digi_output_format_t format __attribute__((deprecated));        ///< ADC DMA conversion output format, see `adc_digi_output_format_t`.
 } adc_continuous_config_t;
 
 /**
@@ -80,7 +81,7 @@ typedef struct {
  * @brief Prototype of ADC continuous mode event callback
  *
  * @param[in] handle    ADC continuous mode driver handle
- * @param[in] edata     Pointer to ADC contunuous mode event data
+ * @param[in] edata     Pointer to ADC continuous mode event data
  * @param[in] user_data User registered context, registered when in `adc_continuous_register_event_callbacks()`
  *
  * @return Whether a high priority task is woken up by this function
@@ -95,14 +96,14 @@ typedef bool (*adc_continuous_callback_t)(adc_continuous_handle_t handle, const 
  *       Involved variables should be in internal RAM as well.
  */
 typedef struct {
-    adc_continuous_callback_t on_conv_done;    ///< Event callback, invoked when one conversion frame is done. See `@brief Driver Backgrounds` to konw `conversion frame` concept.
+    adc_continuous_callback_t on_conv_done;    ///< Event callback, invoked when one conversion frame is done. See the subsection `Driver Backgrounds` in this header file to learn about the `conversion frame` concept.
     adc_continuous_callback_t on_pool_ovf;     ///< Event callback, invoked when the internal pool is full.
 } adc_continuous_evt_cbs_t;
 
 /**
  * @brief Initialize ADC continuous driver and get a handle to it
  *
- * @param[in]  hdl_config  Pointer to ADC initilization config. Refer to ``adc_continuous_handle_cfg_t``.
+ * @param[in]  hdl_config  Pointer to ADC initialization config. Refer to ``adc_continuous_handle_cfg_t``.
  * @param[out] ret_handle  ADC continuous mode driver handle
  *
  * @return
@@ -162,7 +163,7 @@ esp_err_t adc_continuous_start(adc_continuous_handle_t handle);
  *
  * @param[in]  handle              ADC continuous mode driver handle
  * @param[out] buf                 Conversion result buffer to read from ADC. Suggest convert to `adc_digi_output_data_t` for `ADC Conversion Results`.
- *                                 See `@brief Driver Backgrounds` to know this concept.
+ *                                 See the subsection `Driver Backgrounds` in this header file to learn about this concept.
  * @param[in]  length_max          Expected length of the Conversion Results read from the ADC, in bytes.
  * @param[out] out_length          Real length of the Conversion Results read from the ADC via this API, in bytes.
  * @param[in]  timeout_ms          Time to wait for data via this API, in millisecond.
@@ -197,6 +198,20 @@ esp_err_t adc_continuous_stop(adc_continuous_handle_t handle);
 esp_err_t adc_continuous_deinit(adc_continuous_handle_t handle);
 
 /**
+ * @brief Flush the driver internal pool
+ *
+ * @note This API is not supposed to be called in an ISR context
+ *
+ * @param[in]  handle              ADC continuous mode driver handle
+ *
+ * @return
+ *         - ESP_ERR_INVALID_STATE Driver state is invalid, you should call this API when it's in init state
+ *         - ESP_ERR_INVALID_ARG:  Invalid arguments
+ *         - ESP_OK                On success
+ */
+esp_err_t adc_continuous_flush_pool(adc_continuous_handle_t handle);
+
+/**
  * @brief Get ADC channel from the given GPIO number
  *
  * @param[in]  io_num     GPIO number
@@ -208,7 +223,7 @@ esp_err_t adc_continuous_deinit(adc_continuous_handle_t handle);
  *        - ESP_ERR_INVALID_ARG: Invalid argument
  *        - ESP_ERR_NOT_FOUND:   The IO is not a valid ADC pad
  */
-esp_err_t adc_continuous_io_to_channel(int io_num, adc_unit_t *unit_id, adc_channel_t *channel);
+esp_err_t adc_continuous_io_to_channel(int io_num, adc_unit_t * const unit_id, adc_channel_t * const channel);
 
 /**
  * @brief Get GPIO number from the given ADC channel
@@ -221,8 +236,67 @@ esp_err_t adc_continuous_io_to_channel(int io_num, adc_unit_t *unit_id, adc_chan
  *       - ESP_OK:              On success
  *       - ESP_ERR_INVALID_ARG: Invalid argument
  */
-esp_err_t adc_continuous_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int *io_num);
+esp_err_t adc_continuous_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int * const io_num);
 
+/**
+ * @brief Parsed ADC continuous mode data structure
+ */
+typedef struct {
+    adc_unit_t unit;        ///< ADC unit (ADC_UNIT_1 or ADC_UNIT_2)
+    adc_channel_t channel;  ///< ADC channel number (0-9)
+    uint32_t raw_data;      ///< ADC raw data value (0-4095, 12-bit resolution)
+    bool valid;             ///< Whether the data is valid
+} adc_continuous_data_t;
+
+/**
+ * @brief Parse ADC continuous mode raw data
+ *
+ * @param[in] handle        ADC continuous mode driver handle
+ * @param[in] raw_data      Raw data buffer obtained from adc_continuous_read()
+ * @param[in] raw_data_size Size of raw data buffer in bytes
+ * @param[out] parsed_data  Parsed data array
+ * @param[out] num_parsed_samples Number of samples actually parsed and stored in parsed_data
+ *
+ * @note The function will parse all available samples from raw_data. User should ensure
+ *       parsed_data array is large enough to hold raw_data_size/SOC_ADC_DIGI_RESULT_BYTES samples.
+ *       The function includes comprehensive bounds checking to prevent buffer overflow and integer overflow.
+ *
+ * @return
+ *         - ESP_OK: Success
+ *         - ESP_ERR_INVALID_ARG: Invalid arguments
+ *         - ESP_ERR_INVALID_SIZE: raw_data_size is not aligned to SOC_ADC_DIGI_RESULT_BYTES,
+ *                                 integer overflow detected, or buffer overflow detected
+ */
+esp_err_t adc_continuous_parse_data(adc_continuous_handle_t handle,
+                                    const uint8_t *raw_data,
+                                    uint32_t raw_data_size,
+                                    adc_continuous_data_t *parsed_data,
+                                    uint32_t *num_parsed_samples);
+
+/**
+ * @brief Read and parse ADC continuous mode data in one call
+ *
+ * @param[in] handle        ADC continuous mode driver handle
+ * @param[out] parsed_data  Parsed data array
+ * @param[in] max_samples   Maximum number of samples that can be stored in parsed_data array
+ * @param[out] num_samples  Number of samples actually parsed and stored in parsed_data
+ * @param[in] timeout_ms    Timeout in milliseconds
+ *
+ * @note This function automatically handles raw data buffer allocation and cleanup.
+ *       User only needs to provide parsed_data array and specify max_samples.
+ *
+ * @return
+ *         - ESP_OK: Success
+ *         - ESP_ERR_INVALID_ARG: Invalid arguments
+ *         - ESP_ERR_INVALID_SIZE: Buffer size issues or overflow detected
+ *         - ESP_ERR_TIMEOUT: Operation timed out
+ *         - ESP_ERR_NO_MEM: Memory allocation failed
+ */
+esp_err_t adc_continuous_read_parse(adc_continuous_handle_t handle,
+                                    adc_continuous_data_t *parsed_data,
+                                    uint32_t max_samples,
+                                    uint32_t *num_samples,
+                                    uint32_t timeout_ms);
 
 #ifdef __cplusplus
 }

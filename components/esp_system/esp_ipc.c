@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "sdkconfig.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +12,7 @@
 #include "esp_err.h"
 #include "esp_ipc.h"
 #include "esp_private/esp_ipc_isr.h"
-#include "esp_attr.h"
+#include "esp_private/esp_system_attr.h"
 #include "esp_cpu.h"
 
 #include "freertos/FreeRTOS.h"
@@ -20,7 +21,7 @@
 
 #define IPC_MAX_PRIORITY (configMAX_PRIORITIES - 1)
 
-#if !defined(CONFIG_FREERTOS_UNICORE) || defined(CONFIG_APPTRACE_GCOV_ENABLE)
+#if CONFIG_ESP_IPC_ENABLE
 
 #if CONFIG_COMPILER_OPTIMIZATION_NONE
 #define IPC_STACK_SIZE (CONFIG_ESP_IPC_TASK_STACK_SIZE + 0x100)
@@ -28,14 +29,14 @@
 #define IPC_STACK_SIZE (CONFIG_ESP_IPC_TASK_STACK_SIZE)
 #endif //CONFIG_COMPILER_OPTIMIZATION_NONE
 
-static DRAM_ATTR StaticSemaphore_t s_ipc_mutex_buffer[portNUM_PROCESSORS];
-static DRAM_ATTR StaticSemaphore_t s_ipc_ack_buffer[portNUM_PROCESSORS];
+static DRAM_ATTR StaticSemaphore_t s_ipc_mutex_buffer[CONFIG_FREERTOS_NUMBER_OF_CORES];
+static DRAM_ATTR StaticSemaphore_t s_ipc_ack_buffer[CONFIG_FREERTOS_NUMBER_OF_CORES];
 
-static TaskHandle_t s_ipc_task_handle[portNUM_PROCESSORS];
-static SemaphoreHandle_t s_ipc_mutex[portNUM_PROCESSORS];    // This mutex is used as a global lock for esp_ipc_* APIs
-static SemaphoreHandle_t s_ipc_ack[portNUM_PROCESSORS];      // Semaphore used to acknowledge that task was woken up,
-static volatile esp_ipc_func_t s_func[portNUM_PROCESSORS] = { 0 };   // Function which should be called by high priority task
-static void * volatile s_func_arg[portNUM_PROCESSORS];       // Argument to pass into s_func
+static TaskHandle_t s_ipc_task_handle[CONFIG_FREERTOS_NUMBER_OF_CORES];
+static SemaphoreHandle_t s_ipc_mutex[CONFIG_FREERTOS_NUMBER_OF_CORES];    // This mutex is used as a global lock for esp_ipc_* APIs
+static SemaphoreHandle_t s_ipc_ack[CONFIG_FREERTOS_NUMBER_OF_CORES];      // Semaphore used to acknowledge that task was woken up,
+static volatile esp_ipc_func_t s_func[CONFIG_FREERTOS_NUMBER_OF_CORES] = { 0 };   // Function which should be called by high priority task
+static void * volatile s_func_arg[CONFIG_FREERTOS_NUMBER_OF_CORES];       // Argument to pass into s_func
 typedef enum {
     IPC_WAIT_NO = 0,
     IPC_WAIT_FOR_START,
@@ -48,7 +49,7 @@ static volatile esp_ipc_func_t s_no_block_func[portNUM_PROCESSORS] = { 0 };
 static volatile bool s_no_block_func_and_arg_are_ready[portNUM_PROCESSORS] = { 0 };
 static void * volatile s_no_block_func_arg[portNUM_PROCESSORS];
 
-static void IRAM_ATTR ipc_task(void* arg)
+static void ESP_SYSTEM_IRAM_ATTR ipc_task(void* arg)
 {
     const int cpuid = (int) arg;
 
@@ -88,12 +89,6 @@ static void IRAM_ATTR ipc_task(void* arg)
         }
 #endif // !CONFIG_FREERTOS_UNICORE
     }
-    // TODO: currently this is unreachable code. Introduce esp_ipc_uninit
-    // function which will signal to both tasks that they can shut down.
-    // Not critical at this point, we don't have a use case for stopping
-    // IPC yet.
-    // Also need to delete the semaphore here.
-    vTaskDelete(NULL);
 }
 
 /*
@@ -106,18 +101,18 @@ static void IRAM_ATTR ipc_task(void* arg)
  * woken up to execute the callback provided to esp_ipc_call_nonblocking or
  * esp_ipc_call_blocking.
  */
-static void esp_ipc_init(void) __attribute__((constructor));
+static void esp_ipc_init(void) ;
 
 static void esp_ipc_init(void)
 {
     char task_name[] = "ipcX"; // up to 10 ipc tasks/cores (0-9)
 
-    for (int i = 0; i < portNUM_PROCESSORS; ++i) {
+    for (int i = 0; i < CONFIG_FREERTOS_NUMBER_OF_CORES; ++i) {
         task_name[3] = i + (char)'0';
         s_ipc_mutex[i] = xSemaphoreCreateMutexStatic(&s_ipc_mutex_buffer[i]);
         s_ipc_ack[i] = xSemaphoreCreateBinaryStatic(&s_ipc_ack_buffer[i]);
-        portBASE_TYPE res = xTaskCreatePinnedToCore(ipc_task, task_name, IPC_STACK_SIZE, (void*) i,
-                                                    IPC_MAX_PRIORITY, &s_ipc_task_handle[i], i);
+        BaseType_t res = xTaskCreatePinnedToCore(ipc_task, task_name, IPC_STACK_SIZE, (void*) i,
+                                                 IPC_MAX_PRIORITY, &s_ipc_task_handle[i], i);
         assert(res == pdTRUE);
         (void)res;
     }
@@ -125,7 +120,7 @@ static void esp_ipc_init(void)
 
 static esp_err_t esp_ipc_call_and_wait(uint32_t cpu_id, esp_ipc_func_t func, void* arg, esp_ipc_wait_t wait_for)
 {
-    if (cpu_id >= portNUM_PROCESSORS) {
+    if (cpu_id >= CONFIG_FREERTOS_NUMBER_OF_CORES) {
         return ESP_ERR_INVALID_ARG;
     }
     if (s_ipc_task_handle[cpu_id] == NULL) {
@@ -135,8 +130,14 @@ static esp_err_t esp_ipc_call_and_wait(uint32_t cpu_id, esp_ipc_func_t func, voi
         return ESP_ERR_INVALID_STATE;
     }
 
-#ifdef CONFIG_ESP_IPC_USES_CALLERS_PRIORITY
     TaskHandle_t task_handler = xTaskGetCurrentTaskHandle();
+    // It checks the recursion call: esp_ipc_call_... -> ipc_task -> esp_ipc_call_...
+    if (task_handler == s_ipc_task_handle[cpu_id]) {
+        // If the caller task is already the ipc_task, we can run the callback function immediately
+        func(arg);
+        return ESP_OK;
+    }
+#ifdef CONFIG_ESP_IPC_USES_CALLERS_PRIORITY
     UBaseType_t priority_of_current_task = uxTaskPriorityGet(task_handler);
     UBaseType_t priority_of_running_ipc_task = uxTaskPriorityGet(s_ipc_task_handle[cpu_id]);
     if (priority_of_running_ipc_task < priority_of_current_task) {
@@ -203,4 +204,4 @@ esp_err_t esp_ipc_call_nonblocking(uint32_t cpu_id, esp_ipc_func_t func, void* a
     return ESP_FAIL;
 }
 
-#endif // !defined(CONFIG_FREERTOS_UNICORE) || defined(CONFIG_APPTRACE_GCOV_ENABLE)
+#endif // CONFIG_ESP_IPC_ENABLE

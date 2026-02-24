@@ -49,7 +49,7 @@ void ulp_riscv_gpio_wakeup_clear(void)
     SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_GPIO_WAKEUP_CLR);
 }
 
-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
+#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
 
 void ulp_riscv_enable_sw_intr(intr_handler_t handler, void *arg)
 {
@@ -76,4 +76,4 @@ void ulp_riscv_trigger_sw_intr(void)
     SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SW_INT_TRIGGER);
 }
 
-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */

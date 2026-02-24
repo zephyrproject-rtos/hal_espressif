@@ -6,13 +6,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2016-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2016-2024 Espressif Systems (Shanghai) CO LTD
  */
 #pragma once
 
 #include "aes/esp_aes.h"
-#include "mbedtls/cipher.h"
-#include "soc/lldesc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,7 +68,7 @@ void esp_aes_gcm_init( esp_gcm_context *ctx);
  * \return          A cipher-specific error code on failure.
  */
 int esp_aes_gcm_setkey( esp_gcm_context *ctx,
-                        mbedtls_cipher_id_t cipher,
+                        int cipher,
                         const unsigned char *key,
                         unsigned int keybits );
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,15 +8,19 @@
 #include "esp_err.h"
 #include "esp_image_format.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**@{*/
 /**
- * @brief labels from bootloader linker script: bootloader.ld
+ * @brief labels from bootloader linker script: bootloader.ld.in
  *
  */
-extern int _bss_start[];
-extern int _bss_end[];
-extern int _data_start[];
-extern int _data_end[];
+extern int _bss_start;
+extern int _bss_end;
+extern int _data_start;
+extern int _data_end;
 /**@}*/
 
 /**
@@ -47,5 +51,15 @@ void bootloader_print_banner(void);
 
  *  @return ESP_OK   - If the setting is successful.
  *          ESP_FAIL - If the setting is not successful.
+ *          ESP_ERR_NOT_SUPPORTED - If selected secure boot scheme is not supported.
  */
 esp_err_t bootloader_init(void);
+
+/**
+ * @brief Initialize cache and mmu
+ */
+void bootloader_init_ext_mem(void);
+
+#ifdef __cplusplus
+}
+#endif

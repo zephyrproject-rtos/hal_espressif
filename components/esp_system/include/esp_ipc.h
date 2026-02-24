@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#if !defined(CONFIG_FREERTOS_UNICORE) || defined(CONFIG_APPTRACE_GCOV_ENABLE)
+#if defined(CONFIG_ESP_IPC_ENABLE)
 
 /*
  * Inter-processor call APIs
@@ -52,7 +52,6 @@ typedef void (*esp_ipc_func_t)(void* arg);
  */
 esp_err_t esp_ipc_call(uint32_t cpu_id, esp_ipc_func_t func, void* arg);
 
-
 /**
  * @brief Execute a callback on a given CPU until and block until it completes
  *
@@ -72,7 +71,7 @@ esp_err_t esp_ipc_call(uint32_t cpu_id, esp_ipc_func_t func, void* arg);
  */
 esp_err_t esp_ipc_call_blocking(uint32_t cpu_id, esp_ipc_func_t func, void* arg);
 
-#endif // !defined(CONFIG_FREERTOS_UNICORE) || defined(CONFIG_APPTRACE_GCOV_ENABLE)
+#endif // defined(CONFIG_ESP_IPC_ENABLE)
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,20 +12,43 @@
 #include "hal/assert.h"
 #include "hal/misc.h"
 #include "soc/soc_etm_struct.h"
+#include "soc/pcr_struct.h"
+
+#define ETM_LL_GET(_attr) ETM_LL_ ## _attr
+#define ETM_LL_SUPPORT(_feat) ETM_LL_SUPPORT_ ## _feat
+
+// Number of ETM instances
+#define ETM_LL_INST_NUM 1
+
+// Number of channels in each ETM instance
+#define ETM_LL_CHANS_PER_INST 50
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @brief Enable the clock for ETM module
+ * @brief Enable the clock for ETM register
  *
- * @param hw ETM register base address
+ * @param group_id Group ID
  * @param enable true to enable, false to disable
  */
-static inline void etm_ll_enable_clock(soc_etm_dev_t *hw, bool enable)
+static inline void etm_ll_enable_bus_clock(int group_id, bool enable)
 {
-    hw->clk_en.clk_en = enable;
+    (void)group_id;
+    PCR.etm_conf.etm_clk_en = enable;
+}
+
+/**
+ * @brief Reset the ETM register
+ *
+ * @param group_id Group ID
+ */
+static inline void etm_ll_reset_register(int group_id)
+{
+    (void)group_id;
+    PCR.etm_conf.etm_rst_en = 1;
+    PCR.etm_conf.etm_rst_en = 0;
 }
 
 /**
@@ -83,7 +106,7 @@ static inline bool etm_ll_is_channel_enabled(soc_etm_dev_t *hw, uint32_t chan)
  */
 static inline void etm_ll_channel_set_event(soc_etm_dev_t *hw, uint32_t chan, uint32_t event)
 {
-    hw->channel[chan].evt_id.evt_id = event;
+    HAL_FORCE_MODIFY_U32_REG_FIELD(hw->channel[chan].eid, evt_id, event);
 }
 
 /**
@@ -95,7 +118,7 @@ static inline void etm_ll_channel_set_event(soc_etm_dev_t *hw, uint32_t chan, ui
  */
 static inline void etm_ll_channel_set_task(soc_etm_dev_t *hw, uint32_t chan, uint32_t task)
 {
-    hw->channel[chan].task_id.task_id = task;
+    HAL_FORCE_MODIFY_U32_REG_FIELD(hw->channel[chan].tid, task_id, task);
 }
 
 #ifdef __cplusplus

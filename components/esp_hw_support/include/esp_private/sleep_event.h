@@ -28,12 +28,12 @@ typedef enum {
     SLEEP_EVENT_HW_GOTO_SLEEP,            // Hardware is about to power off
     SLEEP_EVENT_SW_CPU_TO_MEM_START,      // CPU registers are starting to be saved
     SLEEP_EVENT_SW_CPU_TO_MEM_END,        // CPU registers have finished saving
-#if CONFIG_IDF_TARGET_ESP32H2
+#if CONFIG_IDF_TARGET_ESP32H2 || CONFIG_IDF_TARGET_ESP32H21
     SLEEP_EVENT_HW_FLASH_BBPLL_EN_START,  // Beginning of rtc_clk_bbpll_enable when using FLASH_PLL
     SLEEP_EVENT_HW_FLASH_BBPLL_EN_STOP,   // End of rtc_clk_bbpll_enable when using FLASH_PLL
 #endif
-    SLEEP_EVENT_HW_BBPLL_EN_START,        // Beginning of rtc_clk_bbpll_enable
-    SLEEP_EVENT_HW_BBPLL_EN_STOP,         // End of rtc_clk_bbpll_enable
+    SLEEP_EVENT_HW_PLL_EN_START,          // Beginning of rtc_clk_pll_enable
+    SLEEP_EVENT_HW_PLL_EN_STOP,           // End of rtc_clk_pll_enable
     SLEEP_EVENT_CB_INDEX_NUM,
 } esp_sleep_event_cb_index_t;
 

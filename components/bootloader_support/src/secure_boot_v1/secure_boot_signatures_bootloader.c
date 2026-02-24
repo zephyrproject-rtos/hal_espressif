@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,7 +11,6 @@
 #include "esp_log.h"
 #include "esp_image_format.h"
 #include "esp_secure_boot.h"
-#include "spi_flash_mmap.h"
 #include "esp_fault.h"
 #include "esp32/rom/sha.h"
 #include "uECC_verify_antifault.h"
@@ -19,7 +18,7 @@
 #include <zephyr/sys/util.h>
 #include <string.h>
 
-static const char *TAG = "secure_boot";
+ESP_LOG_ATTR_TAG(TAG, "secure_boot");
 
 #ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
 extern const uint8_t signature_verification_key_start[] asm("_binary_signature_verification_key_bin_start");
@@ -33,7 +32,7 @@ esp_err_t esp_secure_boot_verify_signature(uint32_t src_addr, uint32_t length)
     uint8_t verified_digest[ESP_SECURE_BOOT_DIGEST_LEN] = { 0 }; /* ignored in this function */
     const esp_secure_boot_sig_block_t *sigblock;
 
-    ESP_LOGD(TAG, "verifying signature src_addr 0x%x length 0x%x", src_addr, length);
+    ESP_LOGD(TAG, "verifying signature src_addr 0x%" PRIx32 " length 0x%" PRIx32, src_addr, length);
 
     esp_err_t err = bootloader_sha256_flash_contents(src_addr, length, digest);
     if (err != ESP_OK) {
@@ -43,7 +42,7 @@ esp_err_t esp_secure_boot_verify_signature(uint32_t src_addr, uint32_t length)
     // Map the signature block
     sigblock = (const esp_secure_boot_sig_block_t *) bootloader_mmap(src_addr + length, sizeof(esp_secure_boot_sig_block_t));
     if(!sigblock) {
-        ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", src_addr + length, sizeof(esp_secure_boot_sig_block_t));
+        ESP_LOGE(TAG, "bootloader_mmap(0x%" PRIx32 ", 0x%x) failed", src_addr + length, sizeof(esp_secure_boot_sig_block_t));
         return ESP_FAIL;
     }
     // Verify the signature
@@ -54,11 +53,6 @@ esp_err_t esp_secure_boot_verify_signature(uint32_t src_addr, uint32_t length)
     return err;
 }
 
-esp_err_t esp_secure_boot_verify_signature_block(const esp_secure_boot_sig_block_t *sig_block, const uint8_t *image_digest)
-{
-    uint8_t verified_digest[ESP_SECURE_BOOT_DIGEST_LEN] = { 0 };
-    return esp_secure_boot_verify_ecdsa_signature_block(sig_block, image_digest, verified_digest);
-}
 
 esp_err_t esp_secure_boot_verify_ecdsa_signature_block(const esp_secure_boot_sig_block_t *sig_block, const uint8_t *image_digest, uint8_t *verified_digest)
 {
@@ -70,8 +64,8 @@ esp_err_t esp_secure_boot_verify_ecdsa_signature_block(const esp_secure_boot_sig
         return ESP_FAIL;
     }
 
-    if (sig_block->version != 0) {
-        ESP_LOGE(TAG, "image has invalid signature version field 0x%08x (image without a signature?)", sig_block->version);
+    if (sig_block->version != ESP_SECURE_BOOT_SCHEME) {
+        ESP_LOGE(TAG, "image has invalid signature version field 0x%08" PRIx32 " (image without a signature?)", sig_block->version);
         return ESP_FAIL;
     }
 

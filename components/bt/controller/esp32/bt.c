@@ -4,49 +4,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/random/random.h>
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "sdkconfig.h"
-#include "esp_heap_caps.h"
-#include "esp_heap_caps_init.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/xtensa_api.h"
-#include "freertos/portmacro.h"
 #include "xtensa/core-macros.h"
+#include "xtensa/hal.h"
 #include "esp_types.h"
 #include "esp_mac.h"
 #include "esp_random.h"
-#include "esp_task.h"
-#include "esp_intr_alloc.h"
 #include "esp_attr.h"
 #include "esp_phy_init.h"
 #include "esp_bt.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_pm.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/periph_ctrl.h"
 #include "soc/rtc.h"
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
 #include "private/esp_coexist_internal.h"
-#include "esp_timer.h"
-#if !CONFIG_FREERTOS_UNICORE
-#include "esp_ipc.h"
-#endif
-
+#include "esp_heap_adapter.h"
+#include "esp_system.h"
 #include "esp_rom_sys.h"
-#include "hli_api.h"
 
-#if CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
-#include "ble_log/ble_log_spi_out.h"
-#endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 
 #if CONFIG_BT_ENABLED
 
@@ -96,7 +85,6 @@ do{\
 #define OSI_VERSION              0x00010005
 #define OSI_MAGIC_VALUE          0xFADEBEAD
 
-#define BLE_CONTROLLER_MALLOC_CAPS        (MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL)
 /* Types definition
  ************************************************************************
  */
@@ -114,14 +102,16 @@ typedef struct {
     intptr_t end;
 } btdm_dram_available_region_t;
 
-typedef struct {
-    void *handle;
-} btdm_queue_item_t;
+/* bt queue */
+struct bt_queue_t {
+    struct k_msgq queue;
+    void *pool;
+};
 
 /* OSI function */
 struct osi_funcs_t {
     uint32_t _version;
-    xt_handler (*_set_isr)(int n, xt_handler f, void *arg);
+    void (*_set_isr)(int n, void *f, void *arg);
     void (*_ints_on)(unsigned int mask);
     void (*_interrupt_disable)(void);
     void (*_interrupt_restore)(void);
@@ -176,7 +166,7 @@ struct osi_funcs_t {
     void *(* _coex_schm_curr_phase_get)(void);
     int (* _coex_wifi_channel_get)(uint8_t *primary, uint8_t *secondary);
     int (* _coex_register_wifi_channel_change_callback)(void *cb);
-    xt_handler (*_set_isr_l3)(int n, xt_handler f, void *arg);
+    void (*_set_isr_l3)(int n, void *f, void *arg);
     void (*_interrupt_l3_disable)(void);
     void (*_interrupt_l3_restore)(void);
     void *(* _customer_queue_create)(uint32_t queue_len, uint32_t item_size);
@@ -229,75 +219,43 @@ extern void esp_bt_controller_shutdown(void);
 extern void sdk_config_set_bt_pll_track_enable(bool enable);
 extern void sdk_config_set_uart_flow_ctrl_enable(bool enable);
 
-extern char _bss_start_btdm;
-extern char _bss_end_btdm;
-extern char _data_start_btdm;
-extern char _data_end_btdm;
+extern char _data_start_btdm[];
+extern char _data_end_btdm[];
 extern uint32_t _data_start_btdm_rom;
 extern uint32_t _data_end_btdm_rom;
-
-extern uint32_t _bt_bss_start;
-extern uint32_t _bt_bss_end;
-extern uint32_t _bt_controller_bss_start;
-extern uint32_t _bt_controller_bss_end;
-extern uint32_t _bt_data_start;
-extern uint32_t _bt_data_end;
-extern uint32_t _bt_controller_data_start;
-extern uint32_t _bt_controller_data_end;
 
 extern void config_bt_funcs_reset(void);
 extern void config_ble_funcs_reset(void);
 extern void config_btdm_funcs_reset(void);
 
-#ifdef CONFIG_BT_BLUEDROID_ENABLED
 extern void bt_stack_enableSecCtrlVsCmd(bool en);
-#endif // CONFIG_BT_BLUEDROID_ENABLED
-#if defined(CONFIG_BT_NIMBLE_ENABLED) || defined(CONFIG_BT_BLUEDROID_ENABLED)
 extern void bt_stack_enableCoexVsCmd(bool en);
 extern void scan_stack_enableAdvFlowCtrlVsCmd(bool en);
 extern void adv_stack_enableClearLegacyAdvVsCmd(bool en);
 extern void advFilter_stack_enableDupExcListVsCmd(bool en);
-#endif // (CONFIG_BT_NIMBLE_ENABLED) || (CONFIG_BT_BLUEDROID_ENABLED)
 
 /* Local Function Declare
  *********************************************************************
  */
-#if CONFIG_BTDM_CTRL_HLI
-static xt_handler set_isr_hlevel_wrapper(int n, xt_handler f, void *arg);
-static void interrupt_hlevel_disable(void);
-static void interrupt_hlevel_restore(void);
-#endif /* CONFIG_BTDM_CTRL_HLI */
-static void task_yield(void);
 static void task_yield_from_isr(void);
 static void *semphr_create_wrapper(uint32_t max, uint32_t init);
 static void semphr_delete_wrapper(void *semphr);
 static int32_t semphr_take_from_isr_wrapper(void *semphr, void *hptw);
 static int32_t semphr_give_from_isr_wrapper(void *semphr, void *hptw);
-static int32_t  semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
-static int32_t  semphr_give_wrapper(void *semphr);
+static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_ms);
+static int32_t semphr_give_wrapper(void *semphr);
 static void *mutex_create_wrapper(void);
 static void mutex_delete_wrapper(void *mutex);
 static int32_t mutex_lock_wrapper(void *mutex);
 static int32_t mutex_unlock_wrapper(void *mutex);
-#if CONFIG_BTDM_CTRL_HLI
-static void *queue_create_hlevel_wrapper(uint32_t queue_len, uint32_t item_size);
-static void queue_delete_hlevel_wrapper(void *queue);
-static int32_t queue_send_hlevel_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int32_t queue_send_from_isr_hlevel_wrapper(void *queue, void *item, void *hptw);
-static int32_t queue_recv_hlevel_wrapper(void *queue, void *item, uint32_t block_time_ms);
-static int32_t queue_recv_from_isr_hlevel_wrapper(void *queue, void *item, void *hptw);
-#else
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size);
 static void queue_delete_wrapper(void *queue);
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms);
 static int32_t queue_send_from_isr_wrapper(void *queue, void *item, void *hptw);
 static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_ms);
 static int32_t queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw);
-#endif /* CONFIG_BTDM_CTRL_HLI */
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id);
 static void task_delete_wrapper(void *task_handle);
-static bool is_in_isr_wrapper(void);
-static void cause_sw_intr(void *arg);
 static int cause_sw_intr_to_core_wrapper(int core_id, int intr_no);
 static void *malloc_internal_wrapper(size_t size);
 static int32_t read_mac_wrapper(uint8_t mac[6]);
@@ -321,17 +279,17 @@ static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status);
 static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status);
 static uint32_t coex_schm_interval_get_wrapper(void);
 static uint8_t coex_schm_curr_period_get_wrapper(void);
-static void * coex_schm_curr_phase_get_wrapper(void);
+static void *coex_schm_curr_phase_get_wrapper(void);
 static int coex_wifi_channel_get_wrapper(uint8_t *primary, uint8_t *secondary);
 static int coex_register_wifi_channel_change_callback_wrapper(void *cb);
 static int coex_version_get_wrapper(unsigned int *major, unsigned int *minor, unsigned int *patch);
-#if CONFIG_BTDM_CTRL_HLI
-static void *customer_queue_create_hlevel_wrapper(uint32_t queue_len, uint32_t item_size);
-#endif /* CONFIG_BTDM_CTRL_HLI */
+static void set_isr_wrapper(int32_t n, void *f, void *arg);
+static void intr_on(unsigned int mask);
 static void interrupt_l3_disable(void);
 static void interrupt_l3_restore(void);
 static void bt_controller_deinit_internal(void);
 static void patch_apply(void);
+static void esp_bt_free(void *mem);
 
 /* Local variable definition
  ***************************************************************************
@@ -345,12 +303,12 @@ static const struct osi_funcs_t osi_funcs_ro = {
     ._interrupt_disable = interrupt_hlevel_disable,
     ._interrupt_restore = interrupt_hlevel_restore,
 #else
-    ._set_isr = xt_set_interrupt_handler,
-    ._ints_on = xt_ints_on,
+    ._set_isr = set_isr_wrapper,
+    ._ints_on = intr_on,
     ._interrupt_disable = interrupt_l3_disable,
     ._interrupt_restore = interrupt_l3_restore,
 #endif /* CONFIG_BTDM_CTRL_HLI */
-    ._task_yield = task_yield,
+    ._task_yield = task_yield_from_isr,
     ._task_yield_from_isr = task_yield_from_isr,
     ._semphr_create = semphr_create_wrapper,
     ._semphr_delete = semphr_delete_wrapper,
@@ -379,11 +337,11 @@ static const struct osi_funcs_t osi_funcs_ro = {
 #endif /* CONFIG_BTDM_CTRL_HLI */
     ._task_create = task_create_wrapper,
     ._task_delete = task_delete_wrapper,
-    ._is_in_isr = is_in_isr_wrapper,
+    ._is_in_isr = k_is_in_isr,
     ._cause_sw_intr_to_core = cause_sw_intr_to_core_wrapper,
-    ._malloc = malloc,
+    ._malloc = malloc_internal_wrapper,
     ._malloc_internal = malloc_internal_wrapper,
-    ._free = free,
+    ._free = esp_bt_free,
     ._read_efuse_mac = read_mac_wrapper,
     ._srand = srand_wrapper,
     ._rand = rand_wrapper,
@@ -410,7 +368,7 @@ static const struct osi_funcs_t osi_funcs_ro = {
     ._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
     ._coex_wifi_channel_get = coex_wifi_channel_get_wrapper,
     ._coex_register_wifi_channel_change_callback = coex_register_wifi_channel_change_callback_wrapper,
-    ._set_isr_l3 = xt_set_interrupt_handler,
+    ._set_isr_l3 = set_isr_wrapper,
     ._interrupt_l3_disable = interrupt_l3_disable,
     ._interrupt_l3_restore = interrupt_l3_restore,
 #if CONFIG_BTDM_CTRL_HLI
@@ -451,7 +409,12 @@ static DRAM_ATTR struct osi_funcs_t *osi_funcs_p;
 static DRAM_ATTR int64_t s_time_phy_rf_just_enabled = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
-static DRAM_ATTR portMUX_TYPE global_int_mux = portMUX_INITIALIZER_UNLOCKED;
+static unsigned int global_int_lock;
+static unsigned int global_nested_counter = 0;
+
+// BT library uses a single task
+K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
+static struct k_thread bt_task_handle;
 
 // measured average low power clock period in micro seconds
 static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
@@ -466,7 +429,7 @@ static DRAM_ATTR uint8_t btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL;
 #endif /* CONFIG_BTDM_CTRL_LPCLK_SEL_EXT_32K_XTAL */
 #endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
 
-static DRAM_ATTR QueueHandle_t s_wakeup_req_sem = NULL;
+static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 #ifdef CONFIG_PM_ENABLE
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr;
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
@@ -544,177 +507,171 @@ static void IRAM_ATTR interrupt_hlevel_restore(void)
 
 static void IRAM_ATTR interrupt_l3_disable(void)
 {
-    if (xPortInIsrContext()) {
-        portENTER_CRITICAL_ISR(&global_int_mux);
-    } else {
-        portENTER_CRITICAL(&global_int_mux);
+    if (global_nested_counter == 0) {
+        global_int_lock = irq_lock();
     }
+    global_nested_counter++;
 }
 
 static void IRAM_ATTR interrupt_l3_restore(void)
 {
-    if (xPortInIsrContext()) {
-        portEXIT_CRITICAL_ISR(&global_int_mux);
-    } else {
-        portEXIT_CRITICAL(&global_int_mux);
+    global_nested_counter--;
+    if (global_nested_counter == 0) {
+        irq_unlock(global_int_lock);
     }
 }
 
-static void IRAM_ATTR task_yield(void)
+static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-    vPortYield();
+    irq_disable(n);
+    irq_connect_dynamic(n, Xthal_intlevel[n], f, arg, 0);
 }
 
+static void intr_on(unsigned int mask)
+{
+    unsigned int pos = 0, i = 1;
+
+    while (!(i & mask)) {
+        i = i << 1;
+        ++pos;
+    }
+
+    irq_enable(pos);
+}
 
 static void IRAM_ATTR task_yield_from_isr(void)
 {
-    portYIELD_FROM_ISR();
+    k_yield();
 }
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    btdm_queue_item_t *semphr = heap_caps_calloc(1, sizeof(btdm_queue_item_t), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
-    assert(semphr);
+    struct k_sem *sem = (struct k_sem *)esp_bt_malloc_func(sizeof(struct k_sem));
 
-    void *handle = NULL;
+    if (sem == NULL) {
+        LOG_ERR("semaphore malloc failed");
+        return NULL;
+    }
 
-    /* IDF FreeRTOS guarantees that all dynamic memory allocation goes to internal RAM. */
-    handle = (void *)xSemaphoreCreateCounting(max, init);
-    assert(handle);
-
-#if CONFIG_BTDM_CTRL_HLI
-    SemaphoreHandle_t downstream_semaphore = handle;
-    assert(downstream_semaphore);
-    hli_queue_handle_t s_semaphore = hli_semaphore_create(max, downstream_semaphore);
-    assert(s_semaphore);
-    semphr->handle = (void *)s_semaphore;
-#else
-    semphr->handle =  handle;
-#endif /* CONFIG_BTDM_CTRL_HLI */
-
-    return semphr;
+    k_sem_init(sem, init, max);
+    return sem;
 }
 
 static void semphr_delete_wrapper(void *semphr)
 {
-    if (semphr == NULL) {
-        return;
-    }
-
-    btdm_queue_item_t *semphr_item = (btdm_queue_item_t *)semphr;
-    void *handle = NULL;
-#if CONFIG_BTDM_CTRL_HLI
-    if (semphr_item->handle) {
-        handle = ((hli_queue_handle_t)(semphr_item->handle))->downstream;
-        hli_queue_delete((hli_queue_handle_t)(semphr_item->handle));
-    }
-#else
-    handle = semphr_item->handle;
-#endif /* CONFIG_BTDM_CTRL_HLI */
-
-    if (handle) {
-        vSemaphoreDelete(handle);
-    }
-
-    free(semphr);
+    esp_bt_free(semphr);
 }
 
 static int32_t IRAM_ATTR semphr_take_from_isr_wrapper(void *semphr, void *hptw)
 {
-#if CONFIG_BTDM_CTRL_HLI
-    // Not support it
-    assert(0);
+    int *hpt = (int *)hptw;
+    int ret = k_sem_take((struct k_sem *)semphr, K_NO_WAIT);
+
+    *hpt = 0;
+
+    if (ret == 0) {
+        return 1;
+    }
+
     return 0;
-#else
-    void *handle = ((btdm_queue_item_t *)semphr)->handle;
-    return (int32_t)xSemaphoreTakeFromISR(handle, hptw);
-#endif /* CONFIG_BTDM_CTRL_HLI */
 }
 
 static int32_t IRAM_ATTR semphr_give_from_isr_wrapper(void *semphr, void *hptw)
 {
-    void *handle = ((btdm_queue_item_t *)semphr)->handle;
-#if CONFIG_BTDM_CTRL_HLI
-    UNUSED(hptw);
-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
-    return hli_semaphore_give(handle);
-#else
-    return (int32_t)xSemaphoreGiveFromISR(handle, hptw);
-#endif /* CONFIG_BTDM_CTRL_HLI */
+    int *hpt = (int *)hptw;
+
+    k_sem_give((struct k_sem *)semphr);
+
+    *hpt = 0;
+    return 1;
 }
 
 static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_ms)
 {
-    bool ret;
-    void *handle = ((btdm_queue_item_t *)semphr)->handle;
-#if CONFIG_BTDM_CTRL_HLI
+    int ret = 0;
+
     if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        ret = xSemaphoreTake(((hli_queue_handle_t)handle)->downstream, portMAX_DELAY);
+        ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
     } else {
-        ret = xSemaphoreTake(((hli_queue_handle_t)handle)->downstream, block_time_ms / portTICK_PERIOD_MS);
+        ret = k_sem_take((struct k_sem *)semphr, K_MSEC(block_time_ms));
     }
-#else
-    if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        ret = xSemaphoreTake(handle, portMAX_DELAY);
-    } else {
-        ret = xSemaphoreTake(handle, block_time_ms / portTICK_PERIOD_MS);
+
+    if (ret == 0) {
+        return 1;
     }
-#endif /* CONFIG_BTDM_CTRL_HLI */
-    return (int32_t)ret;
+
+    return 0;
 }
 
 static int32_t semphr_give_wrapper(void *semphr)
 {
-    void *handle = ((btdm_queue_item_t *)semphr)->handle;
-#if CONFIG_BTDM_CTRL_HLI
-    return (int32_t)xSemaphoreGive(((hli_queue_handle_t)handle)->downstream);
-#else
-    return (int32_t)xSemaphoreGive(handle);
-#endif /* CONFIG_BTDM_CTRL_HLI */
+    k_sem_give((struct k_sem *)semphr);
+    return 1;
 }
 
 static void *mutex_create_wrapper(void)
 {
-    return (void *)xSemaphoreCreateMutex();
+    struct k_mutex *my_mutex = (struct k_mutex *)esp_bt_malloc_func(sizeof(struct k_mutex));
+
+    if (my_mutex == NULL) {
+        LOG_ERR("mutex malloc failed");
+        return NULL;
+    }
+
+    k_mutex_init(my_mutex);
+
+    return my_mutex;
 }
 
 static void mutex_delete_wrapper(void *mutex)
 {
-    vSemaphoreDelete(mutex);
+    esp_bt_free(mutex);
 }
 
 static int32_t mutex_lock_wrapper(void *mutex)
 {
-    return (int32_t)xSemaphoreTake(mutex, portMAX_DELAY);
+    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
+
+    k_mutex_lock(my_mutex, K_FOREVER);
+    return 0;
 }
 
 static int32_t mutex_unlock_wrapper(void *mutex)
 {
-    return (int32_t)xSemaphoreGive(mutex);
+    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
+
+    k_mutex_unlock(my_mutex);
+    return 0;
 }
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-    btdm_queue_item_t *queue = NULL;
+    struct bt_queue_t *queue = esp_bt_malloc_func(sizeof(struct bt_queue_t));
 
-    queue = (btdm_queue_item_t*)heap_caps_malloc(sizeof(btdm_queue_item_t), MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
-    assert(queue);
+    if (queue == NULL) {
+        LOG_ERR("queue malloc failed");
+        return NULL;
+    }
 
-    /* IDF FreeRTOS guarantees that all dynamic memory allocation goes to internal RAM. */
-    queue->handle = xQueueCreate( queue_len, item_size);
-    assert(queue->handle);
+    queue->pool = (uint8_t *)esp_bt_malloc_func(queue_len * item_size * sizeof(uint8_t));
 
+    if (queue->pool == NULL) {
+        LOG_ERR("queue pool malloc failed");
+        esp_bt_free(queue);
+        return NULL;
+    }
+
+    k_msgq_init(&queue->queue, queue->pool, item_size, queue_len);
     return queue;
 }
 
 static void queue_delete_wrapper(void *queue)
 {
-    btdm_queue_item_t *queue_item = (btdm_queue_item_t *)queue;
-    if (queue_item) {
-        if(queue_item->handle){
-            vQueueDelete(queue_item->handle);
-        }
-        free(queue_item);
+    struct bt_queue_t *q = (struct bt_queue_t *)queue;
+
+    if (q != NULL) {
+        esp_bt_free(q->pool);
+        esp_bt_free(q);
     }
 }
 
@@ -812,83 +769,116 @@ static int32_t IRAM_ATTR queue_recv_from_isr_hlevel_wrapper(void *queue, void *i
 
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms)
 {
+    struct bt_queue_t *q = (struct bt_queue_t *)queue;
+    int res = 0;
+
     if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)xQueueSend(((btdm_queue_item_t*)queue)->handle, item, portMAX_DELAY);
+        res = k_msgq_put(&q->queue, item, K_FOREVER);
     } else {
-        return (int32_t)xQueueSend(((btdm_queue_item_t*)queue)->handle, item, block_time_ms / portTICK_PERIOD_MS);
+        res = k_msgq_put(&q->queue, item, K_MSEC(block_time_ms));
     }
+
+    if (res == 0) {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw)
 {
-    return (int32_t)xQueueSendFromISR(((btdm_queue_item_t*)queue)->handle, item, hptw);
+    struct bt_queue_t *q = (struct bt_queue_t *)queue;
+    int *hpt = (int *)hptw;
+    int ret = k_msgq_put(&q->queue, item, K_NO_WAIT);
+
+    *hpt = 0;
+
+    if (ret == 0) {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_ms)
- {
-    bool ret;
+{
+    struct bt_queue_t *q = (struct bt_queue_t *)queue;
+    int ret = 0;
+
     if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        ret = xQueueReceive(((btdm_queue_item_t*)queue)->handle, item, portMAX_DELAY);
+        ret = k_msgq_get(&q->queue, item, K_FOREVER);
     } else {
-        ret = xQueueReceive(((btdm_queue_item_t*)queue)->handle, item, block_time_ms / portTICK_PERIOD_MS);
+        ret = k_msgq_get(&q->queue, item, K_MSEC(block_time_ms));
     }
 
-    return (int32_t)ret;
- }
+    if (ret == 0) {
+        return 1;
+    }
+
+    return 0;
+}
 
 static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw)
 {
-    return (int32_t)xQueueReceiveFromISR(((btdm_queue_item_t*)queue)->handle, item, hptw);
+    struct bt_queue_t *q = (struct bt_queue_t *)queue;
+    int *hpt = (int *)hptw;
+    int ret = k_msgq_get(&q->queue, item, K_NO_WAIT);
+
+    *hpt = 0;
+
+    if (ret == 0) {
+        return 1;
+    }
+
+    return 0;
 }
 #endif /* CONFIG_BTDM_CTRL_HLI */
 
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    return (uint32_t)xTaskCreatePinnedToCore(task_func, name, stack_depth, param, prio, task_handle, (core_id < portNUM_PROCESSORS ? core_id : tskNO_AFFINITY));
+    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, stack_depth,
+                      (k_thread_entry_t)task_func, param, NULL, NULL,
+                      K_PRIO_COOP(prio), K_INHERIT_PERMS, K_NO_WAIT);
+
+    k_thread_name_set(tid, name);
+
+    *(int32_t *)task_handle = (int32_t)tid;
+
+    return 1;
 }
 
 static void task_delete_wrapper(void *task_handle)
 {
-    vTaskDelete(task_handle);
-}
+    if (task_handle != NULL) {
+        k_thread_abort((k_tid_t)task_handle);
+    }
 
-static bool IRAM_ATTR is_in_isr_wrapper(void)
-{
-    return !xPortCanYield();
-}
-
-static void IRAM_ATTR cause_sw_intr(void *arg)
-{
-    /* just convert void * to int, because the width is the same */
-    uint32_t intr_no = (uint32_t)arg;
-    XTHAL_SET_INTSET((1<<intr_no));
+    k_object_release(&bt_task_handle);
 }
 
 static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no)
 {
     esp_err_t err = ESP_OK;
 
-#if CONFIG_FREERTOS_UNICORE
-    cause_sw_intr((void *)intr_no);
-#else /* CONFIG_FREERTOS_UNICORE */
-    if (xPortGetCoreID() == core_id) {
-        cause_sw_intr((void *)intr_no);
-    } else {
-        err = esp_ipc_call(core_id, cause_sw_intr, (void *)intr_no);
-    }
-#endif /* !CONFIG_FREERTOS_UNICORE */
+#ifndef CONFIG_SMP
+    XTHAL_SET_INTSET((1 << intr_no));
+#else
+    // this should be handled once SMP support gets in place
+    err = ESP_ERR_NOT_SUPPORTED;
+#endif
+
     return err;
 }
 
 static void *malloc_internal_wrapper(size_t size)
 {
-    return heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+    return esp_bt_malloc_func(sizeof(uint8_t) * size);
 }
 
 void *malloc_ble_controller_mem(size_t size)
 {
-    void *p = heap_caps_malloc(size, BLE_CONTROLLER_MALLOC_CAPS);
+    void *p = esp_bt_malloc_func(size);
     if(p == NULL) {
         ESP_LOGE(BTDM_LOG_TAG, "Malloc failed");
     }
@@ -897,7 +887,8 @@ void *malloc_ble_controller_mem(size_t size)
 
 uint32_t get_ble_controller_free_heap_size(void)
 {
-    return heap_caps_get_free_size(BLE_CONTROLLER_MALLOC_CAPS);
+    /* Zephyr doesn't have heap_caps_get_free_size, return 0 */
+    return 0;
 }
 
 static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
@@ -912,6 +903,7 @@ static int32_t IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
 static void IRAM_ATTR srand_wrapper(unsigned int seed)
 {
     /* empty function */
+    ARG_UNUSED(seed);
 }
 
 static int IRAM_ATTR rand_wrapper(void)
@@ -953,6 +945,7 @@ static bool IRAM_ATTR btdm_sleep_check_duration(uint32_t *slot_cnt)
 
 static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles)
 {
+    ARG_UNUSED(lpcycles);
 #ifdef CONFIG_PM_ENABLE
     // start a timer to wake up and acquire the pm_lock before modem_sleep awakes
     uint32_t us_to_sleep = btdm_lpcycles_2_us(lpcycles);
@@ -961,7 +954,7 @@ static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles)
     assert(us_to_sleep > BTDM_MIN_TIMER_UNCERTAINTY_US);
     // allow a maximum time uncertainty to be about 488ppm(1/2048) at least as clock drift
     // and set the timer in advance
-    uint32_t uncertainty = (us_to_sleep >> 11);
+    uint32_t uncertainty = (us_to_sleep / 1000);
     if (uncertainty < BTDM_MIN_TIMER_UNCERTAINTY_US) {
         uncertainty = BTDM_MIN_TIMER_UNCERTAINTY_US;
     }
@@ -1284,8 +1277,8 @@ static uint32_t btdm_config_mask_load(void)
 static void btdm_controller_mem_init(void)
 {
     /* initialise .data section */
-    memcpy(&_data_start_btdm, (void *)_data_start_btdm_rom, &_data_end_btdm - &_data_start_btdm);
-    ESP_LOGD(BTDM_LOG_TAG, ".data initialise [0x%08x] <== [0x%08x]", (uint32_t)&_data_start_btdm, _data_start_btdm_rom);
+    memcpy(_data_start_btdm, (void *)_data_start_btdm_rom, _data_end_btdm - _data_start_btdm);
+    ESP_LOGD(BTDM_LOG_TAG, ".data initialise [0x%08x] <== [0x%08x]", (uint32_t)_data_start_btdm, _data_start_btdm_rom);
 
     //initial em, .bss section
     for (int i = 1; i < sizeof(btdm_dram_available_region)/sizeof(btdm_dram_available_region_t); i++) {
@@ -1296,192 +1289,18 @@ static void btdm_controller_mem_init(void)
     }
 }
 
-static esp_err_t try_heap_caps_add_region(intptr_t start, intptr_t end)
-{
-    int ret = heap_caps_add_region(start, end);
-    /* heap_caps_add_region() returns ESP_ERR_INVALID_SIZE if the memory region is
-     * is too small to fit a heap. This cannot be termed as a fatal error and hence
-     * we replace it by ESP_OK
-     */
-    if (ret == ESP_ERR_INVALID_SIZE) {
-        return ESP_OK;
-    }
-    return ret;
-}
-
-typedef struct {
-    intptr_t start;
-    intptr_t end;
-    const char* name;
-} bt_area_t;
-
-
-static esp_err_t esp_bt_mem_release_area(const bt_area_t *area)
-{
-    esp_err_t ret = ESP_OK;
-    intptr_t mem_start = area->start;
-    intptr_t mem_end = area->end;
-    if (mem_start != mem_end) {
-        ESP_LOGD(BTDM_LOG_TAG, "Release %s [0x%08x] - [0x%08x], len %d", area->name, mem_start, mem_end, mem_end - mem_start);
-        ret = try_heap_caps_add_region(mem_start, mem_end);
-    }
-    return ret;
-}
-
-static esp_err_t esp_bt_mem_release_areas(const bt_area_t *area1, const bt_area_t *area2)
-{
-    esp_err_t ret = ESP_OK;
-
-    if (area1->end == area2->start) {
-        bt_area_t merged_area = {
-            .start = area1->start,
-            .end = area2->end,
-            .name = area1->name
-        };
-        ret = esp_bt_mem_release_area(&merged_area);
-    } else {
-        esp_bt_mem_release_area(area1);
-        ret = esp_bt_mem_release_area(area2);
-    }
-
-    return ret;
-}
-
-static esp_err_t esp_bt_controller_rom_mem_release(esp_bt_mode_t mode)
-{
-    bool update = true;
-    intptr_t mem_start=(intptr_t) NULL, mem_end=(intptr_t) NULL;
-
-    if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    //already released
-    if (!(mode & btdm_dram_available_region[0].mode)) {
-        ESP_LOGW(BTDM_LOG_TAG, "%s already released, mode %d",__func__, mode);
-        return ESP_OK;
-    }
-
-    for (int i = 0; i < sizeof(btdm_dram_available_region)/sizeof(btdm_dram_available_region_t); i++) {
-        //skip the share mode, idle mode and other mode
-        if (btdm_dram_available_region[i].mode == ESP_BT_MODE_IDLE
-                || (mode & btdm_dram_available_region[i].mode) != btdm_dram_available_region[i].mode) {
-            //clear the bit of the mode which will be released
-            btdm_dram_available_region[i].mode &= ~mode;
-            continue;
-        } else {
-            //clear the bit of the mode which will be released
-            btdm_dram_available_region[i].mode &= ~mode;
-        }
-
-        if (update) {
-            mem_start = btdm_dram_available_region[i].start;
-            mem_end = btdm_dram_available_region[i].end;
-            update = false;
-        }
-
-        if (i < sizeof(btdm_dram_available_region)/sizeof(btdm_dram_available_region_t) - 1) {
-            mem_end = btdm_dram_available_region[i].end;
-            if (btdm_dram_available_region[i+1].mode != ESP_BT_MODE_IDLE
-                    && (mode & btdm_dram_available_region[i+1].mode) == btdm_dram_available_region[i+1].mode
-                    && mem_end == btdm_dram_available_region[i+1].start) {
-                continue;
-            } else {
-                ESP_LOGD(BTDM_LOG_TAG, "Release DRAM [0x%08x] - [0x%08x]", mem_start, mem_end);
-                ESP_ERROR_CHECK(try_heap_caps_add_region(mem_start, mem_end));
-                update = true;
-            }
-        } else {
-            mem_end = btdm_dram_available_region[i].end;
-            ESP_LOGD(BTDM_LOG_TAG, "Release DRAM [0x%08x] - [0x%08x]", mem_start, mem_end);
-            ESP_ERROR_CHECK(try_heap_caps_add_region(mem_start, mem_end));
-            update = true;
-        }
-    }
-
-    return ESP_OK;
-}
-
 esp_err_t esp_bt_controller_mem_release(esp_bt_mode_t mode)
 {
-    esp_err_t ret = ESP_OK;
-
-    if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    if (mode == ESP_BT_MODE_BTDM) {
-        bt_area_t cont_bss = {
-            .start = (intptr_t)&_bt_controller_bss_start,
-            .end   = (intptr_t)&_bt_controller_bss_end,
-            .name  = "BT Controller BSS",
-        };
-        bt_area_t cont_data = {
-            .start = (intptr_t)&_bt_controller_data_start,
-            .end   = (intptr_t)&_bt_controller_data_end,
-            .name  = "BT Controller Data"
-        };
-
-        ret = esp_bt_mem_release_areas(&cont_data, &cont_bss);
-    }
-
-    if (ret == ESP_OK) {
-        ret = esp_bt_controller_rom_mem_release(mode);
-    }
-
-    return ret;
+    /* Memory release not supported in Zephyr */
+    ARG_UNUSED(mode);
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 esp_err_t esp_bt_mem_release(esp_bt_mode_t mode)
 {
-    esp_err_t ret = ESP_OK;
-
-    if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    bt_area_t bss = {
-        .start = (intptr_t)&_bt_bss_start,
-        .end   = (intptr_t)&_bt_bss_end,
-        .name  = "BT BSS",
-    };
-    bt_area_t cont_bss = {
-        .start = (intptr_t)&_bt_controller_bss_start,
-        .end   = (intptr_t)&_bt_controller_bss_end,
-        .name  = "BT Controller BSS",
-    };
-    bt_area_t data = {
-        .start = (intptr_t)&_bt_data_start,
-        .end   = (intptr_t)&_bt_data_end,
-        .name  = "BT Data",
-    };
-    bt_area_t cont_data = {
-        .start = (intptr_t)&_bt_controller_data_start,
-        .end   = (intptr_t)&_bt_controller_data_end,
-        .name  = "BT Controller Data"
-    };
-
-    /*
-     * Free data and BSS section for Bluetooth controller ROM code.
-     * Note that rom mem release must be performed before section _bt_data_start to _bt_data_end is released,
-     * otherwise `btdm_dram_available_region` will no longer be available when performing rom mem release and
-     * thus causing heap corruption.
-     */
-    ret = esp_bt_controller_rom_mem_release(mode);
-
-    if (mode == ESP_BT_MODE_BTDM) {
-        /* Start by freeing Bluetooth BSS section */
-        if (ret == ESP_OK) {
-            ret = esp_bt_mem_release_areas(&bss, &cont_bss);
-        }
-
-        /* Do the same thing with the Bluetooth data section */
-        if (ret == ESP_OK) {
-            ret = esp_bt_mem_release_areas(&data, &cont_data);
-        }
-    }
-
-    return ret;
+    /* Memory release not supported in Zephyr */
+    ARG_UNUSED(mode);
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 #if CONFIG_BTDM_CTRL_HLI
@@ -1495,11 +1314,7 @@ static void hli_queue_setup_pinned_to_core(int core_id)
 #if CONFIG_FREERTOS_UNICORE
     hli_queue_setup_cb(NULL);
 #else /* CONFIG_FREERTOS_UNICORE */
-    if (xPortGetCoreID() == core_id) {
-        hli_queue_setup_cb(NULL);
-    } else {
-        esp_ipc_call(core_id, hli_queue_setup_cb, NULL);
-    }
+    esp_ipc_call_blocking(core_id, hli_queue_setup_cb, NULL);
 #endif /* !CONFIG_FREERTOS_UNICORE */
 }
 #endif /* CONFIG_BTDM_CTRL_HLI */
@@ -1536,13 +1351,19 @@ static esp_err_t btdm_low_power_mode_init(void)
     bool select_src_ret __attribute__((unused));
     bool set_div_ret __attribute__((unused));
     if (btdm_lpclk_sel == ESP_BT_SLEEP_CLOCK_MAIN_XTAL) {
+        ESP_LOGI(BTDM_LOG_TAG, "Using main XTAL as clock source");
         select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL);
-        set_div_ret = btdm_lpclk_set_div(esp_clk_xtal_freq() * 2 / MHZ - 1);
+        set_div_ret = btdm_lpclk_set_div(esp_clk_xtal_freq() * 2 / MHZ(1) - 1);
         assert(select_src_ret && set_div_ret);
         btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
         btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
     } else { // btdm_lpclk_sel == BTDM_LPCLK_SEL_XTAL32K
-        select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL32K);
+        ESP_LOGI(BTDM_LOG_TAG, "Using external 32.768 kHz crystal/oscillator as clock source");
+        /* The enabling of the 32k crystal/oscillator depends on the RTC slow clock.
+         *  Therefore, if the 32k crystal/oscillator is enabled, selecting BTDM_LPCLK_SEL_RTC_SLOW
+         *  and BTDM_LPCLK_SEL_XTAL32K as the lp clock source is equivalent.
+         */
+        select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_RTC_SLOW);
         set_div_ret = btdm_lpclk_set_div(0);
         assert(select_src_ret && set_div_ret);
         btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
@@ -1647,13 +1468,13 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (cfg->controller_task_prio != ESP_TASK_BT_CONTROLLER_PRIO
-            || cfg->controller_task_stack_size < ESP_TASK_BT_CONTROLLER_STACK) {
+    if (cfg->controller_task_prio != CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO
+            || cfg->controller_task_stack_size < CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE) {
         return ESP_ERR_INVALID_ARG;
     }
 
     //overwrite some parameters
-    cfg->bt_max_sync_conn = CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF;
+    cfg->bt_max_sync_conn = BTDM_CTRL_BR_EDR_MAX_SYNC_CONN;
     cfg->magic  = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL;
 
     if (((cfg->mode & ESP_BT_MODE_BLE) && (cfg->ble_max_conn <= 0 || cfg->ble_max_conn > BTDM_CONTROLLER_BLE_MAX_CONN_LIMIT))
@@ -1694,6 +1515,13 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     coex_init();
 #endif
 
+#if CONFIG_BLE_LOG_ENABLED
+    if (!ble_log_init()) {
+        ESP_LOGE(BTDM_LOG_TAG, "BLE Log v2 init failed");
+        err = ESP_ERR_NO_MEM;
+        goto error;
+    }
+#else /* !CONFIG_BLE_LOG_ENABLED */
 #if CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
     if (ble_log_spi_out_init() != 0) {
         ESP_LOGE(BTDM_LOG_TAG, "BLE Log SPI output init failed");
@@ -1701,6 +1529,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
         goto error;
     }
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
+#endif /* CONFIG_BLE_LOG_ENABLED */
 
     btdm_cfg_mask = btdm_config_mask_load();
 
@@ -1720,6 +1549,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     scan_stack_enableAdvFlowCtrlVsCmd(true);
     adv_stack_enableClearLegacyAdvVsCmd(true);
     advFilter_stack_enableDupExcListVsCmd(true);
+    arr_stack_enableMultiConnVsCmd(true);
 #endif // (CONFIG_BT_NIMBLE_ENABLED) || (CONFIG_BT_BLUEDROID_ENABLED)
 
     btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
@@ -1728,9 +1558,13 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
 error:
 
+#if CONFIG_BLE_LOG_ENABLED
+    ble_log_deinit();
+#else /* !CONFIG_BLE_LOG_ENABLED */
 #if CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
     ble_log_spi_out_deinit();
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
+#endif /* CONFIG_BLE_LOG_ENABLED */
 
     bt_controller_deinit_internal();
 
@@ -1743,9 +1577,13 @@ esp_err_t esp_bt_controller_deinit(void)
         return ESP_ERR_INVALID_STATE;
     }
 
+#if CONFIG_BLE_LOG_ENABLED
+    ble_log_deinit();
+#else /* !CONFIG_BLE_LOG_ENABLED */
 #if CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
     ble_log_spi_out_deinit();
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
+#endif /* CONFIG_BLE_LOG_ENABLED */
 
     btdm_controller_deinit();
 
@@ -1759,6 +1597,7 @@ esp_err_t esp_bt_controller_deinit(void)
     scan_stack_enableAdvFlowCtrlVsCmd(false);
     adv_stack_enableClearLegacyAdvVsCmd(false);
     advFilter_stack_enableDupExcListVsCmd(false);
+    arr_stack_enableMultiConnVsCmd(false);
 #endif // (CONFIG_BT_NIMBLE_ENABLED) || (CONFIG_BT_BLUEDROID_ENABLED)
 
     return ESP_OK;
@@ -1803,7 +1642,7 @@ static void bt_controller_deinit_internal(void)
     }
 
     if (osi_funcs_p) {
-        free(osi_funcs_p);
+        esp_bt_free(osi_funcs_p);
         osi_funcs_p = NULL;
     }
 
@@ -1824,10 +1663,10 @@ static void bt_shutdown(void)
     if (btdm_controller_status != ESP_BT_CONTROLLER_STATUS_ENABLED) {
         return;
     }
-#if !CONFIG_FREERTOS_UNICORE
-    esp_ipc_call_blocking(CONFIG_BTDM_CTRL_PINNED_TO_CORE, bt_controller_shutdown, NULL);
-#else
+#ifndef CONFIG_SMP
     bt_controller_shutdown(NULL);
+#else
+    // SMP handling - not yet supported
 #endif
     esp_phy_disable(PHY_MODEM_BT);
 
@@ -1844,6 +1683,10 @@ static void patch_apply(void)
 
 #ifndef CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY
     config_ble_funcs_reset();
+#endif
+
+#if BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED
+    btdm_aa_check_enhance_enable();
 #endif
 }
 
@@ -1877,7 +1720,8 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
         btdm_controller_enable_sleep(true);
     }
 
-    sdk_config_set_bt_pll_track_enable(true);
+    /* Zephyr: PLL tracking disabled to avoid timer dependency during BT init */
+    sdk_config_set_bt_pll_track_enable(false);
 
     // initialize bluetooth baseband
     btdm_check_and_init_bb();
@@ -1929,6 +1773,7 @@ esp_err_t esp_bt_controller_disable(void)
 #endif
 
     esp_phy_disable(PHY_MODEM_BT);
+    s_time_phy_rf_just_enabled = 0;
     btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
     esp_unregister_shutdown_handler(bt_shutdown);
 
@@ -2055,6 +1900,11 @@ esp_err_t esp_ble_scan_dupilcate_list_flush(void)
 void IRAM_ATTR r_assert(const char *condition, int param0, int param1, const char *file, int line)
 {
     __asm__ __volatile__("ill\n");
+}
+
+static void esp_bt_free(void *mem)
+{
+    esp_bt_free_func(mem);
 }
 
 #endif /*  CONFIG_BT_ENABLED */

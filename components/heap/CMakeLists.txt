@@ -7,15 +7,25 @@ if(${target} STREQUAL "linux")
     return()
 endif()
 
-set(srcs
-    "heap_caps.c"
-    "heap_caps_init.c"
-    "multi_heap.c")
+set(srcs "heap_caps_base.c"
+         "heap_caps.c"
+         "heap_caps_init.c"
+         "multi_heap.c")
 
-set(includes "include")
+# the root dir of TLSF submodule contains headers with static inline
+# functions used in the esp_rom component for TLSF patches. Therefore,
+# the tlsf/ dir must be included in the list of public includes.
+set(includes "include"
+             "tlsf")
+
+# The TLSF "public" includes should only be used
+# inside the heap component and are therefore added
+# to the list of the private includes from the heap
+# component perspective
+set(priv_includes "private_include"
+                  "tlsf/include")
 
 if(NOT CONFIG_HEAP_TLSF_USE_ROM_IMPL)
-    set(priv_includes "tlsf")
     list(APPEND srcs "tlsf/tlsf.c")
 endif()
 
@@ -41,7 +51,6 @@ if(NOT BOOTLOADER_BUILD)
     list(APPEND srcs "port/${target}/memory_layout.c")
 endif()
 
-
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS ${includes}
                     PRIV_INCLUDE_DIRS ${priv_includes}
@@ -50,24 +59,23 @@ idf_component_register(SRCS "${srcs}"
 
 if(CONFIG_HEAP_TRACING)
     set(WRAP_FUNCTIONS
-        calloc
-        malloc
-        free
-        realloc
-        heap_caps_malloc
-        heap_caps_free
-        heap_caps_realloc
-        heap_caps_malloc_default
-        heap_caps_realloc_default)
+        heap_caps_realloc_base
+        heap_caps_malloc_base
+        heap_caps_aligned_alloc_base
+        heap_caps_free)
 
     foreach(wrap ${WRAP_FUNCTIONS})
         target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=${wrap}")
     endforeach()
 endif()
 
-if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-    idf_build_get_property(build_components BUILD_COMPONENTS)
-    if(freertos IN_LIST build_components)
-        target_compile_options(${COMPONENT_TARGET} PRIVATE "-DMULTI_HEAP_FREERTOS")
+if(IDF_BUILD_V2)
+    target_compile_options(${COMPONENT_TARGET} PRIVATE "$<$<TARGET_EXISTS:idf::freertos>:-DMULTI_HEAP_FREERTOS>")
+else()
+    if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+        idf_build_get_property(build_components BUILD_COMPONENTS)
+        if(freertos IN_LIST build_components)
+            target_compile_options(${COMPONENT_TARGET} PRIVATE "-DMULTI_HEAP_FREERTOS")
+        endif()
     endif()
 endif()

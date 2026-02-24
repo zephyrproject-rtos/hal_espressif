@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,10 +11,9 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "sdkconfig.h"
-#include "esp_task.h"
 
 #include "nimble/nimble_npl.h"
-#include "../../../../controller/esp32h2/esp_bt_cfg.h"
+#include "../../../controller/esp32h2/esp_bt_cfg.h"
 #include "esp_private/esp_modem_clock.h"
 
 #ifdef CONFIG_BT_LE_HCI_INTERFACE_USE_UART
@@ -23,6 +22,37 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 20
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_18)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_15)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_12)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_15)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -15
+#else
+/* use 0dB TX power as default */
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
 #endif
 
 /**
@@ -161,7 +191,7 @@ esp_err_t esp_ble_tx_power_set_enhanced(esp_ble_enhanced_power_type_t power_type
  */
 esp_power_level_t esp_ble_tx_power_get_enhanced(esp_ble_enhanced_power_type_t power_type, uint16_t handle);
 
-#define CONFIG_VERSION  0x20250526
+#define CONFIG_VERSION  0x20260123
 #define CONFIG_MAGIC    0x5A5AA5A5
 
 /**
@@ -234,22 +264,30 @@ typedef struct {
                                                         - 0 - Disable
                                                         - 1 - Enable (default) */
     int8_t ch39_txpwr;                              /*!< BLE transmit power (in dBm) used for BLE advertising on channel 39. */
+    uint8_t adv_rsv_cnt;                            /*!< BLE adv state machine reserve count number */
+    uint8_t conn_rsv_cnt;                           /*!< BLE conn state machine reserve count number */
+    uint8_t priority_level_cfg;                     /*!< The option for priority level configuration */
+    uint8_t slv_fst_rx_lat_en;                      /*!< The option for enabling slave fast PDU reception during latency. */
+    uint8_t dl_itvl_phy_sync_en;                    /*!< The option for automatically initiate the data length update when phy update or connect interval update. */
+    uint8_t scan_allow_adi_filter;                  /*!< The option for ext scan to allow PDU with specific adi. */
+    uint8_t enhanced_mem_resv;                      /*!< The option masks the BLE events with all reserved memory. */
+    uint8_t rxbuf_reserved;                          /*!< The option reserve all Rxbuffer memory at initialization. */
     uint32_t config_magic;                          /*!< Configuration magic value */
 } esp_bt_controller_config_t;
 
 
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                           \
     .config_version = CONFIG_VERSION,                                                   \
-    .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
+    .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
     .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
     .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
     .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
     .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-    .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
-    .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+    .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+    .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
     .ble_ll_tx_pwr_dbm = BLE_LL_TX_PWR_DBM_N,                                           \
     .rtc_freq = RTC_FREQ_N,                                                             \
-    .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
+    .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
     .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
     .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
     .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
@@ -267,7 +305,7 @@ typedef struct {
     .ble_multi_adv_instances = DEFAULT_BT_LE_MAX_EXT_ADV_INSTANCES,                     \
     .ble_ext_adv_max_size = DEFAULT_BT_LE_EXT_ADV_MAX_SIZE,                             \
     .controller_task_stack_size = NIMBLE_LL_STACK_SIZE,                                 \
-    .controller_task_prio       = ESP_TASK_BT_CONTROLLER_PRIO,                          \
+    .controller_task_prio       = CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO,                 \
     .controller_run_cpu         = 0,                                                    \
     .enable_qa_test             = RUN_QA_TEST,                                          \
     .enable_bqb_test            = RUN_BQB_TEST,                                         \
@@ -282,7 +320,7 @@ typedef struct {
     .ignore_wl_for_direct_adv   = 0,                                                    \
     .enable_pcl                 = DEFAULT_BT_LE_POWER_CONTROL_ENABLED,                  \
     .csa2_select                = DEFAULT_BT_LE_50_FEATURE_SUPPORT,                     \
-    .enable_csr                 = 0,                                                    \
+    .enable_csr                 = DEFAULT_BT_LE_SUBRATE_ENABLED,                        \
     .ble_aa_check               = DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS,  \
     .ble_llcp_disc_flag         = BT_LE_CTRL_LLCP_DISC_FLAG,                            \
     .scan_backoff_upperlimitmax = BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,                   \
@@ -294,6 +332,14 @@ typedef struct {
     .skip_unnecessary_checks_en = 0,                                                    \
     .fast_conn_data_tx_en       = DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN,              \
     .ch39_txpwr                 = BLE_LL_TX_PWR_DBM_N,                                  \
+    .adv_rsv_cnt                = BLE_LL_ADV_SM_RESERVE_CNT_N,                          \
+    .conn_rsv_cnt               = BLE_LL_CONN_SM_RESERVE_CNT_N,                         \
+    .priority_level_cfg         = BT_LL_CTRL_PRIO_LVL_CFG,                              \
+    .slv_fst_rx_lat_en          = DEFAULT_BT_LE_CTRL_SLV_FAST_RX_CONN_DATA_EN,          \
+    .dl_itvl_phy_sync_en        = DEFAULT_BT_LE_CTRL_DL_ITVL_PHY_SYNC_EN,               \
+    .scan_allow_adi_filter      = DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER,                 \
+    .enhanced_mem_resv          = DEFAULT_BT_LE_CTRL_ENH_MEM_RESV_ADV,                  \
+    .rxbuf_reserved             = DEFAULT_BT_LE_CTRL_RXBUF_MEM_RESV,                    \
     .config_magic = CONFIG_MAGIC,                                                       \
 }
 
@@ -448,7 +494,7 @@ extern int esp_ble_hw_get_static_addr(esp_ble_addr_t *addr);
  * @param output : true for log dump, false will take no effect
  */
 void esp_ble_controller_log_dump_all(bool output);
-#endif // CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
+#endif /* CONFIG_BT_LE_CONTROLLER_LOG_ENABLED */
 
 modem_clock_lpclk_src_t esp_bt_get_lpclk_src(void);
 
@@ -457,6 +503,10 @@ void esp_bt_set_lpclk_src(modem_clock_lpclk_src_t clk_src);
 uint32_t esp_bt_get_lpclk_freq(void);
 
 void esp_bt_set_lpclk_freq(uint32_t clk_freq);
+
+#if CONFIG_BT_LE_MEM_CHECK_ENABLED
+void ble_memory_count_limit_set(uint16_t count_limit);
+#endif /* CONFIG_BT_LE_MEM_CHECK_ENABLED */
 
 #ifdef __cplusplus
 }

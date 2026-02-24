@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
-#include "zephyr_compat.h"
+#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,7 +24,11 @@ extern "C" {
  * @brief Structure holding PHY init parameters
  */
 typedef struct {
-	uint8_t params[128];                    /*!< opaque PHY initialization parameters */
+#if CONFIG_IDF_TARGET_ESP32C5
+    uint8_t params[256];                    /*!< opaque PHY initialization parameters */
+#else
+    uint8_t params[128];                    /*!< opaque PHY initialization parameters */
+#endif
 } esp_phy_init_data_t;
 
 /**
@@ -183,7 +187,7 @@ void esp_btbb_enable(void);
 /**
  * @brief Disable BTBB module
  *
- * Dsiable BTBB module, used by IEEE802154 or Bluetooth.
+ * Disable BTBB module, used by IEEE802154 or Bluetooth.
  * Users should not call this API in their application.
  *
  */
@@ -299,6 +303,16 @@ esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem);
  */
 esp_err_t phy_clear_used_time(esp_phy_modem_t modem);
 #endif
+
+/**
+ * @brief Power on Bluetooth Wi-Fi power domain
+ */
+void esp_wifi_bt_power_domain_on(void);
+
+/**
+ * @brief Power off Bluetooth Wi-Fi power domain
+ */
+void esp_wifi_bt_power_domain_off(void);
 
 #ifdef __cplusplus
 }

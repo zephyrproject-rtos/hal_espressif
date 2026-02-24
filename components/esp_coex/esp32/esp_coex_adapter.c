@@ -9,26 +9,49 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <pthread.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/portmacro.h"
-#include "esp_heap_caps.h"
+#include <zephyr/kernel.h>
+#include <zephyr/irq.h>
+#include <zephyr/init.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(esp32_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
+
+#include "esp_attr.h"
+#include "esp_heap_adapter.h"
 #include "esp_timer.h"
+#include "esp_private/esp_clk.h"
 #include "private/esp_coexist_adapter.h"
+#include "private/esp_coexist_internal.h"
 #include "esp32/rom/ets_sys.h"
 #include "private/esp_coexist_debug.h"
+
+static void esp_wifi_free(void *mem)
+{
+    esp_wifi_free_func(mem);
+}
+
+static void wifi_free(void *mem)
+{
+    esp_wifi_free_func(mem);
+}
+
+static void *wifi_malloc(size_t size)
+{
+    return esp_wifi_malloc_func(size);
+}
+
+static void *wifi_calloc(size_t nmemb, size_t size)
+{
+    return esp_wifi_calloc_func(nmemb, size);
+}
 
 #define TAG "esp_coex_adapter"
 
 #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
 
 typedef struct {
-    QueueHandle_t handle; /**< FreeRTOS queue handler */
-    void *storage;        /**< storage for FreeRTOS queue */
+    void *handle;   /* k_sem pointer */
+    void *storage;  /* unused in Zephyr */
 } modem_static_queue_t;
 
 bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
@@ -40,65 +63,77 @@ bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 #endif
 }
 
-void * esp_coex_common_spin_lock_create_wrapper(void)
+void *esp_coex_common_spin_lock_create_wrapper(void)
 {
-    portMUX_TYPE tmp = portMUX_INITIALIZER_UNLOCKED;
-    void *mux = heap_caps_malloc(sizeof(portMUX_TYPE), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
-
-    if (mux) {
-        memcpy(mux,&tmp,sizeof(portMUX_TYPE));
-        return mux;
+    unsigned int *wifi_spin_lock = (unsigned int *)wifi_malloc(sizeof(unsigned int));
+    if (wifi_spin_lock == NULL) {
+        LOG_ERR("spin_lock_create_wrapper allocation failed");
+        return NULL;
     }
-    return NULL;
+
+    *wifi_spin_lock = 0;
+    return (void *)wifi_spin_lock;
 }
 
 uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *wifi_int_mux)
 {
-    if (xPortInIsrContext()) {
-        portENTER_CRITICAL_ISR(wifi_int_mux);
-    } else {
-        portENTER_CRITICAL(wifi_int_mux);
-    }
+    unsigned int *int_mux = (unsigned int *)wifi_int_mux;
 
+    *int_mux = irq_lock();
     return 0;
 }
 
 void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *wifi_int_mux, uint32_t tmp)
 {
-    if (xPortInIsrContext()) {
-        portEXIT_CRITICAL_ISR(wifi_int_mux);
-    } else {
-        portEXIT_CRITICAL(wifi_int_mux);
-    }
+    unsigned int *key = (unsigned int *)wifi_int_mux;
+
+    irq_unlock(*key);
 }
 
 void IRAM_ATTR esp_coex_common_task_yield_from_isr_wrapper(void)
 {
-    portYIELD_FROM_ISR();
+    k_yield();
 }
 
-void * esp_coex_common_semphr_create_wrapper(uint32_t max, uint32_t init)
+void *esp_coex_common_semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    return (void *)xSemaphoreCreateCounting(max, init);
+    struct k_sem *sem = (struct k_sem *)wifi_malloc(sizeof(struct k_sem));
+
+    if (sem == NULL) {
+        LOG_ERR("semphr_create_wrapper allocation failed");
+        return NULL;
+    }
+
+    k_sem_init(sem, init, max);
+
+    return (void *)sem;
 }
 
 void esp_coex_common_semphr_delete_wrapper(void *semphr)
 {
-    vSemaphoreDelete(semphr);
+    esp_wifi_free(semphr);
 }
 
 int32_t esp_coex_common_semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
 {
     if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)xSemaphoreTake(semphr, portMAX_DELAY);
+        int ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
+        if (ret == 0) {
+            return 1;
+        }
     } else {
-        return (int32_t)xSemaphoreTake(semphr, block_time_tick);
+        int ret = k_sem_take((struct k_sem *)semphr, K_TICKS(block_time_tick));
+        if (ret == 0) {
+            return 1;
+        }
     }
+    return 0;
 }
 
 int32_t esp_coex_common_semphr_give_wrapper(void *semphr)
 {
-    return (int32_t)xSemaphoreGive(semphr);
+    k_sem_give((struct k_sem *)semphr);
+    return 1;
 }
 
 void IRAM_ATTR esp_coex_common_timer_disarm_wrapper(void *timer)
@@ -121,50 +156,35 @@ void IRAM_ATTR esp_coex_common_timer_arm_us_wrapper(void *ptimer, uint32_t us, b
     ets_timer_arm_us(ptimer, us, repeat);
 }
 
-void * IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
+void *IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
 {
-    return heap_caps_malloc(size, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+    return k_malloc(size);
 }
 
 /* static wrapper */
 
 static int IRAM_ATTR esp_coex_is_in_isr_wrapper(void)
 {
-    return !xPortCanYield();
+    return k_is_in_isr();
 }
 
 static void *esp_coex_internal_semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    modem_static_queue_t *semphr = heap_caps_calloc(1, sizeof(modem_static_queue_t), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
+    modem_static_queue_t *semphr = wifi_calloc(1, sizeof(modem_static_queue_t));
     if (!semphr) {
         return NULL;
     }
 
-#ifdef CONFIG_SPIRAM_USE_MALLOC
-    semphr->storage = heap_caps_calloc(1, sizeof(StaticSemaphore_t), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
-    if (!semphr->storage) {
-        goto _error;
+    struct k_sem *sem = wifi_malloc(sizeof(struct k_sem));
+    if (!sem) {
+        wifi_free(semphr);
+        return NULL;
     }
 
-    semphr->handle = xSemaphoreCreateCountingStatic(max, init, semphr->storage);
-    if (!semphr->handle) {
-        goto _error;
-    }
+    k_sem_init(sem, init, max);
+    semphr->handle = sem;
+
     return (void *)semphr;
-
-_error:
-    if (semphr) {
-        if (semphr->storage) {
-            free(semphr->storage);
-        }
-
-        free(semphr);
-    }
-    return NULL;
-#else
-    semphr->handle = xSemaphoreCreateCounting(max, init);
-    return (void *)semphr;
-#endif
 }
 
 static void esp_coex_internal_semphr_delete_wrapper(void *semphr)
@@ -172,39 +192,62 @@ static void esp_coex_internal_semphr_delete_wrapper(void *semphr)
     modem_static_queue_t *semphr_item = (modem_static_queue_t *)semphr;
     if (semphr_item) {
         if (semphr_item->handle) {
-            vSemaphoreDelete(semphr_item->handle);
+            wifi_free(semphr_item->handle);
         }
-#ifdef CONFIG_SPIRAM_USE_MALLOC
-        if (semphr_item->storage) {
-            free(semphr_item->storage);
-        }
-#endif
-        free(semphr_item);
+        wifi_free(semphr_item);
     }
 }
 
 static int32_t IRAM_ATTR esp_coex_internal_semphr_take_from_isr_wrapper(void *semphr, void *hptw)
 {
-    return (int32_t)xSemaphoreTakeFromISR(((modem_static_queue_t *)semphr)->handle, hptw);
+    int *hpt = (int *)hptw;
+    int ret = k_sem_take((struct k_sem *)((modem_static_queue_t *)semphr)->handle, K_NO_WAIT);
+
+    if (ret == 0) {
+        if (hpt) {
+            *hpt = 0;
+        }
+        return 1;
+    }
+
+    if (hpt) {
+        *hpt = 0;
+    }
+    return 0;
 }
 
 static int32_t IRAM_ATTR esp_coex_internal_semphr_give_from_isr_wrapper(void *semphr, void *hptw)
 {
-    return (int32_t)xSemaphoreGiveFromISR(((modem_static_queue_t *)semphr)->handle, hptw);
+    int *hpt = (int *)hptw;
+
+    k_sem_give((struct k_sem *)((modem_static_queue_t *)semphr)->handle);
+
+    if (hpt) {
+        *hpt = 0;
+    }
+    return 1;
 }
 
 static int32_t esp_coex_internal_semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
 {
     if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)xSemaphoreTake(((modem_static_queue_t *)semphr)->handle, portMAX_DELAY);
+        int ret = k_sem_take((struct k_sem *)((modem_static_queue_t *)semphr)->handle, K_FOREVER);
+        if (ret == 0) {
+            return 1;
+        }
     } else {
-        return (int32_t)xSemaphoreTake(((modem_static_queue_t *)semphr)->handle, block_time_tick);
+        int ret = k_sem_take((struct k_sem *)((modem_static_queue_t *)semphr)->handle, K_TICKS(block_time_tick));
+        if (ret == 0) {
+            return 1;
+        }
     }
+    return 0;
 }
 
 static int32_t esp_coex_internal_semphr_give_wrapper(void *semphr)
 {
-    return (int32_t)xSemaphoreGive(((modem_static_queue_t *)semphr)->handle);
+    k_sem_give((struct k_sem *)((modem_static_queue_t *)semphr)->handle);
+    return 1;
 }
 
 static int esp_coexist_debug_matrix_init_wrapper(int evt, int sig, bool rev)
@@ -216,10 +259,20 @@ static int esp_coexist_debug_matrix_init_wrapper(int evt, int sig, bool rev)
 #endif
 }
 
+static int64_t IRAM_ATTR esp_coex_timer_get_time_wrapper(void)
+{
+    return esp_timer_get_time();
+}
+
+static int esp_coex_xtal_freq_get_wrapper(void)
+{
+    return esp_clk_xtal_freq();
+}
+
 coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._version = COEX_ADAPTER_VERSION,
     ._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
-    ._spin_lock_delete = free,
+    ._spin_lock_delete = esp_wifi_free,
     ._int_disable = esp_coex_common_int_disable_wrapper,
     ._int_enable = esp_coex_common_int_restore_wrapper,
     ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
@@ -231,12 +284,29 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._semphr_give = esp_coex_internal_semphr_give_wrapper,
     ._is_in_isr = esp_coex_is_in_isr_wrapper,
     ._malloc_internal =  esp_coex_common_malloc_internal_wrapper,
-    ._free = free,
-    ._esp_timer_get_time = esp_timer_get_time,
+    ._free = esp_wifi_free,
+    ._esp_timer_get_time = esp_coex_timer_get_time_wrapper,
+    ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
     ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
     ._timer_done = esp_coex_common_timer_done_wrapper,
     ._timer_setfn = esp_coex_common_timer_setfn_wrapper,
     ._timer_arm_us = esp_coex_common_timer_arm_us_wrapper,
     ._debug_matrix_init = esp_coexist_debug_matrix_init_wrapper,
+    ._xtal_freq_get = esp_coex_xtal_freq_get_wrapper,
     ._magic = COEX_ADAPTER_MAGIC,
 };
+
+#if CONFIG_ESP32_SW_COEXIST_ENABLE
+/*
+ * Register coex adapter functions early in boot, before Wi-Fi blob uses them.
+ * ESP-IDF does this in init_coexist() at priority 204.
+ */
+static int esp_coex_adapter_init(void)
+{
+    esp_coex_adapter_register(&g_coex_adapter_funcs);
+    coex_pre_init();
+    return 0;
+}
+
+SYS_INIT(esp_coex_adapter_init, POST_KERNEL, 50);
+#endif

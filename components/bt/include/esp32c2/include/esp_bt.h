@@ -11,10 +11,8 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "sdkconfig.h"
-#include "esp_task.h"
 
-#include "nimble/nimble_npl.h"
-#include "../../../../controller/esp32c2/esp_bt_cfg.h"
+#include "../../../controller/esp32c2/esp_bt_cfg.h"
 #include "hal/efuse_hal.h"
 #include "esp_private/esp_modem_clock.h"
 
@@ -24,6 +22,37 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 20
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_18)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_15)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_12)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_15)
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -15
+#else
+/* use 0dB TX power as default */
+#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
 #endif
 
 /**
@@ -73,26 +102,26 @@ typedef enum {
 } esp_ble_power_type_t;
 
 /**
- * @brief Bluetooth TX power level(index), it's just a index corresponding to power(dbm).
+ * @brief Bluetooth TX power level(index), it's just a index corresponding to power(dBm).
  */
 typedef enum {
-    ESP_PWR_LVL_N24 = 0,              /*!< Corresponding to -24dbm */
-    ESP_PWR_LVL_N21 = 1,              /*!< Corresponding to -21dbm */
-    ESP_PWR_LVL_N18 = 2,              /*!< Corresponding to -18dbm */
-    ESP_PWR_LVL_N15 = 3,              /*!< Corresponding to -15dbm */
-    ESP_PWR_LVL_N12 = 4,              /*!< Corresponding to -12dbm */
-    ESP_PWR_LVL_N9  = 5,              /*!< Corresponding to  -9dbm */
-    ESP_PWR_LVL_N6  = 6,              /*!< Corresponding to  -6dbm */
-    ESP_PWR_LVL_N3  = 7,              /*!< Corresponding to  -3dbm */
-    ESP_PWR_LVL_N0  = 8,              /*!< Corresponding to   0dbm */
-    ESP_PWR_LVL_P3  = 9,             /*!< Corresponding to  +3dbm */
-    ESP_PWR_LVL_P6  = 10,             /*!< Corresponding to  +6dbm */
-    ESP_PWR_LVL_P9  = 11,             /*!< Corresponding to  +9dbm */
-    ESP_PWR_LVL_P12 = 12,             /*!< Corresponding to  +12dbm */
-    ESP_PWR_LVL_P15 = 13,             /*!< Corresponding to  +15dbm */
-    ESP_PWR_LVL_P18 = 14,             /*!< Corresponding to  +18dbm */
-    ESP_PWR_LVL_P20 = 15,              /*!< Corresponding to  +20dbm */
-    ESP_PWR_LVL_P21 = 15,              /*!< Corresponding to  +20dbm, this enum variable has been deprecated */
+    ESP_PWR_LVL_N24 = 0,              /*!< Corresponding to -24 dBm */
+    ESP_PWR_LVL_N21 = 1,              /*!< Corresponding to -21 dBm */
+    ESP_PWR_LVL_N18 = 2,              /*!< Corresponding to -18 dBm */
+    ESP_PWR_LVL_N15 = 3,              /*!< Corresponding to -15 dBm */
+    ESP_PWR_LVL_N12 = 4,              /*!< Corresponding to -12 dBm */
+    ESP_PWR_LVL_N9  = 5,              /*!< Corresponding to  -9 dBm */
+    ESP_PWR_LVL_N6  = 6,              /*!< Corresponding to  -6 dBm */
+    ESP_PWR_LVL_N3  = 7,              /*!< Corresponding to  -3 dBm */
+    ESP_PWR_LVL_N0  = 8,              /*!< Corresponding to   0 dBm */
+    ESP_PWR_LVL_P3  = 9,             /*!< Corresponding to  +3 dBm */
+    ESP_PWR_LVL_P6  = 10,             /*!< Corresponding to  +6 dBm */
+    ESP_PWR_LVL_P9  = 11,             /*!< Corresponding to  +9 dBm */
+    ESP_PWR_LVL_P12 = 12,             /*!< Corresponding to  +12 dBm */
+    ESP_PWR_LVL_P15 = 13,             /*!< Corresponding to  +15 dBm */
+    ESP_PWR_LVL_P18 = 14,             /*!< Corresponding to  +18 dBm */
+    ESP_PWR_LVL_P20 = 15,              /*!< Corresponding to  +20 dBm */
+    ESP_PWR_LVL_P21 = 15,              /*!< Corresponding to  +20 dBm, this enum variable has been deprecated */
     ESP_PWR_LVL_INVALID = 0xFF,         /*!< Indicates an invalid value */
 } esp_power_level_t;
 
@@ -128,7 +157,7 @@ typedef struct {
  * @brief  Set BLE TX power
  *         Connection Tx power should only be set after connection created.
  * @param  power_type : The type of which tx power, could set Advertising/Connection/Default and etc
- * @param  power_level: Power level(index) corresponding to absolute value(dbm)
+ * @param  power_level: Power level(index) corresponding to absolute value(dBm)
  * @return              ESP_OK - success, other - failed
  */
 esp_err_t esp_ble_tx_power_set(esp_ble_power_type_t power_type, esp_power_level_t power_level);
@@ -146,7 +175,7 @@ esp_power_level_t esp_ble_tx_power_get(esp_ble_power_type_t power_type);
  *         Connection Tx power should only be set after connection created.
  * @param  power_type : The enhanced type of which tx power, could set Advertising/Connection/Default and etc
  * @param  handle : The handle of Advertising or Connection and the value 0 for other enhanced power types.
- * @param  power_level: Power level(index) corresponding to absolute value(dbm)
+ * @param  power_level: Power level(index) corresponding to absolute value(dBm)
  * @return              ESP_OK - success, other - failed
  */
 esp_err_t esp_ble_tx_power_set_enhanced(esp_ble_enhanced_power_type_t power_type, uint16_t handle, esp_power_level_t power_level);
@@ -237,16 +266,16 @@ typedef struct {
 
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                           \
     .config_version = CONFIG_VERSION,                                                   \
-    .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
+    .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
     .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
     .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
     .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
     .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-    .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
-    .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+    .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+    .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
     .ble_ll_tx_pwr_dbm = BLE_LL_TX_PWR_DBM_N,                                           \
     .rtc_freq = RTC_FREQ_N,                                                             \
-    .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
+    .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
     .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
     .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
     .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
@@ -264,7 +293,7 @@ typedef struct {
     .ble_multi_adv_instances = DEFAULT_BT_LE_MAX_EXT_ADV_INSTANCES,                     \
     .ble_ext_adv_max_size = DEFAULT_BT_LE_EXT_ADV_MAX_SIZE,                             \
     .controller_task_stack_size = NIMBLE_LL_STACK_SIZE,                                 \
-    .controller_task_prio       = ESP_TASK_BT_CONTROLLER_PRIO,                          \
+    .controller_task_prio       = CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO,                 \
     .controller_run_cpu         = 0,                                                    \
     .enable_qa_test             = RUN_QA_TEST,                                          \
     .enable_bqb_test            = RUN_BQB_TEST,                                         \
@@ -445,6 +474,10 @@ void esp_bt_set_lpclk_src(modem_clock_lpclk_src_t clk_src);
 uint32_t esp_bt_get_lpclk_freq(void);
 
 void esp_bt_set_lpclk_freq(uint32_t clk_freq);
+
+#if CONFIG_BT_LE_MEM_CHECK_ENABLED
+void ble_memory_count_limit_set(uint16_t count_limit);
+#endif // CONFIG_BT_LE_MEM_CHECK_ENABLED
 
 #ifdef __cplusplus
 }

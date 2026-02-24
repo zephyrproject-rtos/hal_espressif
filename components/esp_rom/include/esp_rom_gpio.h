@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2010-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2010-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -69,7 +69,7 @@ void esp_rom_gpio_connect_in_signal(uint32_t gpio_num, uint32_t signal_idx, bool
  * @note Internally, the signal will be connected first, then output will be enabled on the pad.
  *
  * @param gpio_num GPIO number
- * @param signal_idx Peripheral signal index (tagged as output attribute)
+ * @param signal_idx Peripheral signal index (tagged as output attribute). Particularly, `SIG_GPIO_OUT_IDX` means disconnect GPIO and other peripherals. Only the GPIO driver can control the output level.
  * @param out_inv Whether to signal to be inverted or not
  * @param oen_inv Whether the output enable control is inverted or not
  */

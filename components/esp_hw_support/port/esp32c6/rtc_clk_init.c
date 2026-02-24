@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include "esp32c6/rom/ets_sys.h"
 #include "esp32c6/rom/rtc.h"
-#include "esp32c6/rom/uart.h"
 #include "soc/rtc.h"
 #include "esp_cpu.h"
 #include "regi2c_ctrl.h"
@@ -18,7 +17,7 @@
 #include "soc/regi2c_dig_reg.h"
 #include "esp_hw_log.h"
 #include "sdkconfig.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp_private/esp_pmu.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/pmu_ll.h"
@@ -27,7 +26,7 @@
 #include "soc/pmu_reg.h"
 #include "pmu_param.h"
 
-static const char *TAG = "rtc_clk_init";
+ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk_init");
 
 /**
  * Initialize the ICG map of some modem clock domains in the PMU_ACTIVE state
@@ -41,7 +40,7 @@ static const char *TAG = "rtc_clk_init";
  * ICG map of all modem clock domains under different power states (PMU_ACTIVE,
  * PMU_MODEM and PMU_SLEEP) will be initialized in esp_perip_clk_init().
  */
-void rtc_clk_modem_clock_domain_active_state_icg_map_preinit(void)
+static void rtc_clk_modem_clock_domain_active_state_icg_map_preinit(void)
 {
     /* Configure modem ICG code in PMU_ACTIVE state */
     pmu_ll_hp_set_icg_modem(&PMU, PMU_MODE_HP_ACTIVE, PMU_HP_ICG_MODEM_CODE_ACTIVE);
@@ -80,14 +79,14 @@ void rtc_clk_init(rtc_clk_config_t cfg)
     uint32_t hp_cali_dbias = get_act_hp_dbias();
     uint32_t lp_cali_dbias = get_act_lp_dbias();
 
+    SET_PERI_REG_MASK(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_DIG_REGULATOR0_DBIAS_SEL); // Hand over control of dbias to pmu
+
     SET_PERI_REG_BITS(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS, hp_cali_dbias, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS_S);
     SET_PERI_REG_BITS(PMU_HP_MODEM_HP_REGULATOR0_REG, PMU_HP_MODEM_HP_REGULATOR_DBIAS, hp_cali_dbias, PMU_HP_MODEM_HP_REGULATOR_DBIAS_S);
     SET_PERI_REG_BITS(PMU_HP_SLEEP_LP_REGULATOR0_REG, PMU_HP_SLEEP_LP_REGULATOR_DBIAS, lp_cali_dbias, PMU_HP_SLEEP_LP_REGULATOR_DBIAS_S);
 
-    clk_ll_rc_fast_tick_conf();
-
-    rtc_xtal_freq_t xtal_freq = cfg.xtal_freq;
-    esp_rom_uart_tx_wait_idle(0);
+    soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+    esp_rom_output_tx_wait_idle(0);
     rtc_clk_xtal_freq_update(xtal_freq);
 
     // On ESP32C6, MSPI source clock's default HS divider leads to 120MHz, which is unusable before calibration

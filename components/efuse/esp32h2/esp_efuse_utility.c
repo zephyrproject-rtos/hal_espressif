@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,7 +12,7 @@
 #include "soc/efuse_periph.h"
 #include "hal/efuse_hal.h"
 
-static const char *TAG = "efuse";
+ESP_LOG_ATTR_TAG(TAG, "efuse");
 
 #ifdef CONFIG_EFUSE_VIRTUAL
 extern uint32_t virt_blocks[EFUSE_BLK_MAX][COUNT_EFUSE_REG_PER_BLOCK];
@@ -76,8 +76,15 @@ esp_err_t esp_efuse_utility_check_errors(void)
 // Burn values written to the efuse write registers
 esp_err_t esp_efuse_utility_burn_chip(void)
 {
+    return esp_efuse_utility_burn_chip_opt(false, true);
+}
+
+esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
+{
     esp_err_t error = ESP_OK;
 #ifdef CONFIG_EFUSE_VIRTUAL
+    (void) ignore_coding_errors;
+    (void) verify_written_data;
     ESP_LOGW(TAG, "Virtual efuses enabled: Not really burning eFuses");
     for (int num_block = EFUSE_BLK_MAX - 1; num_block >= EFUSE_BLK0; num_block--) {
         int subblock = 0;
@@ -115,27 +122,17 @@ esp_err_t esp_efuse_utility_burn_chip(void)
             if (esp_efuse_get_coding_scheme(num_block) == EFUSE_CODING_SCHEME_RS) {
                 uint8_t block_rs[12];
                 efuse_hal_rs_calculate((void *)range_write_addr_blocks[num_block].start, block_rs);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
-#pragma GCC diagnostic ignored "-Warray-bounds"
-                memcpy((void *)EFUSE_PGM_CHECK_VALUE0_REG, block_rs, sizeof(block_rs));
-#pragma GCC diagnostic pop
+                hal_memcpy((void *)EFUSE_PGM_CHECK_VALUE0_REG, block_rs, sizeof(block_rs));
             }
             unsigned r_data_len = (range_read_addr_blocks[num_block].end - range_read_addr_blocks[num_block].start) + sizeof(uint32_t);
             unsigned data_len = (range_write_addr_blocks[num_block].end - range_write_addr_blocks[num_block].start) + sizeof(uint32_t);
             memcpy((void *)EFUSE_PGM_DATA0_REG, (void *)range_write_addr_blocks[num_block].start, data_len);
 
             uint32_t backup_write_data[8 + 3]; // 8 words are data and 3 words are RS coding data
-#pragma GCC diagnostic push
-#if     __GNUC__ >= 11
-#pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif
-#pragma GCC diagnostic ignored "-Warray-bounds"
-            memcpy(backup_write_data, (void *)EFUSE_PGM_DATA0_REG, sizeof(backup_write_data));
-#pragma GCC diagnostic pop
+            hal_memcpy(backup_write_data, (void *)EFUSE_PGM_DATA0_REG, sizeof(backup_write_data));
             int repeat_burn_op = 1;
             bool correct_written_data;
-            bool coding_error_before = efuse_hal_is_coding_error_in_block(num_block);
+            bool coding_error_before = !ignore_coding_errors && efuse_hal_is_coding_error_in_block(num_block);
             if (coding_error_before) {
                 ESP_LOGW(TAG, "BLOCK%d already has a coding error", num_block);
             }
@@ -153,19 +150,15 @@ esp_err_t esp_efuse_utility_burn_chip(void)
                         break;
                     }
                 }
-                coding_error_occurred = (coding_error_before != coding_error_after) && coding_error_before == false;
+                coding_error_occurred = !ignore_coding_errors && (coding_error_before != coding_error_after) && !coding_error_before;
                 if (coding_error_occurred) {
                     ESP_LOGW(TAG, "BLOCK%d got a coding error", num_block);
                 }
 
-                correct_written_data = esp_efuse_utility_is_correct_written_data(num_block, r_data_len);
+                correct_written_data = (verify_written_data) ? esp_efuse_utility_is_correct_written_data(num_block, r_data_len) : true;
                 if (!correct_written_data || coding_error_occurred) {
                     ESP_LOGW(TAG, "BLOCK%d: next retry to fix an error [%d/3]...", num_block, repeat_burn_op);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
-#pragma GCC diagnostic ignored "-Warray-bounds"
-                    memcpy((void *)EFUSE_PGM_DATA0_REG, (void *)backup_write_data, sizeof(backup_write_data));
-#pragma GCC diagnostic pop
+                    hal_memcpy((void *)EFUSE_PGM_DATA0_REG, (void *)backup_write_data, sizeof(backup_write_data));
                 }
 
             } while ((!correct_written_data || coding_error_occurred) && repeat_burn_op++ < 3);

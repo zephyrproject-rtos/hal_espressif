@@ -6,14 +6,14 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-// #include <sys/time.h>
+#include <sys/time.h>
 #include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_cpu.h"
 #include "esp_clk_internal.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
 #include "soc/system_reg.h"
 #include "soc/dport_reg.h"
@@ -24,20 +24,18 @@
 #include "hal/wdt_hal.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-// #include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
-#include "hal/clk_gate_ll.h"
 
-static const char *TAG = "clk";
+ESP_LOG_ATTR_TAG(TAG, "clk");
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
-#ifdef CONFIG_RTC_XTAL_CAL_RETRY
-#define RTC_XTAL_CAL_RETRY CONFIG_RTC_XTAL_CAL_RETRY
+#ifdef CLOCK_CONTROL_ESP32_RTC_XTAL_CAL_RETRY
+#define RTC_XTAL_CAL_RETRY CLOCK_CONTROL_ESP32_RTC_XTAL_CAL_RETRY
 #else
 #define RTC_XTAL_CAL_RETRY 1
 #endif
@@ -69,8 +67,8 @@ void esp_rtc_init(void)
         /* Ocode calibration will switch to XTAL frequency, need to wait for UART FIFO
          * to be empty, to avoid garbled output.
          */
-        if (CONFIG_ESP_CONSOLE_UART_NUM >= 0) {
-            esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+        if (CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM >= 0) {
+            esp_rom_output_tx_wait_idle(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
         }
     }
     rtc_init(cfg);
@@ -97,11 +95,11 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SLOW_CLK_32K_XTAL);
-#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);
@@ -126,8 +124,8 @@ __attribute__((weak)) void esp_clk_init(void)
 
     // Wait for UART TX to finish, otherwise some UART output will be lost
     // when switching APB frequency
-    if (CONFIG_ESP_CONSOLE_UART_NUM >= 0) {
-        esp_rom_uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+    if (CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM >= 0) {
+        esp_rom_output_tx_wait_idle(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
     }
 
     if (res) {
@@ -135,7 +133,7 @@ __attribute__((weak)) void esp_clk_init(void)
     }
 
     // Re calculate the ccount to make time calculation correct.
-    esp_cpu_set_cycle_count( (uint64_t)esp_cpu_get_cycle_count() * new_freq_mhz / old_freq_mhz );
+    esp_cpu_set_cycle_count((uint64_t)esp_cpu_get_cycle_count() * new_freq_mhz / old_freq_mhz);
 }
 
 static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
@@ -150,7 +148,9 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
      */
     int retry_32k_xtal = RTC_XTAL_CAL_RETRY;
 
+    soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
+        bool revoke_32k_enable = false;
         if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
             /* 32k XTAL oscillator needs to be enabled and running before it can
              * be used. Hardware doesn't have a direct way of checking if the
@@ -167,20 +167,22 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
             }
             // When SLOW_CLK_CAL_CYCLES is set to 0, clock calibration will not be performed at startup.
             if (SLOW_CLK_CAL_CYCLES > 0) {
-                cal_val = rtc_clk_cal(RTC_CAL_32K_XTAL, SLOW_CLK_CAL_CYCLES);
+                cal_val = rtc_clk_cal(CLK_CAL_32K_XTAL, SLOW_CLK_CAL_CYCLES);
                 if (cal_val == 0) {
                     if (retry_32k_xtal-- > 0) {
                         continue;
                     }
                     ESP_EARLY_LOGW(TAG, "32 kHz XTAL not found, switching to internal 90 kHz oscillator");
                     rtc_slow_clk_src = SOC_RTC_SLOW_CLK_SRC_RC_SLOW;
+                    revoke_32k_enable = true;
                 }
             }
         } else if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) {
             rtc_clk_8m_enable(true, true);
         }
         rtc_clk_slow_src_set(rtc_slow_clk_src);
-        if (rtc_slow_clk_src != SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
+        if (revoke_32k_enable || \
+                ((old_rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) && (rtc_slow_clk_src != SOC_RTC_SLOW_CLK_SRC_XTAL32K))) {
             rtc_clk_32k_enable(false);
             rtc_clk_32k_disable_external();
         }
@@ -188,13 +190,13 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
             /* TODO: 32k XTAL oscillator has some frequency drift at startup.
              * Improve calibration routine to wait until the frequency is stable.
              */
-            cal_val = rtc_clk_cal(RTC_CAL_RTC_MUX, SLOW_CLK_CAL_CYCLES);
+            cal_val = rtc_clk_cal(CLK_CAL_RTC_SLOW, SLOW_CLK_CAL_CYCLES);
         } else {
             const uint64_t cal_dividend = (1ULL << RTC_CLK_CAL_FRACT) * 1000000ULL;
-            cal_val = (uint32_t) (cal_dividend / rtc_clk_slow_freq_get_hz());
+            cal_val = (uint32_t)(cal_dividend / rtc_clk_slow_freq_get_hz());
         }
     } while (cal_val == 0);
-    ESP_EARLY_LOGD(TAG, "RTC_SLOW_CLK calibration value: %d", cal_val);
+    ESP_EARLY_LOGD(TAG, "RTC_SLOW_CLK calibration value: %" PRIu32, cal_val);
     esp_clk_slowclk_cal_set(cal_val);
 }
 
@@ -244,7 +246,6 @@ __attribute__((weak)) void esp_perip_clk_init(void)
                            DPORT_PWM0_CLK_EN |
                            DPORT_TWAI_CLK_EN |
                            DPORT_PWM1_CLK_EN |
-                           DPORT_I2S1_CLK_EN |
                            DPORT_SPI2_DMA_CLK_EN |
                            DPORT_SPI3_DMA_CLK_EN |
                            DPORT_PWM2_CLK_EN |
@@ -280,7 +281,6 @@ __attribute__((weak)) void esp_perip_clk_init(void)
                         DPORT_UHCI1_CLK_EN |
                         DPORT_SPI3_CLK_EN |
                         DPORT_I2C_EXT1_CLK_EN |
-                        DPORT_I2S1_CLK_EN |
                         DPORT_SPI2_DMA_CLK_EN |
                         DPORT_SPI3_DMA_CLK_EN;
     common_perip_clk1 = 0;
@@ -295,7 +295,7 @@ __attribute__((weak)) void esp_perip_clk_init(void)
 
     /* Disable some peripheral clocks. */
     DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, common_perip_clk);
-    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, common_perip_clk);
+    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN0_REG, common_perip_clk);
 
     DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_CLK_EN1_REG, common_perip_clk1);
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN1_REG, common_perip_clk1);
@@ -315,16 +315,6 @@ __attribute__((weak)) void esp_perip_clk_init(void)
     DPORT_CLEAR_PERI_REG_MASK(DPORT_BT_LPCK_DIV_FRAC_REG, DPORT_LPCLK_SEL_XTAL32K | DPORT_LPCLK_SEL_XTAL | DPORT_LPCLK_SEL_8M | DPORT_LPCLK_SEL_RTC_SLOW);
     DPORT_SET_PERI_REG_MASK(DPORT_BT_LPCK_DIV_FRAC_REG, DPORT_LPCLK_SEL_RTC_SLOW);
 
-
     /* Enable RNG clock. */
     periph_module_enable(PERIPH_RNG_MODULE);
-
-    /* Enable TimerGroup 0 clock to ensure its reference counter will never
-     * be decremented to 0 during normal operation and preventing it from
-     * being disabled.
-     * If the TimerGroup 0 clock is disabled and then reenabled, the watchdog
-     * registers (Flashboot protection included) will be reenabled, and some
-     * seconds later, will trigger an unintended reset.
-     */
-    periph_module_enable(PERIPH_TIMG0_MODULE);
 }

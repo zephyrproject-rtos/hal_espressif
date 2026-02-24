@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "hci_driver_uart.h"
+#include "esp_private/esp_gpio_reserve.h"
 
 static const char *TAG = "hci_uart_config";
 static uart_config_t s_uart_cfg;
@@ -24,7 +25,7 @@ int hci_driver_uart_config(hci_driver_uart_params_config_t *uart_config)
     uart_cfg->parity    = uart_config->hci_uart_parity;
     uart_cfg->flow_ctrl = uart_config->hci_uart_flow_ctrl;
     uart_cfg->source_clk= UART_SCLK_DEFAULT;
-    uart_cfg->rx_flow_ctrl_thresh = UART_FIFO_LEN - 1;
+    uart_cfg->rx_flow_ctrl_thresh = UART_HW_FIFO_LEN(uart_config->hci_uart_port) - 1;
 
     ESP_LOGI(TAG,"set uart pin tx:%d, rx:%d.\n", uart_config->hci_uart_tx_pin, uart_config->hci_uart_rx_pin);
     ESP_LOGI(TAG,"set rts:%d, cts:%d.\n", uart_config->hci_uart_rts_pin, uart_config->hci_uart_cts_pin);
@@ -42,6 +43,17 @@ int
 hci_driver_uart_pin_update(int tx_pin, int rx_pin, int cts_pin, int rts_pin)
 {
     hci_driver_uart_params_config_t *uart_param = &s_hci_driver_uart_params;
+    /* Fixed warning that the gpio is not usable, may be used by others */
+    esp_gpio_revoke(BIT64(uart_param->hci_uart_tx_pin));
+    esp_gpio_revoke(BIT64(uart_param->hci_uart_rx_pin));
+    if (uart_param->hci_uart_cts_pin != -1) {
+        esp_gpio_revoke(BIT64(uart_param->hci_uart_cts_pin));
+    }
+
+    if (uart_param->hci_uart_rts_pin != -1) {
+        esp_gpio_revoke(BIT64(uart_param->hci_uart_rts_pin));
+    }
+
     uart_param->hci_uart_tx_pin = tx_pin;
     uart_param->hci_uart_rx_pin = rx_pin;
     uart_param->hci_uart_rts_pin = rts_pin;

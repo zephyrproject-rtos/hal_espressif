@@ -1,31 +1,67 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/kernel.h>
-
+#include "soc/soc_caps.h"
 #include "esp_types.h"
 #include "esp_bit_defs.h"
-#include "soc/soc_caps.h"
+#include "esp_private/esp_gpio_reserve.h"
 
-static uint64_t s_reserve_status = 0;
+#ifdef __ZEPHYR__
+#include <zephyr/irq.h>
 
-void esp_gpio_reserve_pins(uint64_t mask)
+/*
+ * Use interrupt locking instead of Zephyr spinlocks because this code runs
+ * during early boot before the kernel is initialized (e.g., PSRAM init).
+ */
+static uint64_t s_reserved_pin_mask = ~(SOC_GPIO_VALID_GPIO_MASK);
+
+uint64_t esp_gpio_reserve(uint64_t gpio_mask)
 {
-#if SOC_GPIO_PIN_COUNT < 64
-    mask &= BIT64(SOC_GPIO_PIN_COUNT) - 1;
-#endif
-    s_reserve_status |= mask;
+    unsigned int key = irq_lock();
+    uint64_t prev = s_reserved_pin_mask;
+    s_reserved_pin_mask |= gpio_mask;
+    irq_unlock(key);
+    return prev;
 }
 
-bool esp_gpio_is_pin_reserved(uint32_t gpio_num)
+uint64_t esp_gpio_revoke(uint64_t gpio_mask)
 {
-    if (gpio_num >= SOC_GPIO_PIN_COUNT) {
-        return false;
-    }
-    return !!(s_reserve_status & BIT64(gpio_num));
+    unsigned int key = irq_lock();
+    uint64_t prev = s_reserved_pin_mask;
+    s_reserved_pin_mask &= ~gpio_mask;
+    irq_unlock(key);
+    return prev;
 }
+
+bool esp_gpio_is_reserved(uint64_t gpio_mask)
+{
+    return s_reserved_pin_mask & gpio_mask;
+}
+
+#else /* ESP-IDF */
+
+#include <stdatomic.h>
+
+static _Atomic uint64_t s_reserved_pin_mask = ATOMIC_VAR_INIT(~(SOC_GPIO_VALID_GPIO_MASK));
+
+uint64_t esp_gpio_reserve(uint64_t gpio_mask)
+{
+    return atomic_fetch_or(&s_reserved_pin_mask, gpio_mask);
+}
+
+uint64_t esp_gpio_revoke(uint64_t gpio_mask)
+{
+    return atomic_fetch_and(&s_reserved_pin_mask, ~gpio_mask);
+}
+
+bool esp_gpio_is_reserved(uint64_t gpio_mask)
+{
+    return atomic_load(&s_reserved_pin_mask) & gpio_mask;
+}
+
+#endif /* __ZEPHYR__ */
 
 // TODO: IDF-6968 reserve the pins that not fanned out regarding the SiP version
