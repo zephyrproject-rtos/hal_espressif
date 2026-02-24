@@ -1,0 +1,188 @@
+# hal_espressif sync configuration
+#
+# Used by hal-sync.sh, hal-patches.sh, and hal-blobs.sh
+# to synchronize ESP-IDF components into hal_espressif.
+
+# ESP-IDF components to sync
+components:
+  - bootloader
+  - bootloader_support
+  - bt
+  - efuse
+  - esp_adc
+  - esp_app_format
+  - esp_coex
+  - esp_common
+  - esp_driver_dac
+  - esp_driver_gpio
+  - esp_driver_touch_sens
+  - esp_driver_tsens
+  - esp_event
+  - esp_hal_ana_cmpr
+  - esp_hal_ana_conv
+  - esp_hal_cam
+  - esp_hal_clock
+  - esp_hal_dma
+  - esp_hal_emac
+  - esp_hal_gpio
+  - esp_hal_gpspi
+  - esp_hal_i2c
+  - esp_hal_i2s
+  - esp_hal_i3c
+  - esp_hal_ieee802154
+  - esp_hal_jpeg
+  - esp_hal_lcd
+  - esp_hal_ledc
+  - esp_hal_mcpwm
+  - esp_hal_mspi
+  - esp_hal_parlio
+  - esp_hal_pcnt
+  - esp_hal_pmu
+  - esp_hal_ppa
+  - esp_hal_rmt
+  - esp_hal_rtc_timer
+  - esp_hal_sd
+  - esp_hal_security
+  - esp_hal_systimer
+  - esp_hal_timg
+  - esp_hal_touch_sens
+  - esp_hal_twai
+  - esp_hal_uart
+  - esp_hal_usb
+  - esp_hal_wdt
+  - esp_hw_support
+  - esp_mm
+  - esp_phy
+  - esp_pm
+  - esp_psram
+  - esp_rom
+  - esp_system
+  - esp_timer
+  - esp_wifi
+  - hal
+  - heap
+  - ieee802154
+  - mbedtls
+  - riscv
+  - soc
+  - spi_flash
+  - ulp
+  - wpa_supplicant
+  - xtensa
+
+# Folders to remove after copying (relative to components/)
+exclude:
+  # Bluetooth folders not needed for Zephyr
+  - bt/common
+  - bt/esp_ble_mesh
+  - bt/host
+  # Linux platform folders
+  - efuse/linux
+  - esp_hal_mspi/linux
+  - esp_hal_uart/linux
+  - esp_hw_support/port/linux
+  - esp_rom/linux
+  - esp_system/port/soc/linux
+  - hal/linux
+  - soc/linux
+  - spi_flash/linux
+  # Test apps
+  - bootloader_support/test_apps
+  - efuse/test_apps
+  - esp_adc/test_apps
+  - esp_coex/test_apps
+  - esp_common/test_apps
+  - esp_driver_dac/test_apps
+  - esp_driver_touch_sens/test_apps
+  - esp_driver_tsens/test_apps
+  - esp_event/host_test
+  - esp_event/test_apps
+  - esp_hw_support/test_apps
+  - esp_mm/test_apps
+  - esp_phy/test_apps
+  - esp_psram/test_apps
+  - esp_rom/test_apps
+  - esp_system/test_apps
+  - esp_timer/test_apps
+  - esp_wifi/test_apps
+  - hal/test_apps
+  - heap/test_apps
+  - mbedtls/test_apps
+  - spi_flash/test_apps
+  - wpa_supplicant/test_apps
+  - xtensa/test_apps
+
+# File/folder renames applied AFTER patches (relative to components/)
+#
+# Patches target original ESP-IDF paths. Renames run after patching
+# so the final tree uses Zephyr naming.
+#
+# Folder renames happen first, then file renames use the new folder path.
+renames:
+  - src: bt/porting/npl/freertos
+    dst: bt/porting/npl/zephyr
+  - src: bt/porting/npl/zephyr/include/nimble/npl_freertos.h
+    dst: bt/porting/npl/zephyr/include/nimble/npl_zephyr.h
+  - src: bt/porting/npl/zephyr/include/nimble/nimble_port_freertos.h
+    dst: bt/porting/npl/zephyr/include/nimble/nimble_port_zephyr.h
+  - src: bt/porting/npl/zephyr/src/npl_os_freertos.c
+    dst: bt/porting/npl/zephyr/src/npl_os_zephyr.c
+
+# Blob library filters per SoC (used by hal-blobs.sh)
+#
+# Lists which binary libraries to include for each SoC target.
+# Libraries are fetched from their respective blob repositories.
+blob_filters:
+  esp32:
+    - btdm_app
+    - coexist
+    - core
+    - net80211
+    - phy
+    - pp
+    - rtc
+  esp32c2:
+    - ble_app
+    - btbb
+    - coexist
+    - core
+    - net80211
+    - phy
+    - pp
+  esp32c3:
+    - btbb
+    - btdm_app
+    - coexist
+    - core
+    - mesh
+    - net80211
+    - phy
+    - pp
+  esp32c6:
+    - ble_app
+    - btbb
+    - coexist
+    - core
+    - mesh
+    - net80211
+    - phy
+    - pp
+  esp32h2:
+    - ble_app
+    - btbb
+    - coexist
+    - phy
+  esp32s2:
+    - coexist
+    - core
+    - net80211
+    - phy
+    - pp
+  esp32s3:
+    - btbb
+    - btdm_app
+    - coexist
+    - core
+    - net80211
+    - phy
+    - pp
