@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,7 +27,6 @@ const __attribute__((unused)) static char *TAG = "adc_cali";
 static const int coeff_a_scaling = 65536;
 static const int coeff_b_scaling = 1024;
 
-
 /* -------------------- Characterization Helper Data Types ------------------ */
 typedef struct {
     int adc_calib_high;
@@ -49,7 +48,6 @@ typedef struct {
     } efuse_data;
 } adc_calib_parsed_info_t;
 
-
 /* ------------------------ Context Structure--------------------------- */
 typedef struct {
     adc_unit_t unit_id;                     ///< ADC unit
@@ -57,7 +55,6 @@ typedef struct {
     uint32_t coeff_a;                       ///< Gradient of ADC-Voltage curve
     uint32_t coeff_b;                       ///< Offset of ADC-Voltage curve
 } cali_chars_line_fitting_t;
-
 
 /* ----------------------- Characterization Functions ----------------------- */
 static bool prepare_calib_data_for(adc_unit_t unit_id, adc_atten_t atten, adc_calib_parsed_info_t *parsed_data_storage);
@@ -71,21 +68,19 @@ static bool prepare_calib_data_for(adc_unit_t unit_id, adc_atten_t atten, adc_ca
  *
  */
 static void characterize_using_two_point(adc_unit_t unit_id,
-        adc_atten_t atten,
-        uint32_t high,
-        uint32_t low,
-        uint32_t *coeff_a,
-        uint32_t *coeff_b);
+                                         adc_atten_t atten,
+                                         uint32_t high,
+                                         uint32_t low,
+                                         uint32_t *coeff_a,
+                                         uint32_t *coeff_b);
 /*
  * Estimate the (assumed) linear relationship btwn the measured raw value and the voltage
  * with the previously done measurement when the chip was manufactured.
  * */
 static bool calculate_characterization_coefficients(const adc_calib_parsed_info_t *parsed_data, cali_chars_line_fitting_t *ctx);
 
-
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage);
-
 
 /* ------------------------- Public API ------------------------------------- */
 esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, adc_cali_handle_t *ret_handle)
@@ -112,9 +107,10 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
     adc_calib_parsed_info_t efuse_parsed_data = {0};
     bool success = prepare_calib_data_for(config->unit_id, config->atten, &efuse_parsed_data);
     assert(success);
+    (void)success;
     success = calculate_characterization_coefficients(&efuse_parsed_data, chars);
     assert(success);
-    ESP_LOGD(TAG, "adc%d (atten leven %d) calibration done: A:%"PRId32" B:%"PRId32"\n", config->unit_id, config->atten, chars->coeff_a, chars->coeff_b);
+    ESP_LOGD(TAG, "adc%d (atten leven %d) calibration done: A:%" PRId32" B:%" PRId32, config->unit_id, config->atten, chars->coeff_a, chars->coeff_b);
     chars->unit_id = config->unit_id;
     chars->atten = config->atten;
 
@@ -124,7 +120,7 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
 
 err:
     if (scheme) {
-        heap_caps_free(scheme);
+        free(scheme);
     }
     return ret;
 }
@@ -133,15 +129,14 @@ esp_err_t adc_cali_delete_scheme_line_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    heap_caps_free(handle->ctx);
+    free(handle->ctx);
     handle->ctx = NULL;
 
-    heap_caps_free(handle);
+    free(handle);
     handle = NULL;
 
     return ESP_OK;
 }
-
 
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
@@ -153,7 +148,6 @@ static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 
     return ESP_OK;
 }
-
 
 /* ----------------------- Characterization Functions ----------------------- */
 static bool prepare_calib_data_for(adc_unit_t unit_id, adc_atten_t atten, adc_calib_parsed_info_t *parsed_data_storage)
@@ -213,11 +207,11 @@ static bool prepare_calib_data_for(adc_unit_t unit_id, adc_atten_t atten, adc_ca
  *
  */
 static void characterize_using_two_point(adc_unit_t unit_id,
-        adc_atten_t atten,
-        uint32_t high,
-        uint32_t low,
-        uint32_t *coeff_a,
-        uint32_t *coeff_b)
+                                         adc_atten_t atten,
+                                         uint32_t high,
+                                         uint32_t low,
+                                         uint32_t *coeff_a,
+                                         uint32_t *coeff_b)
 {
     // once we have recovered the reference high(Dhigh) and low(Dlow) readings, we can calculate a and b from
     // the measured high and low readings
@@ -235,16 +229,16 @@ static bool calculate_characterization_coefficients(const adc_calib_parsed_info_
 {
     switch (parsed_data->version_num) {
     case 1:
-        ESP_LOGD(TAG, "Calib V1, low%dmV, high%dmV\n", parsed_data->efuse_data.ver1.adc_calib_low, parsed_data->efuse_data.ver1.adc_calib_high);
+        ESP_LOGD(TAG, "Calib V1, low%dmV, high%dmV", parsed_data->efuse_data.ver1.adc_calib_low, parsed_data->efuse_data.ver1.adc_calib_high);
 
         characterize_using_two_point(parsed_data->unit_id, parsed_data->atten_level,
                                      parsed_data->efuse_data.ver1.adc_calib_high, parsed_data->efuse_data.ver1.adc_calib_low,
                                      &(ctx->coeff_a), &(ctx->coeff_b));
         break;
     case 2:
-        ESP_LOGD(TAG, "Calib V2, volt%dmV\n", parsed_data->efuse_data.ver2.adc_calib_high);
+        ESP_LOGD(TAG, "Calib V2, volt%dmV", parsed_data->efuse_data.ver2.adc_calib_high);
         ctx->coeff_a = coeff_a_scaling * parsed_data->efuse_data.ver2.adc_calib_high_voltage /
-                         parsed_data->efuse_data.ver2.adc_calib_high;
+                       parsed_data->efuse_data.ver2.adc_calib_high;
         ctx->coeff_b = 0;
         break;
     default:

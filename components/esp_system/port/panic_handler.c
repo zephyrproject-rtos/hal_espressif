@@ -6,7 +6,8 @@
 
 #include <stdlib.h>
 
-#include "spi_flash_mmap.h"
+#include "esp_macros.h"
+
 #include "esp_ipc_isr.h"
 #include "esp_private/system_internal.h"
 #include "esp_private/cache_utils.h"
@@ -23,21 +24,15 @@
 #include "sdkconfig.h"
 #include "esp_rom_sys.h"
 
-#if CONFIG_ESP_SYSTEM_MEMPROT_FEATURE
-#ifdef CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/memprot.h"
-#else
-#include "esp_memprot.h"
-#endif
-#endif
-
 #include "esp_private/panic_internal.h"
 #include "esp_private/panic_reason.h"
 
 #include "hal/wdt_types.h"
 #include "hal/wdt_hal.h"
 
-extern int _invalid_pc_placeholder;
+#if CONFIG_ESP_SYSTEM_HW_STACK_GUARD
+#include "esp_private/hw_stack_guard.h"
+#endif
 
 extern void esp_panic_handler(panic_info_t *);
 
@@ -108,9 +103,10 @@ static void frame_to_panic_info(void *frame, panic_info_t *info, bool pseudo_exc
     info->exception = PANIC_EXCEPTION_FAULT;
     info->details = NULL;
     info->reason = "Unknown";
-    info->pseudo_excause = pseudo_excause;
 
-    if (pseudo_excause) {
+    info->pseudo_excause = panic_soc_check_pseudo_cause(frame, info) | pseudo_excause;
+
+    if (info->pseudo_excause) {
         panic_soc_fill_info(frame, info);
     } else {
         panic_arch_fill_info(frame, info);
@@ -119,6 +115,14 @@ static void frame_to_panic_info(void *frame, panic_info_t *info, bool pseudo_exc
     info->state = print_state;
     info->frame = frame;
 }
+
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+FORCE_INLINE_ATTR __attribute__((__noreturn__))
+void busy_wait(void)
+{
+    ESP_INFINITE_LOOP();
+}
+#endif // !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 
 static void panic_handler(void *frame, bool pseudo_excause)
 {
@@ -155,19 +159,35 @@ static void panic_handler(void *frame, bool pseudo_excause)
     // These are cases where both CPUs both go into panic handler. The following code ensures
     // only one core proceeds to the system panic handler.
     if (pseudo_excause) {
-#define BUSY_WAIT_IF_TRUE(b)                { if (b) while(1); }
-        // For WDT expiry, pause the non-offending core - offending core handles panic
-        BUSY_WAIT_IF_TRUE(panic_get_cause(frame) == PANIC_RSN_INTWDT_CPU0 && core_id == 1);
-        BUSY_WAIT_IF_TRUE(panic_get_cause(frame) == PANIC_RSN_INTWDT_CPU1 && core_id == 0);
 
-        // For cache error, pause the non-offending core - offending core handles panic
-        if (panic_get_cause(frame) == PANIC_RSN_CACHEERR && core_id != esp_cache_err_get_cpuid()) {
-            // Only print the backtrace for the offending core in case of the cache error
-            g_exc_frames[core_id] = NULL;
-            while (1) {
-                ;
+        // For WDT expiry, pause the non-offending core - offending core handles panic
+        if (panic_get_cause(frame) == PANIC_RSN_INTWDT_CPU0 && core_id == 1) {
+            busy_wait();
+        } else if (panic_get_cause(frame) == PANIC_RSN_INTWDT_CPU1 && core_id == 0) {
+            busy_wait();
+        } else if (panic_get_cause(frame) == PANIC_RSN_CACHEERR) {
+            // The invalid cache access interrupt calls to the panic handler.
+            // When the cache interrupt happens, we can not determine the CPU where the
+            // invalid cache access has occurred.
+            if (esp_cache_err_get_cpuid() == -1) {
+                // We can not determine the CPU where the invalid cache access has occurred.
+                // Print backtraces for both CPUs.
+                if (core_id != 0) {
+                    busy_wait();
+                }
+            } else if (core_id != esp_cache_err_get_cpuid()) {
+                g_exc_frames[core_id] = NULL; // Only print the backtrace for the offending core
+                busy_wait();
             }
         }
+#if CONFIG_ESP_SYSTEM_HW_STACK_GUARD
+        else if (panic_get_cause(frame) == ETS_ASSIST_DEBUG_INUM &&
+                 esp_hw_stack_guard_get_fired_cpu() != core_id &&
+                 esp_hw_stack_guard_get_fired_cpu() != ESP_HW_STACK_GUARD_NOT_FIRED) {
+            g_exc_frames[core_id] = NULL; // Only print the backtrace for the offending core
+            busy_wait();
+        }
+#endif // CONFIG_ESP_SYSTEM_HW_STACK_GUARD
     }
 #endif // !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 
@@ -222,9 +242,10 @@ static void panic_handler(void *frame, bool pseudo_excause)
 #if __XTENSA__
         if (!(esp_ptr_executable(esp_cpu_pc_to_addr(panic_get_address(frame))) && (panic_get_address(frame) & 0xC0000000U))) {
             /* Xtensa ABI sets the 2 MSBs of the PC according to the windowed call size
-             * Incase the PC is invalid, GDB will fail to translate addresses to function names
+             * In case the PC is invalid, GDB will fail to translate addresses to function names
              * Hence replacing the PC to a placeholder address in case of invalid PC
              */
+            extern int _invalid_pc_placeholder;
             panic_set_address(frame, (uint32_t)&_invalid_pc_placeholder);
         }
 #endif
@@ -249,9 +270,16 @@ static void IRAM_ATTR panic_enable_cache(void)
         esp_ipc_isr_stall_abort();
         spi_flash_enable_cache(core_id);
     }
+
+#if SOC_CACHE_ACS_INVALID_STATE_ON_PANIC
+    // Some errors need to be cleared here to allow cache to operate normally again
+    // for certain circumstances.
+    esp_cache_err_acs_save_and_clr();
+#endif //SOC_CACHE_ACS_INVALID_STATE_ON_PANIC
 }
 #endif
 
+// This function must always be in IRAM as it is required to re-enable the flash cache.
 void IRAM_ATTR panicHandler(void *frame)
 {
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
@@ -264,6 +292,7 @@ void IRAM_ATTR panicHandler(void *frame)
     panic_handler(frame, true);
 }
 
+// This function must always be in IRAM as it is required to re-enable the flash cache.
 void IRAM_ATTR xt_unhandled_exception(void *frame)
 {
 #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
@@ -274,29 +303,11 @@ void IRAM_ATTR xt_unhandled_exception(void *frame)
 
 void __attribute__((noreturn)) panic_restart(void)
 {
-    bool digital_reset_needed = false;
 #ifdef CONFIG_IDF_TARGET_ESP32
     // On the ESP32, cache error status can only be cleared by system reset
     if (esp_cache_err_get_cpuid() != -1) {
-        digital_reset_needed = true;
-    }
-#endif
-#if CONFIG_ESP_SYSTEM_MEMPROT_FEATURE
-#if CONFIG_IDF_TARGET_ESP32S2
-    if (esp_memprot_is_intr_ena_any() || esp_memprot_is_locked_any()) {
-        digital_reset_needed = true;
-    }
-#else
-    bool is_on = false;
-    if (esp_mprot_is_intr_ena_any(&is_on) != ESP_OK || is_on) {
-        digital_reset_needed = true;
-    } else if (esp_mprot_is_conf_locked_any(&is_on) != ESP_OK || is_on) {
-        digital_reset_needed = true;
-    }
-#endif
-#endif
-    if (digital_reset_needed) {
         esp_restart_noos_dig();
     }
+#endif
     esp_restart_noos();
 }

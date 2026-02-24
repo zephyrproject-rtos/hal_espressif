@@ -1,7 +1,7 @@
 /*
- * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 #pragma once
@@ -88,7 +88,6 @@
 #define AES_TEXT_OUT_BASE       ((DR_REG_AES_BASE) + 0x30)
 #define AES_IV_BASE             ((DR_REG_AES_BASE) + 0x50)
 
-
 /* HMAC Module */
 #define HMAC_SET_START_REG             ((DR_REG_HMAC_BASE) + 0x40)
 #define HMAC_SET_PARA_PURPOSE_REG      ((DR_REG_HMAC_BASE) + 0x44)
@@ -112,7 +111,7 @@
 #define HMAC_SOFT_JTAG_CTRL            BIT((0)
 #define HMAC_WR_JTAG_REG               ((DR_REG_HMAC_BASE) + 0xFC)
 
-/* AES-XTS registers */
+/* XTS-AES registers */
 #define AES_XTS_PLAIN_BASE        ((DR_REG_EXT_MEM_ENC) + 0x00)
 #define AES_XTS_SIZE_REG          ((DR_REG_EXT_MEM_ENC) + 0x40)
 #define AES_XTS_DESTINATION_REG   ((DR_REG_EXT_MEM_ENC) + 0x44)

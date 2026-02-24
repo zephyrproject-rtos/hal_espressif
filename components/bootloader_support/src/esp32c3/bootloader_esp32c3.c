@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,23 +10,18 @@
 #include "esp_image_format.h"
 #include "flash_qio_mode.h"
 #include "esp_rom_gpio.h"
-#include "esp_rom_efuse.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_spiflash.h"
-#include "soc/efuse_reg.h"
 #include "soc/gpio_sig_map.h"
 #include "soc/io_mux_reg.h"
 #include "soc/assist_debug_reg.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
-#include "soc/spi_periph.h"
 #include "soc/extmem_reg.h"
-#include "soc/io_mux_reg.h"
 #include "soc/system_reg.h"
 #include "soc/chip_revision.h"
-#include "esp32c3/rom/efuse.h"
 #include "esp32c3/rom/ets_sys.h"
 #include "bootloader_common.h"
 #include "bootloader_init.h"
@@ -44,8 +39,10 @@
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
 #include "hal/efuse_hal.h"
+#include "hal/rwdt_ll.h"
+#include "hal/brownout_ll.h"
 
-static const char *TAG = "boot.esp32c3";
+ESP_LOG_ATTR_TAG(TAG, "boot.esp32c3");
 
 static void wdt_reset_cpu0_info_enable(void)
 {
@@ -67,7 +64,7 @@ static void bootloader_check_wdt_reset(void)
     soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
     if (rst_reason == RESET_REASON_CORE_RTC_WDT || rst_reason == RESET_REASON_CORE_MWDT0 || rst_reason == RESET_REASON_CORE_MWDT1 ||
         rst_reason == RESET_REASON_CPU0_MWDT0 || rst_reason == RESET_REASON_CPU0_MWDT1 || rst_reason == RESET_REASON_CPU0_RTC_WDT) {
-        ESP_EARLY_LOGW(TAG, "PRO CPU has been reset by WDT.");
+        ESP_LOGW(TAG, "PRO CPU has been reset by WDT.");
         wdt_rst = 1;
     }
     if (wdt_rst) {
@@ -108,18 +105,18 @@ static inline void bootloader_ana_reset_config(void)
         case 0:
         case 1:
             //Disable BOD and GLITCH reset
-            bootloader_ana_bod_reset_config(false);
+            brownout_ll_ana_reset_enable(false);
             bootloader_ana_clock_glitch_reset_config(false);
             break;
         case 2:
             //Enable BOD reset. Disable GLITCH reset
-            bootloader_ana_bod_reset_config(true);
+            brownout_ll_ana_reset_enable(true);
             bootloader_ana_clock_glitch_reset_config(false);
             break;
         case 3:
         default:
             //Enable BOD, and GLITCH reset
-            bootloader_ana_bod_reset_config(true);
+            brownout_ll_ana_reset_enable(true);
             bootloader_ana_clock_glitch_reset_config(true);
             break;
     }
@@ -158,19 +155,16 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
-    //init cache hal
-    cache_hal_init();
-    //init mmu
-    mmu_hal_init();
+#if !CONFIG_APP_BUILD_TYPE_RAM
+    // init cache and mmu
+    bootloader_init_ext_mem();
     // update flash ID
     bootloader_flash_update_id();
     // Check and run XMC startup flow
     if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed when running XMC startup flow, reboot!");
+        ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
-#if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         return ret;
@@ -179,14 +173,13 @@ esp_err_t bootloader_init(void)
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
         return ret;
     }
-#endif  //#if !CONFIG_APP_BUILD_TYPE_RAM
     // initialize spi flash
     if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
         return ret;
     }
-#endif // !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+#endif  //#if !CONFIG_APP_BUILD_TYPE_RAM
 
-    // check whether a WDT reset happend
+    // check whether a WDT reset happened
     bootloader_check_wdt_reset();
     // config WDT
     bootloader_config_wdt();

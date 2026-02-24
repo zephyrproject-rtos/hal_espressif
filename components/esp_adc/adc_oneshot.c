@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,24 +7,31 @@
 #include <esp_types.h>
 #include <sys/lock.h>
 #include "sdkconfig.h"
+#if CONFIG_ADC_ENABLE_DEBUG_LOG
+// The local log level must be defined before including esp_log.h
+// Set the maximum log level for this source file
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+#endif
 #include "stdatomic.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
-#include "driver/gpio.h"
-#include "driver/rtc_io.h"
+#include "esp_private/gpio.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_clk_tree.h"
+#include "esp_sleep.h"
 #include "esp_private/adc_private.h"
 #include "esp_private/adc_share_hw_ctrl.h"
+#include "esp_private/regi2c_ctrl.h"
 #include "esp_private/sar_periph_ctrl.h"
+#include "esp_private/esp_clk_tree_common.h"
 #include "esp_private/esp_sleep_internal.h"
 #include "hal/adc_types.h"
 #include "hal/adc_oneshot_hal.h"
 #include "hal/adc_ll.h"
-#include "soc/adc_periph.h"
-
+#include "hal/adc_periph.h"
+#include "soc/soc_caps.h"
 
 #if CONFIG_ADC_ONESHOT_CTRL_FUNC_IN_IRAM
 #define ADC_MEM_ALLOC_CAPS   (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
@@ -32,10 +39,8 @@
 #define ADC_MEM_ALLOC_CAPS   MALLOC_CAP_DEFAULT
 #endif
 
-
 extern portMUX_TYPE rtc_spinlock;
 static const char *TAG = "adc_oneshot";
-
 
 typedef struct adc_oneshot_unit_ctx_t {
     adc_oneshot_hal_ctx_t hal;
@@ -49,32 +54,32 @@ typedef struct adc_oneshot_ctx_t {
     int apb_periph_ref_cnts;       //For the chips that ADC oneshot mode using APB_SARADC periph
 } adc_oneshot_ctx_t;
 
-
 static adc_oneshot_ctx_t s_ctx;    //ADC oneshot mode context
 static atomic_bool s_adc_unit_claimed[SOC_ADC_PERIPH_NUM] = {ATOMIC_VAR_INIT(false),
 #if (SOC_ADC_PERIPH_NUM >= 2)
-ATOMIC_VAR_INIT(false)
+                                                             ATOMIC_VAR_INIT(false)
 #endif
-};
-
+                                                            };
 
 static bool s_adc_unit_claim(adc_unit_t unit);
 static bool s_adc_unit_free(adc_unit_t unit);
 static esp_err_t s_adc_io_init(adc_unit_t unit, adc_channel_t channel);
 
-
-esp_err_t adc_oneshot_io_to_channel(int io_num, adc_unit_t *unit_id, adc_channel_t *channel)
+esp_err_t adc_oneshot_io_to_channel(int io_num, adc_unit_t * const unit_id, adc_channel_t * const channel)
 {
     return adc_io_to_channel(io_num, unit_id, channel);
 }
 
-esp_err_t adc_oneshot_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int *io_num)
+esp_err_t adc_oneshot_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int * const io_num)
 {
     return adc_channel_to_io(unit_id, channel, io_num);
 }
 
 esp_err_t adc_oneshot_new_unit(const adc_oneshot_unit_init_cfg_t *init_config, adc_oneshot_unit_handle_t *ret_unit)
 {
+#if CONFIG_ADC_ENABLE_DEBUG_LOG
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
+#endif
     esp_err_t ret = ESP_OK;
     adc_oneshot_unit_ctx_t *unit = NULL;
     ESP_GOTO_ON_FALSE(init_config && ret_unit, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument: null pointer");
@@ -98,39 +103,87 @@ esp_err_t adc_oneshot_new_unit(const adc_oneshot_unit_init_cfg_t *init_config, a
     unit->unit_id = init_config->unit_id;
     unit->ulp_mode = init_config->ulp_mode;
 
-    adc_oneshot_clk_src_t clk_src = ADC_DIGI_CLK_SRC_DEFAULT;
-    if (init_config->clk_src) {
-        clk_src = init_config->clk_src;
+    adc_oneshot_clk_src_t clk_src;
+#if SOC_LP_ADC_SUPPORTED
+    if (init_config->ulp_mode != ADC_ULP_MODE_DISABLE) {
+        clk_src = LP_ADC_CLK_SRC_LP_DYN_FAST;
+    } else
+#endif /* SOC_LP_ADC_SUPPORTED */
+    {
+        clk_src = ADC_DIGI_CLK_SRC_DEFAULT;
+        if (init_config->clk_src) {
+            clk_src = init_config->clk_src;
+        }
     }
     uint32_t clk_src_freq_hz = 0;
     ESP_GOTO_ON_ERROR(esp_clk_tree_src_get_freq_hz(clk_src, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &clk_src_freq_hz), err, TAG, "clock source not supported");
 
     adc_oneshot_hal_cfg_t config = {
         .unit = init_config->unit_id,
-        .work_mode = (init_config->ulp_mode == ADC_ULP_MODE_FSM) ? ADC_HAL_ULP_FSM_MODE : ADC_HAL_SINGLE_READ_MODE,
         .clk_src = clk_src,
         .clk_src_freq_hz = clk_src_freq_hz,
+#if CONFIG_ADC_DISABLE_DAC_OUTPUT
+        .disable_dac_output = true,
+#endif
     };
+
+    switch (init_config->ulp_mode) {
+    case ADC_ULP_MODE_FSM:
+        config.work_mode = ADC_HAL_LP_MODE;  // esp32 ulp-fsm mode
+        break;
+    case ADC_ULP_MODE_RISCV:
+        config.work_mode = ADC_HAL_SINGLE_READ_MODE;  // esp32s2, esp32s3 ulp-riscv mode
+        break;
+#if SOC_LP_ADC_SUPPORTED
+    case ADC_ULP_MODE_LP_CORE:
+        config.work_mode = ADC_HAL_LP_MODE;  // lp core mode
+        break;
+#endif /* SOC_LP_ADC_SUPPORTED */
+    case ADC_ULP_MODE_DISABLE:
+    default:
+        config.work_mode = ADC_HAL_SINGLE_READ_MODE;  // oneshot read mode
+        break;
+    }
+
     adc_oneshot_hal_init(&(unit->hal), &config);
 
-#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
-    //To enable the APB_SARADC periph if needed
-    _lock_acquire(&s_ctx.mutex);
-    s_ctx.apb_periph_ref_cnts++;
-    if (s_ctx.apb_periph_ref_cnts == 1) {
-        adc_apb_periph_claim();
+    if (ADC_LL_NEED_APB_PERIPH_CLAIM(unit->unit_id)) {
+        //To enable the APB_SARADC periph if needed
+        _lock_acquire(&s_ctx.mutex);
+        s_ctx.apb_periph_ref_cnts++;
+        if (s_ctx.apb_periph_ref_cnts == 1) {
+            adc_apb_periph_claim();
+        }
+        _lock_release(&s_ctx.mutex);
     }
-    _lock_release(&s_ctx.mutex);
-#endif
 
     if (init_config->ulp_mode == ADC_ULP_MODE_DISABLE) {
         sar_periph_ctrl_adc_oneshot_power_acquire();
     } else {
-        esp_sleep_enable_adc_tsens_monitor(true);
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+        ESP_GOTO_ON_ERROR(esp_clk_tree_enable_src((soc_module_clk_t)(unit->hal.clk_src), true), err, TAG, "clock source enable failed");
+#endif
+#if SOC_LIGHT_SLEEP_SUPPORTED || SOC_DEEP_SLEEP_SUPPORTED
+        esp_sleep_sub_mode_config(ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE, true);
+#endif
     }
+#if CONFIG_IDF_TARGET_ESP32
+    // SAR will be used in monitor state, forcibly disable analog lowpower mode to keep system functionality.
+    esp_sleep_sub_mode_force_disable(ESP_SLEEP_ANALOG_LOW_POWER_MODE);
+#endif
 
     ESP_LOGD(TAG, "new adc unit%"PRId32" is created", unit->unit_id);
     *ret_unit = unit;
+
+#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+    //TODO: IDF-8475: Depends to SLEEP_RETENTION_MODULE_CLOCK_MODEM retention module after ADC retention supported.
+#if SOC_PM_SUPPORT_MODEM_PD
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_ON));
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_TOP, ESP_PD_OPTION_ON));
+#endif
+#elif ADC_LL_ADC_FE_ON_MODEM_DOMAIN
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_ON));
+#endif
     return ESP_OK;
 
 err:
@@ -174,6 +227,10 @@ esp_err_t adc_oneshot_read(adc_oneshot_unit_handle_t handle, adc_channel_t chan,
     }
     portENTER_CRITICAL(&rtc_spinlock);
 
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal.clk_src), true));
+#endif
+    ANALOG_CLOCK_ENABLE();
     adc_oneshot_hal_setup(&(handle->hal), chan);
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
     adc_atten_t atten = adc_ll_get_atten(handle->unit_id, chan);
@@ -182,6 +239,10 @@ esp_err_t adc_oneshot_read(adc_oneshot_unit_handle_t handle, adc_channel_t chan,
 #endif  // SOC_ADC_CALIBRATION_V1_SUPPORTED
     bool valid = false;
     valid = adc_oneshot_hal_convert(&(handle->hal), out_raw);
+    ANALOG_CLOCK_DISABLE();
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal.clk_src), false));
+#endif
 
     portEXIT_CRITICAL(&rtc_spinlock);
     adc_lock_release(handle->unit_id);
@@ -197,6 +258,10 @@ esp_err_t adc_oneshot_read_isr(adc_oneshot_unit_handle_t handle, adc_channel_t c
 
     portENTER_CRITICAL_SAFE(&rtc_spinlock);
 
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal.clk_src), true));
+#endif
+    ANALOG_CLOCK_ENABLE();
     adc_oneshot_hal_setup(&(handle->hal), chan);
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
     adc_atten_t atten = adc_ll_get_atten(handle->unit_id, chan);
@@ -204,6 +269,10 @@ esp_err_t adc_oneshot_read_isr(adc_oneshot_unit_handle_t handle, adc_channel_t c
     adc_set_hw_calibration_code(handle->unit_id, atten);
 #endif
     adc_oneshot_hal_convert(&(handle->hal), out_raw);
+    ANALOG_CLOCK_DISABLE();
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal.clk_src), false));
+#endif
 
     portEXIT_CRITICAL_SAFE(&rtc_spinlock);
 
@@ -217,30 +286,47 @@ esp_err_t adc_oneshot_del_unit(adc_oneshot_unit_handle_t handle)
     bool success_free = s_adc_unit_free(handle->unit_id);
     ESP_RETURN_ON_FALSE(success_free, ESP_ERR_NOT_FOUND, TAG, "adc%"PRId32" isn't in use", handle->unit_id + 1);
 
+#if ADC_LL_POWER_MANAGE_SUPPORTED
+    adc_ll_set_power_manage(handle->unit_id, ADC_LL_POWER_SW_OFF);
+#endif
+
     _lock_acquire(&s_ctx.mutex);
     s_ctx.units[handle->unit_id] = NULL;
     _lock_release(&s_ctx.mutex);
 
     ESP_LOGD(TAG, "adc unit%"PRId32" is deleted", handle->unit_id);
-    free(handle);
 
     if (ulp_mode == ADC_ULP_MODE_DISABLE) {
         sar_periph_ctrl_adc_oneshot_power_release();
     } else {
-        esp_sleep_enable_adc_tsens_monitor(false);
-    }
-
-#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
-    //To free the APB_SARADC periph if needed
-    _lock_acquire(&s_ctx.mutex);
-    s_ctx.apb_periph_ref_cnts--;
-    assert(s_ctx.apb_periph_ref_cnts >= 0);
-    if (s_ctx.apb_periph_ref_cnts == 0) {
-        adc_apb_periph_free();
-    }
-    _lock_release(&s_ctx.mutex);
+#if SOC_LIGHT_SLEEP_SUPPORTED || SOC_DEEP_SLEEP_SUPPORTED
+        esp_sleep_sub_mode_config(ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE, false);
 #endif
+        ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal.clk_src), false));
+    }
 
+    if (ADC_LL_NEED_APB_PERIPH_CLAIM(handle->unit_id)) {
+        //To free the APB_SARADC periph if needed
+        _lock_acquire(&s_ctx.mutex);
+        s_ctx.apb_periph_ref_cnts--;
+        assert(s_ctx.apb_periph_ref_cnts >= 0);
+        if (s_ctx.apb_periph_ref_cnts == 0) {
+            adc_apb_periph_free();
+        }
+        _lock_release(&s_ctx.mutex);
+    }
+
+    free(handle);
+
+#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+    //TODO: IDF-8475: Depends to SLEEP_RETENTION_MODULE_CLOCK_MODEM retention module after ADC retention supported.
+#if SOC_PM_SUPPORT_MODEM_PD
+    esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_OFF);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_TOP, ESP_PD_OPTION_OFF);
+#endif
+#elif ADC_LL_ADC_FE_ON_MODEM_DOMAIN
+    esp_sleep_pd_config(ESP_PD_DOMAIN_MODEM, ESP_PD_OPTION_OFF);
+#endif
     return ESP_OK;
 }
 
@@ -259,27 +345,7 @@ esp_err_t adc_oneshot_get_calibrated_result(adc_oneshot_unit_handle_t handle, ad
 static esp_err_t s_adc_io_init(adc_unit_t unit, adc_channel_t channel)
 {
     ESP_RETURN_ON_FALSE(channel < SOC_ADC_CHANNEL_NUM(unit), ESP_ERR_INVALID_ARG, TAG, "invalid channel");
-
-#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
-
-    uint32_t io_num = ADC_GET_IO_NUM(unit, channel);
-    gpio_config_t cfg = {
-        .pin_bit_mask = BIT64(io_num),
-        .mode = GPIO_MODE_DISABLE,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "IO config fail");
-#else
-    gpio_num_t io_num = ADC_GET_IO_NUM(unit, channel);
-    ESP_RETURN_ON_ERROR(rtc_gpio_init(io_num), TAG, "IO config fail");
-    ESP_RETURN_ON_ERROR(rtc_gpio_set_direction(io_num, RTC_GPIO_MODE_DISABLED), TAG, "IO config fail");
-    ESP_RETURN_ON_ERROR(rtc_gpio_pulldown_dis(io_num), TAG, "IO config fail");
-    ESP_RETURN_ON_ERROR(rtc_gpio_pullup_dis(io_num), TAG, "IO config fail");
-#endif
-
-    return ESP_OK;
+    return gpio_config_as_analog(ADC_GET_IO_NUM(unit, channel));
 }
 
 static bool s_adc_unit_claim(adc_unit_t unit)

@@ -22,13 +22,13 @@
 
 #include "sdkconfig.h"
 
-#define ESP_TASK_PRIO_MAX (CONFIG_ESP_WIFI_MAX_THREAD_PRIORITY)
+#define ESP_TASK_PRIO_MAX (16)
 #define ESP_TASK_PRIO_MIN (0)
 
-/* Bt contoller Task */
+/* Bt controller Task */
 /* controller */
 #define ESP_TASK_BT_CONTROLLER_PRIO   (ESP_TASK_PRIO_MAX - 2)
-#ifdef CONFIG_NEWLIB_NANO_FORMAT
+#ifdef CONFIG_LIBC_NEWLIB_NANO_FORMAT
 #define TASK_EXTRA_STACK_SIZE      (0)
 #else
 #define TASK_EXTRA_STACK_SIZE      (512)
@@ -39,7 +39,6 @@
 
 /* Ping Task */
 #define ESP_TASK_PING_STACK             (2048 + TASK_EXTRA_STACK_SIZE)
-
 
 /* idf task */
 #define ESP_TASK_TIMER_PRIO           (ESP_TASK_PRIO_MAX - 3)

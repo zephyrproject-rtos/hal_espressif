@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,25 +14,36 @@
 #include "bootloader_random.h"
 #include "bootloader_clock.h"
 #include "bootloader_common.h"
-#include "esp_flash_encrypt.h"
 #include "esp_cpu.h"
+#include "soc/soc_caps.h"
 #include "soc/rtc.h"
 #include "hal/wdt_hal.h"
 #include "hal/efuse_hal.h"
+#include "hal/cache_hal.h"
+#include "hal/mmu_hal.h"
+#include "esp_bootloader_desc.h"
+#include "esp_rom_sys.h"
 
-static const char *TAG = "boot";
+ESP_LOG_ATTR_TAG(TAG, "boot");
 
+#if !CONFIG_APP_BUILD_TYPE_RAM
 esp_image_header_t WORD_ALIGNED_ATTR bootloader_image_hdr;
+#endif
 
 void bootloader_clear_bss_section(void)
 {
-    memset(&_bss_start, 0, ((unsigned*)&_bss_end - (unsigned*)&_bss_start) * sizeof(&_bss_start));
+    memset(&_bss_start, 0, (uintptr_t)&_bss_end - (uintptr_t)&_bss_start);
 }
 
 esp_err_t bootloader_read_bootloader_header(void)
 {
     /* load bootloader image header */
-    if (bootloader_flash_read(ESP_BOOTLOADER_OFFSET, &bootloader_image_hdr, sizeof(esp_image_header_t), true) != ESP_OK) {
+#if SOC_RECOVERY_BOOTLOADER_SUPPORTED
+    const uint32_t bootloader_flash_offset = esp_rom_get_bootloader_offset();
+#else
+    const uint32_t bootloader_flash_offset = ESP_PRIMARY_BOOTLOADER_OFFSET;
+#endif
+    if (bootloader_flash_read(bootloader_flash_offset, &bootloader_image_hdr, sizeof(esp_image_header_t), true) != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "failed to load bootloader image header!");
         return ESP_FAIL;
     }
@@ -52,17 +63,6 @@ esp_err_t bootloader_check_bootloader_validity(void)
     unsigned int efuse_minor_rev = efuse_revision % 100;
     ESP_EARLY_LOGI(TAG, "efuse block revision: v%d.%d", efuse_major_rev, efuse_minor_rev);
 #endif  // !CONFIG_IDF_TARGET_ESP32
-
-#if defined(CONFIG_SOC_SERIES_ESP32)
-    if (major < 3) {
-        ESP_EARLY_LOGE(TAG, "You are using ESP32 chip revision (%d) that is unsupported. While it may work, it could cause unexpected behavior or issues.", major);
-        ESP_EARLY_LOGE(TAG, "Proceeding with this ESP32 chip revision is not recommended unless you fully understand the potential risk and limitations.");
-#if !defined(CONFIG_ESP32_USE_UNSUPPORTED_REVISION)
-        ESP_EARLY_LOGE(TAG, "If you choose to continue, please enable the 'CONFIG_ESP32_USE_UNSUPPORTED_REVISION' in your project configuration.");
-        return ESP_FAIL;
-#endif
-    }
-#endif
     /* compare with the one set in bootloader image header */
     if (bootloader_common_check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != ESP_OK) {
         return ESP_FAIL;
@@ -110,25 +110,46 @@ void bootloader_enable_random(void)
 
 void bootloader_print_banner(void)
 {
-#ifdef CONFIG_MCUBOOT
-    ESP_EARLY_LOGI(TAG, "MCUboot 2nd stage bootloader");
-#else
-#ifdef CONFIG_BOOTLOADER_MCUBOOT
-    ESP_EARLY_LOGI(TAG, "MCUboot Application image");
-#else /* ifdef CONFIG_ESP_SIMPLE_BOOT */
-    ESP_EARLY_LOGI(TAG, "ESP Simple boot");
+    if (CONFIG_BOOTLOADER_LOG_LEVEL >= ESP_LOG_INFO) {
+        const esp_bootloader_desc_t *desc = esp_bootloader_get_description();
+        ESP_EARLY_LOGI(TAG, "ESP-IDF %s 2nd stage bootloader", desc->idf_ver);
+#ifdef CONFIG_BOOTLOADER_COMPILE_TIME_DATE
+        ESP_EARLY_LOGI(TAG, "compile time %s", desc->date_time);
 #endif
-#endif
+    }
 
-#ifndef CONFIG_APP_REPRODUCIBLE_BUILD
-    ESP_EARLY_LOGI(TAG, "compile time " __DATE__ " " __TIME__);
-#endif
-
-#if CONFIG_FREERTOS_UNICORE
+#if CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 #if (SOC_CPU_CORES_NUM > 1)
     ESP_EARLY_LOGW(TAG, "Unicore bootloader");
 #endif
 #else
     ESP_EARLY_LOGI(TAG, "Multicore bootloader");
 #endif
+}
+
+void bootloader_init_ext_mem(void)
+{
+    //init cache hal
+    cache_hal_config_t cache_config = {
+#if CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+        .core_nums = 1,
+#else
+        .core_nums = SOC_CPU_CORES_NUM,
+#endif
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
+        .l2_cache_size = CONFIG_CACHE_L2_CACHE_SIZE,
+        .l2_cache_line_size = CONFIG_CACHE_L2_CACHE_LINE_SIZE,
+#endif
+    };
+    cache_hal_init(&cache_config);
+    //reset mmu
+    mmu_hal_config_t mmu_config = {
+#if CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+        .core_nums = 1,
+#else
+        .core_nums = SOC_CPU_CORES_NUM,
+#endif
+        .mmu_page_size = CONFIG_MMU_PAGE_SIZE,
+    };
+    mmu_hal_init(&mmu_config);
 }

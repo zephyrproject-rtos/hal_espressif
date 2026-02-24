@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,6 +17,12 @@
 #include "esp_timer.h"
 #include "esp_private/esp_task_wdt_impl.h"
 
+#if CONFIG_PM_SLP_IRAM_OPT
+# define TASK_WDT_FN_ATTR   IRAM_ATTR
+#else
+# define TASK_WDT_FN_ATTR
+#endif
+
 /**
  * Context for the software implementation of the Task WatchDog Timer.
  * This will be passed as a parameter to public functions below. */
@@ -31,8 +37,7 @@ typedef struct {
  * init function. */
 static twdt_ctx_soft_t init_context;
 
-static const char *TAG = "task_wdt_impl_soft";
-
+ESP_LOG_ATTR_TAG(TAG, "task_wdt_impl_soft");
 
 esp_err_t esp_task_wdt_impl_timer_allocate(const esp_task_wdt_config_t *config,
                                            twdt_isr_callback callback,
@@ -51,7 +56,7 @@ esp_err_t esp_task_wdt_impl_timer_allocate(const esp_task_wdt_config_t *config,
     esp_err_t ret = esp_timer_create(&timer_args, &ctx->sw_timer);
     ESP_GOTO_ON_FALSE((ret == ESP_OK), ret, reterr, TAG, "could not start periodic timer");
 
-    /* Configure it as a periodic timer, so that we check the Tasks everytime it is triggered.
+    /* Configure it as a periodic timer, so that we check the Tasks every time it is triggered.
      * No need to start the timer here, it will be started later with `esp_task_wdt_impl_timer_restart` */
     ctx->period_ms = config->timeout_ms;
 
@@ -81,7 +86,6 @@ esp_err_t esp_task_wdt_impl_timer_reconfigure(twdt_ctx_t obj, const esp_task_wdt
     return ret;
 }
 
-
 void esp_task_wdt_impl_timer_free(twdt_ctx_t obj)
 {
     const twdt_ctx_soft_t* ctx = (twdt_ctx_soft_t*) obj;
@@ -91,8 +95,7 @@ void esp_task_wdt_impl_timer_free(twdt_ctx_t obj)
     }
 }
 
-
-esp_err_t esp_task_wdt_impl_timer_feed(twdt_ctx_t obj)
+esp_err_t TASK_WDT_FN_ATTR esp_task_wdt_impl_timer_feed(twdt_ctx_t obj)
 {
     esp_err_t ret = ESP_OK;
     const twdt_ctx_soft_t* ctx = (twdt_ctx_soft_t*) obj;
@@ -109,12 +112,10 @@ esp_err_t esp_task_wdt_impl_timer_feed(twdt_ctx_t obj)
     return ret;
 }
 
-
 void esp_task_wdt_impl_timeout_triggered(twdt_ctx_t obj)
 {
     (void) obj;
 }
-
 
 esp_err_t esp_task_wdt_impl_timer_stop(twdt_ctx_t obj)
 {
@@ -131,7 +132,6 @@ esp_err_t esp_task_wdt_impl_timer_stop(twdt_ctx_t obj)
 
     return ret;
 }
-
 
 esp_err_t esp_task_wdt_impl_timer_restart(twdt_ctx_t obj)
 {

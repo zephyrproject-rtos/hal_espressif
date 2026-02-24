@@ -1,9 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2010-2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ */
+
+#include <stddef.h>
 #include "soc/lldesc.h"
 
 void lldesc_setup_link_constrained(lldesc_t *dmadesc, const void *data, int len, int max_desc_size, bool isrx)
 {
     int n = 0;
-    uint8_t *buf = (uint8_t *)data;
     while (len) {
         int dmachunklen = len;
         if (dmachunklen > max_desc_size) {
@@ -17,13 +23,13 @@ void lldesc_setup_link_constrained(lldesc_t *dmadesc, const void *data, int len,
             dmadesc[n].size = dmachunklen;
             dmadesc[n].length = dmachunklen;
         }
-        dmadesc[n].buf = buf;
+        dmadesc[n].buf = (uint8_t *)data;
         dmadesc[n].eof = 0;
         dmadesc[n].sosf = 0;
         dmadesc[n].owner = 1;
         dmadesc[n].qe.stqe_next = &dmadesc[n + 1];
         len -= dmachunklen;
-        buf += dmachunklen;
+        data = (const uint8_t *)data + dmachunklen;
         n++;
     }
     dmadesc[n - 1].eof = 1; //Mark last DMA desc as end of stream.
@@ -34,11 +40,13 @@ int lldesc_get_received_len(lldesc_t* head, lldesc_t** out_next)
 {
     lldesc_t* desc = head;
     int len = 0;
-    while(desc) {
+    while (desc) {
         len += desc->length;
         bool eof = desc->eof;
         desc = STAILQ_NEXT(desc, qe);
-        if (eof) break;
+        if (eof) {
+            break;
+        }
     }
     if (out_next) {
         *out_next = desc;

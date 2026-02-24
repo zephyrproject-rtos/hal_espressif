@@ -14,7 +14,6 @@ menu "Bluetooth"
             This helps to choose Bluetooth host stack
 
         config BT_BLUEDROID_ENABLED
-            depends on BT_CONTROLLER_ENABLED
             bool "Bluedroid - Dual-mode"
             help
                 This option is recommended for classic Bluetooth or for dual-mode
@@ -67,7 +66,7 @@ menu "Bluetooth"
 
     menu "Controller Options"
         depends on BT_CONTROLLER_ENABLED
-        source "$IDF_PATH/components/bt/controller/$IDF_TARGET/Kconfig.in"
+        osource "$IDF_PATH/components/bt/controller/$IDF_TARGET/Kconfig.in"
     endmenu
 
     config BT_RELEASE_IRAM
@@ -79,7 +78,7 @@ menu "Bluetooth"
             a large free heap region when esp_bt_mem_release is called, total saving ~21kB or more of IRAM.
             ESP32-C2 only 3 configurable PMP entries available, rest of them are hard-coded.
             We cannot split the memory into 3 different regions (IRAM, BLE-IRAM, DRAM).
-            So this option will disable the PMP (ESP_SYSTEM_PMP_IDRAM_SPLIT)
+            So this option will disable the memory protection scheme (ESP_SYSTEM_MEMPROT)
 
     menu "Common Options"
         source "$IDF_PATH/components/bt/common/Kconfig.in"

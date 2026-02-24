@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,20 +15,16 @@
 #include "esp_private/rtc_clk.h"
 #include "esp_hw_log.h"
 #include "esp_rom_sys.h"
+#include "esp_sleep.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
-#include "soc/io_mux_reg.h"
+#include "hal/gpio_ll.h"
 #include "soc/lp_aon_reg.h"
-#include "soc/lp_clkrst_reg.h"
 #include "esp_private/sleep_event.h"
+#include "esp_private/regi2c_ctrl.h"
+#include "esp_attr.h"
 
-#ifdef BOOTLOADER_BUILD
-#include "hal/modem_lpcon_ll.h"
-#else
-#include "esp_private/esp_modem_clock.h"
-#endif
-
-static const char *TAG = "rtc_clk";
+ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
 
 // Current PLL frequency, in 96MHz. Zero if PLL is not enabled.
 static int s_cur_pll_freq;
@@ -56,16 +52,15 @@ void rtc_clk_32k_enable(bool enable)
 
 void rtc_clk_32k_enable_external(void)
 {
-    // EXT_OSC_SLOW_GPIO_NUM == GPIO_NUM_13
-    PIN_INPUT_ENABLE(IO_MUX_GPIO13_REG);
-    REG_SET_BIT(LP_AON_GPIO_HOLD0_REG, BIT(EXT_OSC_SLOW_GPIO_NUM));
+    gpio_ll_input_enable(&GPIO, SOC_EXT_OSC_SLOW_GPIO_NUM);
+    REG_SET_BIT(LP_AON_GPIO_HOLD0_REG, BIT(SOC_EXT_OSC_SLOW_GPIO_NUM));
     clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_EXTERNAL);
 }
 
 void rtc_clk_32k_disable_external(void)
 {
-    PIN_INPUT_DISABLE(IO_MUX_GPIO13_REG);
-    REG_CLR_BIT(LP_AON_GPIO_HOLD0_REG, BIT(EXT_OSC_SLOW_GPIO_NUM));
+    gpio_ll_input_disable(&GPIO, SOC_EXT_OSC_SLOW_GPIO_NUM);
+    REG_CLR_BIT(LP_AON_GPIO_HOLD0_REG, BIT(SOC_EXT_OSC_SLOW_GPIO_NUM));
     clk_ll_xtal32k_disable();
 }
 
@@ -128,6 +123,13 @@ void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
 {
     clk_ll_rtc_slow_set_src(clk_src);
     esp_rom_delay_us(SOC_DELAY_RTC_SLOW_CLK_SWITCH);
+#ifndef BOOTLOADER_BUILD
+    if ((clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) || (clk_src == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW)) {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_ON);
+    } else {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_AUTO);
+    }
+#endif
 }
 
 soc_rtc_slow_clk_src_t rtc_clk_slow_src_get(void)
@@ -159,14 +161,8 @@ soc_rtc_fast_clk_src_t rtc_clk_fast_src_get(void)
 
 static void rtc_clk_bbpll_disable(void)
 {
-#if defined(CLK_BBPLL_DISABLE)
-    /* Disabling BBPLL is commented due to issues when transitioning
-     * from PLL to XTAL clock sources. Comprehensive clock management
-     * must be implemented for peripherals as well (ZEP-827).
-     */
     clk_ll_bbpll_disable();
     s_cur_pll_freq = 0;
-#endif
 }
 
 static void rtc_clk_bbpll_enable(void)
@@ -174,25 +170,13 @@ static void rtc_clk_bbpll_enable(void)
     clk_ll_bbpll_enable();
 }
 
-static void rtc_clk_enable_i2c_ana_master_clock(bool enable)
-{
-#ifdef BOOTLOADER_BUILD
-    modem_lpcon_ll_enable_i2c_master_clock(&MODEM_LPCON, enable);
-#else
-    if (enable) {
-        modem_clock_module_enable(PERIPH_ANA_I2C_MASTER_MODULE);
-    } else {
-        modem_clock_module_disable(PERIPH_ANA_I2C_MASTER_MODULE);
-    }
-#endif
-}
-
-static void rtc_clk_bbpll_configure(rtc_xtal_freq_t xtal_freq, int pll_freq)
+static void rtc_clk_bbpll_configure(soc_xtal_freq_t xtal_freq, int pll_freq)
 {
     /* Digital part */
     clk_ll_bbpll_set_freq_mhz(pll_freq);
+
     /* Analog part */
-    rtc_clk_enable_i2c_ana_master_clock(true);
+    ANALOG_CLOCK_ENABLE();
     /* BBPLL CALIBRATION START */
     regi2c_ctrl_ll_bbpll_calibration_start();
     clk_ll_bbpll_set_config(pll_freq, xtal_freq);
@@ -201,7 +185,8 @@ static void rtc_clk_bbpll_configure(rtc_xtal_freq_t xtal_freq, int pll_freq)
     esp_rom_delay_us(10);
     /* BBPLL CALIBRATION STOP */
     regi2c_ctrl_ll_bbpll_calibration_stop();
-    rtc_clk_enable_i2c_ana_master_clock(false);
+    ANALOG_CLOCK_DISABLE();
+
     s_cur_pll_freq = pll_freq;
 }
 
@@ -210,7 +195,7 @@ static void rtc_clk_bbpll_configure(rtc_xtal_freq_t xtal_freq, int pll_freq)
  * Must satisfy: cpu_freq = XTAL_FREQ / div.
  * Does not disable the PLL.
  */
-static void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
+static FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
 {
     // let f_cpu = f_ahb
     clk_ll_cpu_set_divider(div);
@@ -220,7 +205,7 @@ static void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
     esp_rom_set_cpu_ticks_per_us(cpu_freq);
 }
 
-static void rtc_clk_cpu_freq_to_8m(void)
+static void rtc_clk_cpu_freq_to_rc_fast(void)
 {
     // let f_cpu = f_ahb
     clk_ll_cpu_set_divider(1);
@@ -312,7 +297,7 @@ bool rtc_clk_cpu_freq_mhz_to_config(uint32_t freq_mhz, rtc_cpu_freq_config_t *ou
     return true;
 }
 
-__attribute__((weak)) void rtc_clk_set_cpu_switch_to_bbpll(int event_id)
+__attribute__((weak)) void rtc_clk_set_cpu_switch_to_pll(int event_id)
 {
 }
 
@@ -327,14 +312,14 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config)
         }
     } else if (config->source == SOC_CPU_CLK_SRC_PLL) {
         if (old_cpu_clk_src != SOC_CPU_CLK_SRC_PLL && old_cpu_clk_src != SOC_CPU_CLK_SRC_FLASH_PLL) {
-            rtc_clk_set_cpu_switch_to_bbpll(SLEEP_EVENT_HW_BBPLL_EN_START);
+            rtc_clk_set_cpu_switch_to_pll(SLEEP_EVENT_HW_PLL_EN_START);
             rtc_clk_bbpll_enable();
             rtc_clk_bbpll_configure(rtc_clk_xtal_freq_get(), config->source_freq_mhz);
         }
         rtc_clk_cpu_freq_to_pll_mhz(config->freq_mhz);
-        rtc_clk_set_cpu_switch_to_bbpll(SLEEP_EVENT_HW_BBPLL_EN_STOP);
+        rtc_clk_set_cpu_switch_to_pll(SLEEP_EVENT_HW_PLL_EN_STOP);
     } else if (config->source == SOC_CPU_CLK_SRC_RC_FAST) {
-        rtc_clk_cpu_freq_to_8m();
+        rtc_clk_cpu_freq_to_rc_fast();
         if ((old_cpu_clk_src == SOC_CPU_CLK_SRC_PLL || old_cpu_clk_src == SOC_CPU_CLK_SRC_FLASH_PLL) &&
             !s_bbpll_digi_consumers_ref_count) {
             rtc_clk_bbpll_disable();
@@ -343,12 +328,12 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config)
         if (old_cpu_clk_src != SOC_CPU_CLK_SRC_PLL && old_cpu_clk_src != SOC_CPU_CLK_SRC_FLASH_PLL) {
             // On ESP32H2, FLASH_PLL (64MHz) is directly derived from the BBPLL (96MHz)
             // Therefore, enabling and configuration are applied to BBPLL.
-            rtc_clk_set_cpu_switch_to_bbpll(SLEEP_EVENT_HW_FLASH_BBPLL_EN_START);
+            rtc_clk_set_cpu_switch_to_pll(SLEEP_EVENT_HW_FLASH_BBPLL_EN_START);
             rtc_clk_bbpll_enable();
             rtc_clk_bbpll_configure(rtc_clk_xtal_freq_get(), CLK_LL_PLL_96M_FREQ_MHZ);
         }
         rtc_clk_cpu_freq_to_flash_pll(config->freq_mhz, config->div);
-        rtc_clk_set_cpu_switch_to_bbpll(SLEEP_EVENT_HW_FLASH_BBPLL_EN_STOP);
+        rtc_clk_set_cpu_switch_to_pll(SLEEP_EVENT_HW_FLASH_BBPLL_EN_STOP);
     }
 }
 
@@ -397,7 +382,7 @@ void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config)
                s_cur_pll_freq == config->source_freq_mhz) {
         rtc_clk_cpu_freq_to_pll_mhz(config->freq_mhz);
     } else if (config->source == SOC_CPU_CLK_SRC_RC_FAST) {
-        rtc_clk_cpu_freq_to_8m();
+        rtc_clk_cpu_freq_to_rc_fast();
     } else if (config->source == SOC_CPU_CLK_SRC_FLASH_PLL &&
                s_cur_pll_freq == clk_ll_bbpll_get_freq_mhz()) {
         // On ESP32H2, FLASH_PLL (64MHz) is directly derived from the BBPLL (96MHz)
@@ -415,7 +400,7 @@ void rtc_clk_cpu_freq_set_xtal(void)
     rtc_clk_bbpll_disable();
 }
 
-void rtc_clk_cpu_set_to_default_config(void)
+FORCE_IRAM_ATTR void rtc_clk_cpu_set_to_default_config(void)
 {
     int freq_mhz = (int)rtc_clk_xtal_freq_get();
 
@@ -423,17 +408,22 @@ void rtc_clk_cpu_set_to_default_config(void)
     s_cur_pll_freq = 0; // no disable PLL, but set freq to 0 to trigger a PLL calibration after wake-up from sleep
 }
 
-rtc_xtal_freq_t rtc_clk_xtal_freq_get(void)
+void rtc_clk_cpu_freq_set_xtal_for_sleep(void)
+{
+    rtc_clk_cpu_set_to_default_config();
+}
+
+FORCE_IRAM_ATTR soc_xtal_freq_t rtc_clk_xtal_freq_get(void)
 {
     uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
     if (xtal_freq_mhz == 0) {
         ESP_HW_LOGW(TAG, "invalid RTC_XTAL_FREQ_REG value, assume 32MHz");
-        return RTC_XTAL_FREQ_32M;
+        return SOC_XTAL_FREQ_32M;
     }
-    return (rtc_xtal_freq_t)xtal_freq_mhz;
+    return (soc_xtal_freq_t)xtal_freq_mhz;
 }
 
-void rtc_clk_xtal_freq_update(rtc_xtal_freq_t xtal_freq)
+void rtc_clk_xtal_freq_update(soc_xtal_freq_t xtal_freq)
 {
     clk_ll_xtal_store_freq_mhz(xtal_freq);
 }
@@ -467,7 +457,7 @@ static uint32_t rtc_clk_ahb_freq_get(void)
 
 uint32_t rtc_clk_apb_freq_get(void)
 {
-    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ;
+    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ(1);
 }
 
 void rtc_dig_clk8m_enable(void)

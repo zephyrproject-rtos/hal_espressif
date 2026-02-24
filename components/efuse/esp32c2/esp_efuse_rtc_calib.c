@@ -14,7 +14,7 @@
 int esp_efuse_rtc_calib_get_ver(void)
 {
     uint32_t blk_ver_major = 0;
-    esp_efuse_read_field_blob(ESP_EFUSE_BLK_VERSION_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VERSION_MAJOR[0]->bit_count); // IDF-5366
+    esp_efuse_read_field_blob(ESP_EFUSE_BLK_VERSION_MAJOR, &blk_ver_major, ESP_EFUSE_BLK_VERSION_MAJOR[0]->bit_count);
 
     uint32_t cali_version = (blk_ver_major == 0) ? ESP_EFUSE_ADC_CALIB_VER : 0;
     if (!cali_version) {
@@ -65,10 +65,14 @@ uint32_t esp_efuse_rtc_calib_get_init_code(int version, uint32_t adc_unit, int a
 
 esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, uint32_t adc_unit, int atten, uint32_t *out_digi, uint32_t *out_vol_mv)
 {
-    assert((version >= ESP_EFUSE_ADC_CALIB_VER_MIN) &&
-           (version <= ESP_EFUSE_ADC_CALIB_VER_MAX));
-    assert(atten <= ADC_ATTEN_DB_12);
     (void) adc_unit;
+    if ((version < ESP_EFUSE_ADC_CALIB_VER_MIN) ||
+        (version > ESP_EFUSE_ADC_CALIB_VER_MAX)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (atten >= 4 || atten < 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     if (atten == ADC_ATTEN_DB_2_5 || atten == ADC_ATTEN_DB_6) {
         /**
@@ -102,23 +106,5 @@ esp_err_t esp_efuse_rtc_calib_get_cal_voltage(int version, uint32_t adc_unit, in
         *out_vol_mv = 1370;
     }
 
-    return ESP_OK;
-}
-
-esp_err_t esp_efuse_rtc_calib_get_tsens_val(float* tsens_cal)
-{
-    const esp_efuse_desc_t** cal_temp_efuse;
-    cal_temp_efuse = ESP_EFUSE_TEMP_CALIB;
-    int cal_temp_size = esp_efuse_get_field_size(cal_temp_efuse);
-    assert(cal_temp_size == 9);
-
-    uint32_t cal_temp = 0;
-    esp_err_t err = esp_efuse_read_field_blob(cal_temp_efuse, &cal_temp, cal_temp_size);
-    if (err != ESP_OK) {
-        *tsens_cal = 0.0;
-        return err;
-    }
-    // BIT(8) stands for sign: 1: negative, 0: positive
-    *tsens_cal = ((cal_temp & BIT(8)) != 0)? -(uint8_t)cal_temp: (uint8_t)cal_temp;
     return ESP_OK;
 }

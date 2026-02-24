@@ -6,33 +6,37 @@
 
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_macros.h"
 #include "esp_system.h"
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
-#include "esp_efuse.h"
 #include "esp_log.h"
 #include "riscv/rv_utils.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
+#include "esp_rom_sys.h"
 #include "soc/gpio_reg.h"
 #include "soc/timer_group_reg.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
 #include "esp_private/rtc_clk.h"
-#include "soc/rtc_periph.h"
 #include "soc/syscon_reg.h"
 #include "soc/system_reg.h"
 #include "soc/uart_reg.h"
 #include "hal/wdt_hal.h"
-// #include "esp_private/cache_err_int.h"
+#include "hal/uart_ll.h"
+#include "esp_private/cache_err_int.h"
 
 #include "esp32c3/rom/cache.h"
 #include "esp32c3/rom/rtc.h"
 
-void IRAM_ATTR esp_system_reset_modules_on_exit(void)
+void esp_system_reset_modules_on_exit(void)
 {
     // Flush any data left in UART FIFOs before reset the UART peripheral
-    esp_rom_uart_tx_wait_idle(0);
-    esp_rom_uart_tx_wait_idle(1);
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+        if (uart_ll_is_enabled(i)) {
+            esp_rom_output_tx_wait_idle(i);
+        }
+    }
 
     // Reset wifi/bluetooth/ethernet/sdio (bb/mac)
     SET_PERI_REG_MASK(SYSTEM_CORE_RST_EN_REG,
@@ -61,7 +65,7 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
  * core are already stopped. Stalls other core, resets hardware,
  * triggers restart.
 */
-void IRAM_ATTR esp_restart_noos(void)
+void esp_restart_noos(void)
 {
     // Disable interrupts
     rv_utils_intr_global_disable();
@@ -108,7 +112,6 @@ void IRAM_ATTR esp_restart_noos(void)
 
     // Reset CPU
     esp_rom_software_reset_cpu(0);
-    while (true) {
-        ;
-    }
+
+    ESP_INFINITE_LOOP();
 }

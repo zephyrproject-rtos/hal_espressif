@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,9 +8,6 @@
 #include "esp_err.h"
 #include "esp_types.h"
 #include "sdkconfig.h"
-#ifndef CONFIG_MCUBOOT_ESPRESSIF
-#include <zephyr/storage/flash_map.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +21,8 @@ extern "C" {
 #define PART_SUBTYPE_OTA_FLAG 0x10
 #define PART_SUBTYPE_OTA_MASK 0x0f
 #define PART_SUBTYPE_TEST     0x20
+#define PART_SUBTYPE_TEE_0    0x30
+#define PART_SUBTYPE_TEE_1    0x31
 
 #define PART_TYPE_DATA 0x01
 #define PART_SUBTYPE_DATA_OTA 0x00
@@ -32,22 +31,34 @@ extern "C" {
 #define PART_SUBTYPE_DATA_NVS_KEYS 0x04
 #define PART_SUBTYPE_DATA_EFUSE_EM 0x05
 
+#define PART_TYPE_BOOTLOADER 0x02
+#define PART_SUBTYPE_BOOTLOADER_PRIMARY 0x00
+#define PART_SUBTYPE_BOOTLOADER_OTA 0x01
+#define PART_SUBTYPE_BOOTLOADER_RECOVERY 0x02
+
+#define PART_TYPE_PARTITION_TABLE 0x03
+#define PART_SUBTYPE_PARTITION_TABLE_PRIMARY 0x00
+#define PART_SUBTYPE_PARTITION_TABLE_OTA 0x01
+
+#define PART_SUBTYPE_DATA_TEE_OTA 0x90
+
 #define PART_TYPE_END 0xff
 #define PART_SUBTYPE_END 0xff
 
 #define PART_FLAG_ENCRYPTED (1<<0)
+#define PART_FLAG_READONLY (1<<1)
 
 /* The md5sum value is found this many bytes after the ESP_PARTITION_MAGIC_MD5 offset */
 #define ESP_PARTITION_MD5_OFFSET 16
 
-#ifndef CONFIG_MCUBOOT_ESPRESSIF
-#define CONFIG_BOOTLOADER_OFFSET_IN_FLASH PARTITION_OFFSET(boot_partition)  /* Offset of bootloader image. */
-#endif
-
 /* Pre-partition table fixed flash offsets */
 #define ESP_BOOTLOADER_DIGEST_OFFSET 0x0
 #define ESP_BOOTLOADER_OFFSET CONFIG_BOOTLOADER_OFFSET_IN_FLASH  /* Offset of bootloader image. Has matching value in bootloader KConfig.projbuild file. */
+#define ESP_PRIMARY_BOOTLOADER_OFFSET CONFIG_BOOTLOADER_OFFSET_IN_FLASH  /* Offset of Primary bootloader image. */
 #define ESP_PARTITION_TABLE_OFFSET CONFIG_PARTITION_TABLE_OFFSET /* Offset of partition table. Backwards-compatible name.*/
+#define ESP_PRIMARY_PARTITION_TABLE_OFFSET CONFIG_PARTITION_TABLE_OFFSET /* Offset of partition table. */
+#define ESP_PARTITION_TABLE_SIZE (0x1000) /* The partition table occupies 1 sector of flash (SPI_FLASH_SEC_SIZE) */
+#define ESP_BOOTLOADER_SIZE (ESP_PARTITION_TABLE_OFFSET - ESP_BOOTLOADER_OFFSET)
 
 #define ESP_PARTITION_TABLE_MAX_LEN 0xC00 /* Maximum length of partition table data */
 #define ESP_PARTITION_TABLE_MAX_ENTRIES (ESP_PARTITION_TABLE_MAX_LEN / sizeof(esp_partition_info_t)) /* Maximum length of partition table data, including terminating entry */
@@ -99,6 +110,15 @@ typedef struct {
  */
 esp_err_t esp_partition_table_verify(const esp_partition_info_t *partition_table, bool log_errors, int *num_partitions);
 
+/**
+ * Check whether the region on the main flash is not read-only.
+ *
+ * @param addr Start address of the region
+ * @param size Size of the region
+ *
+ * @return true if the region is safe to write, otherwise false.
+ */
+bool esp_partition_is_flash_region_writable(size_t addr, size_t size);
 
 /**
  * Check whether the region on the main flash is safe to write.

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,6 +12,7 @@
 #include "esp_phy_init.h"
 #include "esp_ieee802154_ack.h"
 #include "esp_ieee802154_dev.h"
+#include "esp_ieee802154_event.h"
 #include "esp_ieee802154_frame.h"
 #include "esp_ieee802154_pib.h"
 #include "esp_ieee802154_sec.h"
@@ -20,6 +21,15 @@
 #include "esp_coex_i154.h"
 #include "hal/ieee802154_ll.h"
 #include "hal/ieee802154_common_ll.h"
+
+esp_err_t esp_ieee802154_event_callback_list_register(esp_ieee802154_event_cb_list_t cb_list)
+{
+    return ieee802154_event_callback_list_register(cb_list);
+}
+esp_err_t esp_ieee802154_event_callback_list_unregister(void)
+{
+    return ieee802154_event_callback_list_unregister();
+}
 
 esp_err_t esp_ieee802154_enable(void)
 {
@@ -55,8 +65,29 @@ int8_t esp_ieee802154_get_txpower(void)
 
 esp_err_t esp_ieee802154_set_txpower(int8_t power)
 {
-    ieee802154_pib_set_power(power);
-    return ESP_OK;
+    esp_ieee802154_txpower_table_t power_table;
+    memset(&power_table, power, sizeof(power_table));
+    return ieee802154_pib_set_power_table(power_table);
+}
+
+esp_err_t esp_ieee802154_set_power_table(esp_ieee802154_txpower_table_t power_table)
+{
+    return ieee802154_pib_set_power_table(power_table);
+}
+
+esp_err_t esp_ieee802154_get_power_table(esp_ieee802154_txpower_table_t *out_power_table)
+{
+    return ieee802154_pib_get_power_table(out_power_table);
+}
+
+esp_err_t esp_ieee802154_set_power_with_channel(uint8_t channel, int8_t power)
+{
+    return ieee802154_pib_set_power_with_channel(channel, power);
+}
+
+esp_err_t esp_ieee802154_get_power_with_channel(uint8_t channel, int8_t *out_power)
+{
+    return ieee802154_pib_get_power_with_channel(channel, out_power);
 }
 
 bool esp_ieee802154_get_promiscuous(void)
@@ -128,44 +159,44 @@ esp_err_t esp_ieee802154_set_coordinator(bool enable)
     return ESP_OK;
 }
 
-#if CONFIG_IEEE802154_ESP32_MULTI_PAN_ENABLE
+#if CONFIG_IEEE802154_MULTI_PAN_ENABLE
 
 uint16_t esp_ieee802154_get_multipan_panid(esp_ieee802154_multipan_index_t index)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     return ieee802154_ll_get_multipan_panid(index);
 }
 
 esp_err_t esp_ieee802154_set_multipan_panid(esp_ieee802154_multipan_index_t index, uint16_t panid)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     ieee802154_ll_set_multipan_panid(index, panid);
     return ESP_OK;
 }
 
 uint16_t esp_ieee802154_get_multipan_short_address(esp_ieee802154_multipan_index_t index)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     return ieee802154_ll_get_multipan_short_addr(index);
 }
 
 esp_err_t esp_ieee802154_set_multipan_short_address(esp_ieee802154_multipan_index_t index, uint16_t short_address)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     ieee802154_ll_set_multipan_short_addr(index, short_address);
     return ESP_OK;
 }
 
 esp_err_t esp_ieee802154_get_multipan_extended_address(esp_ieee802154_multipan_index_t index, uint8_t *ext_addr)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     ieee802154_ll_get_multipan_ext_addr(index, ext_addr);
     return ESP_OK;
 }
 
 esp_err_t esp_ieee802154_set_multipan_extended_address(esp_ieee802154_multipan_index_t index, const uint8_t *ext_addr)
 {
-    assert(index < ESP_IEEE802154_MULTIPAN_MAX);
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
     ieee802154_ll_set_multipan_ext_addr(index, ext_addr);
     return ESP_OK;
 }
@@ -177,12 +208,60 @@ uint8_t esp_ieee802154_get_multipan_enable(void)
 
 esp_err_t esp_ieee802154_set_multipan_enable(uint8_t mask)
 {
-    assert(mask < (1 << ESP_IEEE802154_MULTIPAN_MAX));
+    assert(mask < (1 << CONFIG_IEEE802154_INTERFACE_NUM));
     ieee802154_ll_set_multipan_enable_mask(mask);
     return ESP_OK;
 }
 
-#else
+esp_ieee802154_pending_mode_t esp_ieee802154_multipan_get_pending_mode(esp_ieee802154_multipan_index_t index)
+{
+    assert(index < CONFIG_IEEE802154_INTERFACE_NUM);
+    return ieee802154_pib_get_pending_mode(index);
+}
+
+esp_err_t esp_ieee802154_multipan_set_pending_mode(esp_ieee802154_multipan_index_t inf_index, esp_ieee802154_pending_mode_t pending_mode)
+{
+    assert(inf_index < CONFIG_IEEE802154_INTERFACE_NUM);
+    ieee802154_pib_set_pending_mode(inf_index, pending_mode);
+    return ESP_OK;
+}
+
+esp_err_t esp_ieee802154_multipan_add_pending_addr(esp_ieee802154_multipan_index_t inf_index, const uint8_t *addr, bool is_short)
+{
+    assert(inf_index < CONFIG_IEEE802154_INTERFACE_NUM);
+    return ieee802154_add_pending_addr(inf_index, addr, is_short);
+}
+
+esp_err_t esp_ieee802154_multipan_clear_pending_addr(esp_ieee802154_multipan_index_t inf_index, const uint8_t *addr, bool is_short)
+{
+    assert(inf_index < CONFIG_IEEE802154_INTERFACE_NUM);
+    return ieee802154_clear_pending_addr(inf_index, addr, is_short);
+}
+
+esp_err_t esp_ieee802154_multipan_reset_pending_table(esp_ieee802154_multipan_index_t inf_index, bool is_short)
+{
+    assert(inf_index < CONFIG_IEEE802154_INTERFACE_NUM);
+    ieee802154_reset_pending_table(inf_index, is_short);
+    return ESP_OK;
+}
+
+#endif // CONFIG_IEEE802154_MULTI_PAN_ENABLE
+
+esp_err_t esp_ieee802154_set_ack_timeout(uint32_t timeout)
+{
+    // Divide by 16 and round it up.
+    uint32_t target_reg_value = (timeout + 15) / 16;
+    if((timeout % 16) != 0) {
+        ESP_LOGW(IEEE802154_TAG, "Ack timeout should be a multiple of 16, input %"PRIu32", will be replaced by %"PRIu32"", timeout, (target_reg_value * 16));
+    }
+    ieee802154_ll_set_ack_timeout(target_reg_value);
+    return ESP_OK;
+}
+
+uint32_t esp_ieee802154_get_ack_timeout(void)
+{
+    return ieee802154_ll_get_ack_timeout() * 16;
+}
 
 uint16_t esp_ieee802154_get_panid(void)
 {
@@ -218,16 +297,14 @@ esp_err_t esp_ieee802154_set_extended_address(const uint8_t *ext_addr)
     return ESP_OK;
 }
 
-#endif // CONFIG_IEEE802154_ESP32_MULTI_PAN_ENABLE
-
 esp_ieee802154_pending_mode_t esp_ieee802154_get_pending_mode(void)
 {
-    return ieee802154_pib_get_pending_mode();
+    return ieee802154_pib_get_pending_mode(ESP_IEEE802154_MULTIPAN_0);
 }
 
 esp_err_t esp_ieee802154_set_pending_mode(esp_ieee802154_pending_mode_t pending_mode)
 {
-    ieee802154_pib_set_pending_mode(pending_mode);
+    ieee802154_pib_set_pending_mode(ESP_IEEE802154_MULTIPAN_0, pending_mode);
     return ESP_OK;
 }
 
@@ -262,9 +339,9 @@ esp_err_t esp_ieee802154_receive(void)
     return ieee802154_receive();
 }
 
-esp_err_t esp_ieee802154_receive_at(uint32_t time)
+esp_err_t esp_ieee802154_receive_at(uint32_t time, uint32_t duration)
 {
-    return ieee802154_receive_at(time);
+    return ieee802154_receive_at(time, duration);
 }
 
 esp_err_t esp_ieee802154_energy_detect(uint32_t duration)
@@ -291,6 +368,7 @@ esp_ieee802154_state_t esp_ieee802154_get_state(void)
 
     case IEEE802154_STATE_RX:
     case IEEE802154_STATE_TX_ACK:
+    case IEEE802154_STATE_TX_ENH_ACK:
     case IEEE802154_STATE_ED:
         return ESP_IEEE802154_RADIO_RECEIVE;
 
@@ -298,7 +376,6 @@ esp_ieee802154_state_t esp_ieee802154_get_state(void)
     case IEEE802154_STATE_CCA:
     case IEEE802154_STATE_TX:
     case IEEE802154_STATE_RX_ACK:
-    case IEEE802154_STATE_TX_ENH_ACK:
         return ESP_IEEE802154_RADIO_TRANSMIT;
 
     default:
@@ -315,17 +392,17 @@ esp_err_t esp_ieee802154_set_transmit_security(uint8_t *frame, uint8_t *key, uin
 
 esp_err_t esp_ieee802154_add_pending_addr(const uint8_t *addr, bool is_short)
 {
-    return ieee802154_add_pending_addr(addr, is_short);
+    return ieee802154_add_pending_addr(0, addr, is_short);
 }
 
 esp_err_t esp_ieee802154_clear_pending_addr(const uint8_t *addr, bool is_short)
 {
-    return ieee802154_clear_pending_addr(addr, is_short);
+    return ieee802154_clear_pending_addr(0, addr, is_short);
 }
 
 esp_err_t esp_ieee802154_reset_pending_table(bool is_short)
 {
-    ieee802154_reset_pending_table(is_short);
+    ieee802154_reset_pending_table(0, is_short);
     return ESP_OK;
 }
 
@@ -388,6 +465,10 @@ __attribute__((weak)) void esp_ieee802154_ed_failed(uint16_t error)
 {
 
 }
+__attribute__((weak)) void esp_ieee802154_receive_at_done(void)
+{
+
+}
 
 __attribute__((weak)) esp_err_t esp_ieee802154_enh_ack_generator(uint8_t *frame, esp_ieee802154_frame_info_t *frame_info, uint8_t* enhack_frame)
 {
@@ -395,17 +476,7 @@ __attribute__((weak)) esp_err_t esp_ieee802154_enh_ack_generator(uint8_t *frame,
     return ESP_FAIL;
 }
 
-__attribute__((weak)) void esp_ieee802154_timer0_done(void)
-{
-
-}
-
-__attribute__((weak)) void esp_ieee802154_timer1_done(void)
-{
-
-}
-
-#if CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
+#if CONFIG_IEEE802154_TXRX_STATISTIC
 void esp_ieee802154_txrx_statistic_clear(void)
 {
     ieee802154_txrx_statistic_clear();
@@ -415,4 +486,35 @@ void esp_ieee802154_txrx_statistic_print(void)
 {
     ieee802154_txrx_statistic_print();
 }
-#endif // CONFIG_IEEE802154_ESP32_TXRX_STATISTIC
+#endif // CONFIG_IEEE802154_TXRX_STATISTIC
+
+#if CONFIG_IEEE802154_RX_BUFFER_STATISTIC
+void esp_ieee802154_rx_buffer_statistic_clear(void)
+{
+    ieee802154_rx_buffer_statistic_clear();
+}
+
+void esp_ieee802154_rx_buffer_statistic_print(void)
+{
+    ieee802154_rx_buffer_statistic_print();
+}
+#endif // CONFIG_IEEE802154_RX_BUFFER_STATISTIC
+
+#if CONFIG_IEEE802154_RECORD
+void esp_ieee802154_record_print(void)
+{
+    ieee802154_record_print();
+}
+#endif // CONFIG_IEEE802154_RECORD
+
+#if !CONFIG_IEEE802154_TEST && (CONFIG_ESP_COEX_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE)
+void esp_ieee802154_set_coex_config(esp_ieee802154_coex_config_t config)
+{
+    ieee802154_set_coex_config(config);
+}
+
+esp_ieee802154_coex_config_t esp_ieee802154_get_coex_config(void)
+{
+    return ieee802154_get_coex_config();
+}
+#endif

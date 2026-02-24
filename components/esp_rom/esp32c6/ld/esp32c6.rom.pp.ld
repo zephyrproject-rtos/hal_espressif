@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -31,7 +31,7 @@ hal_mac_tx_get_blockack = 0x40000bfc;
 //hal_mac_tx_set_ppdu = 0x40000c00;
 ic_get_trc = 0x40000c04;
 //ic_mac_deinit = 0x40000c08;
-ic_mac_init = 0x40000c0c;
+/* ic_mac_init = 0x40000c0c; */
 ic_interface_enabled = 0x40000c10;
 is_lmac_idle = 0x40000c14;
 /*lmacAdjustTimestamp = 0x40000c18;*/
@@ -51,7 +51,7 @@ lmacRecycleMPDU = 0x40000c4c;
 lmacRxDone = 0x40000c50;
 //lmacSetTxFrame = 0x40000c54;
 //lmacTxDone = 0x40000c58;
-lmacTxFrame = 0x40000c5c;
+//lmacTxFrame = 0x40000c5c;
 mac_tx_set_duration = 0x40000c60;
 //mac_tx_set_plcp0 = 0x40000c64;
 //mac_tx_set_plcp1 = 0x40000c68;
@@ -66,7 +66,7 @@ pm_mac_sleep = 0x40000c84;
 pm_enable_sleep_delay_timer = 0x40000c8c;
 pm_local_tsf_process = 0x40000c90;
 //pm_set_beacon_filter = 0x40000c94;
-pm_is_in_wifi_slice_threshold = 0x40000c98;
+/*pm_is_in_wifi_slice_threshold = 0x40000c98;*/
 pm_is_waked = 0x40000c9c;
 //pm_keep_alive = 0x40000ca0;
 /* pm_on_beacon_rx = 0x40000ca4; */
@@ -102,7 +102,7 @@ ppRecycleRxPkt = 0x40000d14;
 ppResumeTxAMPDU = 0x40000d1c;
 /*ppRxFragmentProc = 0x40000d20;*/
 //ppRxPkt = 0x40000d24;
-ppRxProtoProc = 0x40000d28;
+//ppRxProtoProc = 0x40000d28;
 ppSearchTxQueue = 0x40000d2c;
 ppSearchTxframe = 0x40000d30;
 ppSelectNextQueue = 0x40000d34;
@@ -173,8 +173,8 @@ pm_allow_tx = 0x40000e30;
 ppProcTxCallback = 0x40000e38;
 //mac_tx_set_hesig = 0x40000e3c;
 ppCalPreFecPaddingFactor = 0x40000e40;
-mac_tx_set_tb = 0x40000e44;
-mac_tx_set_mplen = 0x40000e48;
+//mac_tx_set_tb = 0x40000e44;
+//mac_tx_set_mplen = 0x40000e48;
 hal_get_tsf_timer = 0x40000e4c;
 ppTxPktForceWaked = 0x40000e50;
 lmacProcessLongFrameSuccess = 0x40000e54;
@@ -187,8 +187,8 @@ lmacProcessAckTimeout = 0x40000e68;
 //ppRemoveHTC = 0x40000e70;
 get_estimated_batime = 0x40000e74;
 is_use_muedca = 0x40000e78;
-hal_mac_tx_clr_mplen = 0x40000e7c;
-hal_mac_get_txq_state = 0x40000e80;
+//hal_mac_tx_clr_mplen = 0x40000e7c;
+//hal_mac_get_txq_state = 0x40000e80;
 hal_mac_clr_txq_state = 0x40000e84;
 hal_mac_get_txq_complete = 0x40000e88;
 ht_get_min_subframe_len = 0x40000e8c;
@@ -299,7 +299,7 @@ tsf_hal_unmap_tbtt_target_to_rx_frame = 0x40001024;
 //ppHEAMPDU2Normal = 0x40001030;
 //ppCalTxHEAMPDULength = 0x40001034;
 //ppCalTxHESMPDULength = 0x40001038;
-rcGetRate = 0x4000103c;
+//rcGetRate = 0x4000103c;
 rcGetDCMMaxRate = 0x40001040;
 //rcGetSMPDURate = 0x40001044;
 ppDirectRecycleAmpdu = 0x40001048;

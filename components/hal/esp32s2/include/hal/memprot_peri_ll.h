@@ -8,7 +8,10 @@
 
 #include <stdbool.h>
 #include "soc/memprot_defs.h"
+#include "soc/dport_access.h"
+#include "soc/periph_defs.h"
 #include "hal/memprot_types.h"
+#include "hal/memprot_ll.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,7 +123,7 @@ static inline memprot_hal_err_t memprot_ll_peri1_rtcslow_set_prot(uint32_t *spli
 {
     uint32_t addr = (uint32_t)split_addr;
 
-    //check corresponding range fit & aligment to 32bit boundaries
+    //check corresponding range fit & alignment to 32bit boundaries
     if (addr < PERI1_RTCSLOW_ADDRESS_LOW || addr > PERI1_RTCSLOW_ADDRESS_HIGH) {
         return MEMP_HAL_ERR_SPLIT_ADDR_INVALID;
     }
@@ -278,7 +281,7 @@ static inline memprot_hal_err_t memprot_ll_peri2_rtcslow_0_set_prot(uint32_t *sp
 {
     uint32_t addr = (uint32_t)split_addr;
 
-    //check corresponding range fit & aligment to 32bit boundaries
+    //check corresponding range fit & alignment to 32bit boundaries
     if (addr < PERI2_RTCSLOW_0_ADDRESS_LOW || addr > PERI2_RTCSLOW_0_ADDRESS_HIGH) {
         return MEMP_HAL_ERR_SPLIT_ADDR_INVALID;
     }
@@ -366,7 +369,7 @@ static inline memprot_hal_err_t memprot_ll_peri2_rtcslow_1_set_prot(uint32_t *sp
 {
     uint32_t addr = (uint32_t)split_addr;
 
-    //check corresponding range fit & aligment to 32bit boundaries
+    //check corresponding range fit & alignment to 32bit boundaries
     if (addr < PERI2_RTCSLOW_1_ADDRESS_LOW || addr > PERI2_RTCSLOW_1_ADDRESS_HIGH) {
         return MEMP_HAL_ERR_SPLIT_ADDR_INVALID;
     }

@@ -30,7 +30,7 @@ extern "C" {
 *
 * @note Please do not modify this value
 */
-#define ESP_BT_CTRL_CONFIG_VERSION      0x02505080
+#define ESP_BT_CTRL_CONFIG_VERSION      0x02509280
 
 /**
 * @brief Internal use only
@@ -45,6 +45,43 @@ extern "C" {
 * @note Please do not modify this value
 */
 #define ESP_BT_HCI_TL_VERSION       0x00010000
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P21
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_18)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_15)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_12)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_P3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N0
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N3
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N6
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N9
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N12
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_15)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N15
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_18)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N18
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_21)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N21
+#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_24)
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N24
+#else
+/* use 0dB TX power as default */
+#define CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF ESP_PWR_LVL_N0
+#endif
 
 /**
  * @brief Bluetooth Controller mode
@@ -112,10 +149,10 @@ enum {
     ESP_BT_COEX_PHY_CODED_TX_RX_TIME_LIMIT_FORCE_ENABLE,         /*!< Enable the limit */
 };
 
-#define ESP_BT_HCI_TL_STATUS_OK            (0)   /*!< HCI_TL Tx/Rx operation status OK */
+#define ESP_BT_HCI_TL_STATUS_OK            (0)   /*!< HCI_TL TX/RX operation status OK */
 
 /**
- * @brief callback function for HCI Transport Layer send/receive operations
+ * @brief Callback function for HCI Transport Layer send/receive operations
  */
 typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 
@@ -130,7 +167,7 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define SCAN_DUPLICATE_TYPE_VALUE  0
 #endif
 
-/* normal adv cache size */
+//normal adv cache size
 #ifdef CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
 #define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
 #else
@@ -175,11 +212,11 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BT_CTRL_AGC_RECORRECT_NEW       1
 #else
 //Check if chip target is ESP32-C3 101
-#if CONFIG_ESP32C3_REV_MIN_101
+#if CONFIG_ESP32C3_REV_MIN_FULL >= 101
 #define BT_CTRL_AGC_RECORRECT_NEW       1
 #else
 #define BT_CTRL_AGC_RECORRECT_NEW       0
-#endif // CONFIG_ESP32C3_REV_MIN_101
+#endif // CONFIG_ESP32C3_REV_MIN_FULL >= 101
 #endif // CONFIG_IDF_TARGET_ESP32S3
 
 #else
@@ -193,10 +230,10 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BT_CTRL_CODED_AGC_RECORRECT        0
 #endif
 
-#if defined (CONFIG_BT_BLE_50_FEATURES_SUPPORTED) || defined (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
-#ifdef CONFIG_BT_BLE_50_FEATURES_SUPPORTED
-#define BT_CTRL_50_FEATURE_SUPPORT   (CONFIG_BT_BLE_50_FEATURES_SUPPORTED)
-#endif // CONFIG_BT_BLE_50_FEATURES_SUPPORTED
+#if defined (CONFIG_BT_LE_50_FEATURES_SUPPORTED) || defined (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
+#ifdef CONFIG_BT_LE_50_FEATURES_SUPPORTED
+#define BT_CTRL_50_FEATURE_SUPPORT   (CONFIG_BT_LE_50_FEATURES_SUPPORTED)
+#endif // CONFIG_BT_LE_50_FEATURES_SUPPORTED
 #ifdef CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT
 #define BT_CTRL_50_FEATURE_SUPPORT   (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
 #endif // CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT
@@ -206,28 +243,28 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #else
 #define BT_CTRL_50_FEATURE_SUPPORT (1)
 #endif // (CONFIG_BT_BLUEDROID_ENABLED) || (CONFIG_BT_NIMBLE_ENABLED)
-#endif // (CONFIG_BT_BLE_50_FEATURES_SUPPORTED) || (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
+#endif // (CONFIG_BT_LE_50_FEATURES_SUPPORTED) || (CONFIG_BT_NIMBLE_50_FEATURE_SUPPORT)
 
-#if defined(CONFIG_BT_BLE_CCA_MODE)
-#define BT_BLE_CCA_MODE (CONFIG_BT_BLE_CCA_MODE)
+#if defined(CONFIG_BT_LE_CCA_MODE)
+#define BT_BLE_CCA_MODE (CONFIG_BT_LE_CCA_MODE)
 #else
 #define BT_BLE_CCA_MODE (0)
 #endif
 
-#if defined(CONFIG_BT_BLE_ADV_DATA_LENGTH_ZERO_AUX)
-#define BT_BLE_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_BT_BLE_ADV_DATA_LENGTH_ZERO_AUX)
+#if defined(CONFIG_ESP32_BT_LE_ADV_DATA_LENGTH_ZERO_AUX)
+#define BT_BLE_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_ESP32_BT_LE_ADV_DATA_LENGTH_ZERO_AUX)
 #else
 #define BT_BLE_ADV_DATA_LENGTH_ZERO_AUX (0)
 #endif
 
-#if defined(CONFIG_BT_CTRL_CHAN_ASS_EN)
-#define BT_CTRL_CHAN_ASS_EN (CONFIG_BT_CTRL_CHAN_ASS_EN)
+#if defined(CONFIG_ESP32_BT_CTLR_CHAN_ASS_EN)
+#define BT_CTRL_CHAN_ASS_EN (CONFIG_ESP32_BT_CTLR_CHAN_ASS_EN)
 #else
 #define BT_CTRL_CHAN_ASS_EN (0)
 #endif
 
-#if defined(CONFIG_BT_CTRL_LE_PING_EN)
-#define BT_CTRL_LE_PING_EN (CONFIG_BT_CTRL_LE_PING_EN)
+#if defined(CONFIG_ESP32_BT_CTLR_LE_PING_EN)
+#define BT_CTRL_LE_PING_EN (CONFIG_ESP32_BT_CTLR_LE_PING_EN)
 #else
 #define BT_CTRL_LE_PING_EN (0)
 #endif
@@ -243,19 +280,19 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BLE_HW_TARGET_CODE_CHIP_ECO0                      (0x02010000)
 #endif
 
-#ifdef CONFIG_BT_CTRL_BLE_LLCP_CONN_UPDATE
+#ifdef CONFIG_ESP32_BT_CTLR_LE_LLCP_CONN_UPDATE
 #define BT_CTRL_BLE_LLCP_CONN_UPDATE (1<<0)
 #else
 #define BT_CTRL_BLE_LLCP_CONN_UPDATE (0<<0)
 #endif
 
-#ifdef CONFIG_BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE
+#ifdef CONFIG_ESP32_BT_CTLR_LE_LLCP_CHAN_MAP_UPDATE
 #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
 #else
 #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
 #endif
 
-#ifdef CONFIG_BT_CTRL_BLE_LLCP_PHY_UPDATE
+#ifdef CONFIG_ESP32_BT_CTLR_LE_LLCP_PHY_UPDATE
 #define BT_CTRL_BLE_LLCP_PHY_UPDATE (1<<2)
 #else
 #define BT_CTRL_BLE_LLCP_PHY_UPDATE (0<<2)
@@ -268,16 +305,14 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BT_CTRL_RUN_IN_FLASH_ONLY  (0)
 #endif
 
-
-
-#if defined(CONFIG_BT_CTRL_DTM_ENABLE)
-#define BT_CTRL_DTM_ENABLE  CONFIG_BT_CTRL_DTM_ENABLE
+#if defined(CONFIG_ESP32_BT_CTLR_DTM_ENABLE)
+#define BT_CTRL_DTM_ENABLE  CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 #else
 #define BT_CTRL_DTM_ENABLE  (0)
 #endif
 
-#if defined(CONFIG_BT_CTRL_BLE_MASTER)
-#define BT_CTRL_BLE_MASTER  CONFIG_BT_CTRL_BLE_MASTER
+#if defined(CONFIG_ESP32_BT_CTLR_LE_MASTER)
+#define BT_CTRL_BLE_MASTER  CONFIG_ESP32_BT_CTLR_LE_MASTER
 #else
 #define BT_CTRL_BLE_MASTER  (0)
 #endif
@@ -288,26 +323,26 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BT_CTRL_BLE_TEST  (0)
 #endif
 
-#if defined (CONFIG_BT_CTRL_BLE_SECURITY_ENABLE)
-#define BLE_SECURITY_ENABLE  (CONFIG_BT_CTRL_BLE_SECURITY_ENABLE)
+#if defined (CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE)
+#define BLE_SECURITY_ENABLE  (CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE)
 #else
 #define BLE_SECURITY_ENABLE  (0)
 #endif
 
-#if defined (CONFIG_BT_CTRL_BLE_SCAN)
-#define BT_CTRL_BLE_SCAN    CONFIG_BT_CTRL_BLE_SCAN
+#if defined (CONFIG_ESP32_BT_CTLR_LE_SCAN)
+#define BT_CTRL_BLE_SCAN    CONFIG_ESP32_BT_CTLR_LE_SCAN
 #else
 #define BT_CTRL_BLE_SCAN    (0)
 #endif
 
-#if defined (CONFIG_BT_CTRL_BLE_ADV)
-#define BT_CTRL_BLE_ADV    CONFIG_BT_CTRL_BLE_ADV
+#if defined (CONFIG_ESP32_BT_CTLR_LE_ADV)
+#define BT_CTRL_BLE_ADV    CONFIG_ESP32_BT_CTLR_LE_ADV
 #else
 #define BT_CTRL_BLE_ADV    (0)
 #endif
 
-#ifdef CONFIG_BT_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
-#define BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED CONFIG_BT_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#ifdef CONFIG_ESP32_BT_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#define BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED CONFIG_ESP32_BT_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
 #else
 #define BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED 0
 #endif
@@ -330,37 +365,44 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 #define BLE_LOG_LEVEL (0)
 #endif
 
+/* Zephyr hardcoded values that those not require Kconfig */
+#define CONFIG_BT_CTRL_MODE_EFF 1
+#define CONFIG_BT_CTRL_SLEEP_MODE_EFF 0
+#define CONFIG_BT_CTRL_SLEEP_CLOCK_EFF 0
+#define CONFIG_BT_LE_50_FEATURES_SUPPORTED 1
+#define CONFIG_BT_CTRL_HCI_TL_EFF 1
+
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                              \
     .magic = ESP_BT_CTRL_CONFIG_MAGIC_VAL,                                 \
     .version = ESP_BT_CTRL_CONFIG_VERSION,                                 \
-    .controller_task_stack_size = CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE,        \
-    .controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                   \
-    .controller_task_run_cpu = CONFIG_BT_CTRL_PINNED_TO_CORE,              \
+    .controller_task_stack_size = CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE,   \
+    .controller_task_prio = CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO,          \
+    .controller_task_run_cpu = CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE,        \
     .bluetooth_mode = CONFIG_BT_CTRL_MODE_EFF,                             \
-    .ble_max_act = CONFIG_BT_CTRL_BLE_MAX_ACT_EFF,                         \
+    .ble_max_act = CONFIG_ESP32_BT_CTLR_LE_MAX_ACT,                        \
     .sleep_mode = CONFIG_BT_CTRL_SLEEP_MODE_EFF,                           \
     .sleep_clock = CONFIG_BT_CTRL_SLEEP_CLOCK_EFF,                         \
-    .ble_st_acl_tx_buf_nb = CONFIG_BT_CTRL_BLE_STATIC_ACL_TX_BUF_NB,       \
-    .ble_hw_cca_check = CONFIG_BT_CTRL_HW_CCA_EFF,                         \
-    .ble_adv_dup_filt_max = CONFIG_BT_CTRL_ADV_DUP_FILT_MAX,               \
+    .ble_st_acl_tx_buf_nb = CONFIG_ESP32_BT_CTLR_LE_STATIC_ACL_TX_BUF_NB,  \
+    .ble_hw_cca_check = CONFIG_ESP32_BT_CTLR_HW_CCA,                       \
+    .ble_adv_dup_filt_max = CONFIG_ESP32_BT_CTLR_ADV_DUP_FILT_MAX,         \
     .coex_param_en = false,                                                \
-    .ce_len_type = CONFIG_BT_CTRL_CE_LENGTH_TYPE_EFF,                      \
+    .ce_len_type = CONFIG_ESP32_BT_CTLR_CE_LENGTH_TYPE_EFF,                \
     .coex_use_hooks = false,                                               \
     .hci_tl_type = CONFIG_BT_CTRL_HCI_TL_EFF,                              \
     .hci_tl_funcs = NULL,                                                  \
-    .txant_dft = CONFIG_BT_CTRL_TX_ANTENNA_INDEX_EFF,                      \
-    .rxant_dft = CONFIG_BT_CTRL_RX_ANTENNA_INDEX_EFF,                      \
-    .txpwr_dft = CONFIG_BT_CTRL_DFT_TX_POWER_LEVEL_EFF,                    \
+    .txant_dft = CONFIG_ESP32_BT_CTLR_TX_ANTENNA_INDEX_EFF,                \
+    .rxant_dft = CONFIG_ESP32_BT_CTLR_RX_ANTENNA_INDEX_EFF,                \
+    .txpwr_dft = CONFIG_ESP32_BT_CTLR_DFT_TX_POWER_LEVEL_EFF,              \
     .cfg_mask = CFG_MASK,                                                  \
     .scan_duplicate_mode = SCAN_DUPLICATE_MODE,                            \
     .scan_duplicate_type = SCAN_DUPLICATE_TYPE_VALUE,                      \
     .normal_adv_size = NORMAL_SCAN_DUPLICATE_CACHE_SIZE,                   \
     .mesh_adv_size = MESH_DUPLICATE_SCAN_CACHE_SIZE,                       \
-    .coex_phy_coded_tx_rx_time_limit = CONFIG_BT_CTRL_COEX_PHY_CODED_TX_RX_TLIM_EFF, \
+    .coex_phy_coded_tx_rx_time_limit = CONFIG_ESP32_BT_CTLR_COEX_PHY_CODED_TX_RX_TLIM_EFF, \
     .hw_target_code = BLE_HW_TARGET_CODE_CHIP_ECO0,                        \
     .slave_ce_len_min = SLAVE_CE_LEN_MIN_DEFAULT,                          \
     .hw_recorrect_en = AGC_RECORRECT_EN,                                   \
-    .cca_thresh = CONFIG_BT_CTRL_HW_CCA_VAL,                               \
+    .cca_thresh = CONFIG_ESP32_BT_CTLR_HW_CCA_VAL,                         \
     .scan_backoff_upperlimitmax = BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,      \
     .dup_list_refresh_period = DUPL_SCAN_CACHE_REFRESH_PERIOD,             \
     .ble_50_feat_supp  = BT_CTRL_50_FEATURE_SUPPORT,                       \
@@ -376,8 +418,6 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
     .connect_en = BT_CTRL_BLE_MASTER,                                      \
     .scan_en = BT_CTRL_BLE_SCAN,                                           \
     .ble_aa_check = BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED,     \
-    .ble_log_mode_en = BLE_LOG_MODE_EN,                                    \
-    .ble_log_level = BLE_LOG_LEVEL,                                        \
     .adv_en = BT_CTRL_BLE_ADV,                                             \
 }
 
@@ -504,8 +544,6 @@ typedef struct {
     bool connect_en;                        /*!< True if the connection feature is enabled (default); false otherwise. Configurable in menuconfig.*/
     bool scan_en;                           /*!< True if the scan feature is enabled (default); false otherwise. Configurable in menuconfig.*/
     bool ble_aa_check;                      /*!< True if adds a verification step for the Access Address within the CONNECT_IND PDU; false otherwise. Configurable in menuconfig */
-    uint32_t ble_log_mode_en;               /*!< BLE log mode enable */
-    uint8_t ble_log_level;                  /*!< BLE log level */
     bool adv_en;                            /*!< True if the ADV feature is enabled (default); false otherwise. Configurable in menuconfig.*/
 } esp_bt_controller_config_t;
 
@@ -916,20 +954,6 @@ void esp_vhci_host_send_packet(uint8_t *data, uint16_t len);
  *      - ESP_FAIL: Failure
  */
 esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback);
-
-/**
-* @brief Power on Bluetooth Wi-Fi power domain
-*
-* @note This function is not recommended to use due to potential risk.
-*/
-void esp_wifi_bt_power_domain_on(void);
-
-/**
-* @brief Power off Bluetooth Wi-Fi power domain
-*
-* @note This function is not recommended to use due to potential risk.
-*/
-void esp_wifi_bt_power_domain_off(void);
 
 /**
  * @brief Select buffers

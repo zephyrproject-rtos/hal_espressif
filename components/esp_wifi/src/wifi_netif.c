@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -46,7 +46,7 @@ static esp_err_t wifi_ap_receive(void *buffer, uint16_t len, void *eb)
 }
 #endif
 
-#ifdef CONFIG_ESP_WIFI_NAN_ENABLE
+#ifdef CONFIG_ESP_WIFI_NAN_SYNC_ENABLE
 static esp_err_t wifi_nan_receive(void *buffer, uint16_t len, void *eb)
 {
     return s_wifi_rxcbs[WIFI_IF_NAN](s_wifi_netifs[WIFI_IF_NAN], buffer, len, eb);
@@ -81,10 +81,10 @@ static esp_err_t wifi_driver_start(esp_netif_t * esp_netif, void * args)
     wifi_netif_driver_t driver = args;
     driver->base.netif = esp_netif;
     esp_netif_driver_ifconfig_t driver_ifconfig = {
-            .handle =  driver,
-            .transmit = wifi_transmit,
-            .transmit_wrap= wifi_transmit_wrap,
-            .driver_free_rx_buffer = wifi_free
+        .handle =  driver,
+        .transmit = wifi_transmit,
+        .transmit_wrap = wifi_transmit_wrap,
+        .driver_free_rx_buffer = wifi_free
     };
 
     return esp_netif_set_driver_config(esp_netif, &driver_ifconfig);
@@ -94,7 +94,7 @@ void esp_wifi_destroy_if_driver(wifi_netif_driver_t h)
 {
     if (h) {
         esp_wifi_internal_reg_rxcb(h->wifi_if, NULL);  // ignore the potential error
-                                                       // as the wifi might have been already uninitialized
+        // as the wifi might have been already uninitialized
         s_wifi_netifs[h->wifi_if] = NULL;
     }
     free(h);
@@ -146,8 +146,7 @@ esp_err_t esp_wifi_register_if_rxcb(wifi_netif_driver_t ifx, esp_netif_receive_t
     wifi_rxcb_t rxcb = NULL;
     esp_err_t ret;
 
-    switch (wifi_interface)
-    {
+    switch (wifi_interface) {
 
     case WIFI_IF_STA:
         rxcb = wifi_sta_receive;
@@ -159,7 +158,7 @@ esp_err_t esp_wifi_register_if_rxcb(wifi_netif_driver_t ifx, esp_netif_receive_t
         break;
 #endif
 
-#ifdef CONFIG_ESP_WIFI_NAN_ENABLE
+#ifdef CONFIG_ESP_WIFI_NAN_SYNC_ENABLE
     case WIFI_IF_NAN:
         rxcb = wifi_nan_receive;
         break;

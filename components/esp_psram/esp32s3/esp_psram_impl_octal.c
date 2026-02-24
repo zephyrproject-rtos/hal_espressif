@@ -1,10 +1,9 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/kernel.h>
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"
@@ -12,13 +11,14 @@
 #include "esp_types.h"
 #include "esp_bit_defs.h"
 #include "esp_log.h"
-#include "../esp_psram_impl.h"
+#include "esp_private/esp_psram_impl.h"
 #include "esp32s3/rom/ets_sys.h"
 #include "esp32s3/rom/spi_flash.h"
 #include "esp32s3/rom/opi_flash.h"
 #include "esp32s3/rom/cache.h"
 #include "soc/gpio_periph.h"
 #include "soc/io_mux_reg.h"
+#include "soc/spi_pins.h"
 #include "soc/syscon_reg.h"
 #include "esp_private/spi_flash_os.h"
 #include "esp_private/mspi_timing_tuning.h"
@@ -32,9 +32,11 @@
 #define OCT_PSRAM_WR_CMD_BITLEN         16
 #define OCT_PSRAM_ADDR_BITLEN           32
 #define OCT_PSRAM_RD_DUMMY_BITLEN       (2*(10-1))
+#define OCT_PSRAM_RD_REG_DUMMY_BITLEN   (2*(5-1))
 #define OCT_PSRAM_WR_DUMMY_BITLEN       (2*(5-1))
-#define OCT_PSRAM_CS1_IO                SPI_CS1_GPIO_NUM
-#define OCT_PSRAM_VENDOR_ID             0xD
+#define OCT_PSRAM_CS1_IO                MSPI_IOMUX_PIN_NUM_CS1
+#define OCT_PSRAM_VENDOR_ID_AP          0xD
+#define OCT_PSRAM_VENDOR_ID_UNILC       0x1A
 
 #define OCT_PSRAM_CS_SETUP_TIME         3
 #define OCT_PSRAM_CS_HOLD_TIME          3
@@ -44,6 +46,7 @@
 #define OCT_PSRAM_PAGE_SIZE             2       //2 for 1024B
 #define OCT_PSRAM_ECC_ENABLE_MASK       BIT(8)
 
+#define OCT_PSRAM_REF_DATA              0x5a6b7c8d
 
 typedef struct {
     union {
@@ -117,19 +120,19 @@ static void s_init_psram_mode_reg(int spi_num, opi_psram_mode_reg_t *mode_reg_co
     int cmd_len = 16;
     uint32_t addr = 0x0;    //0x0 is the MR0 register
     int addr_bit_len = 32;
-    int dummy = OCT_PSRAM_RD_DUMMY_BITLEN;
+    int dummy = OCT_PSRAM_RD_REG_DUMMY_BITLEN;
     opi_psram_mode_reg_t mode_reg = {0};
     int data_bit_len = 16;
 
     //read
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                             OPI_PSRAM_REG_READ, cmd_len,
-                             addr, addr_bit_len,
-                             dummy,
-                             NULL, 0,
-                             &mode_reg.mr0.val, data_bit_len,
-                             BIT(1),
-                             false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              addr, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &mode_reg.mr0.val, data_bit_len,
+                              BIT(1),
+                              false);
 
     //modify
     mode_reg.mr0.lt = mode_reg_config->mr0.lt;
@@ -138,26 +141,26 @@ static void s_init_psram_mode_reg(int spi_num, opi_psram_mode_reg_t *mode_reg_co
 
     //write
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                             OPI_PSRAM_REG_WRITE, cmd_len,
-                             addr, addr_bit_len,
-                             0,
-                             &mode_reg.mr0.val, 16,
-                             NULL, 0,
-                             BIT(1),
-                             false);
+                              OPI_PSRAM_REG_WRITE, cmd_len,
+                              addr, addr_bit_len,
+                              0,
+                              &mode_reg.mr0.val, 16,
+                              NULL, 0,
+                              BIT(1),
+                              false);
 
 #if CONFIG_SPIRAM_ECC_ENABLE
     addr = 0x8;     //0x8 is the MR8 register
     data_bit_len = 8;
     //read
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                             OPI_PSRAM_REG_READ, cmd_len,
-                             addr, addr_bit_len,
-                             dummy,
-                             NULL, 0,
-                             &mode_reg.mr8.val, data_bit_len,
-                             BIT(1),
-                             false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              addr, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &mode_reg.mr8.val, data_bit_len,
+                              BIT(1),
+                              false);
 
     //modify
     mode_reg.mr8.bt = mode_reg_config->mr8.bt;
@@ -165,13 +168,13 @@ static void s_init_psram_mode_reg(int spi_num, opi_psram_mode_reg_t *mode_reg_co
 
     //write
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                             OPI_PSRAM_REG_WRITE, cmd_len,
-                             addr, addr_bit_len,
-                             0,
-                             &mode_reg.mr8.val, 16,
-                             NULL, 0,
-                             BIT(1),
-                             false);
+                              OPI_PSRAM_REG_WRITE, cmd_len,
+                              addr, addr_bit_len,
+                              0,
+                              &mode_reg.mr8.val, 16,
+                              NULL, 0,
+                              BIT(1),
+                              false);
 #endif
 }
 
@@ -180,69 +183,107 @@ static void s_get_psram_mode_reg(int spi_num, opi_psram_mode_reg_t *out_reg)
     esp_rom_spiflash_read_mode_t mode = ESP_ROM_SPIFLASH_OPI_DTR_MODE;
     int cmd_len = 16;
     int addr_bit_len = 32;
-    int dummy = OCT_PSRAM_RD_DUMMY_BITLEN;
+    int dummy = OCT_PSRAM_RD_REG_DUMMY_BITLEN;
     int data_bit_len = 16;
 
     //Read MR0~1 register
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                             OPI_PSRAM_REG_READ, cmd_len,
-                             0x0, addr_bit_len,
-                             dummy,
-                             NULL, 0,
-                             &out_reg->mr0.val, data_bit_len,
-                             BIT(1),
-                             false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              0x0, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &out_reg->mr0.val, data_bit_len,
+                              BIT(1),
+                              false);
     //Read MR2~3 register
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                            OPI_PSRAM_REG_READ, cmd_len,
-                            0x2, addr_bit_len,
-                            dummy,
-                            NULL, 0,
-                            &out_reg->mr2.val, data_bit_len,
-                            BIT(1),
-                            false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              0x2, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &out_reg->mr2.val, data_bit_len,
+                              BIT(1),
+                              false);
     data_bit_len = 8;
     //Read MR4 register
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                            OPI_PSRAM_REG_READ, cmd_len,
-                            0x4, addr_bit_len,
-                            dummy,
-                            NULL, 0,
-                            &out_reg->mr4.val, data_bit_len,
-                            BIT(1),
-                            false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              0x4, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &out_reg->mr4.val, data_bit_len,
+                              BIT(1),
+                              false);
     //Read MR8 register
     esp_rom_opiflash_exec_cmd(spi_num, mode,
-                            OPI_PSRAM_REG_READ, cmd_len,
-                            0x8, addr_bit_len,
-                            dummy,
-                            NULL, 0,
-                            &out_reg->mr8.val, data_bit_len,
-                            BIT(1),
-                            false);
+                              OPI_PSRAM_REG_READ, cmd_len,
+                              0x8, addr_bit_len,
+                              dummy,
+                              NULL, 0,
+                              &out_reg->mr8.val, data_bit_len,
+                              BIT(1),
+                              false);
+}
+
+/**
+ * Check if PSRAM is connected by write and read
+ */
+static esp_err_t s_check_psram_connected(int spi_num)
+{
+    esp_rom_spiflash_read_mode_t mode = ESP_ROM_SPIFLASH_OPI_DTR_MODE;
+    int cmd_len = OCT_PSRAM_WR_CMD_BITLEN;
+    uint32_t addr = 0x0;
+    int addr_bit_len = OCT_PSRAM_ADDR_BITLEN;
+    uint32_t ref_data = OCT_PSRAM_REF_DATA;
+    uint32_t exp_data = 0;
+    int data_bit_len = 32;
+
+    //write
+    esp_rom_opiflash_exec_cmd(spi_num, mode,
+                              OPI_PSRAM_SYNC_WRITE, cmd_len,
+                              addr, addr_bit_len,
+                              OCT_PSRAM_WR_DUMMY_BITLEN,
+                              (uint8_t *)&ref_data, data_bit_len,
+                              NULL, 0,
+                              BIT(1),
+                              false);
+    //read
+    esp_rom_opiflash_exec_cmd(spi_num, mode,
+                              OPI_PSRAM_SYNC_READ, cmd_len,
+                              addr, addr_bit_len,
+                              OCT_PSRAM_RD_DUMMY_BITLEN,
+                              NULL, 0,
+                              (uint8_t *)&exp_data, data_bit_len,
+                              BIT(1),
+                              false);
+
+    ESP_EARLY_LOGD(TAG, "exp_data: 0x%08x", exp_data);
+    ESP_EARLY_LOGD(TAG, "ref_data: 0x%08x", ref_data);
+
+    return (exp_data == ref_data ? ESP_OK : ESP_FAIL);
 }
 
 static void s_print_psram_info(opi_psram_mode_reg_t *reg_val)
 {
-    ESP_EARLY_LOGI(TAG, "vendor id    : 0x%02x (%s)", reg_val->mr1.vendor_id, reg_val->mr1.vendor_id == 0x0d ? "AP" : "UNKNOWN");
+    ESP_EARLY_LOGI(TAG, "vendor id    : 0x%02x (%s)", reg_val->mr1.vendor_id, reg_val->mr1.vendor_id == 0x0d ? "AP" : (reg_val->mr1.vendor_id == 0x1a ? "UnilC" : "UNKNOWN"));
     ESP_EARLY_LOGI(TAG, "dev id       : 0x%02x (generation %d)", reg_val->mr2.dev_id, reg_val->mr2.dev_id + 1);
     ESP_EARLY_LOGI(TAG, "density      : 0x%02x (%d Mbit)", reg_val->mr2.density, reg_val->mr2.density == 0x1 ? 32 :
-                                                                                 reg_val->mr2.density == 0X3 ? 64 :
-                                                                                 reg_val->mr2.density == 0x5 ? 128 :
-                                                                                 reg_val->mr2.density == 0x7 ? 256 : 0);
+                   reg_val->mr2.density == 0X3 ? 64 :
+                   reg_val->mr2.density == 0x5 ? 128 :
+                   reg_val->mr2.density == 0x7 ? 256 : 0);
     ESP_EARLY_LOGI(TAG, "good-die     : 0x%02x (%s)", reg_val->mr2.gb, reg_val->mr2.gb == 1 ? "Pass" : "Fail");
     ESP_EARLY_LOGI(TAG, "Latency      : 0x%02x (%s)", reg_val->mr0.lt, reg_val->mr0.lt == 1 ? "Fixed" : "Variable");
     ESP_EARLY_LOGI(TAG, "VCC          : 0x%02x (%s)", reg_val->mr3.vcc, reg_val->mr3.vcc == 1 ? "3V" : "1.8V");
     ESP_EARLY_LOGI(TAG, "SRF          : 0x%02x (%s Refresh)", reg_val->mr3.srf, reg_val->mr3.srf == 0x1 ? "Fast" : "Slow");
     ESP_EARLY_LOGI(TAG, "BurstType    : 0x%02x (%s Wrap)", reg_val->mr8.bt, reg_val->mr8.bt == 1 && reg_val->mr8.bl != 3 ? "Hybrid" : "");
     ESP_EARLY_LOGI(TAG, "BurstLen     : 0x%02x (%d Byte)", reg_val->mr8.bl, reg_val->mr8.bl == 0x00 ? 16 :
-                                                                         reg_val->mr8.bl == 0x01 ? 32 :
-                                                                         reg_val->mr8.bl == 0x10 ? 64 : 1024);
+                   reg_val->mr8.bl == 0x01 ? 32 :
+                   reg_val->mr8.bl == 0x10 ? 64 : 1024);
     ESP_EARLY_LOGI(TAG, "Readlatency  : 0x%02x (%d cycles@%s)", reg_val->mr0.read_latency,  reg_val->mr0.read_latency * 2 + 6,
-                                                                reg_val->mr0.lt == 1 ? "Fixed" : "Variable");
+                   reg_val->mr0.lt == 1 ? "Fixed" : "Variable");
     ESP_EARLY_LOGI(TAG, "DriveStrength: 0x%02x (1/%d)", reg_val->mr0.drive_str, reg_val->mr0.drive_str == 0x00 ? 1 :
-                                                                                reg_val->mr0.drive_str == 0x01 ? 2 :
-                                                                                reg_val->mr0.drive_str == 0x02 ? 4 : 8);
+                   reg_val->mr0.drive_str == 0x01 ? 2 :
+                   reg_val->mr0.drive_str == 0x02 ? 4 : 8);
 }
 
 static void s_set_psram_cs_timing(void)
@@ -268,7 +309,7 @@ static void s_init_psram_pins(void)
     REG_SET_FIELD(SPI_MEM_DATE_REG(0), SPI_MEM_SPI_SMEM_SPICLK_FUN_DRV, 3);
 
     // Preserve psram pins
-    esp_gpio_reserve_pins(BIT64(OCT_PSRAM_CS1_IO));
+    esp_gpio_reserve(BIT64(OCT_PSRAM_CS1_IO));
 }
 
 /**
@@ -295,7 +336,7 @@ static void s_configure_psram_ecc(void)
 #endif
 }
 
-esp_err_t esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)
+esp_err_t esp_psram_impl_enable(void)
 {
     s_init_psram_pins();
     s_set_psram_cs_timing();
@@ -316,17 +357,23 @@ esp_err_t esp_psram_impl_enable(psram_vaddr_mode_t vaddrmode)
     mode_reg.mr8.bl = 3;
     mode_reg.mr8.bt = 0;
     s_init_psram_mode_reg(1, &mode_reg);
-    //Print PSRAM info
-    s_get_psram_mode_reg(1, &mode_reg);
-    if (mode_reg.mr1.vendor_id != OCT_PSRAM_VENDOR_ID) {
-        ESP_EARLY_LOGE(TAG, "PSRAM ID read error: 0x%08x, PSRAM chip not found or not supported, or wrong PSRAM line mode", mode_reg.mr1.vendor_id);
+
+    if (s_check_psram_connected(1) != ESP_OK) {
+        ESP_EARLY_LOGE(TAG, "PSRAM chip is not connected, or wrong PSRAM line mode");
         return ESP_ERR_NOT_SUPPORTED;
     }
+
+    s_get_psram_mode_reg(1, &mode_reg);
+    if (mode_reg.mr1.vendor_id != OCT_PSRAM_VENDOR_ID_AP && mode_reg.mr1.vendor_id != OCT_PSRAM_VENDOR_ID_UNILC) {
+        ESP_EARLY_LOGW(TAG, "PSRAM ID read error: 0x%08x, fallback to use default driver pattern", mode_reg.mr1.vendor_id);
+    }
+
     s_print_psram_info(&mode_reg);
     s_psram_size = mode_reg.mr2.density == 0x1 ? PSRAM_SIZE_4MB  :
                    mode_reg.mr2.density == 0X3 ? PSRAM_SIZE_8MB  :
                    mode_reg.mr2.density == 0x5 ? PSRAM_SIZE_16MB :
-                   mode_reg.mr2.density == 0x7 ? PSRAM_SIZE_32MB : 0;
+                   mode_reg.mr2.density == 0x7 ? PSRAM_SIZE_32MB :
+                   mode_reg.mr2.density == 0x6 ? PSRAM_SIZE_64MB : 0;
 
     //Do PSRAM timing tuning, we use SPI1 to do the tuning, and set the SPI0 PSRAM timing related registers accordingly
     mspi_timing_psram_tuning();
@@ -376,7 +423,6 @@ static void s_config_psram_spi_phases(void)
 
     Cache_Resume_DCache(0);
 }
-
 
 /*---------------------------------------------------------------------------------
  * Following APIs are not required to be IRAM-Safe

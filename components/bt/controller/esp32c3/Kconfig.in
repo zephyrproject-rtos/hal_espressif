@@ -76,7 +76,7 @@ config BT_CTRL_ADV_DUP_FILT_MAX
     range 1 500
     default 30
     help
-        The maximum number of suplicate scan filter
+        The maximum number of 5.0 extend duplicate
 
 choice BT_BLE_CCA_MODE
     prompt "BLE CCA mode"
@@ -104,9 +104,11 @@ config BT_BLE_CCA_MODE
 config BT_CTRL_HW_CCA_VAL
     int "CCA threshold value"
     range 20 100
-    default 20
+    default 75
     help
         It is the threshold value of HW CCA, if the value is 30, it means CCA threshold is -30 dBm.
+        If the channel assessment result exceeds the CCA threshold (e.g. -75 dBm), indicating the channel is busy,
+        the hardware will not transmit packets on that channel.
 
 config BT_CTRL_HW_CCA_EFF
     int
@@ -414,10 +416,10 @@ menu "MODEM SLEEP Options"
                 modem sleep to be used with both DFS and light sleep.
 
         config BT_CTRL_LPCLK_SEL_RTC_SLOW
-            bool "Internal 150kHz RC oscillator"
+            bool "Internal 136kHz RC oscillator"
             depends on RTC_CLK_SRC_INT_RC
             help
-                Internal 150kHz RC oscillator. The accuracy of this clock is a lot larger than 500ppm which is required
+                Internal 136kHz RC oscillator. The accuracy of this clock is a lot larger than 500ppm which is required
                 in Bluetooth communication, so don't select this option in scenarios such as BLE connection state.
     endchoice
 
@@ -469,7 +471,7 @@ config BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
     default n
     help
         Disable active scan backoff. The bluetooth spec requires that scanners should run a backoff procedure to
-        minimize collision of scan request PDUs from nultiple scanners. If scan backoff is disabled, in active
+        minimize collision of scan request PDUs from multiple scanners. If scan backoff is disabled, in active
         scanning, scan request PDU will be sent every time when HW receives scannable ADV PDU.
 
 config BT_BLE_ADV_DATA_LENGTH_ZERO_AUX
@@ -494,27 +496,27 @@ config BT_CTRL_LE_PING_EN
         If this option is disabled, The Controller will not start the LE authenticated payload timer.
         This option is used for some compatibility problems related to LE ping procedure.
 
-menu "BLE disconnect when instant passed"
+menu "BLE disconnects when Instant Passed (0x28) occurs"
     config BT_CTRL_BLE_LLCP_CONN_UPDATE
         bool "BLE ACL connection update procedure"
         default n
         help
             If this option is enabled, Controller will terminate the connection
-            when instant passed during connection update procedure.
+            when Instant Passed (0x28) error occurs during connection update procedure.
 
     config BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE
         bool "BLE ACL channel map update procedure"
         default n
         help
             If this option is enabled, Controller will terminate the connection
-            when instant passed in channel map update procedure.
+            when Instant Passed (0x28) error occurs in channel map update procedure.
 
     config BT_CTRL_BLE_LLCP_PHY_UPDATE
         bool "BLE ACL PHY update procedure"
         default n
         help
             If this option is enabled, Controller will terminate the connection
-            when instant passed in PHY update procedure.
+            when Instant Passed (0x28) error occurs in PHY update procedure.
 endmenu
 config BT_CTRL_RUN_IN_FLASH_ONLY
     bool "Put all BLE Controller code in flash"
@@ -567,51 +569,62 @@ menu "Controller debug log Options (Experimental)"
         bool "Enable BLE debug log"
         default n
 
+    config BT_CTRL_LE_LOG_MODE_BLE_LOG_V2
+        bool "Utilize BLE Log v2 for controller log"
+        depends on BT_CTRL_LE_LOG_EN
+        depends on BLE_LOG_ENABLED
+        default y
+        help
+            Utilize BLE Log v2 for controller log
+
+    if !BT_CTRL_LE_LOG_MODE_BLE_LOG_V2
+        config BT_CTRL_LE_LOG_DUMP_ONLY
+            depends on BT_CTRL_LE_LOG_EN
+            bool "Enable BLE log dump only"
+            default n
+
+        config BT_CTRL_LE_LOG_STORAGE_EN
+            depends on BT_CTRL_LE_LOG_EN
+            bool "Enable BLE log storage to flash"
+            default n
+
+        config BT_CTRL_LE_LOG_PARTITION_SIZE
+            int "The size of ble controller log partition(Multiples of 4K)"
+            depends on BT_CTRL_LE_LOG_STORAGE_EN
+            default 65536
+            help
+                The size of ble controller log partition shall be a multiples of 4K.
+                The name of log partition shall be "bt_ctrl_log".
+                The partition type shall be ESP_PARTITION_TYPE_DATA.
+                The partition sub_type shall be ESP_PARTITION_SUBTYPE_ANY.
+
+        config BT_CTRL_LE_LOG_SPI_OUT_EN
+            bool "Output ble controller logs to SPI bus"
+            depends on BT_CTRL_LE_LOG_EN
+            depends on !BT_CTRL_LE_LOG_DUMP_ONLY
+            select BT_BLE_LOG_SPI_OUT_ENABLED
+            select BT_BLE_LOG_SPI_OUT_LL_ENABLED
+            default n
+            help
+                Output ble controller logs to SPI bus
+    endif
+
     config BT_CTRL_LE_HCI_LOG_EN
         depends on BT_CTRL_LE_LOG_EN
         bool "Enable BLE HCI log"
         default n
 
-    config BT_CTRL_LE_LOG_DUMP_ONLY
-        depends on BT_CTRL_LE_LOG_EN
-        bool "Enable BLE log dump only"
-        default n
-
-    config BT_CTRL_LE_LOG_STORAGE_EN
-        depends on BT_CTRL_LE_LOG_EN
-        bool "Enable BLE log storage to flash"
-        default n
-
-    config BT_CTRL_LE_LOG_PARTITION_SIZE
-        int "The size of ble controller log partition(Multiples of 4K)"
-        depends on BT_CTRL_LE_LOG_STORAGE_EN
-        default 65536
-        help
-            The size of ble controller log partition shall be a multiples of 4K.
-            The name of log partition shall be "bt_ctrl_log".
-            The partition type shall be ESP_PARTITION_TYPE_DATA.
-            The partition sub_type shall be ESP_PARTITION_SUBTYPE_ANY.
-
-    config BT_CTRL_LE_LOG_SPI_OUT_EN
-        bool "Output ble controller logs to SPI bus"
-        depends on BT_CTRL_LE_LOG_EN
-        depends on !BT_CTRL_LE_LOG_DUMP_ONLY
-        select BT_BLE_LOG_SPI_OUT_ENABLED
-        default n
-        help
-            Output ble controller logs to SPI bus
-
     config BT_CTRL_LE_LOG_MODE_EN
         depends on BT_CTRL_LE_LOG_EN
-        int "Enable log for specified BLE mode"
-        range 0 4095
-        default 4093
+        hex "Enable log for specified BLE mode"
+        range 0 0xFFFF
+        default 0xDB7F
 
     config BT_CTRL_LE_LOG_LEVEL
         depends on BT_CTRL_LE_LOG_EN
         int "The level of BLE log"
         range 0 5
-        default 2
+        default 1
 
     config BT_CTRL_LE_LOG_BUF1_SIZE
         depends on BT_CTRL_LE_LOG_EN

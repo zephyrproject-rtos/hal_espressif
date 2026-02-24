@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,8 +10,7 @@
 #include "esp_image_format.h"
 #include "flash_qio_mode.h"
 #include "esp_rom_gpio.h"
-#include "esp_rom_efuse.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_spiflash.h"
 #include "soc/gpio_sig_map.h"
@@ -19,11 +18,8 @@
 #include "soc/assist_debug_reg.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
-#include "soc/spi_periph.h"
 #include "soc/extmem_reg.h"
-#include "soc/io_mux_reg.h"
 #include "soc/pcr_reg.h"
-#include "esp32h2/rom/efuse.h"
 #include "esp32h2/rom/ets_sys.h"
 #include "bootloader_common.h"
 #include "bootloader_init.h"
@@ -33,7 +29,6 @@
 #include "esp_private/regi2c_ctrl.h"
 #include "soc/regi2c_lp_bias.h"
 #include "soc/regi2c_bias.h"
-#include "modem/modem_lpcon_reg.h"
 #include "bootloader_console.h"
 #include "bootloader_flash_priv.h"
 #include "bootloader_soc.h"
@@ -41,11 +36,14 @@
 #include "esp_efuse.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
+#include "hal/lpwdt_ll.h"
 #include "soc/lp_wdt_reg.h"
+#include "soc/pmu_reg.h"
 #include "hal/efuse_hal.h"
-#include "modem/modem_lpcon_reg.h"
+#include "hal/regi2c_ctrl_ll.h"
+#include "hal/brownout_ll.h"
 
-static const char *TAG = "boot.esp32h2";
+ESP_LOG_ATTR_TAG(TAG, "boot.esp32h2");
 
 static void wdt_reset_cpu0_info_enable(void)
 {
@@ -86,8 +84,13 @@ static void bootloader_super_wdt_auto_feed(void)
 
 static inline void bootloader_hardware_init(void)
 {
-    /* Enable analog i2c master clock */
-    SET_PERI_REG_MASK(MODEM_LPCON_CLK_CONF_REG, MODEM_LPCON_CLK_I2C_MST_EN);
+    /* Disable RF pll by default */
+    CLEAR_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_RFPLL);
+    SET_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_FORCE_RFPLL);
+
+    _regi2c_ctrl_ll_master_enable_clock(true); // keep ana i2c mst clock always enabled in bootloader
+    regi2c_ctrl_ll_master_configure_clock();
+
     REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_0P8, 8);  // fix low temp issue, need to increase this internal voltage
 
 }
@@ -96,8 +99,8 @@ static inline void bootloader_ana_reset_config(void)
 {
     //Enable super WDT reset.
     bootloader_ana_super_wdt_reset_config(true);
-    //Enable BOD reset
-    bootloader_ana_bod_reset_config(true);
+    //Enable BOD reset (mode1)
+    brownout_ll_ana_reset_enable(true);
 }
 
 esp_err_t bootloader_init(void)
@@ -121,7 +124,7 @@ esp_err_t bootloader_init(void)
 
     // init eFuse virtual mode (read eFuses to RAM)
 #ifdef CONFIG_EFUSE_VIRTUAL
-    ESP_LOGW(TAG, "eFuse virtual mode is enabled. If Secure boot or Flash encryption is enabled then it does not provide any security. FOR TESTING ONLY!");
+    ESP_EARLY_LOGW(TAG, "eFuse virtual mode is enabled. If Secure boot or Flash encryption is enabled then it does not provide any security. FOR TESTING ONLY!");
 #ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
     esp_efuse_init_virtual_mode_in_ram();
 #endif
@@ -133,11 +136,9 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
-    //init cache hal
-    cache_hal_init();
-    //init mmu
-    mmu_hal_init();
+#if !CONFIG_APP_BUILD_TYPE_RAM
+    // init cache and mmu
+    bootloader_init_ext_mem();
     // update flash ID
     bootloader_flash_update_id();
     // Check and run XMC startup flow
@@ -145,7 +146,6 @@ esp_err_t bootloader_init(void)
         ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
-#if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         return ret;
@@ -154,14 +154,13 @@ esp_err_t bootloader_init(void)
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
         return ret;
     }
-#endif // !CONFIG_APP_BUILD_TYPE_RAM
     // initialize spi flash
     if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
         return ret;
     }
-#endif  //#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+#endif // !CONFIG_APP_BUILD_TYPE_RAM
 
-    // check whether a WDT reset happend
+    // check whether a WDT reset happened
     bootloader_check_wdt_reset();
     // config WDT
     bootloader_config_wdt();

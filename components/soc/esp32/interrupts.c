@@ -1,7 +1,7 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 #include "soc/interrupts.h"
@@ -48,8 +48,8 @@ const char * const esp_isr_names[ETS_MAX_INTR_SOURCE] = {
     [38] = "ETH_MAC",
     [39] = "PWM0",
     [40] = "PWM1",
-    [41] = "PWM2",
-    [42] = "PWM3",
+    [41] = "RESERVED",
+    [42] = "RESERVED",
     [43] = "LEDC",
     [44] = "EFUSE",
     [45] = "TWAI",

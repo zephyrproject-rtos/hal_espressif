@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,6 +13,7 @@
 #include <spi_flash_mmap.h> /* including in bootloader for error values */
 #include "sdkconfig.h"
 #include "bootloader_flash.h"
+#include "soc/ext_mem_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,8 +21,11 @@ extern "C" {
 
 #define FLASH_SECTOR_SIZE 0x1000
 #define FLASH_BLOCK_SIZE 	0x10000
+
 #define MMAP_ALIGNED_MASK 	(SPI_FLASH_MMU_PAGE_SIZE - 1)
 #define MMU_FLASH_MASK    (~(SPI_FLASH_MMU_PAGE_SIZE - 1))
+#define MMU_FLASH_MASK_FROM_VAL(PAGE_SZ) (~((PAGE_SZ) - 1))
+#define MMU_DROM_END_ENTRY_VADDR_FROM_VAL(PAGE_SZ) (SOC_DRAM_FLASH_ADDRESS_HIGH - (PAGE_SZ))
 
 /**
  * MMU mapping must always be in the unit of a SPI_FLASH_MMU_PAGE_SIZE
@@ -52,6 +56,10 @@ extern "C" {
 #define CMD_RESUME     0x7A /* Resume command to clear flash suspend bit */
 #define CMD_RESETEN    0x66
 #define CMD_RESET      0x99
+#define CMD_FASTRD_QIO_4B   0xEC
+#define CMD_FASTRD_QUAD_4B  0x6C
+#define CMD_FASTRD_DIO_4B   0xBC
+#define CMD_FASTRD_DUAL_4B  0x3C
 #define CMD_FASTRD_4B       0x0C
 #define CMD_SLOWRD_4B       0x13
 
@@ -85,12 +93,10 @@ uint32_t bootloader_mmap_get_free_pages(void);
  * @param length - Length of data to map.
  *
  * @return Pointer to mapped data memory (at src_addr), or NULL
- * if an allocation error occured.
+ * if an allocation error occurred.
  */
 const void *bootloader_mmap(uint32_t src_addr, uint32_t size);
 
-/* use ROM functions to mmap */
-const void *esp_rom_flash_mmap(uint32_t src_addr, uint32_t size);
 
 /**
  * @brief Unmap a previously mapped region of flash
@@ -98,9 +104,6 @@ const void *esp_rom_flash_mmap(uint32_t src_addr, uint32_t size);
  * Call bootloader_munmap once for each successful call to bootloader_mmap.
  */
 void bootloader_munmap(const void *mapping);
-
-/* use ROM functions to unmmap */
-void esp_rom_flash_unmmap(const void *mapping);
 
 /**
  * @brief  Read data from Flash.
@@ -119,15 +122,16 @@ void esp_rom_flash_unmmap(const void *mapping);
  */
 esp_err_t bootloader_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
 
-/* use ROM functions to flash read */
-esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
 
 /**
  * @brief  Write data to Flash.
  *
  * @note All of dest_addr, src and size have to be 4-byte aligned. If write_encrypted is set, dest_addr and size must be 32-byte aligned.
  *
- * Note: In bootloader, when write_encrypted == true, the src buffer is encrypted in place.
+ * @note In bootloader, when write_encrypted == true, the src buffer is encrypted in place.
+ *
+ * @note [ESP-TEE] Using this API from the TEE will return an error if the dest_addr lies
+ *       within the active TEE partition range.
  *
  * @param  dest_addr Destination address to write in Flash.
  * @param  src Pointer to the data to write to flash
@@ -139,9 +143,6 @@ esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allo
  */
 esp_err_t bootloader_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
 
-/* use ROM functions to flash write */
-esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
-
 /**
  * @brief  Erase the Flash sector.
  *
@@ -151,11 +152,11 @@ esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool wri
  */
 esp_err_t bootloader_flash_erase_sector(size_t sector);
 
-/* use ROM functions to flash erase */
-esp_err_t esp_rom_flash_erase_sector(size_t sector);
-
 /**
  * @brief  Erase the Flash range.
+ *
+ * @note   [ESP-TEE] Using this API from the TEE will return an error if the start_addr lies
+ *         within the active TEE partition range.
  *
  * @param  start_addr start address of flash offset
  * @param  size       sector aligned size to be erased
@@ -163,9 +164,6 @@ esp_err_t esp_rom_flash_erase_sector(size_t sector);
  * @return esp_err_t
  */
 esp_err_t bootloader_flash_erase_range(uint32_t start_addr, uint32_t size);
-
-/* use ROM functions to flash range read */
-esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size);
 
 /**
  * @brief Execute a user command on the flash
@@ -199,6 +197,19 @@ void bootloader_enable_wp(void);
  * (WEL) status, Program/Erase Suspend status, etc.
  */
 void bootloader_spi_flash_reset(void);
+
+#ifdef __ZEPHYR__
+/**
+ * Zephyr-specific flash ROM function wrappers.
+ * These are implemented in zephyr/port/bootloader/bootloader_flash.c
+ */
+esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
+esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
+esp_err_t esp_rom_flash_erase_sector(size_t sector);
+esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size);
+const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size);
+void esp_rom_flash_unmmap(const void *mapping);
+#endif /* __ZEPHYR__ */
 
 #ifdef __cplusplus
 }

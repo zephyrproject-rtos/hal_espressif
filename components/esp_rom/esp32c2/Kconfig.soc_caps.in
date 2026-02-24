@@ -39,11 +39,27 @@ config ESP_ROM_HAS_HEAP_TLSF
     bool
     default y
 
+config ESP_ROM_TLSF_CHECK_PATCH
+    bool
+    default y
+
+config ESP_ROM_MULTI_HEAP_WALK_PATCH
+    bool
+    default y
+
 config ESP_ROM_HAS_LAYOUT_TABLE
     bool
     default y
 
 config ESP_ROM_HAS_SPI_FLASH
+    bool
+    default y
+
+config ESP_ROM_HAS_SPI_FLASH_MMAP
+    bool
+    default y
+
+config ESP_ROM_HAS_NEWLIB
     bool
     default y
 
@@ -60,5 +76,37 @@ config ESP_ROM_RAM_APP_NEEDS_MMU_INIT
     default y
 
 config ESP_ROM_HAS_MBEDTLS_CRYPTO_LIB
+    bool
+    default y
+
+config ESP_ROM_HAS_SW_FLOAT
+    bool
+    default y
+
+config ESP_ROM_USB_OTG_NUM
+    int
+    default -1
+
+config ESP_ROM_USB_SERIAL_DEVICE_NUM
+    int
+    default -1
+
+config ESP_ROM_HAS_VERSION
+    bool
+    default y
+
+config ESP_ROM_HAS_VPRINTF_FUNC
+    bool
+    default y
+
+config ESP_ROM_HAS_OUTPUT_PUTC_FUNC
+    bool
+    default y
+
+config ESP_ROM_CONSOLE_OUTPUT_SECONDARY
+    bool
+    default y
+
+config ESP_ROM_HAS_SUBOPTIMAL_NEWLIB_ON_MISALIGNED_MEMORY
     bool
     default y

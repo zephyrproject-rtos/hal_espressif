@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,11 +14,11 @@ extern struct wpa_supplicant g_wpa_supp;
 
 #if defined(CONFIG_RRM) || defined(CONFIG_WNM)
 struct ieee_mgmt_frame {
-	u8 sender[ETH_ALEN];
-	u8 channel;
-	int8_t rssi;
-	size_t len;
-	u8 payload[0];
+    u8 sender[ETH_ALEN];
+    u8 channel;
+    int8_t rssi;
+    size_t len;
+    u8 payload[0];
 };
 
 void esp_get_tx_power(uint8_t *tx_power);

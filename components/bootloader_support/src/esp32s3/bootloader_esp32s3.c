@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,7 +17,6 @@
 #include "soc/dport_reg.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
-#include "soc/spi_periph.h"
 #include "soc/extmem_reg.h"
 
 #include "esp_rom_gpio.h"
@@ -38,11 +37,13 @@
 #include "esp_efuse.h"
 #include "hal/mmu_hal.h"
 #include "hal/cache_hal.h"
+#include "hal/rwdt_ll.h"
+#include "hal/brownout_ll.h"
 #include "xtensa/config/core.h"
 #include "xt_instr_macros.h"
 
 
-static const char *TAG = "boot.esp32s3";
+ESP_LOG_ATTR_TAG(TAG, "boot.esp32s3");
 
 static void wdt_reset_cpu0_info_enable(void)
 {
@@ -56,7 +57,7 @@ static void wdt_reset_info_dump(int cpu)
 {
     uint32_t inst = 0, pid = 0, stat = 0, data = 0, pc = 0,
              lsstat = 0, lsaddr = 0, lsdata = 0, dstat = 0;
-    const char *cpu_name = cpu ? "APP" : "PRO";
+    const char *cpu_name = cpu ? ESP_LOG_ATTR_STR("APP") : ESP_LOG_ATTR_STR("PRO");
 
     stat = 0xdeadbeef;
     pid = 0;
@@ -69,7 +70,7 @@ static void wdt_reset_info_dump(int cpu)
         lsaddr  = REG_READ(ASSIST_DEBUG_CORE_0_RCD_PDEBUGLS0ADDR_REG);
         lsdata  = REG_READ(ASSIST_DEBUG_CORE_0_RCD_PDEBUGLS0DATA_REG);
     } else {
-#if !CONFIG_FREERTOS_UNICORE
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
         inst    = REG_READ(ASSIST_DEBUG_CORE_1_RCD_PDEBUGINST_REG);
         dstat   = REG_READ(ASSIST_DEBUG_CORE_1_RCD_PDEBUGSTATUS_REG);
         data    = REG_READ(ASSIST_DEBUG_CORE_1_RCD_PDEBUGDATA_REG);
@@ -78,20 +79,20 @@ static void wdt_reset_info_dump(int cpu)
         lsaddr  = REG_READ(ASSIST_DEBUG_CORE_1_RCD_PDEBUGLS0ADDR_REG);
         lsdata  = REG_READ(ASSIST_DEBUG_CORE_1_RCD_PDEBUGLS0DATA_REG);
 #else
-        ESP_EARLY_LOGE(TAG, "WDT reset info: %s CPU not support!\n", cpu_name);
+        ESP_LOGE(TAG, "WDT reset info: %s CPU not support!", cpu_name);
         return;
 #endif
     }
 
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU STATUS        0x%08"PRIx32, cpu_name, stat);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PID           0x%08"PRIx32, cpu_name, pid);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGINST    0x%08"PRIx32, cpu_name, inst);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGSTATUS  0x%08"PRIx32, cpu_name, dstat);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGDATA    0x%08"PRIx32, cpu_name, data);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGPC      0x%08"PRIx32, cpu_name, pc);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0STAT 0x%08"PRIx32, cpu_name, lsstat);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0ADDR 0x%08"PRIx32, cpu_name, lsaddr);
-    ESP_EARLY_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0DATA 0x%08"PRIx32, cpu_name, lsdata);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU STATUS        0x%08"PRIx32, cpu_name, stat);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PID           0x%08"PRIx32, cpu_name, pid);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGINST    0x%08"PRIx32, cpu_name, inst);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGSTATUS  0x%08"PRIx32, cpu_name, dstat);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGDATA    0x%08"PRIx32, cpu_name, data);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGPC      0x%08"PRIx32, cpu_name, pc);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0STAT 0x%08"PRIx32, cpu_name, lsstat);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0ADDR 0x%08"PRIx32, cpu_name, lsaddr);
+    ESP_LOGD(TAG, "WDT reset info: %s CPU PDEBUGLS0DATA 0x%08"PRIx32, cpu_name, lsdata);
 }
 
 static void bootloader_check_wdt_reset(void)
@@ -103,18 +104,18 @@ static void bootloader_check_wdt_reset(void)
     rst_reas[1] = esp_rom_get_reset_reason(1);
     if (rst_reas[0] == RESET_REASON_CORE_RTC_WDT || rst_reas[0] == RESET_REASON_CORE_MWDT0 || rst_reas[0] == RESET_REASON_CORE_MWDT1 ||
         rst_reas[0] == RESET_REASON_CPU0_MWDT0 || rst_reas[0] == RESET_REASON_CPU0_RTC_WDT) {
-        ESP_EARLY_LOGW(TAG, "PRO CPU has been reset by WDT.");
+        ESP_LOGW(TAG, "PRO CPU has been reset by WDT.");
         wdt_rst = 1;
     }
     if (rst_reas[1] == RESET_REASON_CORE_RTC_WDT || rst_reas[1] == RESET_REASON_CORE_MWDT0 || rst_reas[1] == RESET_REASON_CORE_MWDT1 ||
         rst_reas[1] == RESET_REASON_CPU1_MWDT1 || rst_reas[1] == RESET_REASON_CPU1_RTC_WDT) {
-        ESP_EARLY_LOGW(TAG, "APP CPU has been reset by WDT.");
+        ESP_LOGW(TAG, "APP CPU has been reset by WDT.");
         wdt_rst = 1;
     }
     if (wdt_rst) {
         // if reset by WDT dump info from trace port
         wdt_reset_info_dump(0);
-#if !CONFIG_FREERTOS_UNICORE
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
         wdt_reset_info_dump(1);
 #endif
     }
@@ -132,7 +133,7 @@ static inline void bootloader_ana_reset_config(void)
 {
     //Enable WDT, BOD, and GLITCH reset
     bootloader_ana_super_wdt_reset_config(true);
-    bootloader_ana_bod_reset_config(true);
+    brownout_ll_ana_reset_enable(true);
     bootloader_ana_clock_glitch_reset_config(true);
 }
 
@@ -142,7 +143,7 @@ esp_err_t bootloader_init(void)
 
 #if XCHAL_ERRATUM_572
     uint32_t memctl = XCHAL_CACHE_MEMCTL_DEFAULT;
-    WSR(MEMCTL, memctl);
+    WSR(XT_REG_MEMCTL, memctl);
 #endif // XCHAL_ERRATUM_572
 
     bootloader_ana_reset_config();
@@ -177,19 +178,16 @@ esp_err_t bootloader_init(void)
     /* print 2nd bootloader banner */
     bootloader_print_banner();
 
-#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
-    //init cache hal
-    cache_hal_init();
-    //init mmu
-    mmu_hal_init();
+#if !CONFIG_APP_BUILD_TYPE_RAM
+    // init cache and mmu
+    bootloader_init_ext_mem();
     // update flash ID
     bootloader_flash_update_id();
     // Check and run XMC startup flow
     if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "failed when running XMC startup flow, reboot!");
+        ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
         return ret;
     }
-#if !CONFIG_APP_BUILD_TYPE_RAM
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         return ret;
@@ -198,14 +196,13 @@ esp_err_t bootloader_init(void)
     if ((ret = bootloader_check_bootloader_validity()) != ESP_OK) {
         return ret;
     }
-#endif // !CONFIG_APP_BUILD_TYPE_RAM
     // initialize spi flash
     if ((ret = bootloader_init_spi_flash()) != ESP_OK) {
         return ret;
     }
-#endif // #if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+#endif // !CONFIG_APP_BUILD_TYPE_RAM
 
-    // check whether a WDT reset happend
+    // check whether a WDT reset happened
     bootloader_check_wdt_reset();
     // config WDT
     bootloader_config_wdt();

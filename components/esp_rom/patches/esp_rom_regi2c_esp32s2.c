@@ -115,7 +115,8 @@ uint8_t IRAM_ATTR esp_rom_regi2c_read(uint8_t block, uint8_t host_id, uint8_t re
     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
     REG_WRITE(I2C_RTC_CONFIG2, temp);
-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
+    int timeout = 10000;
+    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
     return REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
 }
 
@@ -127,7 +128,8 @@ uint8_t IRAM_ATTR esp_rom_regi2c_read_mask(uint8_t block, uint8_t host_id, uint8
     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
     REG_WRITE(I2C_RTC_CONFIG2, temp);
-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
+    int timeout = 10000;
+    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
     uint32_t data = REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
     return (uint8_t)((data >> lsb) & (~(0xFFFFFFFF << (msb - lsb + 1))));
 }
@@ -141,7 +143,8 @@ void IRAM_ATTR esp_rom_regi2c_write(uint8_t block, uint8_t host_id, uint8_t reg_
                     | ((0x1 & I2C_RTC_WR_CNTL_V) << I2C_RTC_WR_CNTL_S)
                     | (((uint32_t)data & I2C_RTC_DATA_V) << I2C_RTC_DATA_S);
     REG_WRITE(I2C_RTC_CONFIG2, temp);
-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
+    int timeout = 10000;
+    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
 }
 
 void IRAM_ATTR esp_rom_regi2c_write_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb, uint8_t data)
@@ -153,7 +156,8 @@ void IRAM_ATTR esp_rom_regi2c_write_mask(uint8_t block, uint8_t host_id, uint8_t
     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
     REG_WRITE(I2C_RTC_CONFIG2, temp);
-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
+    int timeout = 10000;
+    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
     temp = REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
     /*Write the i2c bus register*/
     temp &= ((~(0xFFFFFFFF << lsb)) | (0xFFFFFFFF << (msb + 1)));
@@ -163,5 +167,6 @@ void IRAM_ATTR esp_rom_regi2c_write_mask(uint8_t block, uint8_t host_id, uint8_t
             | ((0x1 & I2C_RTC_WR_CNTL_V) << I2C_RTC_WR_CNTL_S)
             | ((temp & I2C_RTC_DATA_V) << I2C_RTC_DATA_S);
     REG_WRITE(I2C_RTC_CONFIG2, temp);
-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
+    timeout = 10000;
+    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
 }

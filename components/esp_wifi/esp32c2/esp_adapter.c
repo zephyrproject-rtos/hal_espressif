@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,92 +8,123 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
-#include <pthread.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/event_groups.h"
-#include "freertos/portmacro.h"
-#include "riscv/interrupt.h"
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/random/random.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(esp32c2_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
+
 #include "esp_types.h"
 #include "esp_random.h"
 #include "esp_mac.h"
-#include "esp_task.h"
-#include "esp_intr_alloc.h"
 #include "esp_attr.h"
-#include "esp_log.h"
-#include "esp_event.h"
-#include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "esp_heap_adapter.h"
 #include "esp_private/wifi_os_adapter.h"
 #include "esp_private/wifi.h"
 #include "esp_phy_init.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc.h"
 #include "soc/syscon_reg.h"
-#include "phy_init_data.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-#include "nvs.h"
 #include "os.h"
-#include "esp_smartconfig.h"
 #include "private/esp_coexist_internal.h"
-#include "esp32c2/rom/ets_sys.h"
 #include "private/esp_modem_wrapper.h"
+#include "esp_rom_sys.h"
+#include "esp32c2/rom/ets_sys.h"
+#include "wifi/wifi_event.h"
+#include <riscv/interrupt.h>
+
+extern void intr_matrix_route(int intr_src, int intr_num);
 
 #define TAG "esp_adapter"
 
-#ifdef CONFIG_PM_ENABLE
-extern void wifi_apb80m_request(void);
-extern void wifi_apb80m_release(void);
-#endif
+static void *wifi_msgq_buffer;
+static struct k_thread wifi_task_handle;
 
-IRAM_ATTR void *wifi_malloc( size_t size )
+IRAM_ATTR void *wifi_malloc(size_t size)
 {
-    return malloc(size);
-}
+    void *ptr = esp_wifi_malloc_func(size);
 
-IRAM_ATTR void *wifi_realloc( void *ptr, size_t size )
-{
-    return realloc(ptr, size);
-}
+    if (ptr == NULL) {
+        LOG_ERR("memory allocation failed");
+    }
 
-IRAM_ATTR void *wifi_calloc( size_t n, size_t size )
-{
-    return calloc(n, size);
-}
-
-static void * IRAM_ATTR wifi_zalloc_wrapper(size_t size)
-{
-    void *ptr = wifi_calloc(1, size);
     return ptr;
 }
 
-wifi_static_queue_t* wifi_create_queue( int queue_len, int item_size)
+IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
+{
+    ARG_UNUSED(ptr);
+    ARG_UNUSED(size);
+
+    LOG_ERR("%s not yet supported", __func__);
+    return NULL;
+}
+
+IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
+{
+    void *ptr = esp_wifi_calloc_func(n, size);
+
+    if (ptr == NULL) {
+        LOG_ERR("memory allocation failed");
+    }
+
+    return ptr;
+}
+
+static void *IRAM_ATTR wifi_zalloc_wrapper(size_t size)
+{
+    return wifi_calloc(1, size);
+}
+
+static void esp_wifi_free(void *mem)
+{
+    esp_wifi_free_func(mem);
+}
+
+wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
 {
     wifi_static_queue_t *queue = NULL;
 
-    queue = (wifi_static_queue_t*)heap_caps_malloc(sizeof(wifi_static_queue_t), MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    queue = (wifi_static_queue_t *)wifi_malloc(sizeof(wifi_static_queue_t));
     if (!queue) {
+        LOG_ERR("msg buffer allocation failed");
         return NULL;
     }
 
-    queue->handle = xQueueCreate( queue_len, item_size);
+    wifi_msgq_buffer = wifi_malloc(queue_len * item_size);
+    if (wifi_msgq_buffer == NULL) {
+        LOG_ERR("msg buffer allocation failed");
+        esp_wifi_free(queue);
+        return NULL;
+    }
+
+    queue->handle = wifi_malloc(sizeof(struct k_msgq));
+    if (queue->handle == NULL) {
+        esp_wifi_free(wifi_msgq_buffer);
+        esp_wifi_free(queue);
+        LOG_ERR("queue handle allocation failed");
+        return NULL;
+    }
+
+    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
+
     return queue;
 }
 
 void wifi_delete_queue(wifi_static_queue_t *queue)
 {
     if (queue) {
-        vQueueDelete(queue->handle);
-        free(queue);
+        esp_wifi_free(queue->handle);
+        esp_wifi_free(queue);
     }
 }
 
-static void * wifi_create_queue_wrapper(int queue_len, int item_size)
+static void *wifi_create_queue_wrapper(int queue_len, int item_size)
 {
     return wifi_create_queue(queue_len, item_size);
 }
@@ -105,170 +136,274 @@ static void wifi_delete_queue_wrapper(void *queue)
 
 static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
 {
-    intr_matrix_route(intr_source, intr_num);
-    esprv_intc_int_set_priority(intr_num, intr_prio);
-    esprv_intc_int_set_type(intr_num, INTR_TYPE_LEVEL);
+    ARG_UNUSED(cpu_no);
+
+    esp_rom_route_intr_matrix(cpu_no, intr_source, intr_num);
+    esprv_int_set_priority(intr_num, intr_prio);
+    esprv_int_set_type(intr_num, INTR_TYPE_LEVEL);
 }
 
 static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 {
-
+    ARG_UNUSED(intr_source);
+    ARG_UNUSED(intr_num);
 }
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-    intr_handler_set(n, (intr_handler_t)f, arg);
+    irq_disable(n);
+    irq_connect_dynamic(n, 0, f, arg, 0);
+    irq_enable(n);
 }
 
-static void enable_intr_wrapper(uint32_t intr_mask)
+static void enable_intr_wrapper(unsigned int mask)
 {
-    esprv_intc_int_enable(intr_mask);
+    esprv_int_enable(mask);
 }
 
-static void disable_intr_wrapper(uint32_t intr_mask)
+static void disable_intr_wrapper(unsigned int mask)
 {
-    esprv_intc_int_disable(intr_mask);
+    esprv_int_disable(mask);
 }
 
-static bool IRAM_ATTR is_from_isr_wrapper(void)
+static void *wifi_thread_semphr_get_wrapper(void)
 {
-    return !xPortCanYield();
-}
+    struct k_sem *sem = NULL;
 
-static void wifi_thread_semphr_free(void* data)
-{
-    SemaphoreHandle_t *sem = (SemaphoreHandle_t*)(data);
-
-    if (sem) {
-        vSemaphoreDelete(sem);
-    }
-}
-
-static void * wifi_thread_semphr_get_wrapper(void)
-{
-    static bool s_wifi_thread_sem_key_init = false;
-    static pthread_key_t s_wifi_thread_sem_key;
-    SemaphoreHandle_t sem = NULL;
-
-    if (s_wifi_thread_sem_key_init == false) {
-        if (0 != pthread_key_create(&s_wifi_thread_sem_key, wifi_thread_semphr_free)) {
+    sem = k_thread_custom_data_get();
+    if (!sem) {
+        sem = (struct k_sem *)wifi_malloc(sizeof(struct k_sem));
+        if (sem == NULL) {
+            LOG_ERR("wifi_thread_semphr_get_wrapper allocation failed");
             return NULL;
         }
-        s_wifi_thread_sem_key_init = true;
+        k_sem_init(sem, 0, 1);
+        k_thread_custom_data_set(sem);
     }
-
-    sem = pthread_getspecific(s_wifi_thread_sem_key);
-    if (!sem) {
-        sem = xSemaphoreCreateCounting(1, 0);
-        if (sem) {
-            pthread_setspecific(s_wifi_thread_sem_key, sem);
-            ESP_LOGV(TAG, "thread sem create: sem=%p", sem);
-        }
-    }
-
-    ESP_LOGV(TAG, "thread sem get: sem=%p", sem);
-    return (void*)sem;
+    return (void *)sem;
 }
 
-static void * recursive_mutex_create_wrapper(void)
+static void *recursive_mutex_create_wrapper(void)
 {
-    return (void *)xSemaphoreCreateRecursiveMutex();
+    struct k_mutex *my_mutex = (struct k_mutex *)wifi_malloc(sizeof(struct k_mutex));
+
+    if (my_mutex == NULL) {
+        LOG_ERR("recursive_mutex_create_wrapper allocation failed");
+        return NULL;
+    }
+
+    k_mutex_init(my_mutex);
+
+    return (void *)my_mutex;
 }
 
-static void * mutex_create_wrapper(void)
+static void *mutex_create_wrapper(void)
 {
-    return (void *)xSemaphoreCreateMutex();
+    struct k_mutex *my_mutex = (struct k_mutex *)wifi_malloc(sizeof(struct k_mutex));
+
+    if (my_mutex == NULL) {
+        LOG_ERR("mutex_create_wrapper allocation failed");
+        return NULL;
+    }
+
+    k_mutex_init(my_mutex);
+
+    return (void *)my_mutex;
 }
 
 static void mutex_delete_wrapper(void *mutex)
 {
-    vSemaphoreDelete(mutex);
+    esp_wifi_free(mutex);
 }
 
 static int32_t IRAM_ATTR mutex_lock_wrapper(void *mutex)
 {
-    return (int32_t)xSemaphoreTakeRecursive(mutex, portMAX_DELAY);
+    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
+
+    k_mutex_lock(my_mutex, K_FOREVER);
+    return 0;
 }
 
 static int32_t IRAM_ATTR mutex_unlock_wrapper(void *mutex)
 {
-    return (int32_t)xSemaphoreGiveRecursive(mutex);
+    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
+
+    k_mutex_unlock(my_mutex);
+    return 0;
 }
 
-static void * queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
+static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-    return (void *)xQueueCreate(queue_len, item_size);
+    struct k_msgq *queue = (struct k_msgq *)wifi_malloc(sizeof(struct k_msgq));
+
+    if (queue == NULL) {
+        LOG_ERR("queue malloc failed");
+        return NULL;
+    }
+
+    char *buffer = wifi_malloc(queue_len * item_size);
+    if (buffer == NULL) {
+        esp_wifi_free(queue);
+        LOG_ERR("queue buffer malloc failed");
+        return NULL;
+    }
+
+    k_msgq_init(queue, buffer, item_size, queue_len);
+
+    return (void *)queue;
+}
+
+static void queue_delete_wrapper(void *queue)
+{
+    if (queue != NULL) {
+        esp_wifi_free(queue);
+    }
+}
+
+static void task_delete_wrapper(void *handle)
+{
+    if (handle != NULL) {
+        k_thread_abort((k_tid_t)handle);
+    }
+
+    k_object_release(&wifi_task_handle);
 }
 
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
 {
     if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)xQueueSend(queue, item, portMAX_DELAY);
+        k_msgq_put((struct k_msgq *)queue, item, K_FOREVER);
     } else {
-        return (int32_t)xQueueSend(queue, item, block_time_tick);
+        k_msgq_put((struct k_msgq *)queue, item, K_TICKS(block_time_tick));
     }
+    return 1;
 }
 
 static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw)
 {
-    return (int32_t)xQueueSendFromISR(queue, item, hptw);
+    int *hpt = (int *)hptw;
+
+    k_msgq_put((struct k_msgq *)queue, item, K_NO_WAIT);
+    if (hpt) {
+        *hpt = 0;
+    }
+    return 1;
 }
 
 static int32_t queue_send_to_back_wrapper(void *queue, void *item, uint32_t block_time_tick)
 {
-    return (int32_t)xQueueGenericSend(queue, item, block_time_tick, queueSEND_TO_BACK);
+    return queue_send_wrapper(queue, item, block_time_tick);
 }
 
 static int32_t queue_send_to_front_wrapper(void *queue, void *item, uint32_t block_time_tick)
 {
-    return (int32_t)xQueueGenericSend(queue, item, block_time_tick, queueSEND_TO_FRONT);
+    ARG_UNUSED(queue);
+    ARG_UNUSED(item);
+    ARG_UNUSED(block_time_tick);
+
+    return 0;
 }
 
 static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_tick)
 {
+    int ret;
     if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)xQueueReceive(queue, item, portMAX_DELAY);
+        ret = k_msgq_get((struct k_msgq *)queue, item, K_FOREVER);
     } else {
-        return (int32_t)xQueueReceive(queue, item, block_time_tick);
+        ret = k_msgq_get((struct k_msgq *)queue, item, K_TICKS(block_time_tick));
     }
+    return (ret == 0) ? 1 : 0;
+}
+
+static uint32_t queue_msg_waiting_wrapper(void *queue)
+{
+    return k_msgq_num_used_get((struct k_msgq *)queue);
+}
+
+static void *event_group_create_wrapper(void)
+{
+    LOG_ERR("EventGroup not supported!");
+    return NULL;
+}
+
+static void event_group_delete_wrapper(void *event)
+{
+    ARG_UNUSED(event);
+}
+
+static uint32_t event_group_set_bits_wrapper(void *event, uint32_t bits)
+{
+    ARG_UNUSED(event);
+    ARG_UNUSED(bits);
+
+    return 0;
+}
+
+static uint32_t event_group_clear_bits_wrapper(void *event, uint32_t bits)
+{
+    ARG_UNUSED(event);
+    ARG_UNUSED(bits);
+
+    return 0;
 }
 
 static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait_for, int clear_on_exit, int wait_for_all_bits, uint32_t block_time_tick)
 {
-    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        return (uint32_t)xEventGroupWaitBits(event, bits_to_wait_for, clear_on_exit, wait_for_all_bits, portMAX_DELAY);
-    } else {
-        return (uint32_t)xEventGroupWaitBits(event, bits_to_wait_for, clear_on_exit, wait_for_all_bits, block_time_tick);
-    }
+    ARG_UNUSED(event);
+    ARG_UNUSED(bits_to_wait_for);
+    ARG_UNUSED(clear_on_exit);
+    ARG_UNUSED(wait_for_all_bits);
+    ARG_UNUSED(block_time_tick);
+
+    return 0;
 }
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    return (uint32_t)xTaskCreatePinnedToCore(task_func, name, stack_depth, param, prio, task_handle, (core_id < portNUM_PROCESSORS ? core_id : tskNO_AFFINITY));
+    ARG_UNUSED(core_id);
+
+    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
+                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+
+    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
+                      (k_thread_entry_t)task_func, param, NULL, NULL,
+                      prio, K_INHERIT_PERMS, K_NO_WAIT);
+
+    k_thread_name_set(tid, name);
+
+    *(int32_t *)task_handle = (int32_t)tid;
+    return 1;
 }
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
-    return (uint32_t)xTaskCreate(task_func, name, stack_depth, param, prio, task_handle);
+    return task_create_pinned_to_core_wrapper(task_func, name, stack_depth, param, prio, task_handle, 0);
+}
+
+static void task_delay_wrapper(uint32_t ticks)
+{
+    k_sleep(K_TICKS(ticks));
 }
 
 static int32_t IRAM_ATTR task_ms_to_tick_wrapper(uint32_t ms)
 {
-    return (int32_t)(ms / portTICK_PERIOD_MS);
+    return (int32_t)(k_ms_to_ticks_ceil32(ms));
 }
 
 static int32_t task_get_max_priority_wrapper(void)
 {
-    return (int32_t)(configMAX_PRIORITIES);
+    return (int32_t)(CONFIG_ESP32_WIFI_MAX_THREAD_PRIORITY);
 }
 
-static int32_t esp_event_post_wrapper(const char* event_base, int32_t event_id, void* event_data, size_t event_data_size, uint32_t ticks_to_wait)
+static void *task_get_current_task_wrapper(void)
 {
-    if (ticks_to_wait == OSI_FUNCS_TIME_BLOCKING) {
-        return (int32_t)esp_event_post(event_base, event_id, event_data, event_data_size, portMAX_DELAY);
-    } else {
-        return (int32_t)esp_event_post(event_base, event_id, event_data, event_data_size, ticks_to_wait);
-    }
+    return (void *)k_current_get();
+}
+
+static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, void *event_data, size_t event_data_size, uint32_t ticks_to_wait)
+{
+    esp_wifi_event_handler(event_base, event_id, event_data, event_data_size, ticks_to_wait);
+    return 0;
 }
 
 static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
@@ -310,43 +445,29 @@ static int get_time_wrapper(void *t)
     return os_get_time(t);
 }
 
-static void * IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
+static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
 {
-    return heap_caps_realloc(ptr, size, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+    ARG_UNUSED(ptr);
+    ARG_UNUSED(size);
+
+    LOG_ERR("%s not yet supported", __func__);
+    return NULL;
 }
 
-static void * IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
+static void *IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
 {
-    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+    return k_calloc(n, size);
 }
 
-static void * IRAM_ATTR zalloc_internal_wrapper(size_t size)
+static void *IRAM_ATTR zalloc_internal_wrapper(size_t size)
 {
-    void *ptr = heap_caps_calloc(1, size, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
-    return ptr;
+    return k_calloc(1, size);
 }
 
-static esp_err_t nvs_open_wrapper(const char* name, unsigned int open_mode, nvs_handle_t *out_handle)
+static uint32_t esp_get_free_heap_size_wrapper(void)
 {
-    return nvs_open(name,(nvs_open_mode_t)open_mode, out_handle);
-}
-
-static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
-{
-    return esp_log_writev((esp_log_level_t)level,tag,format,args);
-}
-
-static void esp_log_write_wrapper(unsigned int level,const char *tag,const char *format, ...)
-{
-    va_list list;
-    va_start(list, format);
-    esp_log_writev((esp_log_level_t)level, tag, format, list);
-    va_end(list);
-}
-
-static esp_err_t esp_read_mac_wrapper(uint8_t* mac, unsigned int type)
-{
-    return esp_read_mac(mac, (esp_mac_type_t)type);
+    /* FIXME: API to get free heap size is not available in Zephyr. */
+    return 10000;
 }
 
 static int coex_init_wrapper(void)
@@ -476,7 +597,7 @@ static uint8_t coex_schm_curr_period_get_wrapper(void)
 #endif
 }
 
-static void * coex_schm_curr_phase_get_wrapper(void)
+static void *coex_schm_curr_phase_get_wrapper(void)
 {
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     return coex_schm_curr_phase_get();
@@ -485,7 +606,7 @@ static void * coex_schm_curr_phase_get_wrapper(void)
 #endif
 }
 
-static int coex_register_start_cb_wrapper(int (* cb)(void))
+static int coex_register_start_cb_wrapper(int (*cb)(void))
 {
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     return coex_register_start_cb(cb);
@@ -496,7 +617,7 @@ static int coex_register_start_cb_wrapper(int (* cb)(void))
 
 static int coex_schm_process_restart_wrapper(void)
 {
-#if CONFIG_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     return coex_schm_process_restart();
 #else
     return 0;
@@ -505,7 +626,7 @@ static int coex_schm_process_restart_wrapper(void)
 
 static int coex_schm_register_cb_wrapper(int type, int(*cb)(int))
 {
-#if CONFIG_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     return coex_schm_register_callback(type, cb);
 #else
     return 0;
@@ -530,9 +651,17 @@ static uint8_t coex_schm_flexible_period_get_wrapper(void)
 #endif
 }
 
+static void *coex_schm_get_phase_by_idx_wrapper(int phase_idx)
+{
+#if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
+    return coex_schm_get_phase_by_idx(phase_idx);
+#else
+    return NULL;
+#endif
+}
+
 static void IRAM_ATTR esp_empty_wrapper(void)
 {
-
 }
 
 static void esp_phy_enable_wrapper(void)
@@ -547,6 +676,116 @@ static void esp_phy_disable_wrapper(void)
     esp_phy_disable(PHY_MODEM_WIFI);
 }
 
+static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
+{
+#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
+    esp_log_writev((esp_log_level_t)level, tag, format, args);
+#endif
+}
+
+static void esp_log_write_wrapper(uint32_t level, const char *tag, const char *format, ...)
+{
+#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
+    va_list list;
+    va_start(list, format);
+    esp_log_writev((esp_log_level_t)level, tag, format, list);
+    va_end(list);
+#endif
+}
+
+/* NVS stubs */
+int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(value);
+    return 0;
+}
+
+int32_t nvs_get_i8(uint32_t handle, const char *key, int8_t *out_value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(out_value);
+    return 0;
+}
+
+int32_t nvs_set_u8(uint32_t handle, const char *key, uint8_t value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(value);
+    return 0;
+}
+
+int32_t nvs_get_u8(uint32_t handle, const char *key, uint8_t *out_value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(out_value);
+    return 0;
+}
+
+int32_t nvs_set_u16(uint32_t handle, const char *key, uint16_t value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(value);
+    return 0;
+}
+
+int32_t nvs_get_u16(uint32_t handle, const char *key, uint16_t *out_value)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(out_value);
+    return 0;
+}
+
+int32_t nvs_open_wrapper(const char *name, uint32_t open_mode, uint32_t *out_handle)
+{
+    ARG_UNUSED(name);
+    ARG_UNUSED(open_mode);
+    ARG_UNUSED(out_handle);
+    return 0;
+}
+
+void nvs_close(uint32_t handle)
+{
+    ARG_UNUSED(handle);
+}
+
+int32_t nvs_commit(uint32_t handle)
+{
+    ARG_UNUSED(handle);
+    return 0;
+}
+
+int32_t nvs_set_blob(uint32_t handle, const char *key, const void *value, size_t length)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(value);
+    ARG_UNUSED(length);
+    return 0;
+}
+
+int32_t nvs_get_blob(uint32_t handle, const char *key, void *out_value, size_t *length)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    ARG_UNUSED(out_value);
+    ARG_UNUSED(length);
+    return 0;
+}
+
+int32_t nvs_erase_key(uint32_t handle, const char *key)
+{
+    ARG_UNUSED(handle);
+    ARG_UNUSED(key);
+    return 0;
+}
+
 wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._version = ESP_WIFI_OS_ADAPTER_VERSION,
     ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
@@ -555,9 +794,9 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._set_isr = set_isr_wrapper,
     ._ints_on = enable_intr_wrapper,
     ._ints_off = disable_intr_wrapper,
-    ._is_from_isr = is_from_isr_wrapper,
+    ._is_from_isr = k_is_in_isr,
     ._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
-    ._spin_lock_delete = free,
+    ._spin_lock_delete = esp_wifi_free,
     ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
     ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
     ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
@@ -572,30 +811,30 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._mutex_lock = mutex_lock_wrapper,
     ._mutex_unlock = mutex_unlock_wrapper,
     ._queue_create = queue_create_wrapper,
-    ._queue_delete = (void(*)(void *))vQueueDelete,
+    ._queue_delete = queue_delete_wrapper,
     ._queue_send = queue_send_wrapper,
     ._queue_send_from_isr = queue_send_from_isr_wrapper,
     ._queue_send_to_back = queue_send_to_back_wrapper,
     ._queue_send_to_front = queue_send_to_front_wrapper,
     ._queue_recv = queue_recv_wrapper,
-    ._queue_msg_waiting = (uint32_t(*)(void *))uxQueueMessagesWaiting,
-    ._event_group_create = (void *(*)(void))xEventGroupCreate,
-    ._event_group_delete = (void(*)(void *))vEventGroupDelete,
-    ._event_group_set_bits = (uint32_t(*)(void *,uint32_t))xEventGroupSetBits,
-    ._event_group_clear_bits = (uint32_t(*)(void *,uint32_t))xEventGroupClearBits,
+    ._queue_msg_waiting = queue_msg_waiting_wrapper,
+    ._event_group_create = event_group_create_wrapper,
+    ._event_group_delete = event_group_delete_wrapper,
+    ._event_group_set_bits = event_group_set_bits_wrapper,
+    ._event_group_clear_bits = event_group_clear_bits_wrapper,
     ._event_group_wait_bits = event_group_wait_bits_wrapper,
     ._task_create_pinned_to_core = task_create_pinned_to_core_wrapper,
     ._task_create = task_create_wrapper,
-    ._task_delete = (void(*)(void *))vTaskDelete,
-    ._task_delay = vTaskDelay,
+    ._task_delete = task_delete_wrapper,
+    ._task_delay = task_delay_wrapper,
     ._task_ms_to_tick = task_ms_to_tick_wrapper,
-    ._task_get_current_task = (void *(*)(void))xTaskGetCurrentTaskHandle,
+    ._task_get_current_task = task_get_current_task_wrapper,
     ._task_get_max_priority = task_get_max_priority_wrapper,
-    ._malloc = malloc,
-    ._free = free,
+    ._malloc = wifi_malloc,
+    ._free = esp_wifi_free,
     ._event_post = esp_event_post_wrapper,
-    ._get_free_heap_size = esp_get_free_internal_heap_size,
-    ._rand = esp_random,
+    ._get_free_heap_size = esp_get_free_heap_size_wrapper,
+    ._rand = sys_rand32_get,
     ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
     ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
     ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
@@ -603,7 +842,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._phy_disable = esp_phy_disable_wrapper,
     ._phy_enable = esp_phy_enable_wrapper,
     ._phy_update_country_info = esp_phy_update_country_info,
-    ._read_mac = esp_read_mac_wrapper,
+    ._read_mac = esp_read_mac,
     ._timer_arm = timer_arm_wrapper,
     ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
     ._timer_done = esp_coex_common_timer_done_wrapper,
@@ -633,8 +872,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
     ._log_write = esp_log_write_wrapper,
     ._log_writev = esp_log_writev_wrapper,
-    ._log_timestamp = esp_log_timestamp,
-    ._malloc_internal =  esp_coex_common_malloc_internal_wrapper,
+    ._log_timestamp = k_uptime_get_32,
+    ._malloc_internal = esp_coex_common_malloc_internal_wrapper,
     ._realloc_internal = realloc_internal_wrapper,
     ._calloc_internal = calloc_internal_wrapper,
     ._zalloc_internal = zalloc_internal_wrapper,
@@ -665,5 +904,6 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._coex_schm_register_cb = coex_schm_register_cb_wrapper,
     ._coex_schm_flexible_period_set = coex_schm_flexible_period_set_wrapper,
     ._coex_schm_flexible_period_get = coex_schm_flexible_period_get_wrapper,
+    ._coex_schm_get_phase_by_idx = coex_schm_get_phase_by_idx_wrapper,
     ._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };

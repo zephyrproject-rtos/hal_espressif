@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -56,6 +56,7 @@ size_t multi_heap_free_size_impl(multi_heap_handle_t heap);
 size_t multi_heap_minimum_free_size_impl(multi_heap_handle_t heap);
 size_t multi_heap_get_allocated_size_impl(multi_heap_handle_t heap, void *p);
 void *multi_heap_get_block_address_impl(multi_heap_block_handle_t block);
+void *multi_heap_find_containing_block_impl(multi_heap_handle_t heap, void *ptr);
 
 /* Some internal functions for heap poisoning use */
 
@@ -87,6 +88,3 @@ bool multi_heap_is_free(const multi_heap_block_handle_t block);
 
 /* Get the data address of a heap block */
 void *multi_heap_get_block_address(multi_heap_block_handle_t block);
-
-/* Get the owner identification for a heap block */
-void *multi_heap_get_block_owner(multi_heap_block_handle_t block);

@@ -49,11 +49,11 @@ typedef struct {
 
 /**
  * @brief Reserve the interrupts on the core where Bluetooth will run.
- * The macro CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE is only defined if Bluetooth controller is enabled.
+ * The macro CONFIG_BTDM_CTRL_PINNED_TO_CORE is only defined if Bluetooth controller is enabled.
  * It is set to the core where it will run.
  */
-#ifdef CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE
-    #if CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 0
+#ifdef CONFIG_BTDM_CTRL_PINNED_TO_CORE
+    #if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 0
         /* Interrupt 1 is used by Bluetooth UART HCI, check code above */
         #define CORE_0_INTERRUPT_1  STATE_INTERRUPT_1
         #define CORE_1_INTERRUPT_1  0
@@ -69,7 +69,7 @@ typedef struct {
         /* Interrupt 25 may be used by Bluetooth BR/EDR and BLE controller */
         #define CORE_0_INTERRUPT_25 STATE_INTERRUPT_25
         #define CORE_1_INTERRUPT_25 0
-    #elif CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 1
+    #elif CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
         /* Interrupt 1 is used by Bluetooth UART HCI, check code above */
         #define CORE_0_INTERRUPT_1  0
         #define CORE_1_INTERRUPT_1  STATE_INTERRUPT_1
@@ -167,7 +167,7 @@ const static intr_desc_t intr_desc_table [SOC_CPU_INTR_NUM] = {
     [11] = { 3, ESP_CPU_INTR_TYPE_NA,    { ESP_CPU_INTR_DESC_FLAG_SPECIAL, ESP_CPU_INTR_DESC_FLAG_SPECIAL  } },
     [12] = { 1, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } },
     [13] = { 1, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } },
-    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } }, // NMI
+    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } }, // NMI
 #if CONFIG_FREERTOS_CORETIMER_1
     [15] = { 3, ESP_CPU_INTR_TYPE_NA,    { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } },
 #else

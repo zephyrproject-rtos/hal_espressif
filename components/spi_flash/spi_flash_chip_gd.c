@@ -8,9 +8,11 @@
 #include <string.h>
 #include <zephyr/sys/util.h>
 #include "esp_log.h"
-#include "spi_flash_chip_generic.h"
-#include "spi_flash_chip_gd.h"
-#include "spi_flash_defs.h"
+#include "sdkconfig.h"
+
+#include "esp_flash_chips/spi_flash_defs.h"
+#include "esp_flash_chips/spi_flash_chip_generic.h"
+#include "esp_flash_chips/spi_flash_chip_gd.h"
 
 #define ADDR_32BIT(addr)            (addr >= (1<<24))
 
@@ -33,6 +35,19 @@ spi_flash_caps_t spi_flash_chip_gd_get_caps(esp_flash_t *chip)
     if ((chip->chip_id & 0xFF) >= 0x19) {
         caps_flags |= SPI_FLASH_CHIP_CAP_32MB_SUPPORT;
     }
+#if CONFIG_SPI_FLASH_AUTO_SUSPEND
+    switch (chip->chip_id) {
+    /* The flash listed here can support suspend */
+    case 0xC84016:
+    case 0xC84017:
+    case 0xC84018:
+    case 0xC84319:
+        caps_flags |= SPI_FLASH_CHIP_CAP_SUSPEND;
+        break;
+    default:
+        break;
+    }
+#endif
     // flash-suspend is not supported
     // flash read unique id.
     caps_flags |= SPI_FLASH_CHIP_CAP_UNIQUE_ID;
@@ -60,6 +75,8 @@ esp_err_t spi_flash_chip_gd_detect_size(esp_flash_t *chip, uint32_t *size)
 #define FLASH_SIZE_MASK     0xFF
 #define GD25Q_PRODUCT_ID    0x4000
 #define GD25LQ_PRODUCT_ID   0x6000
+#define GD25UF_PRODUCT_ID   0x8300
+#define GD55F_PRODUCT_ID    0x4300
 
 #define WRSR_16B_REQUIRED(chip_id) (((chip_id) & FLASH_ID_MASK) == GD25LQ_PRODUCT_ID || \
                                     ((chip_id) & FLASH_SIZE_MASK) <= 0x15)
@@ -75,7 +92,7 @@ esp_err_t spi_flash_chip_gd_probe(esp_flash_t *chip, uint32_t flash_id)
     }
 
     uint32_t product_id = flash_id & FLASH_ID_MASK;
-    if (product_id != GD25Q_PRODUCT_ID && product_id != GD25LQ_PRODUCT_ID) {
+    if (product_id != GD25Q_PRODUCT_ID && product_id != GD25LQ_PRODUCT_ID && product_id != GD25UF_PRODUCT_ID && product_id != GD55F_PRODUCT_ID) {
         return ESP_ERR_NOT_FOUND;
     }
 
@@ -111,6 +128,18 @@ esp_err_t spi_flash_chip_gd_get_io_mode(esp_flash_t *chip, esp_flash_io_mode_t* 
     return ret;
 }
 #endif //CONFIG_SPI_FLASH_ROM_IMPL
+
+esp_err_t spi_flash_chip_gd_suspend_cmd_conf(esp_flash_t *chip)
+{
+    spi_flash_sus_cmd_conf sus_conf = {
+        .sus_mask = 0x84,
+        .cmd_rdsr = CMD_RDSR2,
+        .sus_cmd = CMD_SUSPEND,
+        .res_cmd = CMD_RESUME,
+    };
+
+    return chip->host->driver->sus_setup(chip->host, &sus_conf);
+}
 
 static const char chip_name[] = "gd";
 
@@ -148,7 +177,7 @@ const spi_flash_chip_t esp_flash_chip_gd = {
 
     .read_reg = spi_flash_chip_generic_read_reg,
     .yield = spi_flash_chip_generic_yield,
-    .sus_setup = spi_flash_chip_generic_suspend_cmd_conf,
+    .sus_setup = spi_flash_chip_gd_suspend_cmd_conf,
     .read_unique_id = spi_flash_chip_generic_read_unique_id,
     .get_chip_caps = spi_flash_chip_gd_get_caps,
     .config_host_io_mode = spi_flash_chip_generic_config_host_io_mode,

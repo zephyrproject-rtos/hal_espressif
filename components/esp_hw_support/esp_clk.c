@@ -1,12 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdint.h>
 #include <string.h>
-#include <zephyr/sys/util.h>
+#include <sys/lock.h>
 
 #include <zephyr/kernel.h>
 
@@ -16,36 +16,22 @@
 #include "esp_rom_caps.h"
 #include "esp_rom_sys.h"
 #include "esp_private/esp_clk.h"
+#include "esp_private/critical_section.h"
 #include "hal/clk_tree_ll.h"
 
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/rtc.h"
-#include "esp32/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rom/rtc.h"
-#include "esp32s2/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32S3
-#include "esp32s3/rom/rtc.h"
-#include "esp32s3/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C3
-#include "esp32c3/rom/rtc.h"
-#include "esp32c3/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C2
-#include "esp32c2/rom/rtc.h"
-#include "esp32c2/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C6
-#include "esp32c6/rom/rtc.h"
-#include "esp32c6/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32H2
-#include "esp32h2/rom/rtc.h"
-#include "esp32h2/rtc.h"
-#endif
+#include "rom/rtc.h"
+#include "esp_rtc_time.h"
 
-#undef MHZ
-#define MHZ (1000000)
+#if CONFIG_PM_SLP_IRAM_OPT
+# define ESP_CLK_FN_ATTR    IRAM_ATTR
+#else
+# define ESP_CLK_FN_ATTR
+#endif
 
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
+
+static unsigned int s_esp_rtc_time_lock;
 
 #if SOC_RTC_MEM_SUPPORTED
 typedef struct {
@@ -59,7 +45,7 @@ _Static_assert(offsetof(retain_mem_t, checksum) == sizeof(retain_mem_t) - sizeof
 
 static __attribute__((section(".rtc_timer_data_in_rtc_mem"))) retain_mem_t s_rtc_timer_retain_mem;
 
-static uint32_t calc_checksum(void)
+static ESP_CLK_FN_ATTR uint32_t calc_checksum(void)
 {
     uint32_t checksum = 0;
     uint32_t *data = (uint32_t*) &s_rtc_timer_retain_mem;
@@ -83,27 +69,28 @@ inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
 
 int IRAM_ATTR esp_clk_cpu_freq(void)
 {
-    return s_get_cpu_freq_mhz() * MHZ;
+    return s_get_cpu_freq_mhz() * MHZ(1);
 }
 
 int IRAM_ATTR esp_clk_apb_freq(void)
 {
     // TODO: IDF-5173 Require cleanup, implementation should be unified
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2
+    uint32_t cpu_freq_hz = s_get_cpu_freq_mhz() * MHZ(1);
+    return MIN(cpu_freq_hz, APB_CLK_FREQ);
+#else // for all later targets
     return rtc_clk_apb_freq_get();
-#else
-    return MIN(s_get_cpu_freq_mhz() * MHZ, APB_CLK_FREQ);
 #endif
 }
 
 int IRAM_ATTR esp_clk_xtal_freq(void)
 {
-    return rtc_clk_xtal_freq_get() * MHZ;
+    return rtc_clk_xtal_freq_get() * MHZ(1);
 }
 
 uint64_t esp_rtc_get_time_us(void)
 {
-    unsigned int key = irq_lock();
+    esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
     const uint32_t cal = esp_clk_slowclk_cal_get();
 #if SOC_RTC_MEM_SUPPORTED
     static bool first_call = true;
@@ -146,11 +133,11 @@ uint64_t esp_rtc_get_time_us(void)
     s_rtc_timer_retain_mem.rtc_last_ticks = rtc_this_ticks;
     s_rtc_timer_retain_mem.checksum = calc_checksum();
     uint64_t esp_rtc_time_us = s_rtc_timer_retain_mem.rtc_time_us;
-    irq_unlock(key);
+    esp_os_exit_critical_safe(&s_esp_rtc_time_lock);
     return esp_rtc_time_us;
 #else
     uint64_t esp_rtc_time_us = delta_time_us + clk_ll_rtc_slow_load_rtc_fix_us();
-    irq_unlock(key);
+    esp_os_exit_critical_safe(&s_esp_rtc_time_lock);
     return esp_rtc_time_us;
 #endif
 }
@@ -164,7 +151,7 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
 #if SOC_RTC_MEM_SUPPORTED
     esp_rtc_get_time_us();
 #else
-    unsigned int key = irq_lock();
+    esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
     uint32_t old_cal = clk_ll_rtc_slow_load_cal();
     if (old_cal != 0) {
         /**
@@ -187,7 +174,7 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
         new_fix_us = old_fix_us - new_fix_us;
         clk_ll_rtc_slow_store_rtc_fix_us(new_fix_us);
     }
-    irq_unlock(key);
+    esp_os_exit_critical_safe(&s_esp_rtc_time_lock);
 #endif // SOC_RTC_MEM_SUPPORTED
 #endif // CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER
     clk_ll_rtc_slow_store_cal(new_cal);
@@ -209,8 +196,10 @@ uint64_t esp_clk_rtc_time(void)
 
 void esp_clk_private_lock(void)
 {
+    esp_os_enter_critical(&s_esp_rtc_time_lock);
 }
 
 void esp_clk_private_unlock(void)
 {
+    esp_os_exit_critical(&s_esp_rtc_time_lock);
 }

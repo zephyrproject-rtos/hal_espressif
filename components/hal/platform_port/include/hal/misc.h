@@ -7,11 +7,9 @@
 
 #include <string.h>
 
-#undef asm
-#define asm  __asm__
-
-#undef typeof
-#define typeof  __typeof__
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define HAL_SWAP16(d) __builtin_bswap16((d))
 #define HAL_SWAP32(d) __builtin_bswap32((d))
@@ -81,3 +79,7 @@
  * @return a pointer to the memory area
  */
 #define hal_memset(dst_mem, value, len) (__extension__({memset(dst_mem, value, len);}))
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,33 +9,19 @@
 #include <assert.h>
 #include "soc/soc.h"
 #include "soc/soc_caps.h"
-
-// TODO: IDF-5645
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
-#include "soc/lp_aon_reg.h"
-#include "soc/pcr_reg.h"
-#define SYSTEM_CPU_PER_CONF_REG PCR_CPU_WAITI_CONF_REG
-#define SYSTEM_CPU_WAIT_MODE_FORCE_ON PCR_CPU_WAIT_MODE_FORCE_ON
-#else
-#include "soc/rtc_cntl_reg.h"
-#endif
-
-#include "hal/soc_hal.h"
+#include "hal/cpu_utility_ll.h"
 #include "esp_bit_defs.h"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_cpu.h"
 #if __XTENSA__
 #include "xtensa/config/core-isa.h"
-#else
-#include "soc/system_reg.h"     // For SYSTEM_CPU_PER_CONF_REG
-#include "soc/dport_access.h"   // For Dport access
+#else // __riscv
 #include "riscv/semihosting.h"
-#endif
 #if SOC_CPU_HAS_FLEXIBLE_INTC
 #include "riscv/instruction_decode.h"
 #endif
-
+#endif // __riscv
 
 /* --------------------------------------------------- CPU Control -----------------------------------------------------
  *
@@ -43,66 +29,24 @@
 
 void esp_cpu_stall(int core_id)
 {
+#if SOC_CPU_CORES_NUM > 1  // We don't allow stalling of the current core
     assert(core_id >= 0 && core_id < SOC_CPU_CORES_NUM);
-#if SOC_CPU_CORES_NUM > 1   // We don't allow stalling of the current core
-    /*
-    We need to write the value "0x86" to stall a particular core. The write location is split into two separate
-    bit fields named "c0" and "c1", and the two fields are located in different registers. Each core has its own pair of
-    "c0" and "c1" bit fields.
-
-    Note: This function can be called when the cache is disabled. We use "ternary if" instead of an array so that the
-    "rodata" of the register masks/shifts will be stored in this function's "rodata" section, instead of the source
-    file's "rodata" section (see IDF-5214).
-    */
-    int rtc_cntl_c0_m = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C0_M : RTC_CNTL_SW_STALL_APPCPU_C0_M;
-    int rtc_cntl_c0_s = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C0_S : RTC_CNTL_SW_STALL_APPCPU_C0_S;
-    int rtc_cntl_c1_m = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C1_M : RTC_CNTL_SW_STALL_APPCPU_C1_M;
-    int rtc_cntl_c1_s = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C1_S : RTC_CNTL_SW_STALL_APPCPU_C1_S;
-    CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, rtc_cntl_c0_m);
-    SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, 2 << rtc_cntl_c0_s);
-    CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, rtc_cntl_c1_m);
-    SET_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, 0x21 << rtc_cntl_c1_s);
-#endif
+    cpu_utility_ll_stall_cpu(core_id);
+#endif // SOC_CPU_CORES_NUM > 1
 }
 
 void esp_cpu_unstall(int core_id)
 {
-    assert(core_id >= 0 && core_id < SOC_CPU_CORES_NUM);
 #if SOC_CPU_CORES_NUM > 1   // We don't allow stalling of the current core
-    /*
-    We need to write clear the value "0x86" to unstall a particular core. The location of this value is split into
-    two separate bit fields named "c0" and "c1", and the two fields are located in different registers. Each core has
-    its own pair of "c0" and "c1" bit fields.
-
-    Note: This function can be called when the cache is disabled. We use "ternary if" instead of an array so that the
-    "rodata" of the register masks/shifts will be stored in this function's "rodata" section, instead of the source
-    file's "rodata" section (see IDF-5214).
-    */
-    int rtc_cntl_c0_m = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C0_M : RTC_CNTL_SW_STALL_APPCPU_C0_M;
-    int rtc_cntl_c1_m = (core_id == 0) ? RTC_CNTL_SW_STALL_PROCPU_C1_M : RTC_CNTL_SW_STALL_APPCPU_C1_M;
-    CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, rtc_cntl_c0_m);
-    CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, rtc_cntl_c1_m);
-#endif
+    assert(core_id >= 0 && core_id < SOC_CPU_CORES_NUM);
+    cpu_utility_ll_unstall_cpu(core_id);
+#endif // SOC_CPU_CORES_NUM > 1
 }
 
 void esp_cpu_reset(int core_id)
 {
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2// TODO: IDF-5645
-    SET_PERI_REG_MASK(LP_AON_CPUCORE0_CFG_REG, LP_AON_CPU_CORE0_SW_RESET);
-#else
     assert(core_id >= 0 && core_id < SOC_CPU_CORES_NUM);
-#if SOC_CPU_CORES_NUM > 1
-    /*
-    Note: This function can be called when the cache is disabled. We use "ternary if" instead of an array so that the
-    "rodata" of the register masks/shifts will be stored in this function's "rodata" section, instead of the source
-    file's "rodata" section (see IDF-5214).
-    */
-    int rtc_cntl_rst_m = (core_id == 0) ? RTC_CNTL_SW_PROCPU_RST_M : RTC_CNTL_SW_APPCPU_RST_M;
-#else // SOC_CPU_CORES_NUM > 1
-    int rtc_cntl_rst_m = RTC_CNTL_SW_PROCPU_RST_M;
-#endif // SOC_CPU_CORES_NUM > 1
-    SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, rtc_cntl_rst_m);
-#endif
+    cpu_utility_ll_reset_cpu(core_id);
 }
 
 void esp_cpu_wait_for_intr(void)
@@ -110,8 +54,7 @@ void esp_cpu_wait_for_intr(void)
 #if __XTENSA__
     xt_utils_wait_for_intr();
 #else
-    // TODO: IDF-5645 (better to implement with ll) C6 register names converted in the #include section at the top
-    if (esp_cpu_dbgr_is_attached() && DPORT_REG_GET_BIT(SYSTEM_CPU_PER_CONF_REG, SYSTEM_CPU_WAIT_MODE_FORCE_ON) == 0) {
+    if (esp_cpu_dbgr_is_attached() && cpu_utility_ll_wait_mode() == 0) {
         /* when SYSTEM_CPU_WAIT_MODE_FORCE_ON is disabled in WFI mode SBA access to memory does not work for debugger,
            so do not enter that mode when debugger is connected */
         return;
@@ -278,7 +221,7 @@ bool esp_cpu_compare_and_set(volatile uint32_t *addr, uint32_t compare_value, ui
         // Release the external RAM CAS lock
         external_ram_cas_lock = 0;
 exit:
-        // Reenable interrupts
+        // Re-enable interrupts
         __asm__ __volatile__ ("memw \n"
                               "wsr %0, ps\n"
                               :: "r"(intr_level));
@@ -289,8 +232,8 @@ exit:
         ret = xt_utils_compare_and_set(addr, compare_value, new_value);
     }
     return ret;
-#else // __XTENSA__
-    // Single core targets don't have atomic CAS instruction. So access method is the same for internal and external RAM
+
+#else // __riscv
     return rv_utils_compare_and_set(addr, compare_value, new_value);
 #endif
 }

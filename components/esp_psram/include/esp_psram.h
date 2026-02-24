@@ -1,9 +1,8 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
 
 #pragma once
 
@@ -18,6 +17,7 @@ extern "C" {
 
 /**
  * @brief Initialize PSRAM interface/hardware.
+ * Initializes the PSRAM hardware and load the XIP segments or maps the PSRAM memory
  *
  * @return
  *        - ESP_OK:                On success

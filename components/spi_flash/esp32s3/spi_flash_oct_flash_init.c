@@ -7,8 +7,6 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_err.h"
-#include "esp_rom_gpio.h"
-#include "esp32s3/rom/gpio.h"
 #include "esp32s3/rom/spi_flash.h"
 #include "esp32s3/rom/opi_flash.h"
 #include "esp_private/spi_flash_os.h"
@@ -221,7 +219,7 @@ static void s_flash_init_mxic(esp_rom_spiflash_read_mode_t mode)
 }
 #endif   // #if CONFIG_SPI_FLASH_SUPPORT_MXIC_OPI_CHIP
 
-__attribute__((unused)) static void s_mxic_set_required_regs(uint32_t chip_id)
+static void s_mxic_set_required_regs(uint32_t chip_id)
 {
     bool is_swap = false;
 #if CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR

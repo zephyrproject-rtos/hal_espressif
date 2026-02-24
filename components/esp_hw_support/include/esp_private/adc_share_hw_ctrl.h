@@ -12,7 +12,7 @@
  *
  * However, usages of above components are different.
  * Therefore, we put the common used parts into `esp_hw_support`, including:
- * - adc power maintainance
+ * - adc power maintenance
  * - adc hw calibration settings
  * - adc locks, to prevent concurrently using adc hw
  */
@@ -21,6 +21,7 @@
 #include "esp_err.h"
 #include "hal/adc_types.h"
 #include "soc/soc_caps.h"
+#include "esp_private/periph_ctrl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -147,12 +148,6 @@ esp_err_t adc2_wifi_release(void);
  * @note  This is a private function, Don't call `adc2_cal_include` in user code.
  */
 void adc2_cal_include(void);
-
-/**
- * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
- *        This API be called in before `app_main()`.
- */
-void adc2_init_code_calibration(void);
 #else
 /**
  * @brief There's no calibration involved on this chip.

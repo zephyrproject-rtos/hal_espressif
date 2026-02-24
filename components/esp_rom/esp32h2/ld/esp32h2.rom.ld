@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -161,30 +161,6 @@ g_flash_guard_ops = 0x4084fff4;
 esp_rom_spiflash_write_disable = 0x40000270;
 
 /***************************************
- Group hal_systimer
- ***************************************/
-
-/* Functions */
-/* The following ROM functions are commented out because they're patched in the esp_rom_systimer.c */
-/* systimer_hal_init = 0x400003b8; */
-/* systimer_hal_deinit = 0x400003bc; */
-
-systimer_hal_set_tick_rate_ops = 0x400003c0;
-systimer_hal_get_counter_value = 0x400003c4;
-systimer_hal_get_time = 0x400003c8;
-systimer_hal_set_alarm_target = 0x400003cc;
-systimer_hal_set_alarm_period = 0x400003d0;
-systimer_hal_get_alarm_value = 0x400003d4;
-systimer_hal_enable_alarm_int = 0x400003d8;
-systimer_hal_on_apb_freq_update = 0x400003dc;
-systimer_hal_counter_value_advance = 0x400003e0;
-systimer_hal_enable_counter = 0x400003e4;
-systimer_hal_select_alarm_mode = 0x400003e8;
-systimer_hal_connect_alarm_counter = 0x400003ec;
-systimer_hal_counter_can_stall_by_cpu = 0x400003f0;
-
-
-/***************************************
  Group cache
  ***************************************/
 
@@ -247,23 +223,23 @@ ets_clk_get_cpu_freq = 0x4000069c;
  ***************************************/
 
 /* Functions */
-gpio_input_get = 0x400006a0;
-gpio_matrix_in = 0x400006a4;
-gpio_matrix_out = 0x400006a8;
-gpio_output_disable = 0x400006ac;
-gpio_output_enable = 0x400006b0;
-gpio_output_set = 0x400006b4;
-gpio_pad_hold = 0x400006b8;
-gpio_pad_input_disable = 0x400006bc;
-gpio_pad_input_enable = 0x400006c0;
-gpio_pad_pulldown = 0x400006c4;
-gpio_pad_pullup = 0x400006c8;
-gpio_pad_select_gpio = 0x400006cc;
-gpio_pad_set_drv = 0x400006d0;
-gpio_pad_unhold = 0x400006d4;
-gpio_pin_wakeup_disable = 0x400006d8;
-gpio_pin_wakeup_enable = 0x400006dc;
-gpio_bypass_matrix_in = 0x400006e0;
+rom_gpio_input_get = 0x400006a0;
+rom_gpio_matrix_in = 0x400006a4;
+rom_gpio_matrix_out = 0x400006a8;
+rom_gpio_output_disable = 0x400006ac;
+rom_gpio_output_enable = 0x400006b0;
+rom_gpio_output_set = 0x400006b4;
+rom_gpio_pad_hold = 0x400006b8;
+rom_gpio_pad_input_disable = 0x400006bc;
+rom_gpio_pad_input_enable = 0x400006c0;
+rom_gpio_pad_pulldown = 0x400006c4;
+rom_gpio_pad_pullup = 0x400006c8;
+rom_gpio_pad_select_gpio = 0x400006cc;
+rom_gpio_pad_set_drv = 0x400006d0;
+rom_gpio_pad_unhold = 0x400006d4;
+rom_gpio_pin_wakeup_disable = 0x400006d8;
+rom_gpio_pin_wakeup_enable = 0x400006dc;
+rom_gpio_bypass_matrix_in = 0x400006e0;
 
 
 /***************************************

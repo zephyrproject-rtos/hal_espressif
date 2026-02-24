@@ -1,20 +1,19 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
 #include "esp_timer_impl.h"
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_task.h"
 #include "esp_attr.h"
 #include <zephyr/kernel.h>
-#include <zephyr/sys/atomic.h>
-#include <zephyr/sys/__assert.h>
+#include "esp_private/critical_section.h"
 
 /* Spinlock used to protect access to the hardware registers. */
-unsigned int s_time_update_lock;
-static atomic_t s_timer_lock_counter;
+unsigned int s_time_update_lock = 0;
 
 /* Alarm values to generate interrupt on match
  * [0] - for ESP_TIMER_TASK alarms,
@@ -24,30 +23,27 @@ uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
 
 void esp_timer_impl_lock(void)
 {
-    if (atomic_inc(&s_timer_lock_counter) == 0) {
-        s_time_update_lock = irq_lock();
-    }
+    esp_os_enter_critical(&s_time_update_lock);
 }
 
 void esp_timer_impl_unlock(void)
 {
-    __ASSERT_NO_MSG(atomic_get(&s_timer_lock_counter) > 0);
-    if (atomic_dec(&s_timer_lock_counter) == 1) {
-        irq_unlock(s_time_update_lock);
-    }
+    esp_os_exit_critical(&s_time_update_lock);
 }
 
 void esp_timer_private_lock(void) __attribute__((alias("esp_timer_impl_lock")));
 void esp_timer_private_unlock(void) __attribute__((alias("esp_timer_impl_unlock")));
 
-void IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
+void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm(uint64_t timestamp)
 {
     esp_timer_impl_set_alarm_id(timestamp, 0);
 }
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
-void IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void) {
-    esp_timer_impl_lock();
+void ESP_TIMER_IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void)
+{
+    unsigned int key;
+    esp_os_enter_critical_isr(&key);
     unsigned now_alarm_idx;  // ISR is called due to this current alarm
     unsigned next_alarm_idx; // The following alarm after now_alarm_idx
     if (timestamp_id[0] < timestamp_id[1]) {
@@ -67,12 +63,12 @@ void IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void) {
         // Remove the current alarm from consideration as well.
         timestamp_id[now_alarm_idx] = UINT64_MAX;
     }
-    esp_timer_impl_unlock();
+    esp_os_exit_critical_isr(&key);
 }
 #endif
 
 /* FIXME: This value is safe for 80MHz APB frequency, should be modified to depend on clock frequency. */
-uint64_t IRAM_ATTR esp_timer_impl_get_min_period_us(void)
+uint64_t ESP_TIMER_IRAM_ATTR esp_timer_impl_get_min_period_us(void)
 {
     return 50;
 }

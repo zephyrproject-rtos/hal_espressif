@@ -1,1 +1,0 @@
-# The CPU frequency is never really used, except in some xtensa timer headers, so it's empty for Linux.

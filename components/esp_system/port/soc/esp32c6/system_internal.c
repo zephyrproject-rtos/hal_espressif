@@ -6,33 +6,38 @@
 
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_macros.h"
 #include "esp_system.h"
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "riscv/rv_utils.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "soc/gpio_reg.h"
 #include "esp_cpu.h"
 #include "soc/rtc.h"
 #include "esp_private/rtc_clk.h"
-#include "soc/rtc_periph.h"
 #include "soc/uart_reg.h"
+#include "hal/uart_ll.h"
 #include "hal/wdt_hal.h"
+#include "hal/uart_ll.h"
 #include "hal/modem_syscon_ll.h"
 #include "hal/modem_lpcon_ll.h"
-#include "cache_err_int.h"
+#include "esp_private/cache_err_int.h"
 
 #include "esp32c6/rom/cache.h"
 #include "esp32c6/rom/rtc.h"
 #include "soc/pcr_reg.h"
 
-void IRAM_ATTR esp_system_reset_modules_on_exit(void)
+void esp_system_reset_modules_on_exit(void)
 {
     // Flush any data left in UART FIFOs before reset the UART peripheral
-    esp_rom_uart_tx_wait_idle(0);
-    esp_rom_uart_tx_wait_idle(1);
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+        if (uart_ll_is_enabled(i)) {
+            esp_rom_output_tx_wait_idle(i);
+        }
+    }
 
     modem_syscon_ll_reset_all(&MODEM_SYSCON);
     modem_lpcon_ll_reset_all(&MODEM_LPCON);
@@ -48,6 +53,7 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
     SET_PERI_REG_MASK(PCR_PWM_CONF_REG, PCR_PWM_RST_EN);
     //ETM may directly control the GPIO or other peripherals even after CPU reset. Reset to stop these control.
     SET_PERI_REG_MASK(PCR_ETM_CONF_REG, PCR_ETM_RST_EN);
+    SET_PERI_REG_MASK(PCR_REGDMA_CONF_REG, PCR_REGDMA_RST_EN);
 
     // Clear Peripheral clk rst
     CLEAR_PERI_REG_MASK(PCR_MSPI_CONF_REG, PCR_MSPI_RST_EN);
@@ -74,13 +80,18 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
     CLEAR_PERI_REG_MASK(PCR_HMAC_CONF_REG, PCR_HMAC_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_RSA_CONF_REG, PCR_RSA_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_SHA_CONF_REG, PCR_SHA_RST_EN);
+    CLEAR_PERI_REG_MASK(PCR_REGDMA_CONF_REG, PCR_REGDMA_RST_EN);
+
+    // UART's sclk is controlled in the PCR register and does not reset with the UART module. The ROM missed enabling
+    // it when initializing the ROM UART. If it is not turned on, it will trigger LP_WDT in the ROM.
+    uart_ll_sclk_enable(&UART0);
 }
 
 /* "inner" restart function for after RTOS, interrupts & anything else on this
  * core are already stopped. Stalls other core, resets hardware,
  * triggers restart.
 */
-void IRAM_ATTR esp_restart_noos(void)
+void esp_restart_noos(void)
 {
     // Disable interrupts
     rv_utils_intr_global_disable();
@@ -111,13 +122,6 @@ void IRAM_ATTR esp_restart_noos(void)
     // Disable cache
     Cache_Disable_ICache();
 
-    // Reset wifi/bluetooth/ethernet/sdio (bb/mac)
-    // Moved to module internal
-    // SET_PERI_REG_MASK(SYSTEM_CORE_RST_EN_REG,
-    //                   SYSTEM_SDIO_RST |                              // SDIO_HINF_HINF_SDIO_RST?
-    //                   SYSTEM_EMAC_RST | SYSTEM_MACPWR_RST |          // TODO: IDF-5325 (ethernet)
-    // REG_WRITE(SYSTEM_CORE_RST_EN_REG, 0);
-
     esp_system_reset_modules_on_exit();
 
     // Set CPU back to XTAL source, same as hard reset, but keep BBPLL on so that USB Serial JTAG can log at 1st stage bootloader.
@@ -127,7 +131,6 @@ void IRAM_ATTR esp_restart_noos(void)
 
     // Reset PRO CPU
     esp_rom_software_reset_cpu(0);
-    while (true) {
-        ;
-    }
+
+    ESP_INFINITE_LOOP();
 }

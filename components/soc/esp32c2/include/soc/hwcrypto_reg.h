@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 #ifndef __HWCRYPTO_REG_H__
 #define __HWCRYPTO_REG_H__
 
 #include "soc.h"
+#include "soc/xts_aes_reg.h"
 
 #define SHA_MODE_SHA1       0
 #define SHA_MODE_SHA224     1
@@ -26,16 +27,5 @@
 
 #define SHA_H_BASE                    ((DR_REG_SHA_BASE) + 0x40)
 #define SHA_TEXT_BASE                 ((DR_REG_SHA_BASE) + 0x80)
-
-/* AES-XTS registers */
-#define AES_XTS_PLAIN_BASE        ((DR_REG_AES_XTS_BASE) + 0x00)
-#define AES_XTS_SIZE_REG          ((DR_REG_AES_XTS_BASE) + 0x40)
-#define AES_XTS_DESTINATION_REG   ((DR_REG_AES_XTS_BASE) + 0x44)
-#define AES_XTS_PHYSICAL_ADDR_REG ((DR_REG_AES_XTS_BASE) + 0x48)
-
-#define AES_XTS_TRIGGER_REG       ((DR_REG_AES_XTS_BASE) + 0x4C)
-#define AES_XTS_RELEASE_REG       ((DR_REG_AES_XTS_BASE) + 0x50)
-#define AES_XTS_DESTROY_REG       ((DR_REG_AES_XTS_BASE) + 0x54)
-#define AES_XTS_STATE_REG         ((DR_REG_AES_XTS_BASE) + 0x58)
 
 #endif

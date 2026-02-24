@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,27 +12,13 @@
 #include "esp_timer.h"
 #include "esp_timer_impl.h"
 #include "esp_system.h"
+#include "esp_newlib.h"
 #include "esp_log.h"
 
 #include "esp_private/startup_internal.h"
+#include "esp_rtc_time.h"
 
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32S3
-#include "esp32s3/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C3
-#include "esp32c3/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C2
-#include "esp32c2/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32C6
-#include "esp32c6/rtc.h"
-#elif CONFIG_IDF_TARGET_ESP32H2
-#include "esp32h2/rtc.h"
-#endif
-
-__attribute__((unused)) static const char* TAG = "system_time";
+ESP_LOG_ATTR_TAG(TAG, "system_time");
 
 // Correction for underlying timer to keep definition
 // of system time consistent.
@@ -49,12 +35,12 @@ void esp_timer_impl_init_system_time(void)
 #endif
 }
 
-int64_t IRAM_ATTR esp_system_get_time(void)
+int64_t ESP_TIMER_IRAM_ATTR esp_system_get_time(void)
 {
     return esp_timer_get_time() + s_correction_us;
 }
 
-uint32_t IRAM_ATTR esp_system_get_time_resolution(void)
+uint32_t ESP_TIMER_IRAM_ATTR esp_system_get_time_resolution(void)
 {
     return 1000;
 }

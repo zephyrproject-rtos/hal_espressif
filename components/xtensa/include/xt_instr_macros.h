@@ -8,14 +8,14 @@
 
 #include "xtensa/xtruntime.h"
 
-#define RSR(reg, at)         __asm__ volatile ("rsr %0, %1" : "=r" (at) : "i" (reg))
-#define WSR(reg, at)         __asm__ volatile ("wsr %0, %1" : : "r" (at), "i" (reg))
-#define XSR(reg, at)         __asm__ volatile ("xsr %0, %1" : "+r" (at) : "i" (reg))
+#define RSR(reg, at)         asm volatile ("rsr %0, %1" : "=r" (at) : "i" (reg))
+#define WSR(reg, at)         asm volatile ("wsr %0, %1" : : "r" (at), "i" (reg))
+#define XSR(reg, at)         asm volatile ("xsr %0, %1" : "+r" (at) : "i" (reg))
 
-#define RER(reg, at)         __asm__ volatile ("rer %0, %1" : "=r" (at) : "r" (reg))
+#define RER(reg, at)         asm volatile ("rer %0, %1" : "=r" (at) : "r" (reg))
 
-#define WITLB(at, as)        __asm__ volatile ("witlb  %0, %1; \n isync \n " : : "r" (at), "r" (as))
-#define WDTLB(at, as)        __asm__ volatile ("wdtlb  %0, %1; \n dsync \n " : : "r" (at), "r" (as))
+#define WITLB(at, as)        asm volatile ("witlb  %0, %1; \n isync \n " : : "r" (at), "r" (as))
+#define WDTLB(at, as)        asm volatile ("wdtlb  %0, %1; \n dsync \n " : : "r" (at), "r" (as))
 
 #define EXTRA_SAVE_AREA_SIZE 32
 #define BASE_SAVE_AREA_SIZE  16
@@ -53,10 +53,10 @@
 */
 #ifdef __ASSEMBLER__
     .macro SET_STACK  new_sp tmp1 tmp2
-    addi tmp1, new_sp, -SAVE_AREA_OFFSET
-    addi tmp2, tmp1, -BASE_AREA_SP_OFFSET
-    s32i new_sp, tmp2, 0
-    addi new_sp, tmp1, 0
+    addi \tmp1, \new_sp, -SAVE_AREA_OFFSET
+    addi \tmp2, \tmp1, -BASE_AREA_SP_OFFSET
+    s32i \new_sp, \tmp2, 0
+    addi \new_sp, \tmp1, 0
     rsr.ps \tmp1
     movi \tmp2, ~(PS_WOE_MASK | PS_OWB_MASK | PS_CALLINC_MASK)
     and \tmp1, \tmp1, \tmp2
@@ -86,7 +86,7 @@
         *(uint32_t*)(sp - BASE_AREA_SP_OFFSET) = (uint32_t)new_sp; \
         const uint32_t mask = ~(PS_WOE_MASK | PS_OWB_MASK | PS_CALLINC_MASK); \
         uint32_t tmp1 = 0, tmp2 = 0; \
-        __asm__ volatile ( \
+        asm volatile ( \
           "rsr.ps %1 \n"\
           "and %1, %1, %3 \n"\
           "wsr.ps %1 \n"\

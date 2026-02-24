@@ -444,7 +444,7 @@ static const mbedtls_rom_eco4_funcs_t mbedtls_rom_eco4_funcs_table = {
     ._rom_mbedtls_mem_free = MBEDTLS_PLATFORM_STD_FREE,
 };
 
-__attribute__((constructor)) void mbedtls_rom_osi_functions_init(void)
+void mbedtls_rom_osi_functions_init(void)
 {
     /* Export the rom mbedtls functions table pointer */
     extern void *mbedtls_rom_osi_funcs_ptr;

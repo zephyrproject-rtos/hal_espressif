@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,19 +8,26 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/cdefs.h>
+#include <inttypes.h>
 
+#include "sdkconfig.h"
 #include "esp_private/regdma_link.h"
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_regdma.h"
+#include "esp_compiler.h"
 
-#include <zephyr/sys/util.h>
+
 
 #define REGDMA_LINK_ADDR_ALIGN      (4)
+#if CONFIG_IDF_TARGET_ESP32P4
+#define REGDMA_LINK_MEM_TYPE_CAPS   (MALLOC_CAP_DEFAULT | MALLOC_CAP_RETENTION)
+#else
 #define REGDMA_LINK_MEM_TYPE_CAPS   (MALLOC_CAP_DMA | MALLOC_CAP_DEFAULT)
+#endif
 
-void * regdma_link_new_continuous(void *backup, void *buff, int len, void *restore, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_continuous(void *backup, void *buff, int len, void *restore, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_continuous_t *link = (regdma_link_continuous_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN,
@@ -36,7 +43,7 @@ void * regdma_link_new_continuous(void *backup, void *buff, int len, void *resto
     return NULL;
 }
 
-void * regdma_link_new_addr_map(void *backup, void *buff, uint32_t bitmap[4], int len, void *restore, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_addr_map(void *backup, void *buff, uint32_t bitmap[4], int len, void *restore, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_addr_map_t *link = (regdma_link_addr_map_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN,
@@ -52,7 +59,7 @@ void * regdma_link_new_addr_map(void *backup, void *buff, uint32_t bitmap[4], in
     return NULL;
 }
 
-void * regdma_link_new_write(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_write(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_write_wait_t *link = (regdma_link_write_wait_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN, sizeof(regdma_link_write_wait_t), REGDMA_LINK_MEM_TYPE_CAPS);
@@ -64,7 +71,7 @@ void * regdma_link_new_write(void *backup, uint32_t value, uint32_t mask, void *
     return NULL;
 }
 
-void * regdma_link_new_wait(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_wait(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_write_wait_t *link = (regdma_link_write_wait_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN, sizeof(regdma_link_write_wait_t), REGDMA_LINK_MEM_TYPE_CAPS);
@@ -76,7 +83,7 @@ void * regdma_link_new_wait(void *backup, uint32_t value, uint32_t mask, void *n
     return NULL;
 }
 
-void * regdma_link_new_branch_continuous(void *backup, void *buff, int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_continuous(void *backup, void *buff, int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_branch_continuous_t *link = (regdma_link_branch_continuous_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN,
@@ -92,7 +99,7 @@ void * regdma_link_new_branch_continuous(void *backup, void *buff, int len, void
     return NULL;
 }
 
-void * regdma_link_new_branch_addr_map(void *backup, void *buff, uint32_t bitmap[4], int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_addr_map(void *backup, void *buff, uint32_t bitmap[4], int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_branch_addr_map_t *link = (regdma_link_branch_addr_map_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN,
@@ -108,7 +115,7 @@ void * regdma_link_new_branch_addr_map(void *backup, void *buff, uint32_t bitmap
     return NULL;
 }
 
-void * regdma_link_new_branch_write(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_write(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_branch_write_wait_t *link = (regdma_link_branch_write_wait_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN, sizeof(regdma_link_branch_write_wait_t), REGDMA_LINK_MEM_TYPE_CAPS);
@@ -120,7 +127,7 @@ void * regdma_link_new_branch_write(void *backup, uint32_t value, uint32_t mask,
     return NULL;
 }
 
-void * regdma_link_new_branch_wait(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_wait(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     regdma_link_branch_write_wait_t *link = (regdma_link_branch_write_wait_t *)heap_caps_aligned_alloc(
             REGDMA_LINK_ADDR_ALIGN, sizeof(regdma_link_branch_write_wait_t), REGDMA_LINK_MEM_TYPE_CAPS);
@@ -132,48 +139,48 @@ void * regdma_link_new_branch_wait(void *backup, uint32_t value, uint32_t mask, 
     return NULL;
 }
 
-void * regdma_link_new_continuous_default(void *backup, int len, void *restore, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_continuous_default(void *backup, int len, void *restore, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_continuous(backup, NULL, len, restore, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_addr_map_default(void *backup, uint32_t bitmap[4], int len, void *restore, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_addr_map_default(void *backup, uint32_t bitmap[4], int len, void *restore, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_addr_map(backup, NULL, bitmap, len, restore, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_write_default(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_write_default(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_write(backup, value, mask, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_wait_default(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_wait_default(void *backup, uint32_t value, uint32_t mask, void *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_wait(backup, value, mask, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_branch_continuous_default(void *backup, int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_continuous_default(void *backup, int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_branch_continuous(backup, NULL, len, restore, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_branch_addr_map_default(void *backup, uint32_t bitmap[4], int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_addr_map_default(void *backup, uint32_t bitmap[4], int len, void *restore, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_branch_addr_map(backup, NULL, bitmap, len, restore, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_branch_write_default(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_write_default(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_branch_write(backup, value, mask, next, skip_b, skip_r, id, module);
 }
 
-void * regdma_link_new_branch_wait_default(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, uint32_t module)
+void * regdma_link_new_branch_wait_default(void *backup, uint32_t value, uint32_t mask, regdma_entry_buf_t *next, bool skip_b, bool skip_r, int id, int module)
 {
     return regdma_link_new_branch_wait(backup, value, mask, next, skip_b, skip_r, id, module);
 }
 
 
-static void * regdma_link_init_continuous_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_continuous_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -186,7 +193,7 @@ static void * regdma_link_init_continuous_wrapper(const regdma_link_config_t *co
                 config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_addr_map_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_addr_map_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -199,7 +206,7 @@ static void * regdma_link_init_addr_map_wrapper(const regdma_link_config_t *conf
                 config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_write_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_write_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -212,7 +219,7 @@ static void * regdma_link_init_write_wrapper(const regdma_link_config_t *config,
                 config->id, module);
 }
 
-static void * regdma_link_init_wait_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_wait_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -225,7 +232,7 @@ static void * regdma_link_init_wait_wrapper(const regdma_link_config_t *config, 
                 config->id, module);
 }
 
-static void * regdma_link_init_branch_continuous_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_branch_continuous_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -238,7 +245,7 @@ static void * regdma_link_init_branch_continuous_wrapper(const regdma_link_confi
                 config->head.skip_b, config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_branch_addr_map_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_branch_addr_map_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -251,7 +258,7 @@ static void * regdma_link_init_branch_addr_map_wrapper(const regdma_link_config_
                 &next, config->head.skip_b, config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_branch_write_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_branch_write_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -264,7 +271,7 @@ static void * regdma_link_init_branch_write_wrapper(const regdma_link_config_t *
                 config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_branch_wait_wrapper(const regdma_link_config_t *config, uint32_t module, int n, va_list args)
+static void * regdma_link_init_branch_wait_wrapper(const regdma_link_config_t *config, int module, int n, va_list args)
 {
     regdma_entry_buf_t next;
 
@@ -277,7 +284,7 @@ static void * regdma_link_init_branch_wait_wrapper(const regdma_link_config_t *c
                 config->head.skip_r, config->id, module);
 }
 
-static void * regdma_link_init_wrapper(const regdma_link_config_t *config, bool branch, uint32_t module, int nentry, va_list args)
+static void * regdma_link_init_wrapper(const regdma_link_config_t *config, bool branch, int module, int nentry, va_list args)
 {
     typedef void * (*init_fn_t)(const void *, uint32_t, int, va_list);
 
@@ -300,7 +307,7 @@ static void * regdma_link_init_wrapper(const regdma_link_config_t *config, bool 
     return (*pfn)(config, module, nentry, args);
 }
 
-void * regdma_link_init(const regdma_link_config_t *config, bool branch, uint32_t module, int nentry, ...)
+void * regdma_link_init(const regdma_link_config_t *config, bool branch, int module, int nentry, ...)
 {
     assert(config != NULL);
 
@@ -313,37 +320,37 @@ void * regdma_link_init(const regdma_link_config_t *config, bool branch, uint32_
 
 static void * regdma_link_get_next_continuous_wrapper(void *link)
 {
-    regdma_link_continuous_t *continuous = CONTAINER_OF(link, regdma_link_continuous_t, head);
+    regdma_link_continuous_t *continuous = __containerof(link, regdma_link_continuous_t, head);
     return (void *)(continuous->body.next);
 }
 
 static void * regdma_link_get_next_addr_map_wrapper(void *link)
 {
-    regdma_link_addr_map_t *addr_map = CONTAINER_OF(link, regdma_link_addr_map_t, head);
+    regdma_link_addr_map_t *addr_map = __containerof(link, regdma_link_addr_map_t, head);
     return (void *)(addr_map->body.next);
 }
 
 static void * regdma_link_get_next_write_wait_wrapper(void *link)
 {
-    regdma_link_write_wait_t *write_wait = CONTAINER_OF(link, regdma_link_write_wait_t, head);
+    regdma_link_write_wait_t *write_wait = __containerof(link, regdma_link_write_wait_t, head);
     return (void *)(write_wait->body.next);
 }
 
 static regdma_entry_buf_t * regdma_link_get_next_branch_continuous_wrapper(void *link)
 {
-    regdma_link_branch_continuous_t *branch_continuous = CONTAINER_OF(link, regdma_link_branch_continuous_t, head);
+    regdma_link_branch_continuous_t *branch_continuous = __containerof(link, regdma_link_branch_continuous_t, head);
     return &branch_continuous->body.next;
 }
 
 static regdma_entry_buf_t * regdma_link_get_next_branch_addr_map_wrapper(void *link)
 {
-    regdma_link_branch_addr_map_t *branch_addr_map = CONTAINER_OF(link, regdma_link_branch_addr_map_t, head);
+    regdma_link_branch_addr_map_t *branch_addr_map = __containerof(link, regdma_link_branch_addr_map_t, head);
     return &branch_addr_map->body.next;
 }
 
 static regdma_entry_buf_t * regdma_link_get_next_branch_write_wait_wrapper(void *link)
 {
-    regdma_link_branch_write_wait_t *branch_write_wait = CONTAINER_OF(link, regdma_link_branch_write_wait_t, head);
+    regdma_link_branch_write_wait_t *branch_write_wait = __containerof(link, regdma_link_branch_write_wait_t, head);
     return &branch_write_wait->body.next;
 }
 
@@ -403,14 +410,14 @@ void * regdma_link_recursive(void *link, int entry, void (*hook)(void *, int, in
 static void * regdma_link_get_instance(void *link)
 {
     void * container_memaddr[] = {
-        (void *)CONTAINER_OF(link, regdma_link_continuous_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_addr_map_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_write_wait_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_write_wait_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_branch_continuous_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_branch_addr_map_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_branch_write_wait_t, head),
-        (void *)CONTAINER_OF(link, regdma_link_branch_write_wait_t, head)
+        (void *)__containerof(link, regdma_link_continuous_t, head),
+        (void *)__containerof(link, regdma_link_addr_map_t, head),
+        (void *)__containerof(link, regdma_link_write_wait_t, head),
+        (void *)__containerof(link, regdma_link_write_wait_t, head),
+        (void *)__containerof(link, regdma_link_branch_continuous_t, head),
+        (void *)__containerof(link, regdma_link_branch_addr_map_t, head),
+        (void *)__containerof(link, regdma_link_branch_write_wait_t, head),
+        (void *)__containerof(link, regdma_link_branch_write_wait_t, head)
     };
     regdma_link_head_t head = REGDMA_LINK_HEAD(link);
     int it = (head.branch << 2) | head.mode;
@@ -418,6 +425,7 @@ static void * regdma_link_get_instance(void *link)
 
     return container_memaddr[it];
 }
+ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-null-dereference") // TODO IDF-11384
 static regdma_link_stats_t * regdma_link_get_stats(void *link)
 {
     const static size_t stats_offset[] = {
@@ -436,6 +444,7 @@ static regdma_link_stats_t * regdma_link_get_stats(void *link)
 
     return (regdma_link_stats_t *)((char *)regdma_link_get_instance(link) + stats_offset[it]);
 }
+ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-null-dereference")
 
 static void regdma_link_update_stats_wrapper(void *link, int entry, int depth)
 {
@@ -540,27 +549,39 @@ void regdma_link_set_write_wait_content(void *link, uint32_t value, uint32_t mas
     }
 }
 
+void regdma_link_set_skip_flag(void *link, bool skip_backup, bool skip_restore)
+{
+    if (link) {
+        regdma_link_head_t *head = &REGDMA_LINK_HEAD(link);
+        head->skip_b = skip_backup;
+        head->skip_r = skip_restore;
+    }
+}
+
 static void regdma_link_update_continuous_next_wrapper(void *link, void *next)
 {
-    regdma_link_continuous_t *continuous = CONTAINER_OF(link, regdma_link_continuous_t, head);
+    regdma_link_continuous_t *continuous = __containerof(link, regdma_link_continuous_t, head);
     continuous->body.next = next;
+    continuous->head.eof = !next;
 }
 
 static void regdma_link_update_addr_map_next_wrapper(void *link, void *next)
 {
-    regdma_link_addr_map_t *addr_map = CONTAINER_OF(link, regdma_link_addr_map_t, head);
+    regdma_link_addr_map_t *addr_map = __containerof(link, regdma_link_addr_map_t, head);
     addr_map->body.next = next;
+    addr_map->head.eof = !next;
 }
 
 static void regdma_link_update_write_wait_next_wrapper(void *link, void *next)
 {
-    regdma_link_write_wait_t *write_wait = CONTAINER_OF(link, regdma_link_write_wait_t, head);
+    regdma_link_write_wait_t *write_wait = __containerof(link, regdma_link_write_wait_t, head);
     write_wait->body.next = next;
+    write_wait->head.eof = !next;
 }
 
 static void regdma_link_update_branch_continuous_next_wrapper(void *link, regdma_entry_buf_t *next)
 {
-    regdma_link_branch_continuous_t *branch_continuous = CONTAINER_OF(link, regdma_link_branch_continuous_t, head);
+    regdma_link_branch_continuous_t *branch_continuous = __containerof(link, regdma_link_branch_continuous_t, head);
     for (int i = 0; i < REGDMA_LINK_ENTRY_NUM; i++) {
         branch_continuous->body.next[i] = (*next)[i];
     }
@@ -568,7 +589,7 @@ static void regdma_link_update_branch_continuous_next_wrapper(void *link, regdma
 
 static void regdma_link_update_branch_addr_map_next_wrapper(void *link, regdma_entry_buf_t *next)
 {
-    regdma_link_branch_addr_map_t *branch_addr_map = CONTAINER_OF(link, regdma_link_branch_addr_map_t, head);
+    regdma_link_branch_addr_map_t *branch_addr_map = __containerof(link, regdma_link_branch_addr_map_t, head);
     for (int i = 0; i < REGDMA_LINK_ENTRY_NUM; i++) {
         branch_addr_map->body.next[i] = (*next)[i];
     }
@@ -576,7 +597,7 @@ static void regdma_link_update_branch_addr_map_next_wrapper(void *link, regdma_e
 
 static void regdma_link_update_branch_write_wait_next_wrapper(void *link, regdma_entry_buf_t *next)
 {
-    regdma_link_branch_write_wait_t *branch_write_wait = CONTAINER_OF(link, regdma_link_branch_write_wait_t, head);
+    regdma_link_branch_write_wait_t *branch_write_wait = __containerof(link, regdma_link_branch_write_wait_t, head);
     for (int i = 0; i < REGDMA_LINK_ENTRY_NUM; i++) {
         branch_write_wait->body.next[i] = (*next)[i];
     }
@@ -584,37 +605,39 @@ static void regdma_link_update_branch_write_wait_next_wrapper(void *link, regdma
 
 void regdma_link_update_next(void *link, int nentry, ...)
 {
+    if (!link) {
+        return;
+    }
+
     va_list args;
     va_start(args, nentry);
-    if (link) {
-        regdma_entry_buf_t next;
-        memset(next, 0, sizeof(regdma_entry_buf_t));
-        for (int i = 0; i < nentry && i < REGDMA_LINK_ENTRY_NUM; i++) { // Ignore more arguments
-            next[i] = va_arg(args, void *);
-        }
+    regdma_entry_buf_t next;
+    memset(next, 0, sizeof(regdma_entry_buf_t));
+    for (int i = 0; i < nentry && i < REGDMA_LINK_ENTRY_NUM; i++) { // Ignore more arguments
+        next[i] = va_arg(args, void *);
+    }
 
-        regdma_link_head_t head = REGDMA_LINK_HEAD(link);
-        if (head.branch) {
-            typedef void (*update_branch_fn_t)(void *, regdma_entry_buf_t *);
-            static const update_branch_fn_t updatefn_b[] = {
-                [0] = regdma_link_update_branch_continuous_next_wrapper,
-                [1] = regdma_link_update_branch_addr_map_next_wrapper,
-                [2] = regdma_link_update_branch_write_wait_next_wrapper,
-                [3] = regdma_link_update_branch_write_wait_next_wrapper
-            };
-            assert((head.mode < ARRAY_SIZE(updatefn_b)));
-            (*updatefn_b[head.mode])(link, &next);
-        } else {
-            typedef void (*update_fn_t)(void *, void *);
-            static const update_fn_t updatefn[] = {
-                [0] = regdma_link_update_continuous_next_wrapper,
-                [1] = regdma_link_update_addr_map_next_wrapper,
-                [2] = regdma_link_update_write_wait_next_wrapper,
-                [3] = regdma_link_update_write_wait_next_wrapper
-            };
-            assert((head.mode < ARRAY_SIZE(updatefn)));
-            (*updatefn[head.mode])(link, next[0]);
-        }
+    regdma_link_head_t head = REGDMA_LINK_HEAD(link);
+    if (head.branch) {
+        typedef void (*update_branch_fn_t)(void *, regdma_entry_buf_t *);
+        static const update_branch_fn_t updatefn_b[] = {
+            [0] = regdma_link_update_branch_continuous_next_wrapper,
+            [1] = regdma_link_update_branch_addr_map_next_wrapper,
+            [2] = regdma_link_update_branch_write_wait_next_wrapper,
+            [3] = regdma_link_update_branch_write_wait_next_wrapper
+        };
+        assert((head.mode < ARRAY_SIZE(updatefn_b)));
+        (*updatefn_b[head.mode])(link, &next);
+    } else {
+        typedef void (*update_fn_t)(void *, void *);
+        static const update_fn_t updatefn[] = {
+            [0] = regdma_link_update_continuous_next_wrapper,
+            [1] = regdma_link_update_addr_map_next_wrapper,
+            [2] = regdma_link_update_write_wait_next_wrapper,
+            [3] = regdma_link_update_write_wait_next_wrapper
+        };
+        assert((head.mode < ARRAY_SIZE(updatefn)));
+        (*updatefn[head.mode])(link, next[0]);
     }
     va_end(args);
 }
@@ -636,7 +659,7 @@ uint32_t regdma_link_get_owner_bitmap(void *link, void *tail, int entry)
     return owner;
 }
 
-void * regdma_find_module_link_head(void *link, void *tail, int entry, uint32_t module)
+void * regdma_find_module_link_head(void *link, void *tail, int entry, int module)
 {
     assert(entry < REGDMA_LINK_ENTRY_NUM);
 
@@ -644,7 +667,7 @@ void * regdma_find_module_link_head(void *link, void *tail, int entry, uint32_t 
     void *next = link;
     if (link) {
         do {
-            if (regdma_link_get_stats(next)->module & module) {
+            if (regdma_link_get_stats(next)->module == module) {
                 find_link = next;
                 break;
             }
@@ -656,7 +679,7 @@ void * regdma_find_module_link_head(void *link, void *tail, int entry, uint32_t 
     return find_link;
 }
 
-void * regdma_find_module_link_tail(void *link, void *tail, int entry, uint32_t module)
+void * regdma_find_module_link_tail(void *link, void *tail, int entry, int module)
 {
     assert(entry < REGDMA_LINK_ENTRY_NUM);
 
@@ -666,13 +689,13 @@ void * regdma_find_module_link_tail(void *link, void *tail, int entry, uint32_t 
         do {
             if (next != tail) {
                 void *temp = regdma_link_get_next(next, entry);
-                if ((regdma_link_get_stats(next)->module & module) &&
-                   !(regdma_link_get_stats(temp)->module & module)) {
+                if ((regdma_link_get_stats(next)->module == module) &&
+                   !(regdma_link_get_stats(temp)->module == module)) {
                     find_tail = next;
                     break;
                 }
             } else {
-                if (regdma_link_get_stats(next)->module & module) {
+                if (regdma_link_get_stats(next)->module == module) {
                     find_tail = next;
                     break;
                 }
@@ -682,7 +705,7 @@ void * regdma_find_module_link_tail(void *link, void *tail, int entry, uint32_t 
     return find_tail;
 }
 
-void * regdma_find_next_module_link_head(void *link, void *tail, int entry, uint32_t module)
+void * regdma_find_next_module_link_head(void *link, void *tail, int entry, int module)
 {
     assert(entry < REGDMA_LINK_ENTRY_NUM);
     void *find_tail = regdma_find_module_link_tail(link, tail, entry, module);
@@ -692,7 +715,7 @@ void * regdma_find_next_module_link_head(void *link, void *tail, int entry, uint
     return NULL;
 }
 
-void * regdma_find_prev_module_link_tail(void *link, void *tail, int entry, uint32_t module)
+void * regdma_find_prev_module_link_tail(void *link, void *tail, int entry, int module)
 {
     assert(entry < REGDMA_LINK_ENTRY_NUM);
     void *find_head = regdma_find_module_link_head(link, tail, entry, module);
@@ -710,19 +733,17 @@ void * regdma_find_prev_module_link_tail(void *link, void *tail, int entry, uint
     return NULL;
 }
 
-regdma_link_mode_t regdma_link_get_config_mode(const regdma_link_config_t *config)
-{
-    assert(config != NULL);
-    return (regdma_link_mode_t)config->head.mode;
-}
-
-#if REGDMA_LINK_DBG
-static __attribute__((unused)) const char *TAG = "regdma_link";
+ESP_LOG_ATTR_TAG(TAG, "regdma_link");
+static const char* s_link_mode_str[] = { "CONTINUOUS", "ADDR_MAP", "WRITE", "WAIT" };
+static const char* s_boolean_str[] = { "false", "true" };
 
 static void print_info_link_data(FILE *out, const uint32_t buf[], int len)
 {
     for (int i = 0; i < len; i++) {
-        fprintf(out, ((i + 1) % 8) ? "%08lx " : "%08lx\n", buf[i]);
+        if (i % 8 == 0) {
+            fprintf(out, "\t\t");
+        }
+        fprintf(out, ((i + 1) % 8) ? "%08"PRIx32" " : "%08"PRIx32"\n", buf[i]);
     }
     if (len % 8) {
         fprintf(out, "\n");
@@ -732,39 +753,48 @@ static void print_info_link_data(FILE *out, const uint32_t buf[], int len)
 static void print_info_continuous_wrapper(FILE *out, void *link)
 {
     regdma_link_head_t head = REGDMA_LINK_HEAD(link);
-    regdma_link_continuous_t *cons = CONTAINER_OF(link, regdma_link_continuous_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:%p, backup:%p, restore:%p, buff:%p\n",
-             cons->stat.module, cons->stat.id, link, *(uint32_t *)&cons->head, cons->body.next,
-             cons->body.backup, cons->body.restore, cons->body.mem);
+    regdma_link_continuous_t *cons = __containerof(link, regdma_link_continuous_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:%p, backup start:%p, restore start:%p, buff_ptr:%p\n" LOG_RESET_COLOR,
+            __builtin_ffs(cons->stat.module) - 1, cons->stat.id, link,
+            s_link_mode_str[cons->head.mode], cons->head.length, s_boolean_str[cons->head.branch], s_boolean_str[cons->head.skip_r], s_boolean_str[cons->head.skip_b], s_boolean_str[cons->head.eof],
+            cons->body.next,
+            cons->body.backup, cons->body.restore,
+            cons->body.mem);
     print_info_link_data(out, (const uint32_t *)cons->body.mem, head.length);
 }
 
 static void print_info_addr_map_wrapper(FILE *out, void *link)
 {
     regdma_link_head_t head = REGDMA_LINK_HEAD(link);
-    regdma_link_addr_map_t *map = CONTAINER_OF(link, regdma_link_addr_map_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:%p, backup:%p, restore:%p, buff:%p, map:{%lx,%lx,%lx,%lx}\n",
-            map->stat.module, map->stat.id, link, *(uint32_t *)&map->head, map->body.next, map->body.backup,
-            map->body.restore, map->body.mem, map->body.map[0], map->body.map[1],
-            map->body.map[2], map->body.map[3]);
+    regdma_link_addr_map_t *map = __containerof(link, regdma_link_addr_map_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:%p, backup start:%p, restore start:%p, buff_ptr:%p, map:{%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"}\n" LOG_RESET_COLOR,
+            __builtin_ffs(map->stat.module) - 1, map->stat.id, link,
+            s_link_mode_str[map->head.mode], map->head.length, s_boolean_str[map->head.branch], s_boolean_str[map->head.skip_r], s_boolean_str[map->head.skip_b], s_boolean_str[map->head.eof],
+            map->body.next,
+            map->body.backup, map->body.restore,
+            map->body.mem, map->body.map[0], map->body.map[1], map->body.map[2], map->body.map[3]);
     print_info_link_data(out, (const uint32_t *)map->body.mem, head.length);
 }
 
 static void print_info_write_wait_wrapper(FILE *out, void *link)
 {
-    regdma_link_write_wait_t *ww = CONTAINER_OF(link, regdma_link_write_wait_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:%p, backup:%p, value:%lx, mask:%lx\n",
-            ww->stat.module, ww->stat.id, link, *(uint32_t *)&ww->head, ww->body.next,
+    regdma_link_write_wait_t *ww = __containerof(link, regdma_link_write_wait_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:%p, backup start:%p, value:%"PRIx32", mask:%"PRIx32"\n" LOG_RESET_COLOR,
+            __builtin_ffs(ww->stat.module) - 1, ww->stat.id, link,
+            s_link_mode_str[ww->head.mode], ww->head.length, s_boolean_str[ww->head.branch], s_boolean_str[ww->head.skip_r], s_boolean_str[ww->head.skip_b], s_boolean_str[ww->head.eof],
+            ww->body.next,
             ww->body.backup, ww->body.value, ww->body.mask);
 }
 
 static void print_info_branch_continuous_wrapper(FILE *out, void *link)
 {
     regdma_link_head_t head = REGDMA_LINK_HEAD(link);
-    regdma_link_branch_continuous_t *cons = CONTAINER_OF(link, regdma_link_branch_continuous_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:{%p,%p,%p,%p}, backup:%p, restore:%p, buff:%p\n",
-            cons->stat.module, cons->stat.id, link, *(uint32_t *)&cons->head, cons->body.next[0], cons->body.next[1],
-            cons->body.next[2], cons->body.next[3], cons->body.backup, cons->body.restore,
+    regdma_link_branch_continuous_t *cons = __containerof(link, regdma_link_branch_continuous_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:{%p, %p, %p, %p}, backup start:%p, restore start:%p, buff_ptr:%p\n" LOG_RESET_COLOR,
+            __builtin_ffs(cons->stat.module) - 1, cons->stat.id, link,
+            s_link_mode_str[cons->head.mode], cons->head.length, s_boolean_str[cons->head.branch], s_boolean_str[cons->head.skip_r], s_boolean_str[cons->head.skip_b], s_boolean_str[cons->head.eof],
+            cons->body.next[0], cons->body.next[1], cons->body.next[2], cons->body.next[3],
+            cons->body.backup, cons->body.restore,
             cons->body.mem);
     print_info_link_data(out, (const uint32_t *)cons->body.mem, head.length);
 }
@@ -772,21 +802,24 @@ static void print_info_branch_continuous_wrapper(FILE *out, void *link)
 static void print_info_branch_addr_map_wrapper(FILE *out, void *link)
 {
     regdma_link_head_t head = REGDMA_LINK_HEAD(link);
-    regdma_link_branch_addr_map_t *map = CONTAINER_OF(link, regdma_link_branch_addr_map_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:{%p,%p,%p,%p}, backup:%p, restore:%p, buff:%p, map:{%lx,%lx,%lx,%lx}\n",
-            map->stat.module, map->stat.id, link, *(uint32_t *)&map->head, map->body.next[0], map->body.next[1], map->body.next[2],
-            map->body.next[3], map->body.backup, map->body.restore, map->body.mem, map->body.map[0],
-            map->body.map[1], map->body.map[2], map->body.map[3]);
+    regdma_link_branch_addr_map_t *map = __containerof(link, regdma_link_branch_addr_map_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:{%p, %p, %p, %p}, backup start:%p, restore start:%p, buff_ptr:%p, map:{%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"}\n" LOG_RESET_COLOR,
+            __builtin_ffs(map->stat.module) - 1, map->stat.id, link,
+            s_link_mode_str[map->head.mode], map->head.length, s_boolean_str[map->head.branch], s_boolean_str[map->head.skip_r], s_boolean_str[map->head.skip_b], s_boolean_str[map->head.eof],
+            map->body.next[0], map->body.next[1], map->body.next[2], map->body.next[3],
+            map->body.backup, map->body.restore,
+            map->body.mem, map->body.map[0], map->body.map[1], map->body.map[2], map->body.map[3]);
     print_info_link_data(out, (const uint32_t *)map->body.mem, head.length);
 }
 
 static void print_info_branch_write_wait_wrapper(FILE *out, void *link)
 {
-    regdma_link_branch_write_wait_t *ww = CONTAINER_OF(link, regdma_link_branch_write_wait_t, head);
-    fprintf(out, "[%08lx/%04x] link:%p, head:%lx, next:{%p,%p,%p,%p}, backup:%p, value:%lx, mask:%lx\n",
-            ww->stat.module, ww->stat.id, link, *(uint32_t *)&ww->head, ww->body.next[0], ww->body.next[1],
-            ww->body.next[2], ww->body.next[3], ww->body.backup, ww->body.value,
-            ww->body.mask);
+    regdma_link_branch_write_wait_t *ww = __containerof(link, regdma_link_branch_write_wait_t, head);
+    fprintf(out, LOG_COLOR_I " [%02d/%04x] link_ptr:%p, head: {mode:%s len:%d branch:%s skip_r:%s skip_b:%s eof:%s}, next:{%p, %p, %p, %p}, backup start:%p, value:%"PRIx32", mask:%"PRIx32"\n" LOG_RESET_COLOR,
+            __builtin_ffs(ww->stat.module) - 1, ww->stat.id, link,
+            s_link_mode_str[ww->head.mode], ww->head.length, s_boolean_str[ww->head.branch], s_boolean_str[ww->head.skip_r], s_boolean_str[ww->head.skip_b], s_boolean_str[ww->head.eof],
+            ww->body.next[0], ww->body.next[1], ww->body.next[2], ww->body.next[3],
+            ww->body.backup, ww->body.value, ww->body.mask);
 }
 
 static void print_link_info(FILE *out, void *args, int entry, int depth)
@@ -824,4 +857,10 @@ void regdma_link_dump(FILE *out, void *link, int entry)
         fprintf(out, "This REGDMA linked list is empty!\n");
     }
 }
-#endif
+
+
+regdma_link_mode_t regdma_link_get_config_mode(const regdma_link_config_t *config)
+{
+    assert(config != NULL);
+    return (regdma_link_mode_t)config->head.mode;
+}

@@ -18,8 +18,14 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "esp_intr_alloc.h"
+#include "sdkconfig.h"
 
-#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#if CONFIG_ESP_TIMER_IN_IRAM
+#define ESP_TIMER_IRAM_ATTR IRAM_ATTR
+#else
+#define ESP_TIMER_IRAM_ATTR
+#endif // CONFIG_ESP_TIMER_IN_IRAM
 
 /**
  * @brief Minimal initialization of platform specific layer of esp_timer
@@ -103,7 +109,6 @@ uint64_t esp_timer_impl_get_min_period_us(void);
  * Call esp_timer_impl_unlock to release the lock
  */
 void esp_timer_impl_lock(void);
-
 
 /**
  * @brief counterpart of esp_timer_impl_lock

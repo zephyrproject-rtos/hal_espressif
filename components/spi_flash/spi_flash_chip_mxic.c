@@ -5,10 +5,11 @@
  */
 
 #include <stdlib.h>
-#include "spi_flash_chip_generic.h"
-#include "spi_flash_defs.h"
 #include "esp_log.h"
+
 #include "hal/spi_flash_hal.h"
+#include "esp_flash_chips/spi_flash_defs.h"
+#include "esp_flash_chips/spi_flash_chip_generic.h"
 
 /* Driver for MXIC flash chip */
 
@@ -43,7 +44,7 @@ esp_err_t spi_flash_chip_mxic_detect_size(esp_flash_t *chip, uint32_t *size)
         mem_density -= 0x20;
     }
 
-    *size = (mem_density <= 31) ? (1U << mem_density) : 0;
+    *size = 1 << mem_density;
     return ESP_OK;
 }
 

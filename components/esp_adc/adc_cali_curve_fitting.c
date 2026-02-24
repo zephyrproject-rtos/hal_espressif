@@ -59,7 +59,7 @@ typedef struct {
 /* ----------------------- Characterization Functions ----------------------- */
 static void get_first_step_reference_point(int version_num, adc_unit_t unit_id, adc_atten_t atten, adc_calib_info_t *calib_info);
 static void calc_first_step_coefficients(const adc_calib_info_t *parsed_data, cali_chars_curve_fitting_t *chars);
-static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step_t *param, adc_atten_t atten);
+static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step_t *param);
 static esp_err_t check_valid(const adc_cali_curve_fitting_config_t *config);
 
 /* ------------------------ Interface Functions --------------------------- */
@@ -105,7 +105,7 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
 
 err:
     if (scheme) {
-        heap_caps_free(scheme);
+        free(scheme);
     }
     return ret;
 }
@@ -114,10 +114,10 @@ esp_err_t adc_cali_delete_scheme_curve_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    heap_caps_free(handle->ctx);
+    free(handle->ctx);
     handle->ctx = NULL;
 
-    heap_caps_free(handle);
+    free(handle);
     handle = NULL;
 
     return ESP_OK;
@@ -140,7 +140,7 @@ static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 #endif  // SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED
 
     uint64_t v_cali_1 = (uint64_t)raw * ctx->chars_first_step.coeff_a / coeff_a_scaling + ctx->chars_first_step.coeff_b;
-    int32_t error = get_reading_error(v_cali_1, &(ctx->chars_second_step), ctx->atten);
+    int32_t error = get_reading_error(v_cali_1, &(ctx->chars_second_step));
 
     *voltage = (int32_t)v_cali_1 - error;
 
@@ -163,6 +163,8 @@ static void get_first_step_reference_point(int version_num, adc_unit_t unit_id, 
     uint32_t digi = 0;
     ret = esp_efuse_rtc_calib_get_cal_voltage(version_num, unit_id, (int)atten, &digi, &voltage);
     assert(ret == ESP_OK);
+    (void)ret;
+
     calib_info->ref_data.ver1.voltage = voltage;
     calib_info->ref_data.ver1.digi = digi;
 }
@@ -175,45 +177,42 @@ static void calc_first_step_coefficients(const adc_calib_info_t *parsed_data, ca
 {
     ctx->chars_first_step.coeff_a = coeff_a_scaling * parsed_data->ref_data.ver1.voltage / parsed_data->ref_data.ver1.digi;
     ctx->chars_first_step.coeff_b = 0;
-    ESP_LOGV(TAG, "Calib V1, Cal Voltage = %"PRId32", Digi out = %"PRId32", Coef_a = %"PRId32"\n", parsed_data->ref_data.ver1.voltage, parsed_data->ref_data.ver1.digi, ctx->chars_first_step.coeff_a);
+    ESP_LOGV(TAG, "Calib V1, Cal Voltage = %" PRId32 ", Digi out = %" PRId32 ", Coef_a = %" PRId32, parsed_data->ref_data.ver1.voltage, parsed_data->ref_data.ver1.digi, ctx->chars_first_step.coeff_a);
 }
 
-
-static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step_t *param, adc_atten_t atten)
+static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step_t *param)
 {
-    if (v_cali_1 == 0) {
+    if (v_cali_1 == 0 || param->term_num == 0) {
         return 0;
     }
+
     uint8_t term_num = param->term_num;
     int32_t error = 0;
     uint64_t coeff = 0;
-
-    uint64_t *term = (uint64_t *)heap_caps_calloc(term_num, sizeof(uint64_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (term == NULL) {
-        ESP_LOGE(TAG, "Memory allocation failed for 'term'");
-        return -1;
-    }
-
+    uint64_t variable[5];
+    uint64_t term[5];
+    memset(variable, 0, term_num * sizeof(uint64_t));
     memset(term, 0, term_num * sizeof(uint64_t));
 
-    uint64_t variable_prev = 1;
-    coeff = (*param->coeff)[atten][0][0];
-    term[0] = variable_prev * coeff / (*param->coeff)[atten][0][1];
-    error = (int32_t)(term[0] * (*param->sign)[atten][0]);
+    /**
+     *  The scheme formula is:
+     *  error = (K0 * X^0) + (K1 * X^1)  + (K2 * X^2) + (K3 * X^3) + ... +  (Kn * X^n);
+     */
+    variable[0] = 1;
+    coeff = (param->coeff)[0][0];
+    term[0] = variable[0] * coeff / (param->coeff)[0][1];
+    error = (int32_t)term[0] * (param->sign)[0];
 
     for (int i = 1; i < term_num; i++) {
-        uint64_t variable_current = variable_prev * v_cali_1;
-        coeff = (*param->coeff)[atten][i][0];
-        term[i] = variable_current * coeff;
+        variable[i] = variable[i - 1] * v_cali_1;
+        coeff = (param->coeff)[i][0];
+        term[i] = variable[i] * coeff;
         ESP_LOGV(TAG, "big coef is %llu, big term%d is %llu, coef_id is %d", coeff, i, term[i], i);
-        term[i] = term[i] / (*param->coeff)[atten][i][1];
-        error += (int32_t)(term[i] * (*param->sign)[atten][i]);
 
+        term[i] = term[i] / (param->coeff)[i][1];
+        error += (int32_t)term[i] * (param->sign)[i];
         ESP_LOGV(TAG, "term%d is %llu, error is %"PRId32, i, term[i], error);
-        variable_prev = variable_current;
     }
-
-    heap_caps_free(term);
 
     return error;
 }

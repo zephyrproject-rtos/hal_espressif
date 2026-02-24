@@ -200,11 +200,11 @@ extern "C" {
 
 #define BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N     (3000)
 
-#if CONFIG_RTC_CLK_SRC_EXT_CRYS
+#if CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS
 #define RTC_FREQ_N                          (32768) /* in Hz */
 #else
 #define RTC_FREQ_N                          (32000) /* in Hz */
-#if CONFIG_RTC_CLK_SRC_EXT_OSC || CONFIG_RTC_CLK_SRC_INT_RC32K
+#if CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC || CONFIG_RTC_CLK_SRC_INT_RC32K
 #pragma message "RTC clock source may not available"
 #endif
 #endif

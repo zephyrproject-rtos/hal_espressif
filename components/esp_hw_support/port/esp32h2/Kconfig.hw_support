@@ -49,10 +49,6 @@ config ESP_REV_MAX_FULL
     int
     default ESP32H2_REV_MAX_FULL
 
-config ESP32H2_REV100_DEVELOPMENT
-    bool "Develop on ESP32-H2 v1.0 and above (Preview)"
-    default y if IDF_CI_BUILD
-
 config ESP_EFUSE_BLOCK_REV_MIN_FULL
     int "Minimum Supported ESP32-H2 eFuse Block Revision"
     default 0

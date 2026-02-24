@@ -6,6 +6,15 @@
 
 #pragma once
 
+/*
+ * Include Zephyr util header first to get its BIT/BIT64/MHZ definitions.
+ * This prevents redefinition warnings when Zephyr headers are included later
+ * and ensures ESP-IDF soc/rtc.h #ifndef MHZ guards see MHZ as already defined.
+ */
+#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
+#include <zephyr/sys/util.h>
+#endif
+
 //Register Bits{{
 #define BIT31   0x80000000
 #define BIT30   0x40000000
@@ -78,7 +87,10 @@
 #ifndef BIT
 #define BIT(nr)                 (1UL << (nr))
 #endif
-
+#ifndef BIT64
+#define BIT64(nr)               (1ULL << (nr))
+#endif
+#else
 #ifndef BIT
 #define BIT(nr)                 (1 << (nr))
 #endif

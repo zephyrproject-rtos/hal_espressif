@@ -126,11 +126,22 @@ hci_transport_init(uint8_t hci_transport_mode)
     memset(&s_hci_transport_env, 0, sizeof(hci_transport_env_t));
 
     switch(hci_transport_mode) {
-#if CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
         case HCI_TRANSPORT_VHCI:
             ops = &hci_driver_vhci_ops;
             break;
-#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
+#if CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
+        case HCI_TRANSPORT_UART_UHCI:
+            ops = &hci_driver_uart_dma_ops;
+            break;
+#else
+        case HCI_TRANSPORT_UART_NO_DMA:
+            ops = &hci_driver_uart_ops;
+            break;
+#endif // CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
+#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
         default:
             assert(0);
     }

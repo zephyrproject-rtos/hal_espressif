@@ -1,16 +1,15 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sdkconfig.h"
 #include <zephyr/sys/util.h>
 #include "soc/soc_caps.h"
 #include "hal/assert.h"
 #include "hal/efuse_hal.h"
 #include "hal/efuse_ll.h"
-#include "esp32s2/rom/efuse.h"
+#include "rom/efuse.h"
 #include "esp_attr.h"
 
 #define ESP_EFUSE_BLOCK_ERROR_BITS(error_reg, block) ((error_reg) & (0x0F << (4 * (block))))

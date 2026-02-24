@@ -14,26 +14,28 @@
 
 #ifndef OS_H
 #define OS_H
-#include <zephyr/kernel.h>
-#include <sys/_timeval.h>
-#include <strings.h>
+#include <sys/types.h>
 #include "esp_types.h"
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_err.h"
 #include "supplicant_opt.h"
+#include "esp_private/esp_wifi_private.h"
 #include "esp_wifi.h"
 #include "esp_heap_adapter.h"
 
-// Declare strlcpy here to avoid warnings
-size_t strlcpy(char *dst, const char *src, size_t dsize);
+#ifdef __ZEPHYR__
+/* With -std=c17 these POSIX/BSD functions are not declared by default */
+char *strdup(const char *);
+size_t strlcpy(char *, const char *, size_t);
 
 char *z_strdup(const char *s);
-int z_strcasecmp(const char *string1, const char *string2);
-int z_strncasecmp(const char *string1, const char *string2, size_t num);
+#endif
 
 /* Modifying datatype for platform and compiler independence */
+
 typedef uint64_t os_time_t;
 
 /**
@@ -276,14 +278,14 @@ char * ets_strdup(const char *s);
 #ifdef _MSC_VER
 #define os_strcasecmp(s1, s2) _stricmp((s1), (s2))
 #else
-#define os_strcasecmp(s1, s2) z_strcasecmp((s1), (s2))
+#define os_strcasecmp(s1, s2) strcasecmp((s1), (s2))
 #endif
 #endif
 #ifndef os_strncasecmp
 #ifdef _MSC_VER
 #define os_strncasecmp(s1, s2, n) _strnicmp((s1), (s2), (n))
 #else
-#define os_strncasecmp(s1, s2, n) z_strncasecmp((s1), (s2), (n))
+#define os_strncasecmp(s1, s2, n) strncasecmp((s1), (s2), (n))
 #endif
 #endif
 #ifndef os_strchr
@@ -384,7 +386,7 @@ extern const wifi_osi_funcs_t *wifi_funcs;
 #define os_timer_get_time(void) wifi_funcs->_esp_timer_get_time(void)
 
 #define os_event_group_create(void) wifi_funcs->_event_group_create(void)
-#define os_event_group_delete(void) wifi_funcs->_event_group_delete(void)
+#define os_event_group_delete(a) wifi_funcs->_event_group_delete((a))
 #define os_event_group_wait_bits(a, b, c, d, e) wifi_funcs->_event_group_wait_bits((a), (b), (c), (d), (e))
 #define os_event_group_clear_bits(a, b) wifi_funcs->_event_group_clear_bits((a), (b))
 #define os_event_group_set_bits(a, b) wifi_funcs->_event_group_set_bits((a), (b))

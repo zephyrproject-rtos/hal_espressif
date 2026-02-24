@@ -4,17 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/kernel.h>
-
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_macros.h"
 #include "esp_system.h"
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
-#include "esp_efuse.h"
 #include "esp_log.h"
 #include "esp32s2/rom/cache.h"
-#include "esp_rom_uart.h"
+#include "esp_rom_serial_output.h"
 #include "soc/dport_reg.h"
 #include "soc/gpio_reg.h"
 #include "soc/timer_group_reg.h"
@@ -22,8 +20,9 @@
 #include "soc/rtc.h"
 #include "esp_private/rtc_clk.h"
 #include "soc/syscon_reg.h"
-#include "soc/rtc_periph.h"
 #include "hal/wdt_hal.h"
+#include "hal/uart_ll.h"
+#include "soc/soc_memory_layout.h"
 
 #include "esp32s2/rom/rtc.h"
 
@@ -31,11 +30,14 @@
 
 extern int _bss_end;
 
-void IRAM_ATTR esp_system_reset_modules_on_exit(void)
+void esp_system_reset_modules_on_exit(void)
 {
     // Flush any data left in UART FIFOs before reset the UART peripheral
-    esp_rom_uart_tx_wait_idle(0);
-    esp_rom_uart_tx_wait_idle(1);
+    for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
+        if (uart_ll_is_enabled(i)) {
+            esp_rom_output_tx_wait_idle(i);
+        }
+    }
 
     // Reset wifi/bluetooth/ethernet/sdio (bb/mac)
     DPORT_SET_PERI_REG_MASK(DPORT_CORE_RST_EN_REG,
@@ -62,10 +64,10 @@ void IRAM_ATTR esp_system_reset_modules_on_exit(void)
  * core are already stopped. Stalls other core, resets hardware,
  * triggers restart.
 */
-void IRAM_ATTR esp_restart_noos(void)
+void esp_restart_noos(void)
 {
     // Disable interrupts
-    z_xt_ints_off(0xFFFFFFFF);
+    esp_cpu_intr_disable(0xFFFFFFFF);
 
     // Enable RTC watchdog for 1 second
     wdt_hal_context_t rtc_wdt_ctx;
@@ -90,12 +92,12 @@ void IRAM_ATTR esp_restart_noos(void)
     wdt_hal_disable(&wdt1_context);
     wdt_hal_write_protect_enable(&wdt1_context);
 
-#ifdef CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
+#ifdef CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
     if (esp_ptr_external_ram(esp_cpu_get_sp())) {
-        // If stack_addr is from External Memory (CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY is used)
+        // If stack_addr is from External Memory (CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM is used)
         // then need to switch SP to Internal Memory otherwise
         // we will get the "Cache disabled but cached memory region accessed" error after Cache_Read_Disable.
-        uint32_t new_sp = ALIGN_DOWN(_bss_end, 16);
+        uint32_t new_sp = ALIGN_DOWN((uint32_t)&_bss_end, 16);
         SET_STACK(new_sp);
     }
 #endif
@@ -120,7 +122,6 @@ void IRAM_ATTR esp_restart_noos(void)
 
     // Reset CPUs
     esp_rom_software_reset_cpu(0);
-    while (true) {
-        ;
-    }
+
+    ESP_INFINITE_LOOP();
 }

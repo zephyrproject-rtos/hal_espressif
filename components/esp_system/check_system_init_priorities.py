@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 #
-# SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is used to check the order of execution of ESP_SYSTEM_INIT_FN functions.
 # It compares the priorities found in .c source files to the contents of system_init_fn.txt
 # In case of an inconsistency, the script prints the differences found and returns with a
 # non-zero exit code.
-
 import difflib
 import glob
 import itertools
@@ -18,19 +17,20 @@ import typing
 
 ESP_SYSTEM_INIT_FN_STR = r'ESP_SYSTEM_INIT_FN'
 ESP_SYSTEM_INIT_FN_REGEX_SIMPLE = re.compile(r'ESP_SYSTEM_INIT_FN')
-ESP_SYSTEM_INIT_FN_REGEX = re.compile(r'ESP_SYSTEM_INIT_FN\(([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z\ _0-9\(\)|]+)\s*,\s*([0-9]+)\)')
+ESP_SYSTEM_INIT_FN_REGEX = re.compile(r'ESP_SYSTEM_INIT_FN\(([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z\ _0-9\(\)|]+)\s*,\s*([a-zA-Z\ _0-9\(\)|]+)\s*,\s*([0-9]+)\)')
 STARTUP_ENTRIES_FILE = 'components/esp_system/system_init_fn.txt'
 
 
 class StartupEntry:
-    def __init__(self, filename: str, func: str, affinity: str, priority: int) -> None:
+    def __init__(self, filename: str, func: str, stage: str, affinity: str, priority: int) -> None:
         self.filename = filename
         self.func = func
+        self.stage = stage
         self.affinity = affinity
         self.priority = priority
 
     def __str__(self) -> str:
-        return f'{self.priority:3d}: {self.func} in {self.filename} on {self.affinity}'
+        return f'{self.stage}: {self.priority:3d}: {self.func} in {self.filename} on {self.affinity}'
 
 
 def main() -> None:
@@ -50,7 +50,7 @@ def main() -> None:
         glob_iter = glob.glob(os.path.join(idf_path, 'components', '**', f'*.{extension}'), recursive=True)
         source_files_iters.append(glob_iter)
     for filename in itertools.chain(*source_files_iters):
-        with open(filename, 'r') as f_obj:
+        with open(filename, 'r', encoding='utf-8') as f_obj:
             file_contents = f_obj.read()
         if ESP_SYSTEM_INIT_FN_STR not in file_contents:
             continue
@@ -65,22 +65,30 @@ def main() -> None:
             entry = StartupEntry(
                 filename=os.path.relpath(filename, idf_path),
                 func=match[0],
-                affinity=match[1],
-                priority=int(match[2])
+                stage=match[1],
+                affinity=match[2],
+                priority=int(match[3])
             )
             startup_entries.append(entry)
 
     #
-    # 2. Sort the ESP_SYSTEM_INIT_FN functions in C source files by priority
+    # 2. Sort the ESP_SYSTEM_INIT_FN functions in C source files.
+    #    In addition to the stage and priority, we also add filename to the sort key,
+    #    to have a stable sorting order in case when the same startup function is defined in multiple files,
+    #    for example for different targets.
     #
-    startup_entries = list(sorted(startup_entries, key=lambda e: e.priority))
+    def sort_key(entry: StartupEntry) -> typing.Tuple[str, int, str]:
+        # luckily 'core' and 'secondary' are in alphabetical order, so we can return the string
+        return (entry.stage, entry.priority, entry.filename)
+
+    startup_entries = list(sorted(startup_entries, key=sort_key))
     startup_entries_lines = [str(entry) for entry in startup_entries]
 
     #
     # 3. Load startup entries list from STARTUP_ENTRIES_FILE, removing comments and empty lines
     #
     startup_entries_expected_lines = []
-    with open(os.path.join(idf_path, STARTUP_ENTRIES_FILE), 'r') as startup_entries_expected_file:
+    with open(os.path.join(idf_path, STARTUP_ENTRIES_FILE), 'r', encoding='utf-8') as startup_entries_expected_file:
         for line in startup_entries_expected_file:
             if line.startswith('#') or len(line.strip()) == 0:
                 continue
