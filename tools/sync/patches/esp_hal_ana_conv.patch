@@ -1,0 +1,33 @@
+--- a/components/esp_hal_ana_conv/adc_hal.c
++++ b/components/esp_hal_ana_conv/adc_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/adc_hal.h"
+ #include "hal/assert.h"
+ #include "soc/lldesc.h"
+--- a/components/esp_hal_ana_conv/adc_hal_common.c
++++ b/components/esp_hal_ana_conv/adc_hal_common.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/adc_hal_common.h"
+ #include "hal/adc_ll.h"
+--- a/components/esp_hal_ana_conv/adc_oneshot_hal.c
++++ b/components/esp_hal_ana_conv/adc_oneshot_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/adc_oneshot_hal.h"
+ #include "hal/adc_hal_common.h"

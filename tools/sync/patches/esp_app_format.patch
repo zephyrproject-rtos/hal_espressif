@@ -1,0 +1,11 @@
+--- a/components/esp_app_format/esp_app_desc.c
++++ b/components/esp_app_format/esp_app_desc.c
+@@ -5,7 +5,7 @@
+  */
+ 
+ #include <assert.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <string.h>
+ #include "esp_app_desc.h"
+ #include "sdkconfig.h"

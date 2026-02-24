@@ -1,0 +1,54 @@
+--- a/components/esp_driver_touch_sens/common/touch_sens_common.c
++++ b/components/esp_driver_touch_sens/common/touch_sens_common.c
+@@ -6,15 +6,14 @@
+ 
+ #include <inttypes.h>
+ #include <string.h>
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/semphr.h"
++#include <stdlib.h>
++#include <zephyr/kernel.h>
+ #include "soc/soc_caps.h"
+ #include "soc/rtc.h"
+ #include "soc/clk_tree_defs.h"
+ #include "hal/touch_sensor_periph.h"
+ #include "esp_private/gpio.h"
+ #include "driver/touch_sens.h"
+-#include "esp_private/esp_gpio_reserve.h"
+ 
+ #if SOC_TOUCH_SENSOR_VERSION <= 2
+ #include "esp_private/rtc_ctrl.h"
+@@ -35,6 +34,21 @@
+ #define TOUCH_CHANNEL_CHECK(num)        ESP_RETURN_ON_FALSE((int)(num) >= (int)TOUCH_MIN_CHAN_ID && num <= TOUCH_MAX_CHAN_ID,  \
+                                         ESP_ERR_INVALID_ARG, TAG, "The channel number is out of supported range");
+ 
++/* Zephyr compatibility definitions */
++typedef uint32_t TickType_t;
++#define portMAX_DELAY              K_FOREVER
++#define portTICK_PERIOD_MS         (1000 / CONFIG_SYS_CLOCK_TICKS_PER_SEC)
++#define pdMS_TO_TICKS(ms)          ((ms) / portTICK_PERIOD_MS)
++#define xTaskGetTickCount()        k_uptime_ticks()
++#define vTaskDelay(ticks)          k_sleep(K_TICKS(ticks))
++
++static struct k_mutex s_touch_mutex;
++#define xSemaphoreCreateRecursiveMutexWithCaps(caps)    (k_mutex_init(&s_touch_mutex), &s_touch_mutex)
++#define xSemaphoreTakeRecursive(sem, timeout)           k_mutex_lock((struct k_mutex *)(sem), timeout)
++#define xSemaphoreGiveRecursive(sem)                    k_mutex_unlock((struct k_mutex *)(sem))
++#define vSemaphoreDeleteWithCaps(sem)                   do { } while(0)
++#define heap_caps_calloc(n, size, caps)                 k_calloc(n, size)
++
+ static const char *TAG = "touch";
+ 
+ touch_sensor_handle_t g_touch = NULL;
+@@ -43,11 +57,6 @@
+ {
+     gpio_num_t pin = touch_sensor_channel_io_map[id];
+     assert(pin >= 0);
+-    /* Touch pad will output the sawtooth wave on the pin,
+-       so it needs to be reserved, in case of conflict with other output signals */
+-    if (esp_gpio_reserve(BIT64(pin)) & BIT64(pin)) {
+-        ESP_LOGW(TAG, "The GPIO%d is conflict with other module", (int)pin);
+-    }
+     gpio_config_as_analog(pin);
+ }
+ 

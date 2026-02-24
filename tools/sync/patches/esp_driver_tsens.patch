@@ -1,0 +1,42 @@
+--- a/components/esp_driver_tsens/src/temperature_sensor.c
++++ b/components/esp_driver_tsens/src/temperature_sensor.c
+@@ -20,7 +20,7 @@
+ #include "esp_types.h"
+ #include "esp_heap_caps.h"
+ #include "clk_ctrl_os.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "driver/temperature_sensor.h"
+ #include "esp_private/periph_ctrl.h"
+ #include "temperature_sensor_private.h"
+@@ -100,9 +100,7 @@
+         }
+     }
+ 
+-    if (cbs_yield) {
+-        portYIELD_FROM_ISR();
+-    }
++    (void)cbs_yield;
+ }
+ #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
+ 
+@@ -296,7 +294,7 @@
+     if (s_deltaT == INT_MIN) { //suggests that the value is not initialized
+         read_delta_t_from_efuse();
+     }
+-    float result = tsens_raw - (float)s_deltaT / 10.0;
++    float result = tsens_raw - (float)s_deltaT / 10.0f;
+     return result;
+ }
+ 
+@@ -355,8 +353,8 @@
+ 
+     temperature_sensor_ll_set_sample_rate(0xffff);
+     temperature_sensor_ll_wakeup_mode(TEMPERATURE_SENSOR_LL_WAKE_DELTA);
+-    temperature_sensor_ll_set_th_high_val((uint8_t)(delta_cfg->increase_delta / TEMPERATURE_SENSOR_LL_ADC_FACTOR));
+-    temperature_sensor_ll_set_th_low_val((uint8_t)(delta_cfg->decrease_delta / TEMPERATURE_SENSOR_LL_ADC_FACTOR));
++    temperature_sensor_ll_set_th_high_val((uint8_t)((float)delta_cfg->increase_delta / (float)TEMPERATURE_SENSOR_LL_ADC_FACTOR));
++    temperature_sensor_ll_set_th_low_val((uint8_t)((float)delta_cfg->decrease_delta / (float)TEMPERATURE_SENSOR_LL_ADC_FACTOR));
+ 
+     return ret;
+ }

@@ -1,0 +1,394 @@
+--- a/components/esp_hal_mspi/esp32c2/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c2/include/hal/gpspi_flash_ll.h
+@@ -17,7 +17,7 @@
+ #include "soc/spi_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ 
+--- a/components/esp_hal_mspi/esp32c2/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c2/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32c3/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c3/include/hal/gpspi_flash_ll.h
+@@ -17,7 +17,7 @@
+ #include "soc/spi_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32c3/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c3/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32c5/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c5/include/hal/gpspi_flash_ll.h
+@@ -19,7 +19,7 @@
+ #include "hal/assert.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32c5/include/hal/psram_ctrlr_ll.h
++++ b/components/esp_hal_mspi/esp32c5/include/hal/psram_ctrlr_ll.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdint.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/misc.h"
+ #include "soc/spi_mem_struct.h"
+--- a/components/esp_hal_mspi/esp32c5/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c5/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32c61/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c61/include/hal/gpspi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/pcr_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32c61/include/hal/psram_ctrlr_ll.h
++++ b/components/esp_hal_mspi/esp32c61/include/hal/psram_ctrlr_ll.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdint.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/misc.h"
+ #include "soc/spi_mem_struct.h"
+--- a/components/esp_hal_mspi/esp32c61/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c61/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32c6/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c6/include/hal/gpspi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/pcr_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32c6/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32c6/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32h21/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h21/include/hal/gpspi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/pcr_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32h21/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h21/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32h2/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h2/include/hal/gpspi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/pcr_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32h2/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h2/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32h4/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h4/include/hal/gpspi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/pcr_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32h4/include/hal/psram_ctrlr_ll.h
++++ b/components/esp_hal_mspi/esp32h4/include/hal/psram_ctrlr_ll.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdint.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/misc.h"
+ #include "soc/spi_mem_struct.h"
+--- a/components/esp_hal_mspi/esp32h4/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32h4/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32/include/hal/spi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32/include/hal/spi_flash_ll.h
+@@ -18,7 +18,7 @@
+ #include "soc/spi_reg.h"
+ #include "soc/spi_struct.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32p4/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32p4/include/hal/gpspi_flash_ll.h
+@@ -19,7 +19,7 @@
+ #include "hal/assert.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32p4/include/hal/psram_ctrlr_ll.h
++++ b/components/esp_hal_mspi/esp32p4/include/hal/psram_ctrlr_ll.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdint.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/misc.h"
+ #include "hal/config.h"
+--- a/components/esp_hal_mspi/esp32p4/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32p4/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32s2/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s2/include/hal/gpspi_flash_ll.h
+@@ -17,7 +17,7 @@
+ #include "soc/spi_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32s2/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s2/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "soc/spi_mem_reg.h"
+--- a/components/esp_hal_mspi/esp32s31/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s31/include/hal/gpspi_flash_ll.h
+@@ -17,7 +17,7 @@
+ #include "soc/spi_struct.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32s31/include/hal/mspi_ll.h
++++ b/components/esp_hal_mspi/esp32s31/include/hal/mspi_ll.h
+@@ -24,7 +24,7 @@
+ 
+ #pragma once
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include "esp_bit_defs.h"
+ #include "hal/assert.h"
+--- a/components/esp_hal_mspi/esp32s31/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s31/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ 
+--- a/components/esp_hal_mspi/esp32s3/include/hal/gpspi_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s3/include/hal/gpspi_flash_ll.h
+@@ -17,7 +17,7 @@
+ #include "soc/spi_reg.h"
+ #include "hal/spi_types.h"
+ #include "hal/spi_flash_types.h"
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32s3/include/hal/mspi_ll.h
++++ b/components/esp_hal_mspi/esp32s3/include/hal/mspi_ll.h
+@@ -24,7 +24,7 @@
+ 
+ #pragma once
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include "esp_bit_defs.h"
+ #include "hal/assert.h"
+@@ -42,7 +42,10 @@
+ #define MSPI_TIMING_LL_MSPI_ID_0                      0
+ #define MSPI_TIMING_LL_MSPI_ID_1                      1
+ 
++/* Zephyr provides ARRAY_SIZE in sys/util.h, avoid redefinition warning */
++#ifndef ARRAY_SIZE
+ #define ARRAY_SIZE(arr) (sizeof((arr))/sizeof(*(arr)))
++#endif
+ #define MSPI_TIMING_LL_FLASH_OCT_MASK                 (SPI_MEM_FCMD_OCT | SPI_MEM_FADDR_OCT | SPI_MEM_FDIN_OCT | SPI_MEM_FDOUT_OCT)
+ #define MSPI_TIMING_LL_FLASH_QUAD_MASK                (SPI_MEM_FASTRD_MODE | SPI_MEM_FREAD_DUAL | SPI_MEM_FREAD_DIO | SPI_MEM_FREAD_QUAD | SPI_MEM_FREAD_QIO)
+ #define MSPI_TIMING_LL_FLASH_QIO_MODE_MASK            (SPI_MEM_FREAD_QIO | SPI_MEM_FASTRD_MODE)
+--- a/components/esp_hal_mspi/esp32s3/include/hal/psram_ctrlr_ll.h
++++ b/components/esp_hal_mspi/esp32s3/include/hal/psram_ctrlr_ll.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdint.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/misc.h"
+ #include "soc/spi_mem_struct.h"
+--- a/components/esp_hal_mspi/esp32s3/include/hal/spimem_flash_ll.h
++++ b/components/esp_hal_mspi/esp32s3/include/hal/spimem_flash_ll.h
+@@ -15,7 +15,7 @@
+ #pragma once
+ 
+ #include <stdlib.h>
+-#include <sys/param.h> // For MIN/MAX
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include <string.h>
+ 
+--- a/components/esp_hal_mspi/include/hal/spi_flash_hal.h
++++ b/components/esp_hal_mspi/include/hal/spi_flash_hal.h
+@@ -91,8 +91,8 @@
+     bool octal_mode_en;     ///< Octal spi flash mode enable bit 1: enable, 0: disable.
+     bool using_timing_tuning;               ///< System exist SPI0/1 timing tuning, using value from system directly if set to 1.
+     esp_flash_io_mode_t default_io_mode;        ///< Default flash io mode.
+-    int freq_mhz;         ///< SPI flash clock speed (MHZ).
+-    int clock_src_freq;    ///< SPI flash clock source (MHZ).
++    int freq_mhz;         ///< SPI flash clock speed (MHz).
++    int clock_src_freq;    ///< SPI flash clock source (MHz).
+     uint8_t tsus_val;     ///< Tsus value of suspend (us).
+     uint8_t trs_val;     ///< Trs value of suspend (us)
+     bool auto_waiti_pes;  ///< True for auto-wait idle after suspend command. False for using time delay.
+--- a/components/esp_hal_mspi/spi_flash_hal.c
++++ b/components/esp_hal_mspi/spi_flash_hal.c
+@@ -44,10 +44,11 @@
+         /* Do not use float/double as the FPU may not have been initialized yet on startup.
+          * The values are in MHz, so for sure we won't have an overflow by adding them. */
+         best_div = (src_freq_mhz + cfg_freq_mhz - 1) / cfg_freq_mhz;
+-        /* Perform a division that returns both quotient and remainder */
+-        const div_t res = div(src_freq_mhz, cfg_freq_mhz);
+-        if (res.rem != 0) {
+-            HAL_LOGW(TAG, "Flash clock frequency round down to %d", res.quot);
++        /* Check if there is a remainder (frequency will be rounded down) */
++        const int quot = src_freq_mhz / cfg_freq_mhz;
++        const int rem = src_freq_mhz % cfg_freq_mhz;
++        if (rem != 0) {
++            HAL_LOGW(TAG, "Flash clock frequency round down to %d", quot);
+         }
+     }
+ 

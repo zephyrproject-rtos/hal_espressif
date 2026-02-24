@@ -1,0 +1,31 @@
+--- a/components/esp_hal_cam/isp_hal.c
++++ b/components/esp_hal_cam/isp_hal.c
+@@ -5,7 +5,7 @@
+  */
+ 
+ #include <stdint.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <string.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+--- a/components/esp_hal_cam/mipi_csi_hal.c
++++ b/components/esp_hal_cam/mipi_csi_hal.c
+@@ -9,8 +9,6 @@
+ #include "hal/mipi_csi_ll.h"
+ #include "hal/mipi_csi_periph.h"
+ 
+-#define MHZ (1000 * 1000)
+-
+ HAL_LOG_ATTR_TAG(TAG, "csi_hal");
+ 
+ void s_mipi_csi_hal_phy_write_register(mipi_csi_hal_context_t *hal, uint8_t reg_addr, uint8_t reg_val)
+@@ -28,7 +26,7 @@
+ {
+     hal->bridge_dev = MIPI_CSI_BRG_LL_GET_HW(0);
+     hal->host_dev = MIPI_CSI_HOST_LL_GET_HW(0);
+-    int csi_lane_rate = config->lane_bit_rate_mbps * MHZ;
++    int csi_lane_rate = config->lane_bit_rate_mbps * MHZ(1);
+ 
+     // reset PHY
+     mipi_csi_phy_ll_enable_shutdown_input(hal->host_dev, true);

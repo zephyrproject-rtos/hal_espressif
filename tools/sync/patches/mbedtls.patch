@@ -1,0 +1,146 @@
+--- a/components/mbedtls/esp_crt_bundle/esp_crt_bundle.c
++++ b/components/mbedtls/esp_crt_bundle/esp_crt_bundle.c
+@@ -5,7 +5,7 @@
+  */
+ #include <string.h>
+ #include <stdbool.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_check.h"
+ #include "esp_crt_bundle.h"
+--- a/components/mbedtls/port/aes/dma/esp_aes_dma_core.c
++++ b/components/mbedtls/port/aes/dma/esp_aes_dma_core.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_attr.h"
+ #include "esp_check.h"
+ #include "esp_err.h"
+--- a/components/mbedtls/port/bignum/esp_bignum.c
++++ b/components/mbedtls/port/bignum/esp_bignum.c
+@@ -14,7 +14,7 @@
+ #include <limits.h>
+ #include <assert.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_system.h"
+ #include "esp_log.h"
+--- a/components/mbedtls/port/dynamic/esp_ssl_cli.c
++++ b/components/mbedtls/port/dynamic/esp_ssl_cli.c
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <stdbool.h>
+ #include "esp_mbedtls_dynamic_impl.h"
+ 
+--- a/components/mbedtls/port/dynamic/esp_ssl_srv.c
++++ b/components/mbedtls/port/dynamic/esp_ssl_srv.c
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_mbedtls_dynamic_impl.h"
+ 
+ int __real_mbedtls_ssl_handshake_server_step(mbedtls_ssl_context *ssl);
+--- a/components/mbedtls/port/dynamic/esp_ssl_tls.c
++++ b/components/mbedtls/port/dynamic/esp_ssl_tls.c
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "mbedtls/error.h"
+ #include "esp_mbedtls_dynamic_impl.h"
+ 
+--- a/components/mbedtls/port/include/mbedtls/bignum.h
++++ b/components/mbedtls/port/include/mbedtls/bignum.h
+@@ -5,8 +5,7 @@
+  */
+ #pragma once
+ 
+-#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+-#include_next "mbedtls/private/bignum.h"
++#include_next "mbedtls/bignum.h"
+ #include "sdkconfig.h"
+ 
+ /**
+--- a/components/mbedtls/port/include/mbedtls/ecp.h
++++ b/components/mbedtls/port/include/mbedtls/ecp.h
+@@ -5,8 +5,7 @@
+  */
+ #pragma once
+ 
+-#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+-#include_next "mbedtls/private/ecp.h"
++#include_next "mbedtls/ecp.h"
+ #include "sdkconfig.h"
+ 
+ #ifdef __cplusplus
+--- a/components/mbedtls/port/include/mbedtls/esp_config.h
++++ b/components/mbedtls/port/include/mbedtls/esp_config.h
+@@ -2008,6 +2008,7 @@
+ #ifdef CONFIG_MBEDTLS_CHACHA20_C
+ #define PSA_WANT_KEY_TYPE_CHACHA20 1
+ #else
++#undef MBEDTLS_CHACHA20_C
+ #undef PSA_WANT_KEY_TYPE_CHACHA20
+ #endif
+ 
+@@ -2018,11 +2019,12 @@
+  *
+  * Module:  library/chachapoly.c
+  *
+- * This module requires: MBEDTLS_CHACHA20_C
++ * This module requires: MBEDTLS_CHACHA20_C, MBEDTLS_POLY1305_C
+  */
+ #ifdef CONFIG_MBEDTLS_CHACHAPOLY_C
+ #define PSA_WANT_ALG_CHACHA20_POLY1305 1
+ #else
++#undef MBEDTLS_CHACHAPOLY_C
+ #undef PSA_WANT_ALG_CHACHA20_POLY1305
+ #endif
+ 
+@@ -2519,6 +2521,20 @@
+ #define MBEDTLS_PLATFORM_C
+ 
+ /**
++ * \def MBEDTLS_POLY1305_C
++ *
++ * Enable the Poly1305 MAC algorithm.
++ *
++ * Module:  library/poly1305.c
++ * Caller:  library/chachapoly.c
++ */
++#ifdef CONFIG_MBEDTLS_POLY1305_C
++#define MBEDTLS_POLY1305_C
++#else
++#undef MBEDTLS_POLY1305_C
++#endif
++
++/**
+  * \def MBEDTLS_RIPEMD160_C
+  *
+  * Enable the RIPEMD-160 hash algorithm.
+--- a/components/mbedtls/port/mbedtls_rom/mbedtls_rom_osi.c
++++ b/components/mbedtls/port/mbedtls_rom/mbedtls_rom_osi.c
+@@ -444,7 +444,7 @@
+     ._rom_mbedtls_mem_free = MBEDTLS_PLATFORM_STD_FREE,
+ };
+ 
+-__attribute__((constructor)) void mbedtls_rom_osi_functions_init(void)
++void mbedtls_rom_osi_functions_init(void)
+ {
+     /* Export the rom mbedtls functions table pointer */
+     extern void *mbedtls_rom_osi_funcs_ptr;

@@ -3,6 +3,9 @@
 # Used by hal-sync.sh, hal-patches.sh, and hal-blobs.sh
 # to synchronize ESP-IDF components into hal_espressif.
 
+# ESP-IDF revision that components were last synced from
+esp_idf_sha: 490691bc61802e28ddfc1997edc8df6c203c1537
+
 # ESP-IDF components to sync
 components:
   - bootloader

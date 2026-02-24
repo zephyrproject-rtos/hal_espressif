@@ -1,0 +1,4509 @@
+--- a/components/esp_hw_support/adc_share_hw_ctrl.c
++++ b/components/esp_hw_support/adc_share_hw_ctrl.c
+@@ -17,12 +17,13 @@
+  * - adc locks, to prevent concurrently using adc hw
+  */
+ 
++#include <zephyr/kernel.h>
++
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "sys/lock.h"
+ #include "esp_log.h"
+ #include "esp_check.h"
+-#include "freertos/FreeRTOS.h"
+ #include "hal/adc_types.h"
+ #include "hal/adc_hal_common.h"
+ #include "hal/adc_ll.h"
+@@ -40,7 +41,7 @@
+ 
+ 
+ ESP_LOG_ATTR_TAG(TAG, "adc_share_hw_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ 
+ #if SOC_ADC_CALIBRATION_V1_SUPPORTED
+@@ -126,17 +127,21 @@
+ /*---------------------------------------------------------------
+             ADC Hardware Locks
+ ---------------------------------------------------------------*/
+-static _lock_t adc1_lock;
+-static _lock_t adc2_lock;
++K_MUTEX_DEFINE(adc1_lock);
++K_MUTEX_DEFINE(adc2_lock);
++
++#define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
++#define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
++#define ADC_LOCK_TRY_ACQUIRE(lock) k_mutex_lock(lock, K_NO_WAIT)
+ 
+ esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
+ {
+     if (adc_unit == ADC_UNIT_1) {
+-        _lock_acquire(&adc1_lock);
++        ADC_LOCK_ACQUIRE(&adc1_lock);
+     }
+ 
+     if (adc_unit == ADC_UNIT_2) {
+-        _lock_acquire(&adc2_lock);
++        ADC_LOCK_ACQUIRE(&adc2_lock);
+     }
+ 
+     return ESP_OK;
+@@ -145,13 +150,13 @@
+ esp_err_t adc_lock_release(adc_unit_t adc_unit)
+ {
+     if (adc_unit == ADC_UNIT_2) {
+-        ESP_RETURN_ON_FALSE(((uint32_t *)adc2_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+-        _lock_release(&adc2_lock);
++        ESP_RETURN_ON_FALSE((adc2_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
++        ADC_LOCK_RELEASE(&adc2_lock);
+     }
+ 
+     if (adc_unit == ADC_UNIT_1) {
+-        ESP_RETURN_ON_FALSE(((uint32_t *)adc1_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
+-        _lock_release(&adc1_lock);
++        ESP_RETURN_ON_FALSE((adc1_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
++        ADC_LOCK_RELEASE(&adc1_lock);
+     }
+ 
+     return ESP_OK;
+@@ -160,13 +165,13 @@
+ esp_err_t adc_lock_try_acquire(adc_unit_t adc_unit)
+ {
+     if (adc_unit == ADC_UNIT_1) {
+-        if (_lock_try_acquire(&adc1_lock) == -1) {
++        if (ADC_LOCK_TRY_ACQUIRE(&adc1_lock) == -1) {
+             return ESP_ERR_TIMEOUT;
+         }
+     }
+ 
+     if (adc_unit == ADC_UNIT_2) {
+-        if (_lock_try_acquire(&adc2_lock) == -1) {
++        if (ADC_LOCK_TRY_ACQUIRE(&adc2_lock) == -1) {
+             return ESP_ERR_TIMEOUT;
+         }
+     }
+@@ -194,7 +199,7 @@
+     return ESP_OK;
+ }
+ 
+-static portMUX_TYPE __attribute__((unused)) s_spinlock = portMUX_INITIALIZER_UNLOCKED;
++static unsigned int __attribute__((unused)) s_spinlock = 0;
+ 
+ /*------------------------------------------------------------------------------
+ * For those who use APB_SARADC periph
+@@ -230,9 +235,10 @@
+ #endif
+         }
+     } else if (s_adc_digi_ctrlr_cnt < 0) {
++        s_adc_digi_ctrlr_cnt = 0;
+         esp_os_exit_critical(&s_spinlock);
+         ESP_LOGE(TAG, "%s called, but `s_adc_digi_ctrlr_cnt == 0`", __func__);
+-        abort();
++        return;
+     }
+ 
+     esp_os_exit_critical(&s_spinlock);
+--- a/components/esp_hw_support/clk_ctrl_os.c
++++ b/components/esp_hw_support/clk_ctrl_os.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <freertos/FreeRTOS.h>
++#include <zephyr/kernel.h>
+ #include "clk_ctrl_os.h"
+ #include "soc/rtc.h"
+ #include "esp_ldo_regulator.h"
+@@ -21,7 +21,7 @@
+ ESP_LOG_ATTR_TAG(TAG, "clk_ctrl_os");
+ #endif
+ 
+-static portMUX_TYPE __attribute__((unused)) periph_spinlock = portMUX_INITIALIZER_UNLOCKED;
++static unsigned int periph_spinlock;
+ 
+ static uint8_t s_periph_ref_counts = 0;
+ static uint32_t s_rc_fast_freq_hz = 0; // Frequency of the RC_FAST clock in Hz
+@@ -194,8 +194,8 @@
+      * But when more than one peripheral refers MPLL, its frequency is not allowed to change once it is set */
+     if (s_cur_mpll_freq_hz == 0 || s_mpll_ref_cnt < 2) {
+         uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
+-        rtc_clk_mpll_configure(xtal_freq_mhz, expt_freq_hz / MHZ, false);
+-        s_cur_mpll_freq_hz = clk_ll_mpll_get_freq_mhz(xtal_freq_mhz) * MHZ;
++        rtc_clk_mpll_configure(xtal_freq_mhz, expt_freq_hz / MHZ(1), false);
++        s_cur_mpll_freq_hz = clk_ll_mpll_get_freq_mhz(xtal_freq_mhz) * MHZ(1);
+     } else {
+         ret = ESP_ERR_INVALID_STATE;
+     }
+--- a/components/esp_hw_support/clk_utils.c
++++ b/components/esp_hw_support/clk_utils.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <inttypes.h>
+ #include <string.h>
+ #include <assert.h>
+--- a/components/esp_hw_support/esp_clk.c
++++ b/components/esp_hw_support/esp_clk.c
+@@ -6,12 +6,9 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
+ #include <sys/lock.h>
+ 
+-#if !NON_OS_BUILD
+-#include "freertos/FreeRTOS.h"
+-#endif
++#include <zephyr/kernel.h>
+ 
+ #include "esp_attr.h"
+ #include "soc/rtc.h"
+@@ -25,8 +22,6 @@
+ #include "rom/rtc.h"
+ #include "esp_rtc_time.h"
+ 
+-#define MHZ (1000000)
+-
+ #if CONFIG_PM_SLP_IRAM_OPT
+ # define ESP_CLK_FN_ATTR    IRAM_ATTR
+ #else
+@@ -36,11 +31,7 @@
+ // g_ticks_us defined in ROMs for PRO and APP CPU
+ extern uint32_t g_ticks_per_us_pro;
+ 
+-// Any code utilizing locks, which depend on FreeRTOS, should be omitted
+-// when building for Non-OS environments
+-#if !NON_OS_BUILD
+-static portMUX_TYPE __attribute__((unused)) s_esp_rtc_time_lock = portMUX_INITIALIZER_UNLOCKED;
+-#endif
++static unsigned int s_esp_rtc_time_lock;
+ 
+ #if SOC_RTC_MEM_SUPPORTED
+ typedef struct {
+@@ -52,7 +43,6 @@
+ _Static_assert(sizeof(retain_mem_t) == 24, "retain_mem_t must be 24 bytes");
+ _Static_assert(offsetof(retain_mem_t, checksum) == sizeof(retain_mem_t) - sizeof(uint32_t), "Wrong offset for checksum field in retain_mem_t structure");
+ 
+-#if !NON_OS_BUILD
+ static __attribute__((section(".rtc_timer_data_in_rtc_mem"))) retain_mem_t s_rtc_timer_retain_mem;
+ 
+ static ESP_CLK_FN_ATTR uint32_t calc_checksum(void)
+@@ -66,7 +56,6 @@
+     return checksum;
+ }
+ #define IS_RETAIN_MEM_VALID() (s_rtc_timer_retain_mem.checksum == calc_checksum())
+-#endif // NON_OS_BUILD
+ #endif // SOC_RTC_MEM_SUPPORTED
+ 
+ inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
+@@ -80,14 +69,14 @@
+ 
+ int IRAM_ATTR esp_clk_cpu_freq(void)
+ {
+-    return s_get_cpu_freq_mhz() * MHZ;
++    return s_get_cpu_freq_mhz() * MHZ(1);
+ }
+ 
+ int IRAM_ATTR esp_clk_apb_freq(void)
+ {
+     // TODO: IDF-5173 Require cleanup, implementation should be unified
+ #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2
+-    uint32_t cpu_freq_hz = s_get_cpu_freq_mhz() * MHZ;
++    uint32_t cpu_freq_hz = s_get_cpu_freq_mhz() * MHZ(1);
+     return MIN(cpu_freq_hz, APB_CLK_FREQ);
+ #else // for all later targets
+     return rtc_clk_apb_freq_get();
+@@ -96,10 +85,9 @@
+ 
+ int IRAM_ATTR esp_clk_xtal_freq(void)
+ {
+-    return rtc_clk_xtal_freq_get() * MHZ;
++    return rtc_clk_xtal_freq_get() * MHZ(1);
+ }
+ 
+-#if !NON_OS_BUILD
+ uint64_t esp_rtc_get_time_us(void)
+ {
+     esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
+@@ -153,7 +141,6 @@
+     return esp_rtc_time_us;
+ #endif
+ }
+-#endif
+ 
+ void esp_clk_slowclk_cal_set(uint32_t new_cal)
+ {
+@@ -164,9 +151,7 @@
+ #if SOC_RTC_MEM_SUPPORTED
+     esp_rtc_get_time_us();
+ #else
+-#if !NON_OS_BUILD
+     esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
+-#endif
+     uint32_t old_cal = clk_ll_rtc_slow_load_cal();
+     if (old_cal != 0) {
+         /**
+@@ -189,9 +174,7 @@
+         new_fix_us = old_fix_us - new_fix_us;
+         clk_ll_rtc_slow_store_rtc_fix_us(new_fix_us);
+     }
+-#if !NON_OS_BUILD
+     esp_os_exit_critical_safe(&s_esp_rtc_time_lock);
+-#endif
+ #endif // SOC_RTC_MEM_SUPPORTED
+ #endif // CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER
+     clk_ll_rtc_slow_store_cal(new_cal);
+@@ -211,7 +194,6 @@
+ #endif
+ }
+ 
+-#if !NON_OS_BUILD
+ void esp_clk_private_lock(void)
+ {
+     esp_os_enter_critical(&s_esp_rtc_time_lock);
+@@ -221,4 +203,3 @@
+ {
+     esp_os_exit_critical(&s_esp_rtc_time_lock);
+ }
+-#endif
+--- a/components/esp_hw_support/esp_clock_output.c
++++ b/components/esp_hw_support/esp_clock_output.c
+@@ -241,7 +241,7 @@
+ 
+ #if CONFIG_IDF_TARGET_ESP32
+ // Due to a hardware bug, PIN_CTRL cannot select 0xf output, whereas 0xf is the default value.
+-__attribute__((constructor))
++
+ static void esp_clock_output_pin_ctrl_init(void)
+ {
+     clk_ll_bind_output_channel(0, CLKOUT_CHANNEL_1);
+--- a/components/esp_hw_support/esp_gpio_reserve.c
++++ b/components/esp_hw_support/esp_gpio_reserve.c
+@@ -4,12 +4,47 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <stdatomic.h>
+ #include "soc/soc_caps.h"
+ #include "esp_types.h"
+ #include "esp_bit_defs.h"
+ #include "esp_private/esp_gpio_reserve.h"
+ 
++#ifdef __ZEPHYR__
++#include <zephyr/irq.h>
++
++/*
++ * Use interrupt locking instead of Zephyr spinlocks because this code runs
++ * during early boot before the kernel is initialized (e.g., PSRAM init).
++ */
++static uint64_t s_reserved_pin_mask = ~(SOC_GPIO_VALID_GPIO_MASK);
++
++uint64_t esp_gpio_reserve(uint64_t gpio_mask)
++{
++    unsigned int key = irq_lock();
++    uint64_t prev = s_reserved_pin_mask;
++    s_reserved_pin_mask |= gpio_mask;
++    irq_unlock(key);
++    return prev;
++}
++
++uint64_t esp_gpio_revoke(uint64_t gpio_mask)
++{
++    unsigned int key = irq_lock();
++    uint64_t prev = s_reserved_pin_mask;
++    s_reserved_pin_mask &= ~gpio_mask;
++    irq_unlock(key);
++    return prev;
++}
++
++bool esp_gpio_is_reserved(uint64_t gpio_mask)
++{
++    return s_reserved_pin_mask & gpio_mask;
++}
++
++#else /* ESP-IDF */
++
++#include <stdatomic.h>
++
+ static _Atomic uint64_t s_reserved_pin_mask = ATOMIC_VAR_INIT(~(SOC_GPIO_VALID_GPIO_MASK));
+ 
+ uint64_t esp_gpio_reserve(uint64_t gpio_mask)
+@@ -27,4 +62,6 @@
+     return atomic_load(&s_reserved_pin_mask) & gpio_mask;
+ }
+ 
++#endif /* __ZEPHYR__ */
++
+ // TODO: IDF-6968 reserve the pins that not fanned out regarding the SiP version
+--- a/components/esp_hw_support/etm/esp_etm.c
++++ b/components/esp_hw_support/etm/esp_etm.c
+@@ -437,7 +437,7 @@
+ }
+ 
+ #if CONFIG_ETM_ENABLE_DEBUG_LOG
+-__attribute__((constructor))
++
+ static void etm_override_default_log_level(void)
+ {
+     esp_log_level_set(TAG, ESP_LOG_VERBOSE);
+--- a/components/esp_hw_support/hw_random.c
++++ b/components/esp_hw_support/hw_random.c
+@@ -8,7 +8,7 @@
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_attr.h"
+ #include "esp_cpu.h"
+ #include "soc/wdev_reg.h"
+--- a/components/esp_hw_support/include/esp_intr_alloc.h
++++ b/components/esp_hw_support/include/esp_intr_alloc.h
+@@ -12,6 +12,14 @@
+ #include "esp_err.h"
+ #include "esp_intr_types.h"
+ 
++/*
++ * Include Zephyr interrupt controller header first to get its flag definitions.
++ * This prevents redefinition warnings when Zephyr headers are included later.
++ */
++#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
++#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
++#endif
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -43,6 +51,7 @@
+ #define ESP_INTR_FLAG_INTRDISABLED  (1<<11) ///< Return with this interrupt disabled
+ 
+ #define ESP_INTR_FLAG_LOWMED    (ESP_INTR_FLAG_LEVEL1|ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3) ///< Low and medium prio interrupts. These can be handled in C.
++#undef ESP_INTR_FLAG_HIGH
+ #define ESP_INTR_FLAG_HIGH      (ESP_INTR_FLAG_LEVEL4|ESP_INTR_FLAG_LEVEL5|ESP_INTR_FLAG_LEVEL6|ESP_INTR_FLAG_NMI) ///< High level interrupts. Need to be handled in assembly.
+ 
+ /** Mask for all level flags */
+--- a/components/esp_hw_support/include/esp_private/esp_pmu.h
++++ b/components/esp_hw_support/include/esp_private/esp_pmu.h
+@@ -75,8 +75,8 @@
+ #define RTC_GPIO_TRIG_EN            (PMU_GPIO_WAKEUP_EN)
+ #endif
+ 
+-#if !SOC_RTC_TIMER_V1
+-#define RTC_TIMER_TRIG_EN           PMU_RTC_TIMER_WAKEUP_EN  //!< Timer wakeup
++#if SOC_RTC_TIMER_V2_SUPPORTED
++#define RTC_TIMER_TRIG_EN           PMU_LP_TIMER_WAKEUP_EN  //!< Timer wakeup
+ #else
+ #define RTC_TIMER_TRIG_EN           0
+ #endif
+--- a/components/esp_hw_support/include/esp_private/esp_riscv_intr.h
++++ b/components/esp_hw_support/include/esp_private/esp_riscv_intr.h
+@@ -9,7 +9,20 @@
+ 
+ #if CONFIG_IDF_TARGET_ARCH_RISCV
+ 
+-#if SOC_INT_CLIC_SUPPORTED
++#ifdef __ZEPHYR__
++/*
++ * Zephyr uses its own interrupt framework and vector tables.
++ * Skip the ESP-IDF interrupt handler reservation checks.
++ */
++static inline uint32_t esp_riscv_intr_num_flags(int intr_num, uint32_t rsvd_mask)
++{
++    if (rsvd_mask & BIT(intr_num)) {
++        return ESP_CPU_INTR_DESC_FLAG_RESVD;
++    }
++    return 0;
++}
++
++#elif SOC_INT_CLIC_SUPPORTED
+ 
+ /**
+  * @brief Checks whether the given interrupt number is reserved either in the given mask or in the
+--- a/components/esp_hw_support/include/esp_private/periph_ctrl.h
++++ b/components/esp_hw_support/include/esp_private/periph_ctrl.h
+@@ -25,9 +25,9 @@
+  * @note This macro will increase the reference lock of that peripheral.
+  *       You can get the value before the increment from the `rc_name` local variable
+  */
+-#define PERIPH_RCC_ACQUIRE_ATOMIC(rc_periph, rc_name)                                       \
+-    for (uint8_t rc_name, _rc_cnt = 1, __DECLARE_RCC_RC_ATOMIC_ENV __attribute__((unused)); \
+-         _rc_cnt ? (rc_name = periph_rcc_acquire_enter(rc_periph), 1) : 0;                  \
++#define PERIPH_RCC_ACQUIRE_ATOMIC(rc_periph, rc_name)                      \
++    for (uint8_t rc_name, _rc_cnt = 1;                                     \
++         _rc_cnt ? (rc_name = periph_rcc_acquire_enter(rc_periph), 1) : 0; \
+          periph_rcc_acquire_exit(rc_periph, rc_name), _rc_cnt--)
+ 
+ /**
+@@ -37,9 +37,9 @@
+  * @note This macro will decrease the reference lock of that peripheral.
+  *       You can get the value after the decrease from the `rc_name` local variable
+  */
+-#define PERIPH_RCC_RELEASE_ATOMIC(rc_periph, rc_name)                                       \
+-    for (uint8_t rc_name, _rc_cnt = 1, __DECLARE_RCC_RC_ATOMIC_ENV __attribute__((unused)); \
+-         _rc_cnt ? (rc_name = periph_rcc_release_enter(rc_periph), 1) : 0;                  \
++#define PERIPH_RCC_RELEASE_ATOMIC(rc_periph, rc_name)                      \
++    for (uint8_t rc_name, _rc_cnt = 1;                                     \
++         _rc_cnt ? (rc_name = periph_rcc_release_enter(rc_periph), 1) : 0; \
+          periph_rcc_release_exit(rc_periph, rc_name), _rc_cnt--)
+ 
+ /**
+@@ -47,9 +47,9 @@
+  *
+  * @note User code protected by this macro should be as short as possible, because it's a critical section
+  */
+-#define PERIPH_RCC_ATOMIC()                                                 \
+-    for (int _rc_cnt = 1, __DECLARE_RCC_ATOMIC_ENV __attribute__((unused)); \
+-         _rc_cnt ? (periph_rcc_enter(), 1) : 0;                             \
++#define PERIPH_RCC_ATOMIC()                            \
++    for (int _rc_cnt = 1;                              \
++         _rc_cnt ? (periph_rcc_enter(), 1) : 0;        \
+          periph_rcc_exit(), _rc_cnt--)
+ 
+ /** @cond */
+@@ -122,6 +122,20 @@
+ void periph_module_reset(shared_periph_module_t periph);
+ 
+ /**
++ * @brief Enable non-shared peripheral clock and de-assert reset.
++ *
++ * @param[in] periph Peripheral module ID (ESP32_*_MODULE, values >= 100)
++ */
++void non_shared_periph_module_enable(int periph);
++
++/**
++ * @brief Disable non-shared peripheral clock.
++ *
++ * @param[in] periph Peripheral module ID (ESP32_*_MODULE, values >= 100)
++ */
++void non_shared_periph_module_disable(int periph);
++
++/**
+  * @brief Enable Wi-Fi and BT common module
+  *
+  * @note If @c wifi_bt_common_module_enable() is called a number of times,
+--- a/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
+@@ -8,15 +8,13 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-#include "esp_heap_caps.h"
++#include <zephyr/kernel.h>
+ #include "hal/rtc_hal.h"
+ #include "soc/rtc_periph.h"
+ #include "soc/soc_caps.h"
+@@ -24,6 +22,22 @@
+ #include "esp_private/sleep_event.h"
+ #include "sdkconfig.h"
+ 
++static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
++{
++    (void)caps;
++    void *ptr = k_aligned_alloc(alignment, n * size);
++    if (ptr) {
++        memset(ptr, 0, n * size);
++    }
++    return ptr;
++}
++
++static inline void heap_caps_free(void *ptr)
++{
++    k_free(ptr);
++}
++
++#define MALLOC_CAP_RETENTION 0
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sleep");
+ 
+@@ -55,7 +69,7 @@
+                                             MALLOC_CAP_RETENTION);
+         if (buf) {
+             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
+-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
++                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+         } else {
+             return ESP_ERR_NO_MEM;
+         }
+--- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+--- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+--- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
+@@ -9,15 +9,14 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+ #include "esp_rom_crc.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
++#include <zephyr/kernel.h>
+ #include "riscv/csr.h"
+ #include "soc/soc_caps.h"
+ #include "soc/rtc_periph.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+@@ -16,8 +16,7 @@
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+ #include "esp_rom_crc.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
++#include <zephyr/kernel.h>
+ #include "riscv/csr.h"
+ #include "soc/soc_caps.h"
+ #include "soc/rtc_periph.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
+@@ -8,7 +8,7 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+--- a/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
++++ b/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
+@@ -8,16 +8,14 @@
+ #include <string.h>
+ #include <inttypes.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_check.h"
+ #include "esp_ipc_isr.h"
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-#include "esp_heap_caps.h"
++#include <zephyr/kernel.h>
+ #include "soc/rtc_periph.h"
+ #include "soc/soc_caps.h"
+ #include "esp_private/sleep_cpu.h"
+@@ -26,6 +24,23 @@
+ #include "hal/rtc_hal.h"
+ #include "esp32s3/rom/cache.h"
+ 
++static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
++{
++    (void)caps;
++    void *ptr = k_aligned_alloc(alignment, n * size);
++    if (ptr) {
++        memset(ptr, 0, n * size);
++    }
++    return ptr;
++}
++
++static inline void heap_caps_free(void *ptr)
++{
++    k_free(ptr);
++}
++
++#define MALLOC_CAP_RETENTION 0
++
+ ESP_LOG_ATTR_TAG(TAG, "sleep");
+ 
+ typedef struct {
+@@ -48,9 +63,9 @@
+ 
+ static DRAM_ATTR  sleep_cpu_retention_t s_cpu_retention;
+ 
++static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
+ 
+ #if CONFIG_PM_RESTORE_CACHE_TAGMEM_AFTER_LIGHT_SLEEP
+-static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
+ static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t code_seg_size, uint32_t data_seg_vaddr, uint32_t data_seg_size)
+ {
+     uint32_t sets;   /* i/d-cache total set counts */
+@@ -136,7 +151,7 @@
+                                             MALLOC_CAP_RETENTION);
+         if (buf) {
+             s_tag_mem->link_addr = rtc_cntl_hal_dma_link_init(buf,
+-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
++                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
+         } else {
+             s_tag_mem->icache.enable = 0;
+             s_tag_mem->dcache.enable = 0;
+@@ -171,7 +186,7 @@
+                                             MALLOC_CAP_RETENTION);
+         if (buf) {
+             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
+-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
++                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+         } else {
+             return ESP_ERR_NO_MEM;
+         }
+--- a/components/esp_hw_support/modem/include/modem/modem_clock_impl.h
++++ b/components/esp_hw_support/modem/include/modem/modem_clock_impl.h
+@@ -107,7 +107,7 @@
+ 
+ typedef struct modem_clock_context {
+     modem_clock_hal_context_t     *hal;
+-    spinlock_t                    lock;
++    unsigned int                  lock;
+     modem_clock_device_context_t  *dev;
+ #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
+     uint8_t *icg_config;
+--- a/components/esp_hw_support/modem/modem_clock.c
++++ b/components/esp_hw_support/modem/modem_clock.c
+@@ -26,7 +26,7 @@
+     /* It should be explicitly defined in the internal RAM */
+     static DRAM_ATTR modem_clock_hal_context_t modem_clock_hal = { .syscon_dev = NULL, .lpcon_dev = NULL };
+     static DRAM_ATTR modem_clock_context_t modem_clock_context = {
+-        .hal = &modem_clock_hal, .lock = SPINLOCK_INITIALIZER,
++        .hal = &modem_clock_hal, .lock = 0,
+         .dev = NULL,
+ #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
+         .icg_config = NULL,
+--- a/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
++++ b/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <inttypes.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
+@@ -11,7 +11,7 @@
+  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "string.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
+@@ -13,7 +13,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
+@@ -13,7 +13,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
++++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
+@@ -11,7 +11,7 @@
+  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "string.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/periph_ctrl.c
++++ b/components/esp_hw_support/periph_ctrl.c
+@@ -3,7 +3,9 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
++#include <zephyr/sys/atomic.h>
++#include <zephyr/sys/__assert.h>
+ #include "esp_attr.h"
+ #include "esp_private/periph_ctrl.h"
+ #include "esp_private/critical_section.h"
+@@ -13,24 +15,116 @@
+ #endif
+ #include "esp_log.h"
+ 
++#if defined(CONFIG_SOC_SERIES_ESP32)
++#include <zephyr/dt-bindings/clock/esp32_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32S2)
++#include <zephyr/dt-bindings/clock/esp32s2_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32S3)
++#include <zephyr/dt-bindings/clock/esp32s3_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32C2)
++#include <zephyr/dt-bindings/clock/esp32c2_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32C3)
++#include <zephyr/dt-bindings/clock/esp32c3_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32C6)
++#include <zephyr/dt-bindings/clock/esp32c6_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32H2)
++#include <zephyr/dt-bindings/clock/esp32h2_clock.h>
++#endif
++
++#include <hal/uart_ll.h>
++#include <hal/i2c_ll.h>
++#include <hal/spi_ll.h>
++#include <hal/ledc_ll.h>
++#include <hal/sha_ll.h>
++#if SOC_AES_SUPPORTED
++#include <hal/aes_ll.h>
++#endif
++#if SOC_ADC_SUPPORTED
++#include <hal/adc_ll.h>
++#endif
++#include <hal/timg_ll.h>
++#if SOC_TWAI_SUPPORTED
++#include <hal/twai_ll.h>
++#endif
++#if SOC_GDMA_SUPPORTED
++#include <hal/gdma_ll.h>
++#endif
++#if SOC_PCNT_SUPPORTED
++#include <hal/pcnt_ll.h>
++#endif
++#if SOC_MCPWM_SUPPORTED
++#include <hal/mcpwm_ll.h>
++#endif
++#if SOC_I2S_SUPPORTED
++#include <hal/i2s_ll.h>
++#endif
++#if SOC_USB_SERIAL_JTAG_SUPPORTED
++#include <hal/usb_serial_jtag_ll.h>
++#endif
++#if SOC_SDMMC_HOST_SUPPORTED
++#include <hal/sdmmc_ll.h>
++#endif
++#if SOC_EMAC_SUPPORTED
++#include <hal/emac_ll.h>
++#endif
++#if SOC_UHCI_SUPPORTED
++#include <hal/uhci_ll.h>
++#endif
++#if SOC_SDIO_SLAVE_SUPPORTED
++#include <hal/sdio_slave_ll.h>
++#endif
++#if SOC_ECC_SUPPORTED
++#include <hal/ecc_ll.h>
++#endif
++#ifdef ESP32_HMAC_MODULE
++#include <hal/hmac_ll.h>
++#endif
++#ifdef ESP32_DS_MODULE
++#include <hal/ds_ll.h>
++#endif
++#if SOC_ETM_SUPPORTED
++#include <hal/etm_ll.h>
++#endif
++#if SOC_TEMP_SENSOR_SUPPORTED
++#include <hal/temperature_sensor_ll.h>
++#endif
++#if SOC_ECDSA_SUPPORTED
++#include <hal/ecdsa_ll.h>
++#endif
++#ifdef ESP32_DEDIC_GPIO_MODULE
++#include <hal/dedic_gpio_ll.h>
++#endif
++#if SOC_PAU_SUPPORTED
++#include <hal/pau_ll.h>
++#endif
++#if SOC_ASSIST_DEBUG_SUPPORTED
++#include <hal/assist_debug_ll.h>
++#endif
++
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT && SOC_MODEM_CLOCK_SUPPORTED
+ #include "esp_private/esp_modem_clock.h"
+ #endif
+ 
+-/// @brief For simplicity and backward compatible, we are using the same spin lock for both bus clock on/off and reset
+-/// @note  We may want to split them into two spin locks in the future
+-static portMUX_TYPE __attribute__((unused)) periph_spinlock = portMUX_INITIALIZER_UNLOCKED;
++/* For simplicity and backward compatible, we are using the same spin lock for both bus clock on/off and reset */
++/* We may want to split them into two spin locks in the future */
++static unsigned int __attribute__((unused)) periph_spinlock;
++static atomic_t rcc_lock_counter;
+ 
+ static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
+ 
+-void periph_rcc_enter(void)
++IRAM_ATTR void periph_rcc_enter(void)
+ {
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    if (atomic_inc(&rcc_lock_counter) == 0) {
++        periph_spinlock = irq_lock();
++    }
+ }
+ 
+-void periph_rcc_exit(void)
++IRAM_ATTR void periph_rcc_exit(void)
+ {
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    __ASSERT_NO_MSG(atomic_get(&rcc_lock_counter) > 0);
++    if (atomic_dec(&rcc_lock_counter) == 1) {
++        irq_unlock(periph_spinlock);
++    }
+ }
+ 
+ uint8_t periph_rcc_acquire_enter(shared_periph_module_t periph)
+@@ -61,12 +155,12 @@
+ {
+ #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
+     assert(periph < PERIPH_MODULE_MAX);
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     if (ref_counts[periph] == 0) {
+         periph_ll_enable_clk_clear_rst(periph);
+     }
+     ref_counts[periph]++;
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -74,12 +168,12 @@
+ {
+ #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
+     assert(periph < PERIPH_MODULE_MAX);
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     ref_counts[periph]--;
+     if (ref_counts[periph] == 0) {
+         periph_ll_disable_clk_set_rst(periph);
+     }
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -87,12 +181,584 @@
+ {
+ #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
+     assert(periph < PERIPH_MODULE_MAX);
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     periph_ll_reset(periph);
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
++void non_shared_periph_module_enable(int periph)
++{
++    periph_rcc_enter();
++    switch (periph) {
++    case ESP32_LEDC_MODULE:
++        ledc_ll_enable_bus_clock(true);
++        ledc_ll_enable_reset_reg(false);
++        break;
++    case ESP32_UART0_MODULE:
++        uart_ll_enable_bus_clock(0, true);
++        uart_ll_reset_register(0);
++        break;
++#if defined(ESP32_UART1_MODULE) && ESP32_UART1_MODULE >= 100
++    case ESP32_UART1_MODULE:
++        uart_ll_enable_bus_clock(1, true);
++        uart_ll_reset_register(1);
++        break;
++#endif
++    case ESP32_I2C0_MODULE:
++        i2c_ll_enable_bus_clock(0, true);
++        i2c_ll_reset_register(0);
++        break;
++#ifdef ESP32_I2C1_MODULE
++    case ESP32_I2C1_MODULE:
++        i2c_ll_enable_bus_clock(1, true);
++        i2c_ll_reset_register(1);
++        break;
++#endif
++#ifdef ESP32_SPI_MODULE
++    case ESP32_SPI_MODULE:
++        spi_ll_enable_bus_clock(SPI1_HOST, true);
++        spi_ll_reset_register(SPI1_HOST);
++        break;
++#endif
++#ifdef ESP32_SPI2_MODULE
++    case ESP32_SPI2_MODULE:
++        spi_ll_enable_bus_clock(SPI2_HOST, true);
++        spi_ll_reset_register(SPI2_HOST);
++        break;
++#endif
++#ifdef ESP32_SPI3_MODULE
++    case ESP32_SPI3_MODULE:
++        spi_ll_enable_bus_clock(SPI3_HOST, true);
++        spi_ll_reset_register(SPI3_HOST);
++        break;
++#endif
++#ifdef ESP32_FSPI_MODULE
++    case ESP32_FSPI_MODULE:
++        spi_ll_enable_bus_clock(SPI2_HOST, true);
++        spi_ll_reset_register(SPI2_HOST);
++        break;
++#endif
++#ifdef ESP32_HSPI_MODULE
++#if ESP32_HSPI_MODULE >= 100
++    case ESP32_HSPI_MODULE:
++        spi_ll_enable_bus_clock(SPI3_HOST, true);
++        spi_ll_reset_register(SPI3_HOST);
++        break;
++#endif
++#endif
++#if SOC_TWAI_SUPPORTED
++#ifdef ESP32_TWAI_MODULE
++    case ESP32_TWAI_MODULE:
++        twai_ll_enable_bus_clock(0, true);
++        twai_ll_reset_register(0);
++        twai_ll_set_clock_source(0, TWAI_CLK_SRC_DEFAULT);
++        twai_ll_enable_clock(0, true);
++        break;
++#endif
++#ifdef ESP32_TWAI0_MODULE
++    case ESP32_TWAI0_MODULE:
++        twai_ll_enable_bus_clock(0, true);
++        twai_ll_reset_register(0);
++        twai_ll_set_clock_source(0, TWAI_CLK_SRC_DEFAULT);
++        twai_ll_enable_clock(0, true);
++        break;
++#endif
++#ifdef ESP32_TWAI1_MODULE
++    case ESP32_TWAI1_MODULE:
++        twai_ll_enable_bus_clock(1, true);
++        twai_ll_reset_register(1);
++        twai_ll_set_clock_source(1, TWAI_CLK_SRC_DEFAULT);
++        twai_ll_enable_clock(1, true);
++        break;
++#endif
++#endif /* SOC_TWAI_SUPPORTED */
++#ifdef ESP32_SPI_DMA_MODULE
++    case ESP32_SPI_DMA_MODULE:
++        spi_dma_ll_enable_bus_clock(SPI1_HOST, true);
++        spi_dma_ll_reset_register(SPI1_HOST);
++        break;
++#endif
++#if SOC_GDMA_SUPPORTED
++    case ESP32_GDMA_MODULE:
++        gdma_ll_enable_bus_clock(0, true);
++        gdma_ll_reset_register(0);
++        break;
++#endif
++#if SOC_PCNT_SUPPORTED
++    case ESP32_PCNT_MODULE:
++        pcnt_ll_enable_bus_clock(0, true);
++        pcnt_ll_reset_register(0);
++        break;
++#endif
++#ifdef ESP32_MCPWM0_MODULE
++    case ESP32_MCPWM0_MODULE:
++        mcpwm_ll_enable_bus_clock(0, true);
++        mcpwm_ll_reset_register(0);
++        break;
++#endif
++#ifdef ESP32_PWM0_MODULE
++    case ESP32_PWM0_MODULE:
++        mcpwm_ll_enable_bus_clock(0, true);
++        mcpwm_ll_reset_register(0);
++        break;
++#endif
++#ifdef ESP32_PWM1_MODULE
++    case ESP32_PWM1_MODULE:
++        mcpwm_ll_enable_bus_clock(1, true);
++        mcpwm_ll_reset_register(1);
++        break;
++#endif
++#ifdef ESP32_PWM2_MODULE
++    case ESP32_PWM2_MODULE:
++        mcpwm_ll_enable_bus_clock(2, true);
++        mcpwm_ll_reset_register(2);
++        break;
++#endif
++#ifdef ESP32_PWM3_MODULE
++    case ESP32_PWM3_MODULE:
++        mcpwm_ll_enable_bus_clock(3, true);
++        mcpwm_ll_reset_register(3);
++        break;
++#endif
++#if SOC_I2S_SUPPORTED
++#ifdef ESP32_I2S0_MODULE
++    case ESP32_I2S0_MODULE:
++        i2s_ll_enable_bus_clock(0, true);
++        i2s_ll_reset_register(0);
++        break;
++#endif
++#ifdef ESP32_I2S1_MODULE
++    case ESP32_I2S1_MODULE:
++        i2s_ll_enable_bus_clock(1, true);
++        i2s_ll_reset_register(1);
++        break;
++#endif
++#endif /* SOC_I2S_SUPPORTED */
++#if SOC_AES_SUPPORTED
++#ifdef ESP32_AES_MODULE
++#if ESP32_AES_MODULE >= 100
++    case ESP32_AES_MODULE:
++        aes_ll_enable_bus_clock(true);
++        aes_ll_reset_register();
++        break;
++#endif
++#endif
++#endif /* SOC_AES_SUPPORTED */
++#ifdef ESP32_SHA_MODULE
++#if ESP32_SHA_MODULE >= 100
++    case ESP32_SHA_MODULE:
++        sha_ll_enable_bus_clock(true);
++        sha_ll_reset_register();
++        break;
++#endif
++#endif
++#if SOC_USB_SERIAL_JTAG_SUPPORTED
++#ifdef ESP32_USB_MODULE
++    case ESP32_USB_MODULE:
++        usb_serial_jtag_ll_enable_bus_clock(true);
++        break;
++#endif
++#ifdef ESP32_USB_DEVICE_MODULE
++    case ESP32_USB_DEVICE_MODULE:
++        usb_serial_jtag_ll_enable_bus_clock(true);
++        break;
++#endif
++#endif
++#if SOC_SDMMC_HOST_SUPPORTED
++#ifdef ESP32_SDMMC_MODULE
++    case ESP32_SDMMC_MODULE:
++        sdmmc_ll_enable_bus_clock(0, true);
++        sdmmc_ll_reset_register(0);
++        break;
++#endif
++#endif
++#if SOC_EMAC_SUPPORTED
++#ifdef ESP32_EMAC_MODULE
++    case ESP32_EMAC_MODULE:
++        emac_ll_enable_bus_clock(0, true);
++        emac_ll_reset_register(0);
++        break;
++#endif
++#endif
++#ifdef ESP32_LP_UART0_MODULE
++    case ESP32_LP_UART0_MODULE:
++        lp_uart_ll_enable_bus_clock(0, true);
++        lp_uart_ll_reset_register(0);
++        break;
++#endif
++#ifdef ESP32_LP_I2C0_MODULE
++    case ESP32_LP_I2C0_MODULE:
++        lp_i2c_ll_enable_bus_clock(0, true);
++        lp_i2c_ll_reset_register(0);
++        break;
++#endif
++#if SOC_ADC_SUPPORTED
++#ifdef ESP32_SARADC_MODULE
++#if ESP32_SARADC_MODULE >= 100
++    case ESP32_SARADC_MODULE:
++        adc_ll_enable_bus_clock(true);
++        adc_ll_reset_register();
++        break;
++#endif
++#endif
++#endif
++#if SOC_UHCI_SUPPORTED
++#ifdef ESP32_UHCI1_MODULE
++    case ESP32_UHCI1_MODULE:
++        uhci_ll_enable_bus_clock(1, true);
++        uhci_ll_reset_register(1);
++        break;
++#endif
++#endif
++#if SOC_SDIO_SLAVE_SUPPORTED
++#ifdef ESP32_SDIO_SLAVE_MODULE
++#if ESP32_SDIO_SLAVE_MODULE >= 100
++    case ESP32_SDIO_SLAVE_MODULE:
++        sdio_slave_ll_enable_bus_clock(true);
++        sdio_slave_ll_reset_register();
++        break;
++#endif
++#endif
++#endif
++#if SOC_ECC_SUPPORTED
++#ifdef ESP32_ECC_MODULE
++    case ESP32_ECC_MODULE:
++        ecc_ll_enable_bus_clock(true);
++        ecc_ll_reset_register();
++        break;
++#endif
++#endif
++#if SOC_HMAC_SUPPORTED
++#ifdef ESP32_HMAC_MODULE
++    case ESP32_HMAC_MODULE:
++        hmac_ll_enable_bus_clock(true);
++        hmac_ll_reset_register();
++        break;
++#endif
++#endif
++#if SOC_DIG_SIGN_SUPPORTED
++#ifdef ESP32_DS_MODULE
++    case ESP32_DS_MODULE:
++        ds_ll_enable_bus_clock(true);
++        ds_ll_reset_register();
++        break;
++#endif
++#endif
++#if SOC_ETM_SUPPORTED
++#ifdef ESP32_ETM_MODULE
++    case ESP32_ETM_MODULE:
++        etm_ll_enable_bus_clock(0, true);
++        etm_ll_reset_register(0);
++        break;
++#endif
++#endif
++#if SOC_TEMP_SENSOR_SUPPORTED
++#ifdef ESP32_TEMPSENSOR_MODULE
++    case ESP32_TEMPSENSOR_MODULE:
++        temperature_sensor_ll_bus_clk_enable(true);
++        temperature_sensor_ll_reset_module();
++        break;
++#endif
++#endif
++#if SOC_ECDSA_SUPPORTED
++#ifdef ESP32_ECDSA_MODULE
++    case ESP32_ECDSA_MODULE:
++        ecdsa_ll_enable_bus_clock(true);
++        ecdsa_ll_reset_register();
++        break;
++#endif
++#endif
++#ifdef ESP32_DEDIC_GPIO_MODULE
++    case ESP32_DEDIC_GPIO_MODULE:
++        dedic_gpio_ll_enable_bus_clock(true);
++        dedic_gpio_ll_reset_register();
++        break;
++#endif
++#if SOC_PAU_SUPPORTED
++#ifdef ESP32_REGDMA_MODULE
++    case ESP32_REGDMA_MODULE:
++        pau_ll_enable_bus_clock(true);
++        break;
++#endif
++#endif
++#if SOC_ASSIST_DEBUG_SUPPORTED
++#ifdef ESP32_ASSIST_DEBUG_MODULE
++    case ESP32_ASSIST_DEBUG_MODULE:
++        assist_debug_ll_enable_bus_clock(0, true);
++        assist_debug_ll_reset_register(0);
++        break;
++#endif
++#endif
++    default:
++        break;
++    }
++    periph_rcc_exit();
++}
++
++void non_shared_periph_module_disable(int periph)
++{
++    periph_rcc_enter();
++    switch (periph) {
++    case ESP32_LEDC_MODULE:
++        ledc_ll_enable_bus_clock(false);
++        break;
++    case ESP32_UART0_MODULE:
++        uart_ll_enable_bus_clock(0, false);
++        break;
++#if defined(ESP32_UART1_MODULE) && ESP32_UART1_MODULE >= 100
++    case ESP32_UART1_MODULE:
++        uart_ll_enable_bus_clock(1, false);
++        break;
++#endif
++    case ESP32_I2C0_MODULE:
++        i2c_ll_enable_bus_clock(0, false);
++        break;
++#ifdef ESP32_I2C1_MODULE
++    case ESP32_I2C1_MODULE:
++        i2c_ll_enable_bus_clock(1, false);
++        break;
++#endif
++#ifdef ESP32_SPI_MODULE
++    case ESP32_SPI_MODULE:
++        spi_ll_enable_bus_clock(SPI1_HOST, false);
++        break;
++#endif
++#ifdef ESP32_SPI2_MODULE
++    case ESP32_SPI2_MODULE:
++        spi_ll_enable_bus_clock(SPI2_HOST, false);
++        break;
++#endif
++#ifdef ESP32_SPI3_MODULE
++    case ESP32_SPI3_MODULE:
++        spi_ll_enable_bus_clock(SPI3_HOST, false);
++        break;
++#endif
++#ifdef ESP32_FSPI_MODULE
++    case ESP32_FSPI_MODULE:
++        spi_ll_enable_bus_clock(SPI2_HOST, false);
++        break;
++#endif
++#ifdef ESP32_HSPI_MODULE
++#if ESP32_HSPI_MODULE >= 100
++    case ESP32_HSPI_MODULE:
++        spi_ll_enable_bus_clock(SPI3_HOST, false);
++        break;
++#endif
++#endif
++#if SOC_TWAI_SUPPORTED
++#ifdef ESP32_TWAI_MODULE
++    case ESP32_TWAI_MODULE:
++        twai_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_TWAI0_MODULE
++    case ESP32_TWAI0_MODULE:
++        twai_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_TWAI1_MODULE
++    case ESP32_TWAI1_MODULE:
++        twai_ll_enable_bus_clock(1, false);
++        break;
++#endif
++#endif /* SOC_TWAI_SUPPORTED */
++#ifdef ESP32_SPI_DMA_MODULE
++    case ESP32_SPI_DMA_MODULE:
++        spi_dma_ll_enable_bus_clock(SPI1_HOST, false);
++        break;
++#endif
++#if SOC_GDMA_SUPPORTED
++    case ESP32_GDMA_MODULE:
++        gdma_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#if SOC_PCNT_SUPPORTED
++    case ESP32_PCNT_MODULE:
++        pcnt_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_MCPWM0_MODULE
++    case ESP32_MCPWM0_MODULE:
++        mcpwm_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_PWM0_MODULE
++    case ESP32_PWM0_MODULE:
++        mcpwm_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_PWM1_MODULE
++    case ESP32_PWM1_MODULE:
++        mcpwm_ll_enable_bus_clock(1, false);
++        break;
++#endif
++#ifdef ESP32_PWM2_MODULE
++    case ESP32_PWM2_MODULE:
++        mcpwm_ll_enable_bus_clock(2, false);
++        break;
++#endif
++#ifdef ESP32_PWM3_MODULE
++    case ESP32_PWM3_MODULE:
++        mcpwm_ll_enable_bus_clock(3, false);
++        break;
++#endif
++#if SOC_I2S_SUPPORTED
++#ifdef ESP32_I2S0_MODULE
++    case ESP32_I2S0_MODULE:
++        i2s_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_I2S1_MODULE
++    case ESP32_I2S1_MODULE:
++        i2s_ll_enable_bus_clock(1, false);
++        break;
++#endif
++#endif /* SOC_I2S_SUPPORTED */
++#if SOC_AES_SUPPORTED
++#ifdef ESP32_AES_MODULE
++#if ESP32_AES_MODULE >= 100
++    case ESP32_AES_MODULE:
++        aes_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#endif /* SOC_AES_SUPPORTED */
++#ifdef ESP32_SHA_MODULE
++#if ESP32_SHA_MODULE >= 100
++    case ESP32_SHA_MODULE:
++        sha_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_USB_SERIAL_JTAG_SUPPORTED
++#ifdef ESP32_USB_MODULE
++    case ESP32_USB_MODULE:
++        usb_serial_jtag_ll_enable_bus_clock(false);
++        break;
++#endif
++#ifdef ESP32_USB_DEVICE_MODULE
++    case ESP32_USB_DEVICE_MODULE:
++        usb_serial_jtag_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_SDMMC_HOST_SUPPORTED
++#ifdef ESP32_SDMMC_MODULE
++    case ESP32_SDMMC_MODULE:
++        sdmmc_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#endif
++#if SOC_EMAC_SUPPORTED
++#ifdef ESP32_EMAC_MODULE
++    case ESP32_EMAC_MODULE:
++        emac_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#endif
++#ifdef ESP32_LP_UART0_MODULE
++    case ESP32_LP_UART0_MODULE:
++        lp_uart_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#ifdef ESP32_LP_I2C0_MODULE
++    case ESP32_LP_I2C0_MODULE:
++        lp_i2c_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#if SOC_ADC_SUPPORTED
++#ifdef ESP32_SARADC_MODULE
++#if ESP32_SARADC_MODULE >= 100
++    case ESP32_SARADC_MODULE:
++        adc_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#endif
++#if SOC_UHCI_SUPPORTED
++#ifdef ESP32_UHCI1_MODULE
++    case ESP32_UHCI1_MODULE:
++        uhci_ll_enable_bus_clock(1, false);
++        break;
++#endif
++#endif
++#if SOC_SDIO_SLAVE_SUPPORTED
++#ifdef ESP32_SDIO_SLAVE_MODULE
++#if ESP32_SDIO_SLAVE_MODULE >= 100
++    case ESP32_SDIO_SLAVE_MODULE:
++        sdio_slave_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#endif
++#if SOC_ECC_SUPPORTED
++#ifdef ESP32_ECC_MODULE
++    case ESP32_ECC_MODULE:
++        ecc_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_HMAC_SUPPORTED
++#ifdef ESP32_HMAC_MODULE
++    case ESP32_HMAC_MODULE:
++        hmac_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_DIG_SIGN_SUPPORTED
++#ifdef ESP32_DS_MODULE
++    case ESP32_DS_MODULE:
++        ds_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_ETM_SUPPORTED
++#ifdef ESP32_ETM_MODULE
++    case ESP32_ETM_MODULE:
++        etm_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#endif
++#if SOC_TEMP_SENSOR_SUPPORTED
++#ifdef ESP32_TEMPSENSOR_MODULE
++    case ESP32_TEMPSENSOR_MODULE:
++        temperature_sensor_ll_bus_clk_enable(false);
++        break;
++#endif
++#endif
++#if SOC_ECDSA_SUPPORTED
++#ifdef ESP32_ECDSA_MODULE
++    case ESP32_ECDSA_MODULE:
++        ecdsa_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#ifdef ESP32_DEDIC_GPIO_MODULE
++    case ESP32_DEDIC_GPIO_MODULE:
++        dedic_gpio_ll_enable_bus_clock(false);
++        break;
++#endif
++#if SOC_PAU_SUPPORTED
++#ifdef ESP32_REGDMA_MODULE
++    case ESP32_REGDMA_MODULE:
++        pau_ll_enable_bus_clock(false);
++        break;
++#endif
++#endif
++#if SOC_ASSIST_DEBUG_SUPPORTED
++#ifdef ESP32_ASSIST_DEBUG_MODULE
++    case ESP32_ASSIST_DEBUG_MODULE:
++        assist_debug_ll_enable_bus_clock(0, false);
++        break;
++#endif
++#endif
++    default:
++        break;
++    }
++    periph_rcc_exit();
++}
++
+ #if !SOC_IEEE802154_BLE_ONLY
+ #if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED
+ IRAM_ATTR void wifi_bt_common_module_enable(void)
+@@ -100,7 +766,7 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_enable(PERIPH_PHY_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
+         periph_ll_wifi_bt_module_enable_clk();
+     }
+@@ -111,7 +777,7 @@
+     }
+     ref_counts[PERIPH_COEX_MODULE]++;
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -120,7 +786,7 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_disable(PERIPH_PHY_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     ref_counts[PERIPH_WIFI_BT_COMMON_MODULE]--;
+     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
+         periph_ll_wifi_bt_module_disable_clk();
+@@ -131,7 +797,7 @@
+         periph_ll_coex_module_disable_clk_set_rst();
+     }
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ #endif  //#if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED
+@@ -143,12 +809,12 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_enable(PERIPH_WIFI_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     if (ref_counts[PERIPH_WIFI_MODULE] == 0) {
+         periph_ll_wifi_module_enable_clk_clear_rst();
+     }
+     ref_counts[PERIPH_WIFI_MODULE]++;
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -157,24 +823,24 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_disable(PERIPH_WIFI_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+     ref_counts[PERIPH_WIFI_MODULE]--;
+     if (ref_counts[PERIPH_WIFI_MODULE] == 0) {
+         periph_ll_wifi_module_disable_clk_set_rst();
+     }
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+-#endif // CONFIG_ESP_WIFI_ENABLED
++#endif /* CONFIG_ESP_WIFI_ENABLED */
+ 
+ #if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED
+-// PERIPH_WIFI_BT_COMMON_MODULE is enabled outside
++/* PERIPH_WIFI_BT_COMMON_MODULE is enabled outside */
+ IRAM_ATTR void phy_module_enable(void)
+ {
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_enable(PERIPH_PHY_CALIBRATION_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+ #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
+     periph_ll_phy_calibration_module_enable_clk_clear_rst();
+     if (ref_counts[PERIPH_RNG_MODULE] == 0) {
+@@ -194,17 +860,17 @@
+     }
+     ref_counts[PERIPH_BT_MODULE]++;
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+-// PERIPH_WIFI_BT_COMMON_MODULE is disabled outside
++/* PERIPH_WIFI_BT_COMMON_MODULE is disabled outside */
+ IRAM_ATTR void phy_module_disable(void)
+ {
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_disable(PERIPH_PHY_CALIBRATION_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+ #if SOC_BT_SUPPORTED
+     ref_counts[PERIPH_BT_MODULE]--;
+     if (ref_counts[PERIPH_BT_MODULE] == 0) {
+@@ -218,10 +884,10 @@
+     }
+ #endif
+ #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
+-    // Do not disable PHY clock and RNG clock
++    /* Do not disable PHY clock and RNG clock */
+     ref_counts[PERIPH_RNG_MODULE]--;
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -249,14 +915,14 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_enable(PERIPH_COEX_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+ #if CONFIG_IDF_TARGET_ESP32C2
+     if (ref_counts[PERIPH_COEX_MODULE] == 0) {
+         periph_ll_coex_module_enable_clk_clear_rst();
+     }
+     ref_counts[PERIPH_COEX_MODULE]++;
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ 
+@@ -265,14 +931,14 @@
+ #if SOC_MODEM_CLOCK_IS_INDEPENDENT
+     modem_clock_module_disable(PERIPH_COEX_MODULE);
+ #else
+-    esp_os_enter_critical_safe(&periph_spinlock);
++    periph_rcc_enter();
+ #if CONFIG_IDF_TARGET_ESP32C2
+     ref_counts[PERIPH_COEX_MODULE]--;
+     if (ref_counts[PERIPH_COEX_MODULE] == 0) {
+         periph_ll_coex_module_disable_clk_set_rst();
+     }
+ #endif
+-    esp_os_exit_critical_safe(&periph_spinlock);
++    periph_rcc_exit();
+ #endif
+ }
+ #endif  //#if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED
+--- a/components/esp_hw_support/port/esp32c2/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32c2/esp_clk_tree.c
+@@ -28,16 +28,16 @@
+         clk_src_freq = clk_hal_cpu_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F40M:
+-        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F60M:
+-        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F80M:
+-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+--- a/components/esp_hw_support/port/esp32c2/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32c2/esp_cpu_intr.c
+@@ -10,11 +10,12 @@
+ void esp_cpu_intr_get_desc(int core_id, int intr_num, esp_cpu_intr_desc_t *intr_desc_ret)
+ {
+     /* On the ESP32-C2, interrupt:
++     * - 0 is unavailable according to TRM
+      * - 1 is for Wi-Fi
+      * - 6 for "permanently disabled interrupt", named INT_MUX_DISABLED_INTNO in the interrupt allocator
+      */
+     // [TODO: IDF-2465]
+-    const uint32_t rsvd_mask = BIT(1) | BIT(6);
++    const uint32_t rsvd_mask = BIT(0) | BIT(1) | BIT(6);
+ 
+     intr_desc_ret->priority = 1;
+     intr_desc_ret->type = ESP_CPU_INTR_TYPE_NA;
+--- a/components/esp_hw_support/port/esp32c2/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32c2/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2020-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -49,8 +49,6 @@
+  * - rtc_init: initialization
+  */
+ 
+-#define MHZ (1000000)
+-
+ #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+@@ -131,6 +129,15 @@
+ #define RTC_CNTL_RTC_DBIAS_LIGHTSLEEP_0V6   5
+ #define RTC_CNTL_DIG_DBIAS_LIGHTSLEEP_0V6   5
+ 
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ /**
+  * @brief CPU clock configuration structure
+  */
+@@ -143,6 +150,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_8MD256 _Pragma ("GCC warning \"'RTC_CAL_8MD256' macro is deprecated\"") CLK_CAL_RC_FAST_D256
+ #define RTC_CAL_32K_OSC_SLOW _Pragma ("GCC warning \"'RTC_CAL_32K_OSC_SLOW' macro is deprecated\"") CLK_CAL_32K_OSC_SLOW
+--- a/components/esp_hw_support/port/esp32c2/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32c2/rtc_clk.c
+@@ -160,7 +160,7 @@
+     clk_ll_cpu_set_divider(1);
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+ 
+-    rtc_clk_apb_freq_update(40 * MHZ);
++    rtc_clk_apb_freq_update(40 * MHZ(1));
+     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
+ }
+ 
+@@ -314,7 +314,7 @@
+     clk_ll_cpu_set_divider(div);
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
++    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+ }
+ 
+ static void rtc_clk_cpu_freq_to_rc_fast(void)
+--- a/components/esp_hw_support/port/esp32c2/rtc_clk_init.c
++++ b/components/esp_hw_support/port/esp32c2/rtc_clk_init.c
+@@ -50,7 +50,7 @@
+     soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+     esp_rom_output_tx_wait_idle(0);
+     rtc_clk_xtal_freq_update(xtal_freq);
+-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
++    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+ 
+     /* Set CPU frequency */
+     rtc_clk_cpu_freq_get_config(&old_config);
+--- a/components/esp_hw_support/port/esp32c2/rtc_time.c
++++ b/components/esp_hw_support/port/esp32c2/rtc_time.c
+@@ -89,7 +89,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -192,8 +192,8 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32c2/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32c2/sar_periph_ctrl.c
+@@ -17,7 +17,7 @@
+ 
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/critical_section.h"
+@@ -26,7 +26,7 @@
+ #include "hal/adc_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ 
+ void sar_periph_ctrl_init(void)
+--- a/components/esp_hw_support/port/esp32c3/adc2_init_cal.c
++++ b/components/esp_hw_support/port/esp32c3/adc2_init_cal.c
+@@ -8,19 +8,19 @@
+ The linker will link constructor (adc2_init_code_calibration) only when any sections inside the same file (adc2_cal_include) is used.
+ Don't put any other code into this file. */
+ 
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "hal/adc_types.h"
+ #include "hal/adc_hal_common.h"
+ #include "esp_private/adc_share_hw_ctrl.h"
+ #include "esp_private/critical_section.h"
+ 
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ /**
+  * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
+  *        This API be called in before `app_main()`.
+  */
+-static __attribute__((constructor)) void adc2_init_code_calibration(void)
++static void adc2_init_code_calibration(void)
+ {
+     adc_hal_calibration_init(ADC_UNIT_2);
+     adc_calc_hw_calibration_code(ADC_UNIT_2, ADC_ATTEN_DB_12);
+@@ -32,5 +32,6 @@
+ /** Don't call `adc2_cal_include` in user code. */
+ void adc2_cal_include(void)
+ {
+-    /* When this empty function is called, the `adc2_init_code_calibration` constructor will be linked and executed before the app.*/
++    /* In Zephyr, constructors don't work the same way. Call the calibration directly. */
++    adc2_init_code_calibration();
+ }
+--- a/components/esp_hw_support/port/esp32c3/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32c3/esp_clk_tree.c
+@@ -31,13 +31,13 @@
+         clk_src_freq = clk_hal_apb_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F80M:
+-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F160M:
+-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+--- a/components/esp_hw_support/port/esp32c3/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32c3/esp_cpu_intr.c
+@@ -10,11 +10,12 @@
+ void esp_cpu_intr_get_desc(int core_id, int intr_num, esp_cpu_intr_desc_t *intr_desc_ret)
+ {
+     /* On the ESP32-C3, interrupt:
++     * - 0 is unavailable according to TRM
+      * - 1 is for Wi-Fi
+      * - 6 for "permanently disabled interrupt", named INT_MUX_DISABLED_INTNO in the interrupt allocator
+      */
+     // [TODO: IDF-2465]
+-    const uint32_t rsvd_mask = BIT(1) | BIT(6);
++    const uint32_t rsvd_mask = BIT(0) | BIT(1) | BIT(6);
+ 
+     intr_desc_ret->priority = 1;
+     intr_desc_ret->type = ESP_CPU_INTR_TYPE_NA;
+--- a/components/esp_hw_support/port/esp32c3/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32c3/include/soc/rtc.h
+@@ -11,6 +11,7 @@
+ #include "soc/soc.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -49,8 +50,6 @@
+  * - rtc_init: initialization
+  */
+ 
+-#define MHZ (1000000)
+-
+ #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+@@ -154,6 +153,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_8MD256 _Pragma ("GCC warning \"'RTC_CAL_8MD256' macro is deprecated\"") CLK_CAL_RC_FAST_D256
+ #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
+--- a/components/esp_hw_support/port/esp32c3/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32c3/rtc_clk.c
+@@ -108,7 +108,7 @@
+ 
+ void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
+ {
+-#ifndef BOOTLOADER_BUILD
++#if !defined(BOOTLOADER_BUILD)
+     // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
+     if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
+         esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
+@@ -188,7 +188,7 @@
+     clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
+     clk_ll_cpu_set_divider(1);
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+-    rtc_clk_apb_freq_update(80 * MHZ);
++    rtc_clk_apb_freq_update(80 * MHZ(1));
+     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
+ }
+ 
+@@ -344,7 +344,7 @@
+     clk_ll_cpu_set_divider(div);
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
++    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+ }
+ 
+ static void rtc_clk_cpu_freq_to_rc_fast(void)
+--- a/components/esp_hw_support/port/esp32c3/rtc_clk_init.c
++++ b/components/esp_hw_support/port/esp32c3/rtc_clk_init.c
+@@ -50,14 +50,14 @@
+     soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+     esp_rom_output_tx_wait_idle(0);
+     rtc_clk_xtal_freq_update(xtal_freq);
+-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
++    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+ 
+     /* Set CPU frequency */
+     rtc_clk_cpu_freq_get_config(&old_config);
+     uint32_t freq_before = old_config.freq_mhz;
+     bool res = rtc_clk_cpu_freq_mhz_to_config(cfg.cpu_freq_mhz, &new_config);
+     if (!res) {
+-        ESP_HW_LOGE(TAG, "invalid CPU frequency value");
++        /* ESP_HW_LOGE(TAG, "invalid CPU frequency value"); */
+         abort();
+     }
+     rtc_clk_cpu_freq_set_config(&new_config);
+--- a/components/esp_hw_support/port/esp32c3/rtc_time.c
++++ b/components/esp_hw_support/port/esp32c3/rtc_time.c
+@@ -89,7 +89,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -191,9 +191,9 @@
+ 
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+-/// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++/* @brief if the calibration is used, we need to enable the timer group0 first */
++
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32c3/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32c3/sar_periph_ctrl.c
+@@ -16,9 +16,9 @@
+  */
+ 
+ #include <sys/lock.h>
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/critical_section.h"
+@@ -28,8 +28,8 @@
+ #include "hal/temperature_sensor_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
+-static _lock_t adc_reset_lock;
++extern unsigned int rtc_spinlock;
++K_MUTEX_DEFINE(adc_reset_lock);
+ 
+ 
+ void sar_periph_ctrl_init(void)
+@@ -161,10 +161,10 @@
+ 
+ void adc_reset_lock_acquire(void)
+ {
+-    _lock_acquire(&adc_reset_lock);
++    k_mutex_lock(&adc_reset_lock, K_FOREVER);
+ }
+ 
+ void adc_reset_lock_release(void)
+ {
+-    _lock_release(&adc_reset_lock);
++    k_mutex_unlock(&adc_reset_lock);
+ }
+--- a/components/esp_hw_support/port/esp32c5/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32c5/include/soc/rtc.h
+@@ -49,6 +49,9 @@
+ 
+ #define MHZ (1000000)
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -57,9 +60,45 @@
+ #define SOC_DELAY_RC_FAST_ENABLE            50
+ #define SOC_DELAY_RC_FAST_DIGI_SWITCH       5
+ 
++#define RTC_CNTL_PLL_BUF_WAIT_DEFAULT  20
++#define RTC_CNTL_XTL_BUF_WAIT_DEFAULT  100
++
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  100
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    128
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
++/*
++set sleep_init default param
++*/
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_DEFAULT  5
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_NODROP  0
++#define RTC_CNTL_DBG_ATTEN_DEEPSLEEP_DEFAULT  15
++#define RTC_CNTL_DBG_ATTEN_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_SLEEP_ON  0
++#define RTC_CNTL_BIASSLP_SLEEP_DEFAULT  1
++#define RTC_CNTL_PD_CUR_MONITOR_DEFAULT  0
++#define RTC_CNTL_PD_CUR_SLEEP_ON  0
++#define RTC_CNTL_PD_CUR_SLEEP_DEFAULT  1
++#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
++
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ #if CONFIG_ESP_ENABLE_PVT
+ /*
+ set pvt default param
+@@ -119,6 +158,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
+ #define RTC_CAL_32K_OSC_SLOW _Pragma ("GCC warning \"'RTC_CAL_32K_OSC_SLOW' macro is deprecated\"") CLK_CAL_32K_OSC_SLOW
+--- a/components/esp_hw_support/port/esp32c5/io_mux.c
++++ b/components/esp_hw_support/port/esp32c5/io_mux.c
+@@ -17,7 +17,7 @@
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ static soc_module_clk_t s_io_mux_clk_src = 0; // by default, the clock source is not set explicitly by any consumer (e.g. SDM, Filter)
+ 
+-#if CONFIG_ULP_COPROC_ENABLED
++#if CONFIG_ESP32_ULP_COPROC_ENABLED
+ RTC_DATA_ATTR
+ #endif
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32c5/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32c5/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
+@@ -14,7 +14,7 @@
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+ #define PMU_WIFI_BEACON_WAKEUP_EN   BIT(3)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_WIFI_SOC_WAKEUP_EN      BIT(5)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+--- a/components/esp_hw_support/port/esp32c5/rtc_time.c
++++ b/components/esp_hw_support/port/esp32c5/rtc_time.c
+@@ -202,7 +202,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32c61/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32c61/include/soc/rtc.h
+@@ -49,6 +49,9 @@
+ 
+ #define MHZ (1000000)
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -57,9 +60,45 @@
+ #define SOC_DELAY_RC_FAST_ENABLE            50
+ #define SOC_DELAY_RC_FAST_DIGI_SWITCH       5
+ 
++#define RTC_CNTL_PLL_BUF_WAIT_DEFAULT  20
++#define RTC_CNTL_XTL_BUF_WAIT_DEFAULT  100
++
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  100
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    128
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
++/*
++set sleep_init default param
++*/
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_DEFAULT  5
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_NODROP  0
++#define RTC_CNTL_DBG_ATTEN_DEEPSLEEP_DEFAULT  15
++#define RTC_CNTL_DBG_ATTEN_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_SLEEP_ON  0
++#define RTC_CNTL_BIASSLP_SLEEP_DEFAULT  1
++#define RTC_CNTL_PD_CUR_MONITOR_DEFAULT  0
++#define RTC_CNTL_PD_CUR_SLEEP_ON  0
++#define RTC_CNTL_PD_CUR_SLEEP_DEFAULT  1
++#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
++
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ #if CONFIG_ESP_ENABLE_PVT
+ /*
+ set pvt default param
+@@ -119,6 +158,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
+ #define RTC_CAL_32K_OSC_SLOW _Pragma ("GCC warning \"'RTC_CAL_32K_OSC_SLOW' macro is deprecated\"") CLK_CAL_32K_OSC_SLOW
+--- a/components/esp_hw_support/port/esp32c61/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32c61/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32c61/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32c61/private_include/pmu_bit_defs.h
+@@ -14,7 +14,7 @@
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+ #define PMU_WIFI_BEACON_WAKEUP_EN   BIT(3)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_WIFI_SOC_WAKEUP_EN      BIT(5)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+--- a/components/esp_hw_support/port/esp32c61/rtc_time.c
++++ b/components/esp_hw_support/port/esp32c61/rtc_time.c
+@@ -201,7 +201,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32c6/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32c6/esp_clk_tree.c
+@@ -28,16 +28,16 @@
+         clk_src_freq = clk_hal_cpu_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F80M:
+-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F160M:
+-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F240M:
+-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+@@ -52,7 +52,7 @@
+         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
+         break;
+     case SOC_MOD_CLK_XTAL_D2:
+-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
++        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
+         break;
+     default:
+         break;
+--- a/components/esp_hw_support/port/esp32c6/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32c6/esp_cpu_intr.c
+@@ -11,13 +11,12 @@
+ void esp_cpu_intr_get_desc(int core_id, int intr_num, esp_cpu_intr_desc_t *intr_desc_ret)
+ {
+     /* On the ESP32-C6, interrupt:
++     * - 0, 3, 4, and 7 are used by the CPU for core-local interrupts (CLINT)
+      * - 1 is for Wi-Fi
+      * - 6 for "permanently disabled interrupt"
+-     *
+-     * Interrupts 3, 4 and 7 are unavailable for PULP CPU as they are bound to Core-Local Interrupts (CLINT)
+      */
+     // [TODO: IDF-2465]
+-    const uint32_t base_rsvd_mask = BIT(1) | BIT(3) | BIT(4) | BIT(6) | BIT(7);
++    const uint32_t base_rsvd_mask = BIT(0) | BIT(1) | BIT(3) | BIT(4) | BIT(6) | BIT(7);
+ 
+     /* On the ESP32-C6, interrupt 31 is reserved for ESP-TEE
+      * for operations related to secure peripherals under its control
+--- a/components/esp_hw_support/port/esp32c6/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32c6/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -11,6 +11,7 @@
+ #include "soc/soc.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -47,12 +48,17 @@
+  * - rtc_time: reading RTC counter, conversion between counter values and time
+  */
+ 
+-#define MHZ (1000000)
++#ifndef MHZ
++#define MHZ(x) ((x) * 1000000UL)
++#endif
+ 
+ #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+ #define RTC_SLOW_CLK_32K_CAL_TIMEOUT_THRES(cycles)   (cycles << 12)
+ #define RTC_FAST_CLK_20M_CAL_TIMEOUT_THRES(cycles)   (TIMG_RTC_CALI_TIMEOUT_THRES_V) // Just use the max timeout thres value
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -62,10 +68,37 @@
+ #define SOC_DELAY_RC_FAST_DIGI_SWITCH       5
+ #define SOC_DELAY_RC32K_ENABLE              300
+ 
++#define RTC_CNTL_PLL_BUF_WAIT_DEFAULT  20
++#define RTC_CNTL_XTL_BUF_WAIT_DEFAULT  100
++
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  100
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    128
+ #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
++/*
++set sleep_init default param
++*/
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_DEFAULT  5
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_NODROP  0
++#define RTC_CNTL_DBG_ATTEN_DEEPSLEEP_DEFAULT  15
++#define RTC_CNTL_DBG_ATTEN_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_SLEEP_ON  0
++#define RTC_CNTL_BIASSLP_SLEEP_DEFAULT  1
++#define RTC_CNTL_PD_CUR_MONITOR_DEFAULT  0
++#define RTC_CNTL_PD_CUR_SLEEP_ON  0
++#define RTC_CNTL_PD_CUR_SLEEP_DEFAULT  1
++#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
++
+ #if CONFIG_ESP_ENABLE_PVT
+ /*
+ set pvt default param
+@@ -114,6 +147,15 @@
+ 
+ #endif //#if CONFIG_ESP_ENABLE_PVT
+ 
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ /**
+  * @brief CPU clock configuration structure
+  */
+@@ -126,6 +168,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_RC_SLOW _Pragma ("GCC warning \"'RTC_CAL_RC_SLOW' macro is deprecated\"") CLK_CAL_RC_SLOW
+ #define RTC_CAL_RC32K _Pragma ("GCC warning \"'RTC_CAL_RC32K' macro is deprecated\"") CLK_CAL_RC32K
+--- a/components/esp_hw_support/port/esp32c6/io_mux.c
++++ b/components/esp_hw_support/port/esp32c6/io_mux.c
+@@ -17,7 +17,7 @@
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ static soc_module_clk_t s_io_mux_clk_src = 0; // by default, the clock source is not set explicitly by any consumer (e.g. SDM, Filter)
+ 
+-#if CONFIG_ULP_COPROC_ENABLED
++#if CONFIG_ESP32_ULP_COPROC_ENABLED
+ RTC_DATA_ATTR
+ #endif
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32c6/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32c6/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32c6/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32c6/private_include/pmu_bit_defs.h
+@@ -14,7 +14,7 @@
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+ #define PMU_WIFI_BEACON_WAKEUP_EN   BIT(3)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_WIFI_SOC_WAKEUP_EN      BIT(5)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+--- a/components/esp_hw_support/port/esp32c6/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32c6/rtc_clk.c
+@@ -424,7 +424,7 @@
+ 
+ uint32_t rtc_clk_apb_freq_get(void)
+ {
+-    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ;
++    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ(1);
+ }
+ 
+ void rtc_dig_clk8m_enable(void)
+--- a/components/esp_hw_support/port/esp32c6/rtc_time.c
++++ b/components/esp_hw_support/port/esp32c6/rtc_time.c
+@@ -123,7 +123,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -245,8 +245,8 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32c6/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32c6/sar_periph_ctrl.c
+@@ -15,9 +15,9 @@
+  */
+ 
+ #include <sys/lock.h>
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/esp_modem_clock.h"
+@@ -28,8 +28,8 @@
+ #include "hal/temperature_sensor_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
+-static _lock_t adc_reset_lock;
++extern unsigned int rtc_spinlock;
++K_MUTEX_DEFINE(adc_reset_lock);
+ 
+ 
+ void sar_periph_ctrl_init(void)
+@@ -78,9 +78,10 @@
+     esp_os_enter_critical_safe(&rtc_spinlock);
+     s_sar_power_on_cnt--;
+     if (s_sar_power_on_cnt < 0) {
++        s_sar_power_on_cnt = 0;
+         esp_os_exit_critical_safe(&rtc_spinlock);
+         ESP_LOGE(TAG, "%s called, but s_sar_power_on_cnt == 0", __func__);
+-        abort();
++        return;
+     } else if (s_sar_power_on_cnt == 0) {
+         sar_ctrl_ll_set_power_mode_from_pwdet(SAR_CTRL_LL_POWER_FSM);
+     }
+@@ -151,10 +152,10 @@
+ 
+ void adc_reset_lock_acquire(void)
+ {
+-    _lock_acquire(&adc_reset_lock);
++    k_mutex_lock(&adc_reset_lock, K_FOREVER);
+ }
+ 
+ void adc_reset_lock_release(void)
+ {
+-    _lock_release(&adc_reset_lock);
++    k_mutex_unlock(&adc_reset_lock);
+ }
+--- a/components/esp_hw_support/port/esp32/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32/esp_clk_tree.c
+@@ -31,13 +31,13 @@
+         clk_src_freq = clk_hal_apb_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_D2:
+-        clk_src_freq = (clk_ll_bbpll_get_freq_mhz() * MHZ) >> 1;
++        clk_src_freq = (clk_ll_bbpll_get_freq_mhz() * MHZ(1)) >> 1;
+         break;
+     case SOC_MOD_CLK_PLL_F160M:
+-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+@@ -55,7 +55,7 @@
+         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
+         break;
+     case SOC_MOD_CLK_REF_TICK:
+-        clk_src_freq = 1 * MHZ;
++        clk_src_freq = 1 * MHZ(1);
+         break;
+     case SOC_MOD_CLK_APLL:
+         clk_src_freq = clk_hal_apll_get_freq_hz();
+--- a/components/esp_hw_support/port/esp32h21/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32h21/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -50,6 +50,9 @@
+ 
+ #define MHZ (1000000)
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -66,6 +69,15 @@
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  860
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    85
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
+ // /*
+ // set sleep_init default param
+ // */
+--- a/components/esp_hw_support/port/esp32h21/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32h21/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32h21/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32h21/private_include/pmu_bit_defs.h
+@@ -13,7 +13,7 @@
+ #define PMU_EXT0_WAKEUP_EN          BIT(0)
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+ #define PMU_BLE_SOC_WAKEUP_EN       BIT(10)
+--- a/components/esp_hw_support/port/esp32h21/rtc_time.c
++++ b/components/esp_hw_support/port/esp32h21/rtc_time.c
+@@ -219,7 +219,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32h2/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32h2/esp_clk_tree.c
+@@ -28,16 +28,16 @@
+         clk_src_freq = clk_hal_cpu_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F48M:
+-        clk_src_freq = CLK_LL_PLL_48M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_48M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F64M:
+-        clk_src_freq = CLK_LL_PLL_64M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_64M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F96M:
+-        clk_src_freq = CLK_LL_PLL_96M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_96M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+--- a/components/esp_hw_support/port/esp32h2/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32h2/esp_cpu_intr.c
+@@ -11,12 +11,14 @@
+ void esp_cpu_intr_get_desc(int core_id, int intr_num, esp_cpu_intr_desc_t *intr_desc_ret)
+ {
+     /* On the ESP32-H2, interrupt:
++     * - 0 is unavailable according to TRM
++     * - 1 is for Wi-Fi
+      * - 6 for "permanently disabled interrupt"
+      *
+      * Interrupts 3, 4 and 7 are unavailable for PULP CPU as they are bound to Core-Local Interrupts (CLINT)
+      */
+     // [TODO: IDF-2465]
+-    const uint32_t base_rsvd_mask = BIT(3) | BIT(4) | BIT(6) | BIT(7);
++    const uint32_t base_rsvd_mask = BIT(0) | BIT(1) | BIT(3) | BIT(4) | BIT(6) | BIT(7);
+ 
+     /* On the ESP32-H2, interrupt 31 is reserved for ESP-TEE
+      * for operations related to secure peripherals under its control
+--- a/components/esp_hw_support/port/esp32h2/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32h2/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2020-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -11,6 +11,7 @@
+ #include "soc/soc.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -48,12 +49,13 @@
+  * - rtc_sleep: entry into sleep modes
+  */
+ 
+-#define MHZ (1000000)
+-
+ #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+ #define RTC_SLOW_CLK_32K_CAL_TIMEOUT_THRES(cycles)   (cycles << 12)
+ #define RTC_FAST_CLK_8M_CAL_TIMEOUT_THRES(cycles)    (TIMG_RTC_CALI_TIMEOUT_THRES_V) // Just use the max timeout thres value
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -65,10 +67,46 @@
+ #define SOC_DELAY_LP_PLL_SWITCH             3
+ #define SOC_DELAY_LP_PLL_ENABLE             50
+ 
++#define RTC_CNTL_PLL_BUF_WAIT_DEFAULT  20
++#define RTC_CNTL_XTL_BUF_WAIT_DEFAULT  100
++
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  860
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    85
+ #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
++/*
++set sleep_init default param
++*/
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_DEFAULT  5
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_NODROP  0
++#define RTC_CNTL_DBG_ATTEN_DEEPSLEEP_DEFAULT  15
++#define RTC_CNTL_DBG_ATTEN_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_SLEEP_ON  0
++#define RTC_CNTL_BIASSLP_SLEEP_DEFAULT  1
++#define RTC_CNTL_PD_CUR_MONITOR_DEFAULT  0
++#define RTC_CNTL_PD_CUR_SLEEP_ON  0
++#define RTC_CNTL_PD_CUR_SLEEP_DEFAULT  1
++#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
++
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ /**
+  * @brief CPU clock configuration structure
+  */
+@@ -81,6 +119,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_RC_SLOW _Pragma ("GCC warning \"'RTC_CAL_RC_SLOW' macro is deprecated\"") CLK_CAL_RC_SLOW
+ #define RTC_CAL_RC32K _Pragma ("GCC warning \"'RTC_CAL_RC32K' macro is deprecated\"") CLK_CAL_RC32K
+--- a/components/esp_hw_support/port/esp32h2/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32h2/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32h2/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32h2/private_include/pmu_bit_defs.h
+@@ -13,7 +13,7 @@
+ #define PMU_EXT0_WAKEUP_EN          BIT(0)
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+ #define PMU_BLE_SOC_WAKEUP_EN       BIT(10)
+--- a/components/esp_hw_support/port/esp32h2/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32h2/rtc_clk.c
+@@ -457,7 +457,7 @@
+ 
+ uint32_t rtc_clk_apb_freq_get(void)
+ {
+-    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ;
++    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ(1);
+ }
+ 
+ void rtc_dig_clk8m_enable(void)
+--- a/components/esp_hw_support/port/esp32h2/rtc_time.c
++++ b/components/esp_hw_support/port/esp32h2/rtc_time.c
+@@ -123,7 +123,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -245,8 +245,8 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32h2/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32h2/sar_periph_ctrl.c
+@@ -15,8 +15,8 @@
+  */
+ 
+ #include <sys/lock.h>
++#include <zephyr/kernel.h>
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/esp_modem_clock.h"
+@@ -27,8 +27,8 @@
+ #include "hal/temperature_sensor_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
+-static _lock_t adc_reset_lock;
++extern unsigned int rtc_spinlock;
++K_MUTEX_DEFINE(adc_reset_lock);
+ 
+ 
+ void sar_periph_ctrl_init(void)
+@@ -150,10 +150,10 @@
+ 
+ void adc_reset_lock_acquire(void)
+ {
+-    _lock_acquire(&adc_reset_lock);
++    k_mutex_lock(&adc_reset_lock, K_FOREVER);
+ }
+ 
+ void adc_reset_lock_release(void)
+ {
+-    _lock_release(&adc_reset_lock);
++    k_mutex_unlock(&adc_reset_lock);
+ }
+--- a/components/esp_hw_support/port/esp32h4/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32h4/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -50,6 +50,9 @@
+ 
+ #define MHZ (1000000)
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -65,6 +68,16 @@
+ 
+ #define RTC_CNTL_CK8M_DFREQ_DEFAULT  100
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    28
++
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
+ // /*
+ // set sleep_init default param
+ // */
+--- a/components/esp_hw_support/port/esp32h4/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32h4/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32h4/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32h4/private_include/pmu_bit_defs.h
+@@ -13,7 +13,7 @@
+ #define PMU_EXT0_WAKEUP_EN          BIT(0)
+ #define PMU_EXT1_WAKEUP_EN          BIT(1)
+ #define PMU_GPIO_WAKEUP_EN          BIT(2)
+-#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
++#define PMU_LP_TIMER_WAKEUP_EN      BIT(4)
+ #define PMU_UART0_WAKEUP_EN         BIT(6)
+ #define PMU_UART1_WAKEUP_EN         BIT(7)
+ #define PMU_TOUCH_WAKEUP_EN         BIT(9)
+--- a/components/esp_hw_support/port/esp32h4/rtc_time.c
++++ b/components/esp_hw_support/port/esp32h4/rtc_time.c
+@@ -218,7 +218,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32/include/soc/rtc.h
+@@ -12,6 +12,7 @@
+ #include "soc/rtc_periph.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -50,8 +51,6 @@
+  * - rtc_init: initialization
+  */
+ 
+-#define MHZ (1000000)
+-
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+--- a/components/esp_hw_support/port/esp32p4/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32p4/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -50,6 +50,9 @@
+ 
+ #define MHZ (1000000)
+ 
++#define OTHER_BLOCKS_POWERUP        1
++#define OTHER_BLOCKS_WAIT           1
++
+ /* Delays for various clock sources to be enabled/switched.
+  * All values are in microseconds.
+  */
+@@ -68,7 +71,32 @@
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    128
+ #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
+ 
++/* Various delays to be programmed into power control state machines */
++#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
++#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
++#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
++#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
++#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
++#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
++#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
++
++/*
++set sleep_init default param
++*/
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_DEFAULT  5
++#define RTC_CNTL_DBG_ATTEN_LIGHTSLEEP_NODROP  0
++#define RTC_CNTL_DBG_ATTEN_DEEPSLEEP_DEFAULT  15
++#define RTC_CNTL_DBG_ATTEN_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_MONITOR_DEFAULT  0
++#define RTC_CNTL_BIASSLP_SLEEP_ON  0
++#define RTC_CNTL_BIASSLP_SLEEP_DEFAULT  1
++#define RTC_CNTL_PD_CUR_MONITOR_DEFAULT  0
++#define RTC_CNTL_PD_CUR_SLEEP_ON  0
++#define RTC_CNTL_PD_CUR_SLEEP_DEFAULT  1
++#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
++
+ #if CONFIG_ESP_ENABLE_PVT
++
+ #define PVT_CHANNEL0_SEL    49
+ #define PVT_CHANNEL1_SEL    53
+ #define PVT_CHANNEL0_CFG    0x13e80
+@@ -102,6 +130,15 @@
+ 
+ #endif //#if CONFIG_ESP_ENABLE_PVT
+ 
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ /**
+  * @brief CPU clock configuration structure
+  */
+@@ -114,6 +151,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
+ #define RTC_CAL_MPLL _Pragma ("GCC warning \"'RTC_CAL_MPLL' macro is deprecated\"") CLK_CAL_MPLL
+ #define RTC_CAL_SPLL _Pragma ("GCC warning \"'RTC_CAL_SPLL' macro is deprecated\"") CLK_CAL_SPLL
+--- a/components/esp_hw_support/port/esp32p4/io_mux.c
++++ b/components/esp_hw_support/port/esp32p4/io_mux.c
+@@ -20,7 +20,7 @@
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ static soc_module_clk_t s_io_mux_clk_src = 0; // by default, the clock source is not set explicitly by any consumer (e.g. SDM, Filter)
+ 
+-#if CONFIG_ULP_COPROC_ENABLED
++#if CONFIG_ESP32_ULP_COPROC_ENABLED
+ RTC_DATA_ATTR
+ #endif
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32p4/pmu_sleep.c
++++ b/components/esp_hw_support/port/esp32p4/pmu_sleep.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_types.h>
+ #include "sdkconfig.h"
+ #include "esp_err.h"
+--- a/components/esp_hw_support/port/esp32p4/private_include/pmu_bit_defs.h
++++ b/components/esp_hw_support/port/esp32p4/private_include/pmu_bit_defs.h
+@@ -23,7 +23,7 @@
+ #define PMU_LP_UART_WAKEUP_EN           BIT(10)
+ #define PMU_TOUCH_WAKEUP_EN             BIT(11)
+ #define PMU_EXT1_WAKEUP_EN              BIT(12)
+-#define PMU_RTC_TIMER_WAKEUP_EN         BIT(13)
++#define PMU_LP_TIMER_WAKEUP_EN          BIT(13)
+ #define PMU_BOD_WAKEUP_EN               BIT(14)
+ #define PMU_VBAT_UNDERVOLT_WAKEUP_EN    BIT(15)
+ #define PMU_LP_CORE_TRAP_WAKEUP_EN      BIT(16)
+--- a/components/esp_hw_support/port/esp32p4/rtc_time.c
++++ b/components/esp_hw_support/port/esp32p4/rtc_time.c
+@@ -227,7 +227,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32/rtc_clk.c
+@@ -8,6 +8,7 @@
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <stdlib.h>
++#include "esp_attr.h"
+ #include "soc/rtc.h"
+ #include "esp_private/rtc_clk.h"
+ #include "esp_private/esp_sleep_internal.h"
+@@ -245,21 +246,21 @@
+         }
+     }
+     // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
+-    sdm2 = (int)(((o_div + 2) * 2 * freq) / (xtal_freq_mhz * MHZ)) - 4;
++    sdm2 = (int)(((o_div + 2) * 2 * freq) / (xtal_freq_mhz * MHZ(1))) - 4;
+     // numrator = (((o_div + 2) * 2) * apll_freq / xtal_freq) - 4 - sdm2
+-    float numrator = (((o_div + 2) * 2 * freq) / ((float)xtal_freq_mhz * MHZ)) - 4 - sdm2;
++    float numrator = (((o_div + 2) * 2 * freq) / ((float)xtal_freq_mhz * MHZ(1))) - 4 - sdm2;
+     // If numrator is bigger than 255/256 + 255/65536 + (1/65536)/2 = 1 - (1 / 65536)/2, carry bit to sdm2
+-    if (numrator > 1.0 - (1.0 / 65536.0) / 2.0) {
++    if (numrator > 1.0f - (1.0f / 65536.0f) / 2.0f) {
+         sdm2++;
+     }
+     // If numrator is smaller than (1/65536)/2, keep sdm0 = sdm1 = 0, otherwise calculate sdm0 and sdm1
+-    else if (numrator > (1.0 / 65536.0) / 2.0) {
++    else if (numrator > (1.0f / 65536.0f) / 2.0f) {
+         // Get the closest sdm1
+-        sdm1 = (int)(numrator * 65536.0 + 0.5) / 256;
++        sdm1 = (int)(numrator * 65536.0f + 0.5f) / 256;
+         // Get the closest sdm0
+-        sdm0 = (int)(numrator * 65536.0 + 0.5) % 256;
++        sdm0 = (int)(numrator * 65536.0f + 0.5f) % 256;
+     }
+-    uint32_t real_freq = (uint32_t)(xtal_freq_mhz * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) / (((float)o_div + 2) * 2));
++    uint32_t real_freq = (uint32_t)(xtal_freq_mhz * MHZ(1) * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) / (((float)o_div + 2) * 2));
+     *_o_div = o_div;
+     *_sdm0 = sdm0;
+     *_sdm1 = sdm1;
+@@ -382,7 +383,7 @@
+ #ifndef BOOTLOADER_BUILD
+     lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), cpu_freq / LACT_TICKS_PER_US);
+ #endif
+-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
++    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+     /* lower the voltage */
+     int dbias = (cpu_freq <= 2) ? DIG_DBIAS_2M : DIG_DBIAS_XTAL;
+     REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_DIG_DBIAS_WAK, dbias);
+@@ -398,7 +399,7 @@
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_RC_FAST);
+ #ifndef BOOTLOADER_BUILD
+-    lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), SOC_CLK_RC_FAST_FREQ_APPROX / MHZ / LACT_TICKS_PER_US);
++    lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1) / LACT_TICKS_PER_US);
+ #endif
+     rtc_clk_apb_freq_update(SOC_CLK_RC_FAST_FREQ_APPROX);
+ }
+@@ -442,7 +443,7 @@
+     clk_ll_ref_tick_set_divider(SOC_CPU_CLK_SRC_PLL, cpu_freq_mhz);
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+-    rtc_clk_apb_freq_update(80 * MHZ);
++    rtc_clk_apb_freq_update(80 * MHZ(1));
+     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
+ #ifndef BOOTLOADER_BUILD
+     if (cur_freq <= 40 && delay_cycle < 0) {
+@@ -630,7 +631,7 @@
+ uint32_t rtc_clk_apb_freq_get(void)
+ {
+ #if CONFIG_IDF_ENV_FPGA
+-    return CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ * MHZ;
++    return CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ * MHZ(1);
+ #endif // CONFIG_IDF_ENV_FPGA
+     return clk_ll_apb_load_freq_hz();
+ }
+--- a/components/esp_hw_support/port/esp32/rtc_clk_init.c
++++ b/components/esp_hw_support/port/esp32/rtc_clk_init.c
+@@ -99,7 +99,7 @@
+     }
+     esp_rom_output_tx_wait_idle(0);
+     rtc_clk_xtal_freq_update(xtal_freq);
+-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
++    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+ 
+     /* Set CPU frequency */
+ 
+@@ -155,7 +155,7 @@
+      * (shifted by RTC_CLK_CAL_FRACT bits).
+      * Xtal frequency will be (cal_val * 8M / 256) / 2^19
+      */
+-    uint32_t freq_mhz = (cal_val * SOC_CLK_RC_FAST_FREQ_APPROX / MHZ / 256 ) >> RTC_CLK_CAL_FRACT;
++    uint32_t freq_mhz = (cal_val * SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1) / 256 ) >> RTC_CLK_CAL_FRACT;
+     /* Guess the XTAL type. For now, only 40 and 26MHz are supported.
+      */
+     switch (freq_mhz) {
+--- a/components/esp_hw_support/port/esp32/rtc_sleep.c
++++ b/components/esp_hw_support/port/esp32/rtc_sleep.c
+@@ -18,8 +18,6 @@
+ #include "hal/rwdt_ll.h"
+ #include "esp_rom_sys.h"
+ 
+-#define MHZ (1000000)
+-
+ #define ROM_RAM_POWERUP_CYCLES   RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES
+ #define ROM_RAM_WAIT_CYCLES      RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES
+ 
+--- a/components/esp_hw_support/port/esp32/rtc_time.c
++++ b/components/esp_hw_support/port/esp32/rtc_time.c
+@@ -66,7 +66,7 @@
+     } else {
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX; /* 150k internal oscillator */
+     }
+-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Check if the required number of slowclk_cycles may result in an overflow of TIMG_RTC_CALI_VALUE */
+     soc_xtal_freq_t xtal_freq = rtc_clk_xtal_freq_get();
+     if (xtal_freq == SOC_XTAL_FREQ_AUTO) {
+@@ -194,9 +194,8 @@
+ 
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+-/// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++/* @brief if the calibration is used, we need to enable the timer group0 first */
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32s2/adc2_init_cal.c
++++ b/components/esp_hw_support/port/esp32s2/adc2_init_cal.c
+@@ -8,19 +8,19 @@
+ The linker will link constructor (adc2_init_code_calibration) only when any sections inside the same file (adc2_cal_include) is used.
+ Don't put any other code into this file. */
+ 
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "hal/adc_types.h"
+ #include "hal/adc_hal_common.h"
+ #include "esp_private/adc_share_hw_ctrl.h"
+ #include "esp_private/critical_section.h"
+ 
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ /**
+  * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
+  *        This API be called in before `app_main()`.
+  */
+-static __attribute__((constructor)) void adc2_init_code_calibration(void)
++static void adc2_init_code_calibration(void)
+ {
+     adc_hal_calibration_init(ADC_UNIT_2);
+     adc_calc_hw_calibration_code(ADC_UNIT_2, ADC_ATTEN_DB_12);
+@@ -32,5 +32,6 @@
+ /** Don't call `adc2_cal_include` in user code. */
+ void adc2_cal_include(void)
+ {
+-    /* When this empty function is called, the `adc2_init_code_calibration` constructor will be linked and executed before the app.*/
++    /* In Zephyr, constructors don't work the same way. Call the calibration directly. */
++    adc2_init_code_calibration();
+ }
+--- a/components/esp_hw_support/port/esp32s2/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32s2/esp_clk_tree.c
+@@ -31,10 +31,10 @@
+         clk_src_freq = clk_hal_apb_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F160M:
+-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+@@ -53,7 +53,7 @@
+         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
+         break;
+     case SOC_MOD_CLK_REF_TICK:
+-        clk_src_freq = 1 * MHZ;
++        clk_src_freq = 1 * MHZ(1);
+         break;
+     case SOC_MOD_CLK_APLL:
+         clk_src_freq = clk_hal_apll_get_freq_hz();
+--- a/components/esp_hw_support/port/esp32s2/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32s2/esp_cpu_intr.c
+@@ -44,7 +44,7 @@
+     [12] = { 1, ESP_CPU_INTR_TYPE_LEVEL, 0                              },
+     [13] = { 1, ESP_CPU_INTR_TYPE_LEVEL, 0                              },
+     /* Interrupt 14 reserved for NMI (Non-Maskable Interrupts) */
+-    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, 0                              },
++    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, ESP_CPU_INTR_DESC_FLAG_RESVD   },
+ #if CONFIG_FREERTOS_CORETIMER_1
+     [15] = { 3, ESP_CPU_INTR_TYPE_NA,    ESP_CPU_INTR_DESC_FLAG_RESVD   },
+ #else
+--- a/components/esp_hw_support/port/esp32s2/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32s2/include/soc/rtc.h
+@@ -11,6 +11,7 @@
+ #include "soc/soc.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -49,8 +50,6 @@
+  * - rtc_init: initialization
+  */
+ 
+-#define MHZ (1000000)
+-
+ #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_90K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+--- a/components/esp_hw_support/port/esp32s2/io_mux.c
++++ b/components/esp_hw_support/port/esp32s2/io_mux.c
+@@ -7,13 +7,11 @@
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_private/io_mux.h"
++#include "esp_private/periph_ctrl.h"
+ #include "esp_private/critical_section.h"
+ #include "hal/rtc_io_ll.h"
+ 
+-#define RTCIO_RCC_ATOMIC() \
+-    for (int _rc_cnt = 1; \
+-    _rc_cnt ? (esp_os_enter_critical(&rtc_spinlock), 1) : 0;     \
+-    esp_os_exit_critical(&rtc_spinlock), _rc_cnt--)
++#define RTCIO_RCC_ATOMIC()  PERIPH_RCC_ATOMIC()
+ 
+ esp_err_t io_mux_set_clock_source(soc_module_clk_t clk_src)
+ {
+@@ -21,7 +19,6 @@
+     return ESP_OK;
+ }
+ 
+-extern portMUX_TYPE rtc_spinlock;
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ 
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32s2/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32s2/rtc_clk.c
+@@ -149,21 +149,21 @@
+         }
+     }
+     // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
+-    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ)) - 4;
++    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ(1))) - 4;
+     // numrator = (((o_div + 2) * 2) * apll_freq / xtal_freq) - 4 - sdm2
+-    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ)) - 4 - sdm2;
++    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ(1))) - 4 - sdm2;
+     // If numrator is bigger than 255/256 + 255/65536 + (1/65536)/2 = 1 - (1 / 65536)/2, carry bit to sdm2
+-    if (numrator > 1.0 - (1.0 / 65536.0) / 2.0) {
++    if (numrator > 1.0f - (1.0f / 65536.0f) / 2.0f) {
+         sdm2++;
+     }
+     // If numrator is smaller than (1/65536)/2, keep sdm0 = sdm1 = 0, otherwise calculate sdm0 and sdm1
+-    else if (numrator > (1.0 / 65536.0) / 2.0) {
++    else if (numrator > (1.0f / 65536.0f) / 2.0f) {
+         // Get the closest sdm1
+-        sdm1 = (int)(numrator * 65536.0 + 0.5) / 256;
++        sdm1 = (int)(numrator * 65536.0f + 0.5f) / 256;
+         // Get the closest sdm0
+-        sdm0 = (int)(numrator * 65536.0 + 0.5) % 256;
++        sdm0 = (int)(numrator * 65536.0f + 0.5f) % 256;
+     }
+-    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) / (((float)o_div + 2) * 2));
++    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ(1) * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) / (((float)o_div + 2) * 2));
+     *_o_div = o_div;
+     *_sdm0 = sdm0;
+     *_sdm1 = sdm1;
+@@ -300,7 +300,7 @@
+     clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
+     clk_ll_cpu_set_divider(1);
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+-    rtc_clk_apb_freq_update(80 * MHZ);
++    rtc_clk_apb_freq_update(80 * MHZ(1));
+     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
+ 
+     if (cpu_freq_mhz < cur_config.freq_mhz) {
+@@ -476,7 +476,7 @@
+ #ifndef BOOTLOADER_BUILD
+     systimer_ll_set_step_for_xtal(&SYSTIMER, systimer_us_to_ticks(1) / cpu_freq);
+ #endif
+-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
++    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+ 
+     /* lower the voltage
+      * cpu_frequency < 240M: dbias = DIG_DBIAS_XTAL_80M_160M;
+--- a/components/esp_hw_support/port/esp32s2/rtc_clk_init.c
++++ b/components/esp_hw_support/port/esp32s2/rtc_clk_init.c
+@@ -49,7 +49,7 @@
+ 
+     soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+     esp_rom_output_tx_wait_idle(0);
+-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
++    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+ 
+     /* Set CPU frequency */
+     rtc_clk_cpu_freq_get_config(&old_config);
+--- a/components/esp_hw_support/port/esp32s2/rtc_time.c
++++ b/components/esp_hw_support/port/esp32s2/rtc_time.c
+@@ -65,7 +65,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_90K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -256,8 +256,8 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
++
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32s2/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32s2/sar_periph_ctrl.c
+@@ -15,9 +15,9 @@
+  * - Temp Sensor
+  */
+ 
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/critical_section.h"
+@@ -26,7 +26,7 @@
+ #include "hal/adc_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ 
+ void sar_periph_ctrl_init(void)
+--- a/components/esp_hw_support/port/esp32s31/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32s31/include/soc/rtc.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -56,6 +56,15 @@
+ #define RTC_CNTL_SCK_DCAP_DEFAULT    128
+ #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
+ 
++/*
++The follow value is used to get a reasonable rtc voltage dbias value according to digital dbias & some other value
++storing in efuse (based on ATE 5k ECO3 chips)
++*/
++#define K_RTC_MID_MUL10000 215
++#define K_DIG_MID_MUL10000 213
++#define V_RTC_MID_MUL10000  10800
++#define V_DIG_MID_MUL10000  10860
++
+ /**
+  * @brief CPU clock configuration structure
+  */
+@@ -68,6 +77,9 @@
+ 
+ #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+ 
++#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
++#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
++
+ /**
+  * @brief Clock source to be calibrated using rtc_clk_cal function
+  *
+--- a/components/esp_hw_support/port/esp32s31/io_mux.c
++++ b/components/esp_hw_support/port/esp32s31/io_mux.c
+@@ -20,7 +20,7 @@
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ static soc_module_clk_t s_io_mux_clk_src = 0; // by default, the clock source is not set explicitly by any consumer (e.g. SDM, Filter)
+ 
+-#if CONFIG_ULP_COPROC_ENABLED
++#if CONFIG_ESP32_ULP_COPROC_ENABLED
+ RTC_DATA_ATTR
+ #endif
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32s31/rtc_time.c
++++ b/components/esp_hw_support/port/esp32s31/rtc_time.c
+@@ -227,7 +227,7 @@
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+ /// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++
+ static void enable_timer_group0_for_calibration(void)
+ {
+     // TODO: ["ESP32S31"] IDF-14871
+--- a/components/esp_hw_support/port/esp32s3/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32s3/esp_clk_tree.c
+@@ -31,16 +31,16 @@
+         clk_src_freq = clk_hal_apb_get_freq_hz();
+         break;
+     case SOC_MOD_CLK_XTAL:
+-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
++        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F80M:
+-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F160M:
+-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_D2:
+-        clk_src_freq = (clk_ll_bbpll_get_freq_mhz() * MHZ) >> 1;
++        clk_src_freq = (clk_ll_bbpll_get_freq_mhz() * MHZ(1)) >> 1;
+         break;
+     case SOC_MOD_CLK_RTC_SLOW:
+         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
+--- a/components/esp_hw_support/port/esp32s3/esp_cpu_intr.c
++++ b/components/esp_hw_support/port/esp32s3/esp_cpu_intr.c
+@@ -42,7 +42,7 @@
+     [12] = { 1, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } },
+     [13] = { 1, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } },
+     /* Interrupt 14 reserved for NMI (Non-Maskable Interrupts) */
+-    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } }, // NMI
++    [14] = { 7, ESP_CPU_INTR_TYPE_LEVEL, { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } }, // NMI
+     [15] = { 3, ESP_CPU_INTR_TYPE_NA,    { ESP_CPU_INTR_DESC_FLAG_SPECIAL, ESP_CPU_INTR_DESC_FLAG_SPECIAL  } },
+     [16] = { 5, ESP_CPU_INTR_TYPE_NA,    { ESP_CPU_INTR_DESC_FLAG_SPECIAL, ESP_CPU_INTR_DESC_FLAG_SPECIAL  } },
+     [17] = { 1, ESP_CPU_INTR_TYPE_LEVEL, { 0,                              0                               } },
+--- a/components/esp_hw_support/port/esp32s3/include/soc/rtc.h
++++ b/components/esp_hw_support/port/esp32s3/include/soc/rtc.h
+@@ -12,6 +12,7 @@
+ #include "soc/soc.h"
+ #include "soc/clk_tree_defs.h"
+ 
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -50,8 +51,6 @@
+  * - rtc_init: initialization
+  */
+ 
+-#define MHZ (1000000)
+-
+ #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
+ #define RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(cycles)  (cycles << 10)
+--- a/components/esp_hw_support/port/esp32s3/io_mux.c
++++ b/components/esp_hw_support/port/esp32s3/io_mux.c
+@@ -7,13 +7,11 @@
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_private/io_mux.h"
++#include "esp_private/periph_ctrl.h"
+ #include "esp_private/critical_section.h"
+ #include "hal/rtc_io_ll.h"
+ 
+-#define RTCIO_RCC_ATOMIC() \
+-    for (int _rc_cnt = 1; \
+-    _rc_cnt ? (esp_os_enter_critical(&rtc_spinlock), 1) : 0;     \
+-    esp_os_exit_critical(&rtc_spinlock), _rc_cnt--)
++#define RTCIO_RCC_ATOMIC()  PERIPH_RCC_ATOMIC()
+ 
+ esp_err_t io_mux_set_clock_source(soc_module_clk_t clk_src)
+ {
+@@ -21,7 +19,6 @@
+     return ESP_OK;
+ }
+ 
+-extern portMUX_TYPE rtc_spinlock;
+ DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
+ 
+ static rtc_io_status_t s_rtc_io_status = {
+--- a/components/esp_hw_support/port/esp32s3/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32s3/rtc_clk.c
+@@ -124,7 +124,7 @@
+ 
+ void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
+ {
+-#ifndef BOOTLOADER_BUILD
++#if !defined(BOOTLOADER_BUILD)
+     // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
+     if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
+         esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
+@@ -234,7 +234,7 @@
+     clk_ll_cpu_set_divider(1);
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+-    rtc_clk_apb_freq_update(80 * MHZ);
++    rtc_clk_apb_freq_update(80 * MHZ(1));
+     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
+ 
+     if (cpu_freq_mhz < cur_config.freq_mhz) {
+@@ -411,7 +411,7 @@
+     clk_ll_cpu_set_divider(div);
+     /* switch clock source */
+     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
++    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+ 
+     if (cur_config.freq_mhz == 240) {
+         REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG, g_rtc_dbias_pvt_non_240m);
+--- a/components/esp_hw_support/port/esp32s3/rtc_clk_init.c
++++ b/components/esp_hw_support/port/esp32s3/rtc_clk_init.c
+@@ -47,7 +47,7 @@
+     soc_xtal_freq_t xtal_freq = cfg.xtal_freq;
+     esp_rom_output_tx_wait_idle(0);
+     rtc_clk_xtal_freq_update(xtal_freq);
+-    rtc_clk_apb_freq_update(xtal_freq * MHZ);
++    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+ 
+     /* Set CPU frequency */
+     rtc_clk_cpu_freq_get_config(&old_config);
+--- a/components/esp_hw_support/port/esp32s3/rtc_init.c
++++ b/components/esp_hw_support/port/esp32s3/rtc_init.c
+@@ -5,7 +5,8 @@
+  */
+ 
+ #include <stdint.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
++#include "esp_hw_log.h"
+ #include "soc/soc.h"
+ #include "soc/rtc.h"
+ #include "soc/rtc_cntl_reg.h"
+@@ -19,7 +20,6 @@
+ #include "soc/regi2c_lp_bias.h"
+ #include "soc/regi2c_ulp.h"
+ #include "soc/regi2c_dig_reg.h"
+-#include "esp_hw_log.h"
+ #include "esp_err.h"
+ #include "esp_attr.h"
+ #include "esp_private/mspi_timing_tuning.h"
+--- a/components/esp_hw_support/port/esp32s3/rtc_time.c
++++ b/components/esp_hw_support/port/esp32s3/rtc_time.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <stdint.h>
++#include "hal/log.h"
+ #include "esp_rom_sys.h"
+ #include "soc/rtc.h"
+ #include "soc/rtc_cntl_reg.h"
+@@ -88,7 +89,7 @@
+         REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, RTC_SLOW_CLK_150K_CAL_TIMEOUT_THRES(slowclk_cycles));
+         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
+     }
+-    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ / expected_freq);
++    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
+     /* Start calibration */
+     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
+@@ -190,8 +191,8 @@
+ 
+ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
+ 
+-/// @brief if the calibration is used, we need to enable the timer group0 first
+-__attribute__((constructor))
++/* @brief if the calibration is used, we need to enable the timer group0 first */
++__attribute__((unused))
+ static void enable_timer_group0_for_calibration(void)
+ {
+ #ifndef BOOTLOADER_BUILD
+--- a/components/esp_hw_support/port/esp32s3/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32s3/sar_periph_ctrl.c
+@@ -17,7 +17,7 @@
+ 
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/critical_section.h"
+@@ -26,7 +26,7 @@
+ #include "hal/adc_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ 
+ void sar_periph_ctrl_init(void)
+--- a/components/esp_hw_support/port/esp32/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32/sar_periph_ctrl.c
+@@ -14,9 +14,9 @@
+  * - PWDET
+  */
+ 
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/critical_section.h"
+ #include "esp_private/adc_share_hw_ctrl.h"
+@@ -24,7 +24,7 @@
+ #include "hal/adc_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
++extern unsigned int rtc_spinlock;
+ 
+ 
+ void sar_periph_ctrl_init(void)
+--- a/components/esp_hw_support/port/esp_clk_tree_common.c
++++ b/components/esp_hw_support/port/esp_clk_tree_common.c
+@@ -36,7 +36,7 @@
+ static esp_clk_tree_calibrated_freq_t s_calibrated_freq = {};
+ 
+ /* Number of cycles for RTC_SLOW_CLK calibration */
+-#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
++#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+ /* Number of cycles for ~32kHz clocks calibration (rc_fast_d256, xtal32k, osc_slow, rc32k) */
+ #define DEFAULT_32K_CLK_CAL_CYCLES  100
+ /* Number of cycles for RC_FAST calibration */
+@@ -181,19 +181,19 @@
+         return esp_clk_tree_rc_fast_get_freq_hz(precision) / clk_ll_rc_fast_get_divider();
+ #if SOC_CLK_LP_FAST_SUPPORT_LP_PLL
+     case SOC_RTC_FAST_CLK_SRC_LP_PLL:
+-        return clk_ll_lp_pll_get_freq_mhz() * MHZ;
++        return clk_ll_lp_pll_get_freq_mhz() * MHZ(1);
+ #endif
+ #if SOC_CLK_LP_FAST_SUPPORT_XTAL
+     case SOC_RTC_FAST_CLK_SRC_XTAL:
+-        return clk_hal_xtal_get_freq_mhz() * MHZ;
++        return clk_hal_xtal_get_freq_mhz() * MHZ(1);
+ #endif
+ #if SOC_CLK_LP_FAST_SUPPORT_XTAL_D2
+     case SOC_RTC_FAST_CLK_SRC_XTAL_D2:
+-        return clk_hal_xtal_get_freq_mhz() * MHZ >> 1;
++        return clk_hal_xtal_get_freq_mhz() * MHZ(1) >> 1;
+ #endif
+ #if SOC_CLK_LP_FAST_SUPPORT_XTAL_D4
+     case SOC_RTC_FAST_CLK_SRC_XTAL_D4:
+-        return clk_hal_xtal_get_freq_mhz() * MHZ >> 2;
++        return clk_hal_xtal_get_freq_mhz() * MHZ(1) >> 2;
+ #endif
+     default:
+         // Invalid clock source
+--- a/components/esp_hw_support/port/regdma_link.c
++++ b/components/esp_hw_support/port/regdma_link.c
+@@ -38,7 +38,7 @@
+         memset(link, 0, buff ? sizeof(regdma_link_continuous_t) : (sizeof(regdma_link_continuous_t) + (len<<2)));
+         void *buf = buff ? buff : (void *)(link->buff);
+         link = regdma_link_init_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_continuous_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_continuous_t, head));
+     }
+     return NULL;
+ }
+@@ -54,7 +54,7 @@
+         memset(link, 0, buff ? sizeof(regdma_link_addr_map_t) : (sizeof(regdma_link_addr_map_t) + (len<<2)));
+         void *buf = buff ? buff : (void *)(link->buff);
+         link = regdma_link_init_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_addr_map_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_addr_map_t, head));
+     }
+     return NULL;
+ }
+@@ -66,7 +66,7 @@
+     if (link) {
+         memset(link, 0, sizeof(regdma_link_write_wait_t));
+         link = regdma_link_init_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
+     }
+     return NULL;
+ }
+@@ -78,7 +78,7 @@
+     if (link) {
+         memset(link, 0, sizeof(regdma_link_write_wait_t));
+         link = regdma_link_init_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
+     }
+     return NULL;
+ }
+@@ -94,7 +94,7 @@
+         memset(link, 0, buff ? sizeof(regdma_link_branch_continuous_t) : (sizeof(regdma_link_branch_continuous_t) + (len<<2)));
+         void *buf = buff ? buff : (void *)(link->buff);
+         link = regdma_link_init_branch_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_branch_continuous_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_branch_continuous_t, head));
+     }
+     return NULL;
+ }
+@@ -110,7 +110,7 @@
+         memset(link, 0, buff ? sizeof(regdma_link_branch_addr_map_t) : (sizeof(regdma_link_branch_addr_map_t) + (len<<2)));
+         void *buf = buff ? buff : (void *)(link->buff);
+         link = regdma_link_init_branch_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_branch_addr_map_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_branch_addr_map_t, head));
+     }
+     return NULL;
+ }
+@@ -122,7 +122,7 @@
+     if (link) {
+         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
+         link = regdma_link_init_branch_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
+     }
+     return NULL;
+ }
+@@ -134,7 +134,7 @@
+     if (link) {
+         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
+         link = regdma_link_init_branch_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
+-        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
++        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
+     }
+     return NULL;
+ }
+@@ -442,7 +442,7 @@
+     int it = (head.branch << 2) | head.mode;
+     assert(it < ARRAY_SIZE(stats_offset));
+ 
+-    return (regdma_link_stats_t *)(regdma_link_get_instance(link) + stats_offset[it]);
++    return (regdma_link_stats_t *)((char *)regdma_link_get_instance(link) + stats_offset[it]);
+ }
+ ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-null-dereference")
+ 
+--- a/components/esp_hw_support/regi2c_ctrl.c
++++ b/components/esp_hw_support/regi2c_ctrl.c
+@@ -7,24 +7,25 @@
+ 
+ #include "esp_attr.h"
+ #include <stdint.h>
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/semphr.h"
++#include <zephyr/kernel.h>
++#include <zephyr/sys/atomic.h>
++#include <zephyr/sys/__assert.h>
+ #include "hal/regi2c_ctrl.h"
+ #include "hal/regi2c_ctrl_ll.h"
+ #include "esp_hw_log.h"
+ #include "soc/soc_caps.h"
+-#include "esp_private/critical_section.h"
+ 
+-static portMUX_TYPE __attribute__((unused)) mux = portMUX_INITIALIZER_UNLOCKED;
++static unsigned int regi2c_lock;
++static atomic_t regi2c_lock_counter;
+ 
+ ESP_HW_LOG_ATTR_TAG_DRAM(TAG, "REGI2C");
+ 
+ uint8_t regi2c_ctrl_read_reg(uint8_t block, uint8_t host_id, uint8_t reg_add)
+ {
+     REGI2C_CLOCK_ENABLE();
+-    esp_os_enter_critical_safe(&mux);
++    unsigned int key = irq_lock();
+     uint8_t value = regi2c_read_reg_raw(block, host_id, reg_add);
+-    esp_os_exit_critical_safe(&mux);
++    irq_unlock(key);
+     REGI2C_CLOCK_DISABLE();
+     return value;
+ }
+@@ -32,9 +33,9 @@
+ uint8_t regi2c_ctrl_read_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb)
+ {
+     REGI2C_CLOCK_ENABLE();
+-    esp_os_enter_critical_safe(&mux);
++    unsigned int key = irq_lock();
+     uint8_t value = regi2c_read_reg_mask_raw(block, host_id, reg_add, msb, lsb);
+-    esp_os_exit_critical_safe(&mux);
++    irq_unlock(key);
+     REGI2C_CLOCK_DISABLE();
+     return value;
+ }
+@@ -42,29 +43,34 @@
+ void regi2c_ctrl_write_reg(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t data)
+ {
+     REGI2C_CLOCK_ENABLE();
+-    esp_os_enter_critical_safe(&mux);
++    unsigned int key = irq_lock();
+     regi2c_write_reg_raw(block, host_id, reg_add, data);
+-    esp_os_exit_critical_safe(&mux);
++    irq_unlock(key);
+     REGI2C_CLOCK_DISABLE();
+ }
+ 
+ void regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb, uint8_t data)
+ {
+     REGI2C_CLOCK_ENABLE();
+-    esp_os_enter_critical_safe(&mux);
++    unsigned int key = irq_lock();
+     regi2c_write_reg_mask_raw(block, host_id, reg_add, msb, lsb, data);
+-    esp_os_exit_critical_safe(&mux);
++    irq_unlock(key);
+     REGI2C_CLOCK_DISABLE();
+ }
+ 
+-void regi2c_enter_critical(void)
++void IRAM_ATTR regi2c_enter_critical(void)
+ {
+-    esp_os_enter_critical_safe(&mux);
++    if (atomic_inc(&regi2c_lock_counter) == 0) {
++        regi2c_lock = irq_lock();
++    }
+ }
+ 
+-void regi2c_exit_critical(void)
++void IRAM_ATTR regi2c_exit_critical(void)
+ {
+-    esp_os_exit_critical_safe(&mux);
++    __ASSERT_NO_MSG(atomic_get(&regi2c_lock_counter) > 0);
++    if (atomic_dec(&regi2c_lock_counter) == 1) {
++        irq_unlock(regi2c_lock);
++    }
+ }
+ 
+ /**
+@@ -110,14 +116,14 @@
+ {
+     regi2c_enter_critical();
+     s_i2c_saradc_enable_cnt--;
+-    if (s_i2c_saradc_enable_cnt < 0){
++    if (s_i2c_saradc_enable_cnt < 0) {
++        s_i2c_saradc_enable_cnt = 0;
+         regi2c_exit_critical();
+-        ESP_HW_LOGE(TAG, "REGI2C_SARADC is already disabled");
++        return;
+     } else if (s_i2c_saradc_enable_cnt == 0) {
+         regi2c_ctrl_ll_i2c_sar_periph_disable();
+     }
+     regi2c_exit_critical();
+-
+ }
+ 
+ #if SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION
+--- a/components/esp_hw_support/rtc_module.c
++++ b/components/esp_hw_support/rtc_module.c
+@@ -9,12 +9,10 @@
+ #include "sdkconfig.h"
+ #include "esp_types.h"
+ #include "esp_log.h"
++#include <zephyr/kernel.h>
+ #include "soc/rtc_periph.h"
+ #include "soc/rtc.h"
+ #include "soc/periph_defs.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/semphr.h"
+-#include "freertos/timers.h"
+ #include "esp_intr_alloc.h"
+ #include "sys/lock.h"
+ #include "esp_private/rtc_ctrl.h"
+@@ -33,7 +31,7 @@
+ #endif
+ 
+ // rtc_spinlock is used by other peripheral drivers
+-portMUX_TYPE rtc_spinlock = portMUX_INITIALIZER_UNLOCKED;
++unsigned int rtc_spinlock;
+ 
+ #if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
+ 
+@@ -61,7 +59,7 @@
+ 
+ static DRAM_ATTR SLIST_HEAD(rtc_isr_handler_list_, rtc_isr_handler_) s_rtc_isr_handler_list =
+         SLIST_HEAD_INITIALIZER(s_rtc_isr_handler_list);
+-static DRAM_ATTR portMUX_TYPE __attribute__((unused)) s_rtc_isr_handler_list_lock = portMUX_INITIALIZER_UNLOCKED;
++static DRAM_ATTR unsigned int s_rtc_isr_handler_list_lock;
+ static intr_handle_t s_rtc_isr_handle;
+ 
+ IRAM_ATTR static void rtc_isr(void* arg)
+@@ -112,7 +110,7 @@
+         return err;
+     }
+ 
+-    rtc_isr_handler_t* item = heap_caps_malloc(sizeof(*item), MALLOC_CAP_INTERNAL);
++    rtc_isr_handler_t* item = k_malloc(sizeof(*item));
+     if (item == NULL) {
+         return ESP_ERR_NO_MEM;
+     }
+@@ -153,7 +151,7 @@
+             if (it->flags & RTC_INTR_FLAG_IRAM) {
+                 s_rtc_isr_noniram_hook_relieve(it->mask);
+             }
+-            free(it);
++            k_free(it);
+             break;
+         }
+         prev = it;
+--- a/components/esp_hw_support/sar_tsens_ctrl.c
++++ b/components/esp_hw_support/sar_tsens_ctrl.c
+@@ -6,7 +6,7 @@
+ 
+ 
+ #include "soc/soc_caps.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_log.h"
+ #include "esp_timer.h"
+@@ -19,7 +19,7 @@
+ #include "esp_private/adc_share_hw_ctrl.h"
+ #include "esp_private/critical_section.h"
+ 
+-extern __attribute__((unused)) portMUX_TYPE rtc_spinlock;
++extern __attribute__((unused)) unsigned int rtc_spinlock;
+ 
+ 
+ /*------------------------------------------------------------------------------------------------------------
+@@ -61,11 +61,14 @@
+ {
+     esp_os_enter_critical(&rtc_spinlock);
+     s_temperature_sensor_power_cnt--;
++    if (s_temperature_sensor_power_cnt < 0) {
++        s_temperature_sensor_power_cnt = 0;
++    }
+     /* Sanity check */
+     if (s_temperature_sensor_power_cnt < 0) {
+         esp_os_exit_critical(&rtc_spinlock);
+         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
+-        abort();
++        return;
+     } else if (s_temperature_sensor_power_cnt == 0) {
+         temperature_sensor_ll_enable(false);
+         PERIPH_RCC_ATOMIC() {
+--- a/components/esp_hw_support/sleep_console.c
++++ b/components/esp_hw_support/sleep_console.c
+@@ -16,10 +16,6 @@
+ 
+ void sleep_console_usj_pad_backup_and_disable(void)
+ {
+-    // This function can be called in sleep process only, and sleep process code
+-    // is in critical region and thread safe already, so to avoid build errors/warnings
+-    // declare __DECLARE_RCC_ATOMIC_ENV here.
+-    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+ 
+     s_usj_state.usj_clock_enabled = usb_serial_jtag_ll_module_is_enabled();
+     if (!s_usj_state.usj_clock_enabled) {
+@@ -37,10 +33,6 @@
+ 
+ void sleep_console_usj_pad_restore(void)
+ {
+-    // This function can be called in sleep process only, and sleep process code
+-    // is in critical region and thread safe already, so to avoid build errors/warnings
+-    // declare __DECLARE_RCC_ATOMIC_ENV here.
+-    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+ 
+     usb_serial_jtag_ll_enable_bus_clock(true);
+     usb_serial_jtag_ll_phy_enable_pad(s_usj_state.usj_pad_enabled);
+--- a/components/esp_hw_support/sleep_event.c
++++ b/components/esp_hw_support/sleep_event.c
+@@ -6,6 +6,7 @@
+ 
+ #include <stddef.h>
+ #include <string.h>
++#include <zephyr/kernel.h>
+ 
+ #include "sdkconfig.h"
+ #include "soc/soc_caps.h"
+@@ -14,19 +15,19 @@
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+ #include "esp_check.h"
+-#include "freertos/FreeRTOS.h"
++#include "esp_attr.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sleep_event");
+ 
+ #if CONFIG_ESP_SLEEP_EVENT_CALLBACKS
+ esp_sleep_event_cbs_config_t g_sleep_event_cbs_config;
+-static portMUX_TYPE s_sleep_event_mutex = portMUX_INITIALIZER_UNLOCKED;
++static unsigned int s_sleep_event_mutex;
+ 
+ esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id, const esp_sleep_event_cb_config_t *event_cb_conf) {
+     if (event_cb_conf == NULL || event_id >= SLEEP_EVENT_CB_INDEX_NUM) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)heap_caps_malloc(sizeof(esp_sleep_event_cb_config_t), MALLOC_CAP_INTERNAL);
++    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)k_malloc(sizeof(esp_sleep_event_cb_config_t));
+     if (new_config == NULL) {
+         return ESP_ERR_NO_MEM; /* Memory allocation failed */
+     }
+@@ -35,7 +36,7 @@
+     esp_sleep_event_cb_config_t **current_ptr = &(g_sleep_event_cbs_config.sleep_event_cb_config[event_id]);
+     while (*current_ptr != NULL) {
+         if (((*current_ptr)->cb) == (event_cb_conf->cb)) {
+-            free(new_config);
++            k_free(new_config);
+             esp_os_exit_critical(&s_sleep_event_mutex);
+             return ESP_FAIL;
+         }
+@@ -62,7 +63,7 @@
+         if (((*current_ptr)->cb) == cb) {
+             esp_sleep_event_cb_config_t *temp = *current_ptr;
+             *current_ptr = (*current_ptr)->next;
+-            free(temp);
++            k_free(temp);
+             break;
+         }
+         current_ptr = &((*current_ptr)->next);
+--- a/components/esp_hw_support/sleep_gpio.c
++++ b/components/esp_hw_support/sleep_gpio.c
+@@ -7,7 +7,7 @@
+ #include <stddef.h>
+ #include <string.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_sleep.h"
+--- a/components/esp_hw_support/sleep_modem.c
++++ b/components/esp_hw_support/sleep_modem.c
+@@ -7,7 +7,7 @@
+ #include <stddef.h>
+ #include <string.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_log.h"
+ #include "esp_attr.h"
+--- a/components/esp_hw_support/sleep_modes.c
++++ b/components/esp_hw_support/sleep_modes.c
+@@ -7,8 +7,8 @@
+ #include <stddef.h>
+ #include <string.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
+ #include <inttypes.h>
++#include <zephyr/kernel.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_rom_caps.h"
+@@ -31,8 +31,6 @@
+ #include "esp_newlib.h"
+ #include "esp_timer.h"
+ #include "esp_ipc_isr.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+ #include "soc/soc_caps.h"
+ #include "soc/spi_pins.h"
+ #include "soc/chip_revision.h"
+@@ -41,6 +39,7 @@
+ #include "hal/efuse_hal.h"
+ #include "hal/rtc_io_hal.h"
+ #include "hal/clk_tree_hal.h"
++#include "esp_cpu.h"
+ 
+ #if SOC_IS(ESP32C5) // Remove after all chips rng_ll.h implemented
+ #include "hal/rng_ll.h"
+@@ -266,7 +265,7 @@
+ #if SOC_PM_SUPPORT_PMU_CLK_ICG
+     int16_t clock_icg_refs[ESP_SLEEP_CLOCK_MAX];
+ #endif
+-    portMUX_TYPE lock;
++    unsigned int lock;
+     uint64_t sleep_duration;
+     uint32_t wakeup_triggers : 20;
+ #if SOC_PM_SUPPORT_EXT1_WAKEUP
+@@ -319,7 +318,7 @@
+ #if SOC_PM_SUPPORT_PMU_CLK_ICG
+     .clock_icg_refs[0 ... ESP_SLEEP_CLOCK_MAX - 1] = 0,
+ #endif
+-    .lock = portMUX_INITIALIZER_UNLOCKED,
++    .lock = 0,
+     .ccount_ticks_record = 0,
+     .sleep_time_overhead_out = DEFAULT_SLEEP_OUT_OVERHEAD_US,
+     .wakeup_triggers = 0,
+@@ -332,7 +331,7 @@
+ 
+ /* Updating RTC_MEMORY_CRC_REG register via set_rtc_memory_crc()
+    is not thread-safe, so we need to disable interrupts before going to deep sleep. */
+-static portMUX_TYPE __attribute__((unused)) spinlock_rtc_deep_sleep = portMUX_INITIALIZER_UNLOCKED;
++static unsigned int __attribute__((unused)) spinlock_rtc_deep_sleep = 0;
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sleep");
+ 
+@@ -340,7 +339,7 @@
+    RTC_SLOW_ATTR is for ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE only, For other submodules, there is
+    no logical error if the ref_cnt is stored in DRAM. and ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE
+    will only be used on chips that support RTC_MEM */
+-#if SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED
++#if (SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED)
+ RTC_SLOW_ATTR
+ #endif
+ static int32_t s_sleep_sub_mode_ref_cnt[ESP_SLEEP_MODE_MAX] = { 0 };
+@@ -466,7 +465,7 @@
+ void esp_default_wake_deep_sleep(void)
+ {
+     /* Clear MMU for CPU 0 */
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     _DPORT_REG_WRITE(DPORT_PRO_CACHE_CTRL1_REG,
+                      _DPORT_REG_READ(DPORT_PRO_CACHE_CTRL1_REG) | DPORT_PRO_CACHE_MMU_IA_CLR);
+     _DPORT_REG_WRITE(DPORT_PRO_CACHE_CTRL1_REG,
+@@ -684,7 +683,7 @@
+ # endif
+         mac_bb_power_down_cb_execute();
+ #endif
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     esp_sleep_gpio_pupd_config_workaround_apply();
+ #endif
+ #if CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP && SOC_PM_CPU_RETENTION_BY_RTCCNTL
+@@ -752,7 +751,7 @@
+ #if CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP && SOC_PM_CPU_RETENTION_BY_RTCCNTL
+     sleep_disable_cpu_retention();
+ #endif
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     esp_sleep_gpio_pupd_config_workaround_unapply();
+ #endif
+ #if CONFIG_MAC_BB_PD
+@@ -816,7 +815,7 @@
+         s_config.rtc_clk_cal_period = rtc_clk_cal(CLK_CAL_RTC_SLOW, RTC_CLK_SRC_CAL_CYCLES);
+         esp_clk_slowclk_cal_set(s_config.rtc_clk_cal_period);
+     }
+-#elif CONFIG_RTC_CLK_SRC_INT_RC && CONFIG_IDF_TARGET_ESP32S2
++#elif CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_RC && CONFIG_IDF_TARGET_ESP32S2
+     s_config.rtc_clk_cal_period = rtc_clk_cal_cycling(CLK_CAL_RTC_SLOW, RTC_CLK_SRC_CAL_CYCLES);
+     esp_clk_slowclk_cal_set(s_config.rtc_clk_cal_period);
+ #else
+@@ -1045,24 +1044,24 @@
+     }
+ #endif
+ 
+-#if CONFIG_ULP_COPROC_ENABLED
++#if CONFIG_ESP32_ULP_COPROC_ENABLED
+     // Enable ULP wakeup
+-#if CONFIG_ULP_COPROC_TYPE_FSM
++#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
+     if (s_config.wakeup_triggers & RTC_ULP_TRIG_EN) {
+-#elif CONFIG_ULP_COPROC_TYPE_RISCV
++#elif CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
+     if (s_config.wakeup_triggers & (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN)) {
+-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
++#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
+     if (s_config.wakeup_triggers & (RTC_LP_CORE_TRIG_EN | RTC_LP_CORE_TRAP_TRIG_EN)) {
+ #endif
+ #ifdef CONFIG_IDF_TARGET_ESP32
+         rtc_hal_ulp_wakeup_enable();
+-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
++#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
+         pmu_ll_hp_clear_sw_intr_status(&PMU);
+ #else
+         rtc_hal_ulp_int_clear();
+ #endif
+     }
+-#endif // CONFIG_ULP_COPROC_ENABLED
++#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
+ 
+     misc_modules_sleep_prepare(sleep_flags, deep_sleep);
+ 
+@@ -1362,7 +1361,7 @@
+ #if SOC_PM_SUPPORT_TOP_PD
+         if (sleep_flags & PMU_SLEEP_PD_TOP) {
+             uint32_t flash_ready_hw_waited_time_us = pmu_sleep_get_wakup_retention_cost();
+-            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ);
++            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ(1));
+             uint32_t flash_ready_waited_time_us = flash_ready_hw_waited_time_us + flash_ready_sw_waited_time_us;
+             if (flash_enable_time_us > flash_ready_waited_time_us){
+                 flash_enable_time_us -= flash_ready_waited_time_us;
+@@ -1493,7 +1492,7 @@
+     // Re-calibrate the RTC clock
+     sleep_low_power_clock_calibration(false);
+ 
+-    uint32_t cur_cpu_freq = esp_clk_cpu_freq() / MHZ;
++    uint32_t cur_cpu_freq = esp_clk_cpu_freq() / MHZ(1);
+     uint32_t xtal_freq = rtc_clk_xtal_freq_get();
+     if (s_config.overhead_out_need_remeasure) {
+         if (cur_cpu_freq < xtal_freq) {
+@@ -1525,12 +1524,10 @@
+ #endif
+     int sleep_time_hw_adjustment = pmu_sleep_calculate_hw_wait_time(sleep_flags, rtc_clk_slow_src_get(), s_config.rtc_clk_cal_period, s_config.fast_clk_cal_period);
+     s_config.sleep_time_adjustment = sleep_time_sw_adjustment + sleep_time_hw_adjustment;
+-    const int64_t min_sleep_duration_us = ((pmu_sleep_machine_constant_t *)PMU_instance()->mc)->lp.min_slp_time_us;
+-#else // RTC_CNTL supported
++#else
+     uint32_t rtc_cntl_xtl_buf_wait_slp_cycles = rtc_time_us_to_slowclk(RTC_CNTL_XTL_BUF_WAIT_SLP_US, s_config.rtc_clk_cal_period);
+     s_config.sleep_time_adjustment = LIGHT_SLEEP_TIME_OVERHEAD_US + sleep_time_overhead_in + s_config.sleep_time_overhead_out
+                                      + rtc_time_slowclk_to_us(rtc_cntl_xtl_buf_wait_slp_cycles + RTC_CNTL_CK8M_WAIT_SLP_CYCLES + RTC_CNTL_WAKEUP_DELAY_CYCLES, s_config.rtc_clk_cal_period);
+-    const int64_t min_sleep_duration_us = rtc_time_slowclk_to_us(RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
+ #endif
+ 
+     // Decide if VDD_SDIO needs to be powered down;
+@@ -1555,11 +1552,7 @@
+         *    min_protect(2);
+         * 4. All the adjustment time which is s_config.sleep_time_adjustment below.
+         */
+-#if SOC_PMU_SUPPORTED
+-        uint32_t rtc_slowclk_us = rtc_time_slowclk_to_us(RTC_MODULE_SLEEP_PREPARE_CYCLES, s_config.rtc_clk_cal_period) + min_sleep_duration_us;
+-#else
+         uint32_t rtc_slowclk_us = rtc_time_slowclk_to_us(RTC_MODULE_SLEEP_PREPARE_CYCLES + RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
+-#endif
+         const uint32_t vddsdio_pd_sleep_duration = MAX(FLASH_PD_MIN_SLEEP_TIME_US,
+                         flash_enable_time_us + s_config.sleep_time_adjustment + rtc_slowclk_us);
+ 
+@@ -1609,6 +1602,7 @@
+ 
+     esp_err_t err = ESP_OK;
+     int64_t final_sleep_duration_us = (int64_t)s_config.sleep_duration - (int64_t)s_config.sleep_time_adjustment;
++    int64_t min_sleep_duration_us = rtc_time_slowclk_to_us(RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
+ 
+     // reset light sleep wakeup flag before a new light sleep
+     s_light_sleep_wakeup = false;
+@@ -1745,7 +1739,7 @@
+         s_config.wakeup_triggers &= ~(RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN);
+     }
+ #endif
+-#if CONFIG_ULP_COPROC_TYPE_FSM
++#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
+     else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_ULP, RTC_ULP_TRIG_EN)) {
+         s_config.wakeup_triggers &= ~RTC_ULP_TRIG_EN;
+     }
+@@ -1769,10 +1763,10 @@
+ 
+ esp_err_t esp_sleep_enable_ulp_wakeup(void)
+ {
+-#ifndef CONFIG_ULP_COPROC_ENABLED
++#ifndef CONFIG_ESP32_ULP_COPROC_ENABLED
+     return ESP_ERR_INVALID_STATE;
+-#endif // CONFIG_ULP_COPROC_ENABLED
+-#if CONFIG_IDF_TARGET_ESP32
++#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+ #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
+     ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
+     return ESP_ERR_NOT_SUPPORTED;
+@@ -1783,14 +1777,14 @@
+     }
+ #endif //CONFIG_IDF_TARGET_ESP32
+ 
+-#if CONFIG_ULP_COPROC_TYPE_FSM
++#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
+     s_config.wakeup_triggers |= RTC_ULP_TRIG_EN;
+     return ESP_OK;
+-#elif CONFIG_ULP_COPROC_TYPE_RISCV
++#elif CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
+     s_config.wakeup_triggers |= (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
+     return ESP_OK;
+-#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
+-    #if CONFIG_ULP_TRAP_WAKEUP
++#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
++    #if CONFIG_ESP32_ULP_TRAP_WAKEUP
+         s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN | RTC_LP_CORE_TRAP_TRIG_EN;
+     #else
+         s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN;
+@@ -1798,7 +1792,7 @@
+     return ESP_OK;
+ #else
+     return ESP_ERR_NOT_SUPPORTED;
+-#endif //CONFIG_ULP_COPROC_TYPE_FSM
++#endif //CONFIG_ESP32_ULP_COPROC_TYPE_FSM
+ }
+ 
+ esp_err_t esp_sleep_enable_timer_wakeup(uint64_t time_in_us)
+@@ -1806,7 +1800,7 @@
+ #if CONFIG_SOC_CLK_TREE_SUPPORTED
+     uint32_t lp_slow_freq_hz = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_APPROX);
+     assert(lp_slow_freq_hz);
+-    if (time_in_us > ((BIT64(SOC_LP_TIMER_BIT_WIDTH_LO + SOC_LP_TIMER_BIT_WIDTH_HI) - 1) / lp_slow_freq_hz) * MHZ ) {
++    if (time_in_us > ((BIT64(SOC_LP_TIMER_BIT_WIDTH_LO + SOC_LP_TIMER_BIT_WIDTH_HI) - 1) / lp_slow_freq_hz) * MHZ(1) ) {
+         return ESP_ERR_INVALID_ARG;
+     }
+ #endif
+@@ -1919,7 +1913,7 @@
+ 
+ esp_err_t esp_sleep_enable_touchpad_wakeup(void)
+ {
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+ #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
+     ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
+     return ESP_ERR_NOT_SUPPORTED;
+@@ -1970,7 +1964,7 @@
+     if (!esp_sleep_is_valid_wakeup_gpio(gpio_num)) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
+         ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
+         return ESP_ERR_INVALID_STATE;
+@@ -1987,8 +1981,6 @@
+ {
+     int rtc_gpio_num = s_config.ext0_rtc_gpio_num;
+ #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
+-    // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+     rtcio_ll_enable_io_clock(true);
+ #endif
+     rtcio_hal_ext0_set_wakeup_pin(rtc_gpio_num, s_config.ext0_trigger_level);
+@@ -2122,8 +2114,6 @@
+             continue;
+         }
+ #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+         rtcio_ll_enable_io_clock(true);
+ #endif
+ #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
+@@ -2199,8 +2189,6 @@
+             continue;
+         }
+ #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+         rtcio_ll_enable_io_clock(true);
+ #endif
+ #if CONFIG_ESP_SLEEP_GPIO_ENABLE_INTERNAL_RESISTORS
+@@ -2260,7 +2248,7 @@
+ #if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+     ESP_LOGW(TAG, "%s wakeup source is not available if the peripheral power domain is powered down in sleep", "GPIO");
+ #endif
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
+         ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
+         return ESP_ERR_INVALID_STATE;
+@@ -2726,7 +2714,7 @@
+         if (s_config.wakeup_triggers & (RTC_EXT0_TRIG_EN | RTC_GPIO_TRIG_EN)) {
+             s_config.domain[ESP_PD_DOMAIN_RTC_PERIPH].pd_option = ESP_PD_OPTION_ON;
+         }
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+         else if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
+             // On ESP32, forcing power up of RTC_PERIPH
+             // prevents ULP timer and touch FSMs from working correctly.
+@@ -2837,7 +2825,7 @@
+     }
+ #endif
+ 
+-#if ((defined CONFIG_RTC_CLK_SRC_EXT_CRYS) && (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) && (SOC_PM_SUPPORT_RTC_PERIPH_PD))
++#if ((defined CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS) && (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) && (SOC_PM_SUPPORT_RTC_PERIPH_PD))
+     if ((s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) == 0) {
+         // If enabled EXT1 only and enable the additional current by touch, should be keep RTC_PERIPH power on.
+         pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
+@@ -2917,7 +2905,7 @@
+     }
+ #endif
+ 
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+     if (s_sleep_sub_mode_ref_cnt[ESP_SLEEP_ANALOG_LOW_POWER_MODE]) {
+         sleep_flags |= RTC_SLEEP_WITH_LOWPOWER_ANALOG;
+     }
+@@ -3028,7 +3016,7 @@
+     rtc_suppress_rom_log();
+ }
+ 
+-#if CONFIG_IDF_TARGET_ESP32
++#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
+ void esp_sleep_enable_lowpower_analog_mode(bool enable)
+ {
+     esp_sleep_sub_mode_config(ESP_SLEEP_ANALOG_LOW_POWER_MODE, enable);
+--- a/components/esp_hw_support/sleep_retention.c
++++ b/components/esp_hw_support/sleep_retention.c
+@@ -5,9 +5,23 @@
+  */
+ 
+ #include <stddef.h>
++#include <stdio.h>
+ #include <string.h>
+-#include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/kernel.h>
++
++/* Zephyr lock compatibility */
++typedef struct k_mutex *_lock_t;
++static struct k_mutex _retention_mutex;
++static bool _retention_mutex_init = false;
++#define _lock_init_recursive(lock) do { \
++    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
++} while(0)
++#define _lock_close_recursive(lock) do { } while(0)
++#define _lock_acquire_recursive(lock) do { \
++    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
++    k_mutex_lock(&_retention_mutex, K_FOREVER); \
++} while(0)
++#define _lock_release_recursive(lock) k_mutex_unlock(&_retention_mutex)
+ 
+ #include "esp_err.h"
+ #include "esp_attr.h"
+@@ -347,7 +361,9 @@
+             regdma_link_dump(out, s_retention.lists[s_retention.highpri].entries[entry], entry);
+         }
+     }
++#if !defined(__ZEPHYR__) || defined(CONFIG_PICOLIBC)
+     fflush(out);
++#endif
+     _lock_release_recursive(&s_retention.lock);
+ }
+ 
+--- a/components/esp_hw_support/sleep_wake_stub.c
++++ b/components/esp_hw_support/sleep_wake_stub.c
+@@ -7,7 +7,7 @@
+ #include <stddef.h>
+ #include <string.h>
+ #include <sys/lock.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_sleep.h"
