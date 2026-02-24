@@ -11,9 +11,15 @@
 #include "soc/system_reg.h"
 #include "soc/assist_debug_reg.h"
 #include "soc/reset_reasons.h"
+#include "hal/brownout_ll.h"
 #include "esp_log.h"
 
 const static char *TAG = "soc_init";
+
+void soc_hw_init(void)
+{
+	/* ESP32-S3 specific hardware initialization */
+}
 
 void ana_super_wdt_reset_config(bool enable)
 {
@@ -28,13 +34,7 @@ void ana_super_wdt_reset_config(bool enable)
 
 void ana_bod_reset_config(bool enable)
 {
-	REG_CLR_BIT(RTC_CNTL_FIB_SEL_REG, RTC_CNTL_FIB_BOD_RST);
-
-	if (enable) {
-		REG_SET_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-	} else {
-		REG_CLR_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-	}
+	brownout_ll_ana_reset_enable(enable);
 }
 
 void ana_clock_glitch_reset_config(bool enable)
@@ -122,3 +122,34 @@ void check_wdt_reset(void)
 
 	wdt_reset_cpu0_info_enable();
 }
+
+#if defined(CONFIG_ESP_SIMPLE_BOOT)
+#include "soc/rtc.h"
+#include "hal/regi2c_ctrl_ll.h"
+#include "hal/clk_tree_ll.h"
+#include "esp_rom_sys.h"
+#include "esp_rom_serial_output.h"
+
+void bootloader_clock_configure(void)
+{
+	esp_rom_output_tx_wait_idle(0);
+
+	/*
+	 * After a WDT reset, the CPU may still be running from PLL.
+	 * Switch to XTAL so the actual APB frequency matches what we
+	 * store in RTC_APB_FREQ_REG below.
+	 */
+	if (clk_ll_cpu_get_src() == SOC_CPU_CLK_SRC_PLL) {
+		clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+	}
+
+	regi2c_ctrl_ll_i2c_reset();
+	regi2c_ctrl_ll_i2c_bbpll_enable();
+
+	rtc_clk_xtal_freq_update(CONFIG_XTAL_FREQ);
+	rtc_clk_apb_freq_update(CONFIG_XTAL_FREQ * MHZ(1));
+
+	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
+	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+}
+#endif /* CONFIG_ESP_SIMPLE_BOOT */

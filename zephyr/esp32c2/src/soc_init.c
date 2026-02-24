@@ -11,10 +11,16 @@
 #include "soc/system_reg.h"
 #include "soc/assist_debug_reg.h"
 #include "soc/reset_reasons.h"
+#include "hal/rwdt_ll.h"
+#include "hal/brownout_ll.h"
 #include "esp_rom_sys.h"
 #include "esp_log.h"
 
 static const char *TAG = "soc_init";
+
+void soc_hw_init(void)
+{
+}
 
 void ana_super_wdt_reset_config(bool enable)
 {
@@ -29,13 +35,7 @@ void ana_super_wdt_reset_config(bool enable)
 
 void ana_bod_reset_config(bool enable)
 {
-	REG_CLR_BIT(RTC_CNTL_FIB_SEL_REG, RTC_CNTL_FIB_BOD_RST);
-
-	if (enable) {
-		REG_SET_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-	} else {
-		REG_CLR_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-	}
+	brownout_ll_ana_reset_enable(enable);
 }
 
 void ana_reset_config(void)
@@ -79,3 +79,61 @@ void ana_clock_glitch_reset_config(bool enable)
 {
 	(void)enable;
 }
+
+#if defined(CONFIG_ESP_SIMPLE_BOOT)
+#include "soc/soc.h"
+#include "soc/rtc.h"
+#include "esp_rom_serial_output.h"
+#include "hal/clk_tree_ll.h"
+#include "hal/regi2c_ctrl_ll.h"
+
+/*
+ * Custom bootloader_clock_configure() for ESP32-C2 simple boot mode.
+ *
+ * In simple boot mode, we need to configure the PLL for 480MHz and switch
+ * CPU to run from PLL. The ROM bootloader leaves CPU running on XTAL.
+ * ESP32-C2 boards typically use 26MHz XTAL (some use 40MHz).
+ */
+void bootloader_clock_configure(void)
+{
+	esp_rom_output_tx_wait_idle(0);
+
+	if (clk_ll_cpu_get_src() == SOC_CPU_CLK_SRC_PLL) {
+		clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
+	}
+
+	/* Reset I2C master for BBPLL configuration */
+	regi2c_ctrl_ll_i2c_reset();
+	regi2c_ctrl_ll_i2c_bbpll_enable();
+
+	/* Get the XTAL frequency from config and update RTC */
+	soc_xtal_freq_t xtal_freq = CONFIG_XTAL_FREQ;
+	rtc_clk_xtal_freq_update(xtal_freq);
+	rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+
+	/* Enable and configure BBPLL for 480MHz */
+	clk_ll_bbpll_enable();
+	clk_ll_bbpll_set_freq_mhz(CLK_LL_PLL_480M_FREQ_MHZ);
+
+	/* Start PLL calibration */
+	regi2c_ctrl_ll_bbpll_calibration_start();
+	clk_ll_bbpll_set_config(CLK_LL_PLL_480M_FREQ_MHZ, xtal_freq);
+
+	/* Wait for calibration to complete */
+	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+		;
+	}
+	esp_rom_delay_us(10);
+	regi2c_ctrl_ll_bbpll_calibration_stop();
+
+	/* Set CPU frequency to 120MHz (480MHz / 4) */
+	clk_ll_cpu_set_freq_mhz_from_pll(CLK_LL_PLL_120M_FREQ_MHZ);
+	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
+	esp_rom_set_cpu_ticks_per_us(CLK_LL_PLL_120M_FREQ_MHZ);
+
+	/* Clear pending RTC/WDT interrupts */
+	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
+	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+}
+#endif /* CONFIG_ESP_SIMPLE_BOOT */
+

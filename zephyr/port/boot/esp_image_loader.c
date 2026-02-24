@@ -142,11 +142,14 @@ void esp_app_image_load(int image_index, int slot,
     BOOT_LOG_INF("Application start=%xh", load_header.entry_addr);
 
 #if SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED
-    if (load_header.lp_rtc_dram_size > 0) {
-        soc_reset_reason_t reset_reason = esp_rom_get_reset_reason(0);
+    /* Check reset reason once for both LP segments.
+     * On deep sleep wakeup, LP memory is retained and must not be overwritten
+     * as it contains the wake stub code and data. */
+    soc_reset_reason_t reset_reason = esp_rom_get_reset_reason(0);
+    bool load_lp_mem = (reset_reason != RESET_REASON_CORE_DEEP_SLEEP);
 
-        /* Unless waking from deep sleep (implying RTC memory is intact), load its segments */
-        if (reset_reason != RESET_REASON_CORE_DEEP_SLEEP) {
+    if (load_header.lp_rtc_dram_size > 0) {
+        if (load_lp_mem) {
             BOOT_LOG_INF("%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
                          (fap->fa_off + load_header.lp_rtc_dram_flash_offset), load_header.lp_rtc_dram_dest_addr,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_size);
@@ -160,11 +163,17 @@ void esp_app_image_load(int image_index, int slot,
     }
 
     if (load_header.lp_rtc_iram_size > 0) {
-        BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
-                     (fap->fa_off + load_header.lp_rtc_iram_flash_offset), load_header.lp_rtc_iram_dest_addr,
-                     load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
-        load_segment(fap, load_header.lp_rtc_iram_flash_offset,
-                     load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_dest_addr);
+        if (load_lp_mem) {
+            BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
+                         (fap->fa_off + load_header.lp_rtc_iram_flash_offset), load_header.lp_rtc_iram_dest_addr,
+                         load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
+            load_segment(fap, load_header.lp_rtc_iram_flash_offset,
+                         load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_dest_addr);
+        } else {
+            BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
+                         load_header.lp_rtc_iram_flash_offset, load_header.lp_rtc_iram_dest_addr,
+                         load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
+        }
     }
 #endif
 
