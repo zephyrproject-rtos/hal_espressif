@@ -1,0 +1,355 @@
+--- a/components/esp_hal_clock/esp32c2/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32c2/clk_tree_hal.c
+@@ -20,7 +20,7 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -33,9 +33,9 @@
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     switch (source) {
+     case SOC_CPU_CLK_SRC_PLL:
+-        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ;
++        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ(1);
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+     }
+ }
+ 
+@@ -45,7 +45,7 @@
+     switch (clk_ll_cpu_get_src()) {
+     case SOC_CPU_CLK_SRC_PLL:
+         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
+-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
++        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+         return clk_hal_cpu_get_freq_hz();
+     }
+--- a/components/esp_hal_clock/esp32c2/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32c2/include/hal/clk_tree_ll.h
+@@ -20,8 +20,6 @@
+ #include "hal/log.h"
+ #include "esp32c2/rom/rtc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_40M_FREQ_MHZ    (40)
+ #define CLK_LL_PLL_60M_FREQ_MHZ    (60)
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+@@ -635,8 +633,8 @@
+     // Read from RTC storage register
+     uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
+     // Round to the nearest MHz
+-    apb_freq_hz += MHZ / 2;
+-    uint32_t remainder = apb_freq_hz % MHZ;
++    apb_freq_hz += MHZ(1) / 2;
++    uint32_t remainder = apb_freq_hz % MHZ(1);
+     return apb_freq_hz - remainder;
+ }
+ 
+--- a/components/esp_hal_clock/esp32c3/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32c3/clk_tree_hal.c
+@@ -19,7 +19,7 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -32,9 +32,9 @@
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     switch (source) {
+     case SOC_CPU_CLK_SRC_PLL:
+-        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ;
++        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ(1);
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+     }
+ }
+ 
+@@ -44,7 +44,7 @@
+     switch (clk_ll_cpu_get_src()) {
+     case SOC_CPU_CLK_SRC_PLL:
+         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
+-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
++        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+         return clk_hal_cpu_get_freq_hz();
+     }
+--- a/components/esp_hal_clock/esp32c3/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32c3/include/hal/clk_tree_ll.h
+@@ -20,8 +20,6 @@
+ #include "hal/log.h"
+ #include "esp32c3/rom/rtc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
+ 
+@@ -744,8 +742,8 @@
+     // Read from RTC storage register
+     uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
+     // Round to the nearest MHz
+-    apb_freq_hz += MHZ / 2;
+-    uint32_t remainder = apb_freq_hz % MHZ;
++    apb_freq_hz += MHZ(1) / 2;
++    uint32_t remainder = apb_freq_hz % MHZ(1);
+     return apb_freq_hz - remainder;
+ }
+ 
+--- a/components/esp_hal_clock/esp32c6/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32c6/clk_tree_hal.c
+@@ -19,7 +19,7 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -31,14 +31,14 @@
+ {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     uint32_t divider = (source == SOC_CPU_CLK_SRC_PLL) ? clk_ll_cpu_get_hs_divider() : clk_ll_cpu_get_ls_divider();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
+ }
+ 
+ static uint32_t clk_hal_ahb_get_freq_hz(void)
+ {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     uint32_t divider = (source == SOC_CPU_CLK_SRC_PLL) ? clk_ll_ahb_get_hs_divider() : clk_ll_ahb_get_ls_divider();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
+ }
+ 
+ uint32_t clk_hal_apb_get_freq_hz(void)
+--- a/components/esp_hal_clock/esp32c6/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32c6/include/hal/clk_tree_ll.h
+@@ -22,8 +22,6 @@
+ #include "esp32c6/rom/rtc.h"
+ #include "hal/misc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_120M_FREQ_MHZ   (120)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
+--- a/components/esp_hal_clock/esp32/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32/clk_tree_hal.c
+@@ -19,9 +19,9 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     case SOC_CPU_CLK_SRC_APLL:
+-        return clk_hal_apll_get_freq_hz() / MHZ;
++        return clk_hal_apll_get_freq_hz() / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -34,7 +34,7 @@
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     switch (source) {
+     case SOC_CPU_CLK_SRC_PLL:
+-        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ;
++        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ(1);
+     case SOC_CPU_CLK_SRC_APLL: {
+         uint32_t apll_freq_hz = clk_hal_apll_get_freq_hz();
+         uint32_t divider = clk_ll_cpu_get_divider_from_apll();
+@@ -45,7 +45,7 @@
+         return apll_freq_hz / divider;
+     }
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+     }
+ }
+ 
+@@ -55,7 +55,7 @@
+     switch (clk_ll_cpu_get_src()) {
+     case SOC_CPU_CLK_SRC_PLL:
+         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
+-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
++        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
+     case SOC_CPU_CLK_SRC_APLL:
+         return clk_hal_cpu_get_freq_hz() >> 1;
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+--- a/components/esp_hal_clock/esp32h2/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32h2/clk_tree_hal.c
+@@ -19,7 +19,7 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     case SOC_CPU_CLK_SRC_FLASH_PLL:
+         return clk_ll_flash_pll_get_freq_mhz();
+     default:
+@@ -32,13 +32,13 @@
+ uint32_t clk_hal_cpu_get_freq_hz(void)
+ {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+ }
+ 
+ static uint32_t clk_hal_ahb_get_freq_hz(void)
+ {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_ahb_get_divider();
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_ahb_get_divider();
+ }
+ 
+ uint32_t clk_hal_apb_get_freq_hz(void)
+--- a/components/esp_hal_clock/esp32h2/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32h2/include/hal/clk_tree_ll.h
+@@ -23,8 +23,6 @@
+ #include "esp32h2/rom/rtc.h"
+ #include "hal/misc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_8M_FREQ_MHZ    (8)
+ #define CLK_LL_PLL_48M_FREQ_MHZ   (48)
+ #define CLK_LL_PLL_64M_FREQ_MHZ   (64)
+--- a/components/esp_hal_clock/esp32/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32/include/hal/clk_tree_ll.h
+@@ -22,8 +22,6 @@
+ #include "hal/assert.h"
+ #include "esp32/rom/rtc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
+ #define CLK_LL_PLL_240M_FREQ_MHZ   (240)
+@@ -937,8 +935,8 @@
+     // Read from RTC storage register
+     uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
+     // Round to the nearest MHz
+-    apb_freq_hz += MHZ / 2;
+-    uint32_t remainder = apb_freq_hz % MHZ;
++    apb_freq_hz += MHZ(1) / 2;
++    uint32_t remainder = apb_freq_hz % MHZ(1);
+     return apb_freq_hz - remainder;
+ }
+ 
+--- a/components/esp_hal_clock/esp32s2/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32s2/clk_tree_hal.c
+@@ -19,9 +19,9 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     case SOC_CPU_CLK_SRC_APLL:
+-        return clk_hal_apll_get_freq_hz() / MHZ;
++        return clk_hal_apll_get_freq_hz() / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -41,7 +41,7 @@
+             HAL_LOGE(CLK_HAL_TAG, "Invalid cpu config");
+             return 0;
+         }
+-        return cpu_freq_mhz * MHZ;
++        return cpu_freq_mhz * MHZ(1);
+     }
+     case SOC_CPU_CLK_SRC_APLL: {
+         uint32_t apll_freq_hz = clk_hal_apll_get_freq_hz();
+@@ -53,7 +53,7 @@
+         return apll_freq_hz / divider;
+     }
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+     }
+ }
+ 
+@@ -63,7 +63,7 @@
+     switch (clk_ll_cpu_get_src()) {
+     case SOC_CPU_CLK_SRC_PLL:
+         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
+-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
++        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
+     case SOC_CPU_CLK_SRC_APLL:
+         return clk_hal_cpu_get_freq_hz() >> 1;
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+--- a/components/esp_hal_clock/esp32s2/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32s2/include/hal/clk_tree_ll.h
+@@ -21,8 +21,6 @@
+ #include "hal/assert.h"
+ #include "esp32s2/rom/rtc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
+ #define CLK_LL_PLL_240M_FREQ_MHZ   (240)
+@@ -827,8 +825,8 @@
+     // Read from RTC storage register
+     uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
+     // Round to the nearest MHz
+-    apb_freq_hz += MHZ / 2;
+-    uint32_t remainder = apb_freq_hz % MHZ;
++    apb_freq_hz += MHZ(1) / 2;
++    uint32_t remainder = apb_freq_hz % MHZ(1);
+     return apb_freq_hz - remainder;
+ }
+ 
+--- a/components/esp_hal_clock/esp32s3/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32s3/clk_tree_hal.c
+@@ -19,7 +19,7 @@
+     case SOC_CPU_CLK_SRC_PLL:
+         return clk_ll_bbpll_get_freq_mhz();
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -39,10 +39,10 @@
+             HAL_LOGE(CLK_HAL_TAG, "Invalid cpu config");
+             return 0;
+         }
+-        return cpu_freq_mhz * MHZ;
++        return cpu_freq_mhz * MHZ(1);
+     }
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
++        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+     }
+ }
+ 
+@@ -52,7 +52,7 @@
+     switch (clk_ll_cpu_get_src()) {
+     case SOC_CPU_CLK_SRC_PLL:
+         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
+-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
++        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
+     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
+         return clk_hal_cpu_get_freq_hz();
+     }
+--- a/components/esp_hal_clock/esp32s3/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32s3/include/hal/clk_tree_ll.h
+@@ -20,8 +20,6 @@
+ #include "hal/log.h"
+ #include "esp32s3/rom/rtc.h"
+ 
+-#define MHZ                 (1000000)
+-
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
+ #define CLK_LL_PLL_240M_FREQ_MHZ   (240)

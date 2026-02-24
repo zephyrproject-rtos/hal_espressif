@@ -1,0 +1,69 @@
+--- a/components/esp_event/include/esp_event.h
++++ b/components/esp_event/include/esp_event.h
+@@ -9,9 +9,6 @@
+ 
+ #include "esp_err.h"
+ 
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-
+ #include "esp_event_base.h"
+ 
+ #ifdef __cplusplus
+@@ -23,9 +20,9 @@
+     int32_t queue_size;                         /**< size of the event loop queue */
+     const char *task_name;                      /**< name of the event loop task; if NULL,
+                                                         a dedicated task is not created for event loop*/
+-    UBaseType_t task_priority;                  /**< priority of the event loop task, ignored if task name is NULL */
++    unsigned int task_priority;                  /**< priority of the event loop task, ignored if task name is NULL */
+     uint32_t task_stack_size;                   /**< stack size of the event loop task, ignored if task name is NULL */
+-    BaseType_t task_core_id;                    /**< core to which the event loop task is pinned to,
++    int task_core_id;                    /**< core to which the event loop task is pinned to,
+                                                         ignored if task name is NULL */
+ } esp_event_loop_args_t;
+ 
+@@ -102,7 +99,7 @@
+  *  - ESP_OK: Success
+  *  - Others: Fail
+  */
+-esp_err_t esp_event_loop_run(esp_event_loop_handle_t event_loop, TickType_t ticks_to_run);
++esp_err_t esp_event_loop_run(esp_event_loop_handle_t event_loop, uint32_t ticks_to_run);
+ 
+ /**
+  * @brief Register an event handler to the system event loop (legacy).
+@@ -364,7 +361,7 @@
+                          int32_t event_id,
+                          const void *event_data,
+                          size_t event_data_size,
+-                         TickType_t ticks_to_wait);
++                         uint32_t ticks_to_wait);
+ 
+ /**
+  * @brief Posts an event to the specified event loop. The event loop library keeps a copy of event_data and manages
+@@ -393,7 +390,7 @@
+                             int32_t event_id,
+                             const void *event_data,
+                             size_t event_data_size,
+-                            TickType_t ticks_to_wait);
++                            uint32_t ticks_to_wait);
+ 
+ #if CONFIG_ESP_EVENT_POST_FROM_ISR
+ /**
+@@ -422,7 +419,7 @@
+                              int32_t event_id,
+                              const void *event_data,
+                              size_t event_data_size,
+-                             BaseType_t *task_unblocked);
++                             int *task_unblocked);
+ 
+ /**
+  * @brief Special variant of esp_event_post_to for posting events from interrupt handlers
+@@ -452,7 +449,7 @@
+                                 int32_t event_id,
+                                 const void *event_data,
+                                 size_t event_data_size,
+-                                BaseType_t *task_unblocked);
++                                int *task_unblocked);
+ #endif
+ 
+ /**

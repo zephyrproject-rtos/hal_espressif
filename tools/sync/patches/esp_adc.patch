@@ -1,0 +1,24 @@
+--- a/components/esp_adc/adc_cali_curve_fitting.c
++++ b/components/esp_adc/adc_cali_curve_fitting.c
+@@ -189,8 +189,8 @@
+     uint8_t term_num = param->term_num;
+     int32_t error = 0;
+     uint64_t coeff = 0;
+-    uint64_t variable[term_num];
+-    uint64_t term[term_num];
++    uint64_t variable[5];
++    uint64_t term[5];
+     memset(variable, 0, term_num * sizeof(uint64_t));
+     memset(term, 0, term_num * sizeof(uint64_t));
+ 
+--- a/components/esp_adc/adc_common.c
++++ b/components/esp_adc/adc_common.c
+@@ -56,7 +56,7 @@
+ /*---------------------------------------------------------------
+             ADC Hardware Calibration
+ ---------------------------------------------------------------*/
+-static __attribute__((constructor)) void adc_hw_calibration(void)
++static void adc_hw_calibration(void)
+ {
+     ANALOG_CLOCK_ENABLE();
+     //Calculate all ICode

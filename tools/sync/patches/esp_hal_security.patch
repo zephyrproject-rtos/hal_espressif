@@ -1,0 +1,110 @@
+--- a/components/esp_hal_security/esp32c3/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32c3/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/hwcrypto_periph.h"
+--- a/components/esp_hal_security/esp32c5/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32c5/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+--- a/components/esp_hal_security/esp32c6/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32c6/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/pcr_reg.h"
+--- a/components/esp_hal_security/esp32h21/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32h21/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/pcr_reg.h"
+--- a/components/esp_hal_security/esp32h2/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32h2/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/pcr_reg.h"
+--- a/components/esp_hal_security/esp32/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/dport_reg.h"
+--- a/components/esp_hal_security/esp32p4/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32p4/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/hp_sys_clkrst_struct.h"
+--- a/components/esp_hal_security/esp32s2/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32s2/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/hwcrypto_periph.h"
+--- a/components/esp_hal_security/esp32s3/include/hal/mpi_ll.h
++++ b/components/esp_hal_security/esp32s3/include/hal/mpi_ll.h
+@@ -7,7 +7,7 @@
+ 
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/mpi_types.h"
+ #include "soc/hwcrypto_periph.h"
+--- a/components/esp_hal_security/include/hal/mpi_hal.h
++++ b/components/esp_hal_security/include/hal/mpi_hal.h
+@@ -14,7 +14,7 @@
+ 
+ #include <stdbool.h>
+ #include <stdint.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/mpi_types.h"
+ #include "soc/soc_caps.h"
+ 

@@ -1,0 +1,54 @@
+--- a/components/esp_hal_i2s/include/hal/i2s_hal.h
++++ b/components/esp_hal_i2s/include/hal/i2s_hal.h
+@@ -178,6 +178,7 @@
+ void i2s_hal_set_tx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
+ #endif  // SOC_PERIPH_CLK_CTRL_SHARED
+ 
++#if SOC_PERIPH_CLK_CTRL_SHARED
+ /**
+  * @brief Set rx channel clock
+  *
+@@ -187,8 +188,6 @@
+  * @param ret_mclk_div return mclk division coefficients, including integer part and decimal part
+  */
+ void _i2s_hal_set_rx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
+-
+-#if SOC_PERIPH_CLK_CTRL_SHARED
+ /// use a macro to wrap the function, force the caller to use it in a critical section
+ /// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+ #define i2s_hal_set_rx_clock(...) do { \
+@@ -196,7 +195,15 @@
+         _i2s_hal_set_rx_clock(__VA_ARGS__); \
+     } while(0)
+ #else
+-#define i2s_hal_set_rx_clock(...)   _i2s_hal_set_rx_clock(__VA_ARGS__)
++/**
++ * @brief Set rx channel clock
++ *
++ * @param hal Context of the HAL layer
++ * @param clk_info clock information, if it is NULL, only set the clock source
++ * @param clk_src clock source
++ * @param ret_mclk_div return mclk division coefficients, including integer part and decimal part
++ */
++void i2s_hal_set_rx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
+ #endif
+ 
+ /*-------------------------------------------------------------------------
+--- a/components/esp_hal_i2s/include/hal/i2s_types.h
++++ b/components/esp_hal_i2s/include/hal/i2s_types.h
+@@ -26,6 +26,7 @@
+     I2S_SLOT_MODE_STEREO = 2,        /*!< I2S channel slot format stereo, transmit different data in different slots for tx mode, receive the data in all slots for rx mode. */
+ } i2s_slot_mode_t;
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief I2S channel direction
+  */
+@@ -33,6 +34,7 @@
+     I2S_DIR_RX = BIT(0),            /*!< I2S channel direction RX */
+     I2S_DIR_TX = BIT(1),            /*!< I2S channel direction TX */
+ } i2s_dir_t;
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief I2S controller role

@@ -1,0 +1,77 @@
+--- a/components/esp_common/include/esp_attr.h
++++ b/components/esp_common/include/esp_attr.h
+@@ -85,6 +85,7 @@
+ 
+ // Forces a string into DRAM instead of flash
+ // Use as esp_rom_printf(DRAM_STR("Hello world!\n"));
++#undef DRAM_STR
+ #define DRAM_STR(str) (__extension__({static const DRAM_ATTR char __c[] = (str); (const char *)&__c;}))
+ 
+ #if CONFIG_SOC_RTC_FAST_MEM_SUPPORTED || CONFIG_SOC_RTC_SLOW_MEM_SUPPORTED
+--- a/components/esp_common/include/esp_bit_defs.h
++++ b/components/esp_common/include/esp_bit_defs.h
+@@ -6,6 +6,15 @@
+ 
+ #pragma once
+ 
++/*
++ * Include Zephyr util header first to get its BIT/BIT64/MHZ definitions.
++ * This prevents redefinition warnings when Zephyr headers are included later
++ * and ensures ESP-IDF soc/rtc.h #ifndef MHZ guards see MHZ as already defined.
++ */
++#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
++#include <zephyr/sys/util.h>
++#endif
++
+ //Register Bits{{
+ #define BIT31   0x80000000
+ #define BIT30   0x40000000
+--- a/components/esp_common/include/esp_compiler.h
++++ b/components/esp_common/include/esp_compiler.h
+@@ -9,6 +9,14 @@
+ #include "sdkconfig.h"
+ 
+ /*
++ * Include Zephyr toolchain header first to get its likely/unlikely definitions.
++ * This prevents redefinition warnings when Zephyr headers are included later.
++ */
++#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
++#include <zephyr/toolchain.h>
++#endif
++
++/*
+  * The likely and unlikely macro pairs:
+  * These macros are useful to place when application
+  * knows the majority occurrence of a decision paths,
+@@ -16,18 +24,12 @@
+  * to reorder instructions producing more optimized
+  * code.
+  */
+-#if (CONFIG_COMPILER_OPTIMIZATION_PERF)
+ #ifndef likely
++#if (CONFIG_COMPILER_OPTIMIZATION_PERF)
+ #define likely(x)      __builtin_expect(!!(x), 1)
+-#endif
+-#ifndef unlikely
+ #define unlikely(x)    __builtin_expect(!!(x), 0)
+-#endif
+ #else
+-#ifndef likely
+ #define likely(x)      (x)
+-#endif
+-#ifndef unlikely
+ #define unlikely(x)    (x)
+ #endif
+ #endif
+--- a/components/esp_common/src/esp_err_to_name.c
++++ b/components/esp_common/src/esp_err_to_name.c
+@@ -326,9 +326,6 @@
+                                                                                 efuse component and not returned by any
+                                                                                 public API. */
+ #   endif
+-#   ifdef      ESP_ERR_BURN_WR_DIS
+-    ERR_TBL_IT(ESP_ERR_BURN_WR_DIS),                            /*  5639 0x1607 Error to burn WR_DIS field. */
+-#   endif
+     // components/bootloader_support/include/esp_image_format.h
+ #   ifdef      ESP_ERR_IMAGE_BASE
+     ERR_TBL_IT(ESP_ERR_IMAGE_BASE),                             /*  8192 0x2000 */

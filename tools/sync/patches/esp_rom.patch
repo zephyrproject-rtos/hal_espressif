@@ -1,0 +1,840 @@
+--- a/components/esp_rom/esp32c2/include/esp32c2/rom/uart.h
++++ b/components/esp_rom/esp32c2/include/esp32c2/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Zephyr defines EMPTY as a macro in util_macro.h, so we need to undefine it here */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32c2/ld/esp32c2.rom.libc.ld
++++ b/components/esp_rom/esp32c2/ld/esp32c2.rom.libc.ld
+@@ -31,8 +31,12 @@
+ strsep = 0x40000540;
+ strspn = 0x40000544;
+ strtok_r = 0x40000548;
+-longjmp = 0x40000550;
+-setjmp = 0x40000554;
++
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x40000550 );
++PROVIDE ( setjmp = 0x40000554 );
++/*******************************************/
++
+ abs = 0x40000558;
+ div = 0x4000055c;
+ labs = 0x40000560;
+--- a/components/esp_rom/esp32c2/ld/esp32c2.rom.newlib.ld
++++ b/components/esp_rom/esp32c2/ld/esp32c2.rom.newlib.ld
+@@ -20,49 +20,29 @@
+  Group newlib
+  ***************************************/
+ 
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x40000510 );
++PROVIDE ( strndup = 0x40000534 );
++PROVIDE ( rand_r = 0x4000056c );
++PROVIDE ( rand = 0x40000570 );
++PROVIDE ( srand = 0x40000574 );
++PROVIDE ( atoi = 0x40000580 );
++PROVIDE ( atol = 0x40000584 );
++PROVIDE ( strtol = 0x40000588 );
++PROVIDE ( strtoul = 0x4000058c );
++PROVIDE ( fflush = 0x40000590 );
++PROVIDE ( _fflush_r = 0x40000594 );
++PROVIDE ( _fwalk = 0x40000598 );
++PROVIDE ( _fwalk_reent = 0x4000059c );
++PROVIDE ( __swbuf_r = 0x400005a8 );
++/*******************************************/
++
+ /* Functions */
+ _isatty_r = 0x400004b4;
+-strdup = 0x40000510;
+-strndup = 0x40000534;
+-rand_r = 0x4000056c;
+-rand = 0x40000570;
+-srand = 0x40000574;
+-atoi = 0x40000580;
+-atol = 0x40000584;
+-strtol = 0x40000588;
+-strtoul = 0x4000058c;
+-fflush = 0x40000590;
+-_fflush_r = 0x40000594;
+-_fwalk = 0x40000598;
+-_fwalk_reent = 0x4000059c;
+ __smakebuf_r = 0x400005a0;
+ __swhatbuf_r = 0x400005a4;
+-__swbuf_r = 0x400005a8;
+ __swbuf = 0x400005ac;
+ __swsetup_r = 0x400005b0;
+-_strtod_l = 0x400005b4;
+-_strtod_r = 0x400005b8;
+-strtod_l = 0x400005bc;
+-strtod = 0x400005c0;
+-strtof_l = 0x400005c4;
+-strtof = 0x400005c8;
+-_strtol_r = 0x400005cc;
+-strtol_l = 0x400005d0;
+-_strtoul_r = 0x400005d4;
+-strtoul_l = 0x400005d8;
+-asctime = 0x40000638;
+-asctime_r = 0x4000063c;
+-atof = 0x40000640;
+-atoff = 0x40000644;
+-_dtoa_r = 0x40000648;
+-_wctomb_r = 0x4000064c;
+-__ascii_wctomb = 0x40000650;
+-_mbtowc_r = 0x40000654;
+-__ascii_mbtowc = 0x40000658;
+-puts = 0x4000065c;
+-putc = 0x40000660;
+-putchar = 0x40000664;
+-__errno = 0x40000670;
+ toupper = 0x400004ec;
+ tolower = 0x400004f0;
+ isalnum = 0x400004bc;
+--- a/components/esp_rom/esp32c3/include/esp32c3/rom/uart.h
++++ b/components/esp_rom/esp32c3/include/esp32c3/rom/uart.h
+@@ -113,6 +113,11 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
++
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32c3/ld/esp32c3.rom.libc-suboptimal_for_misaligned_mem.ld
++++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.libc-suboptimal_for_misaligned_mem.ld
+@@ -7,6 +7,7 @@
+  * See details in the https://sourceware.org/pipermail/newlib/2025/021470.html
+  * patch series.  */
+ memcpy = 0x40000358;
++memccpy = 0x400003c4;
+ memmove = 0x4000035c;
+ memcmp = 0x40000360;
+ strcpy = 0x40000364;
+--- a/components/esp_rom/esp32c3/ld/esp32c3.rom.newlib.ld
++++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.newlib.ld
+@@ -19,21 +19,24 @@
+  Group newlib
+  ***************************************/
+ 
+-/* Functions */
+-strdup = 0x400003dc;
+-strndup = 0x40000400;
+-rand_r = 0x40000438;
+-rand = 0x4000043c;
+-srand = 0x40000440;
+-atoi = 0x4000044c;
+-atol = 0x40000450;
+-strtol = 0x40000454;
+-strtoul = 0x40000458;
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x400003dc );
++PROVIDE ( strndup = 0x40000400 );
++PROVIDE ( rand = 0x4000043c );
++PROVIDE ( srand = 0x40000440 );
++PROVIDE ( rand_r = 0x40000438 );
++PROVIDE ( atoi = 0x4000044c );
++PROVIDE ( atol = 0x40000450 );
++PROVIDE ( strtol = 0x40000454 );
++PROVIDE ( strtoul = 0x40000458 );
+ PROVIDE( fflush = 0x4000045c );
+ PROVIDE( _fflush_r = 0x40000460 );
+ PROVIDE( _fwalk = 0x40000464 );
+ PROVIDE( _fwalk_reent = 0x40000468 );
+ PROVIDE( __swbuf_r = 0x40000474 );
++/*******************************************/
++
++/* Functions */
+ __swbuf = 0x40000478;
+ toupper = 0x400003b8;
+ tolower = 0x400003bc;
+--- a/components/esp_rom/esp32c5/ld/esp32c5.rom.eco3.ld
++++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.eco3.ld
+@@ -258,10 +258,10 @@
+ phy_set_lb_txiq = 0x40001414;
+ phy_rxiq_opt = 0x40001418;
+ phy_bb_gain_index = 0x40001430;
+-//phy_rfrx_gain_index = 0x40001434;
++phy_rfrx_gain_index = 0x40001434;
+ phy_gen_rx_gain_table = 0x40001438;
+ phy_get_rxbb_dc = 0x4000143c;
+-//phy_wr_rx_gain_mem = 0x40001440;
++phy_wr_rx_gain_mem = 0x40001440;
+ phy_set_tsens_power_ = 0x40001444;
+ phy_get_tsens_value_ = 0x40001448;
+ phy_tsens_read_init = 0x4000144c;
+--- a/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
++++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
+@@ -143,12 +143,12 @@
+ phy_set_freq = 0x400011c8;
+ phy_write_pll_cap = 0x400011cc;
+ phy_read_pll_cap = 0x400011d0;
+-//phy_chip_set_chan_misc = 0x400011d4;
++phy_chip_set_chan_misc = 0x400011d4;
+ phy_freq_set_reg = 0x400011d8;
+ phy_rfpll_chgp_cal = 0x400011dc;
+ phy_gen_rx_gain_table = 0x400011e0;
+ phy_get_rxbb_dc = 0x400011e4;
+-//phy_wr_rx_gain_mem = 0x400011e8;
++phy_wr_rx_gain_mem = 0x400011e8;
+ phy_rfpll_cap_track = 0x400011ec;
+ phy_txpwr_correct = 0x400011f4;
+ phy_txpwr_cal_track = 0x400011f8;
+@@ -288,7 +288,7 @@
+ phy_spur_cal = 0x40001434;
+ phy_spur_coef_cfg = 0x40001438;
+ phy_bb_gain_index = 0x4000143c;
+-//phy_rfrx_gain_index = 0x40001440;
++phy_rfrx_gain_index = 0x40001440;
+ phy_set_tsens_power_ = 0x40001444;
+ phy_set_tsens_range_ = 0x40001448;
+ phy_get_tsens_value_ = 0x4000144c;
+--- a/components/esp_rom/esp32c6/include/esp32c6/rom/uart.h
++++ b/components/esp_rom/esp32c6/include/esp32c6/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32c6/ld/esp32c6.rom.libc.ld
++++ b/components/esp_rom/esp32c6/ld/esp32c6.rom.libc.ld
+@@ -3,6 +3,12 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
++
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x40000570 );
++PROVIDE ( setjmp = 0x40000574 );
++/*******************************************/
++
+ esp_rom_newlib_init_common_mutexes = 0x400004a4;
+ memset = 0x400004a8;
+ strlen = 0x400004c8;
+@@ -31,8 +37,6 @@
+ strsep = 0x40000560;
+ strspn = 0x40000564;
+ strtok_r = 0x40000568;
+-longjmp = 0x40000570;
+-setjmp = 0x40000574;
+ abs = 0x40000578;
+ div = 0x4000057c;
+ labs = 0x40000580;
+--- a/components/esp_rom/esp32c6/ld/esp32c6.rom.newlib.ld
++++ b/components/esp_rom/esp32c6/ld/esp32c6.rom.newlib.ld
+@@ -19,24 +19,27 @@
+  Group newlib
+  ***************************************/
+ 
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x40000530 );
++PROVIDE ( strndup = 0x40000554 );
++PROVIDE ( rand = 0x40000590 );
++PROVIDE ( srand = 0x40000594 );
++PROVIDE ( rand_r = 0x4000058c );
++PROVIDE ( atoi = 0x400005a0 );
++PROVIDE ( atol = 0x400005a4 );
++PROVIDE ( strtol = 0x400005a8 );
++PROVIDE ( strtoul = 0x400005ac );
++PROVIDE ( fflush = 0x400005b0 );
++PROVIDE ( _fflush_r = 0x400005b4 );
++PROVIDE ( _fwalk = 0x400005b8 );
++PROVIDE ( _fwalk_reent = 0x400005bc );
++PROVIDE ( __swbuf_r = 0x400005c8 );
++/*******************************************/
++
+ /* Functions */
+ _isatty_r = 0x400004d4;
+-strdup = 0x40000530;
+-strndup = 0x40000554;
+-rand_r = 0x4000058c;
+-rand = 0x40000590;
+-srand = 0x40000594;
+-atoi = 0x400005a0;
+-atol = 0x400005a4;
+-strtol = 0x400005a8;
+-strtoul = 0x400005ac;
+-fflush = 0x400005b0;
+-_fflush_r = 0x400005b4;
+-_fwalk = 0x400005b8;
+-_fwalk_reent = 0x400005bc;
+ __smakebuf_r = 0x400005c0;
+ __swhatbuf_r = 0x400005c4;
+-__swbuf_r = 0x400005c8;
+ __swbuf = 0x400005cc;
+ __swsetup_r = 0x400005d0;
+ toupper = 0x4000050c;
+--- a/components/esp_rom/esp32h2/include/esp32h2/rom/uart.h
++++ b/components/esp_rom/esp32h2/include/esp32h2/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32h2/ld/esp32h2.rom.libc.ld
++++ b/components/esp_rom/esp32h2/ld/esp32h2.rom.libc.ld
+@@ -31,8 +31,9 @@
+ strsep = 0x40000558;
+ strspn = 0x4000055c;
+ strtok_r = 0x40000560;
+-longjmp = 0x40000568;
+-setjmp = 0x4000056c;
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x40000568 );
++PROVIDE ( setjmp = 0x4000056c );
+ abs = 0x40000570;
+ div = 0x40000574;
+ labs = 0x40000578;
+--- a/components/esp_rom/esp32h2/ld/esp32h2.rom.newlib.ld
++++ b/components/esp_rom/esp32h2/ld/esp32h2.rom.newlib.ld
+@@ -21,22 +21,23 @@
+ 
+ /* Functions */
+ _isatty_r = 0x400004cc;
+-strdup = 0x40000528;
+-strndup = 0x4000054c;
+-rand_r = 0x40000584;
+-rand = 0x40000588;
+-srand = 0x4000058c;
+-atoi = 0x40000598;
+-atol = 0x4000059c;
+-strtol = 0x400005a0;
+-strtoul = 0x400005a4;
+-fflush = 0x400005a8;
+-_fflush_r = 0x400005ac;
+-_fwalk = 0x400005b0;
+-_fwalk_reent = 0x400005b4;
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x40000528 );
++PROVIDE ( strndup = 0x4000054c );
++PROVIDE ( rand_r = 0x40000584 );
++PROVIDE ( rand = 0x40000588 );
++PROVIDE ( srand = 0x4000058c );
++PROVIDE ( atoi = 0x40000598 );
++PROVIDE ( atol = 0x4000059c );
++PROVIDE ( strtol = 0x400005a0 );
++PROVIDE ( strtoul = 0x400005a4 );
++PROVIDE ( fflush = 0x400005a8 );
++PROVIDE ( _fflush_r = 0x400005ac );
++PROVIDE ( _fwalk = 0x400005b0 );
++PROVIDE ( _fwalk_reent = 0x400005b4 );
+ __smakebuf_r = 0x400005b8;
+ __swhatbuf_r = 0x400005bc;
+-__swbuf_r = 0x400005c0;
++PROVIDE ( __swbuf_r = 0x400005c0 );
+ __swbuf = 0x400005c4;
+ __swsetup_r = 0x400005c8;
+ toupper = 0x40000504;
+--- a/components/esp_rom/esp32/include/esp32/rom/uart.h
++++ b/components/esp_rom/esp32/include/esp32/rom/uart.h
+@@ -111,6 +111,8 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* EMPTY conflicts with Zephyr util_macro.h */
++#undef EMPTY
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
++++ b/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
+@@ -113,6 +113,8 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Workaround: EMPTY conflicts with Zephyr's util_macro.h */
++#undef EMPTY
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32s2/ld/esp32s2.rom.libc-funcs.ld
++++ b/components/esp_rom/esp32s2/ld/esp32s2.rom.libc-funcs.ld
+@@ -25,7 +25,8 @@
+ ispunct = 0x40007994;
+ labs = 0x40000648;
+ ldiv = 0x40000650;
+-longjmp = 0x400005a4;
++PROVIDE ( longjmp = 0x400005a4 );
++PROVIDE ( setjmp = 0x40000540 );
+ memccpy = 0x4001ab00;
+ memchr = 0x4001ab24;
+ memcmp = 0x4001ab40;
+@@ -34,7 +35,6 @@
+ memrchr = 0x4001acec;
+ memset = 0x4001ad3c;
+ qsort = 0x400006f4;
+-setjmp = 0x40000540;
+ strcat = 0x4001ad90;
+ strchr = 0x4001adb0;
+ strcmp = 0x40007be4;
+@@ -51,6 +51,6 @@
+ strsep = 0x4000806c;
+ strspn = 0x4001aebc;
+ strstr = 0x4001aee8;
+-__strtok_r = 0x4001af18;
++PROVIDE ( __strtok_r = 0x4001af18 );
+ strtok_r = 0x4001af7c;
+ toascii = 0x4001af90;
+--- a/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-reent-funcs.ld
++++ b/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-reent-funcs.ld
+@@ -3,51 +3,51 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-_cleanup_r = 0x4001a480;
++PROVIDE ( _cleanup_r = 0x4001a480 );
+ creat = 0x4000788c;
+ open = 0x400080c4;
+ fclose = 0x4001a804;
+-_fclose_r = 0x4001a714;
+-fflush = 0x40001bb8;
+-_fflush_r = 0x40001b30;
+-__fp_unlock_all = 0x4001a64c;
+-__fputwc = 0x40001770;
++PROVIDE ( _fclose_r = 0x4001a714 );
++PROVIDE ( fflush = 0x40001bb8 );
++PROVIDE ( _fflush_r = 0x40001b30 );
++PROVIDE ( __fp_unlock_all = 0x4001a64c );
++PROVIDE ( __fputwc = 0x40001770 );
+ fputwc = 0x40001864;
+-_fputwc_r = 0x400017f8;
+-_fwalk = 0x4001bcec;
+-_fwalk_reent = 0x4001bd24;
+-__sflush_r = 0x400019dc;
+-__swbuf = 0x4000167c;
+-__swbuf_r = 0x400015bc;
+-__swrite = 0x4001a698;
+-__sread = 0x4001a660;
+-__sseek = 0x4001a6cc;
+-srand = 0x40007a24;
+-__ascii_mbtowc = 0x40007a04;
+-__ascii_wctomb = 0x400018d0;
+-_mbtowc_r = 0x400079e0;
+-rand_r = 0x40007af4;
+-__sclose = 0x4001a700;
+-__seofread = 0x4001a690;
++PROVIDE ( _fputwc_r = 0x400017f8 );
++PROVIDE ( _fwalk = 0x4001bcec );
++PROVIDE ( _fwalk_reent = 0x4001bd24 );
++PROVIDE ( __sflush_r = 0x400019dc );
++PROVIDE ( __swbuf = 0x4000167c );
++PROVIDE ( __swbuf_r = 0x400015bc );
++PROVIDE ( __swrite = 0x4001a698 );
++PROVIDE ( __sread = 0x4001a660 );
++PROVIDE ( __sseek = 0x4001a6cc );
++PROVIDE ( srand = 0x40007a24 );
++PROVIDE ( rand_r = 0x40007af4 );
++PROVIDE ( __ascii_mbtowc = 0x40007a04 );
++PROVIDE ( __ascii_wctomb = 0x400018d0 );
++PROVIDE ( _mbtowc_r = 0x400079e0 );
++PROVIDE ( __sclose = 0x4001a700 );
++PROVIDE ( __seofread = 0x4001a690 );
+ setlocale = 0x40001c44;
+-_setlocale_r = 0x40001bdc;
+-__sfmoreglue = 0x4001a4c8;
+-__sfp = 0x4001a590;
+-__sfp_lock_acquire = 0x4001a508;
+-__sfp_lock_release = 0x4001a514;
+-__sinit = 0x4001a538;
+-__sinit_lock_acquire = 0x4001a520;
+-__sinit_lock_release = 0x4001a52c;
+-strndup = 0x40007fe8;
+-_strndup_r = 0x40007ffc;
++PROVIDE ( _setlocale_r = 0x40001bdc );
++PROVIDE ( __sfmoreglue = 0x4001a4c8 );
++PROVIDE ( __sfp = 0x4001a590 );
++PROVIDE ( __sfp_lock_acquire = 0x4001a508 );
++PROVIDE ( __sfp_lock_release = 0x4001a514 );
++PROVIDE ( __sinit = 0x4001a538 );
++PROVIDE ( __sinit_lock_acquire = 0x4001a520 );
++PROVIDE ( __sinit_lock_release = 0x4001a52c );
++PROVIDE ( strndup = 0x40007fe8 );
++PROVIDE ( strdup = 0x40007d84 );
++PROVIDE ( _strndup_r = 0x40007ffc );
+ wcrtomb = 0x400012f4;
+-_wcrtomb_r = 0x400012a0;
+-_wctomb_r = 0x400018ac;
+-strdup = 0x40007d84;
+-_strdup_r = 0x40007d98;
+-__locale_ctype_ptr = 0x40001c2c;
+-__locale_ctype_ptr_l = 0x40001c24;
+-__locale_mb_cur_max = 0x40001c0c;
++PROVIDE ( _wcrtomb_r = 0x400012a0 );
++PROVIDE ( _wctomb_r = 0x400018ac );
++PROVIDE ( _strdup_r = 0x40007d98 );
++PROVIDE ( __locale_ctype_ptr = 0x40001c2c );
++PROVIDE ( __locale_ctype_ptr_l = 0x40001c24 );
++PROVIDE ( __locale_mb_cur_max = 0x40001c0c );
+ strcasecmp = 0x40007b38;
+ strcasestr = 0x40007b7c;
+ tolower = 0x40008158;
+--- a/components/esp_rom/esp32s31/include/esp32s31/rom/rtc.h
++++ b/components/esp_rom/esp32s31/include/esp32s31/rom/rtc.h
+@@ -4,19 +4,15 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#pragma once
+-
++#ifndef _ROM_RTC_H_
++#define _ROM_RTC_H_
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+-#include <stdbool.h>
+-#include <stdint.h>
+-#include "esp_assert.h"
+ 
+-#include "soc/soc.h"
+ #include "soc/lp_system_reg.h"
+-#include "soc/reset_reasons.h"
++#include "soc/lp_clkrst_reg.h"
+ 
+ /** \defgroup rtc_apis, rtc registers and memory related apis
+   * @brief rtc apis
+@@ -48,16 +44,22 @@
+   *     RTC_CNTL_STORE7_REG     FAST_RTC_MEMORY_CRC
+   *************************************************************************************
+   */
+-
+-#define RTC_SLOW_CLK_CAL_REG    LP_SYSTEM_REG_LP_STORE1_REG
+-#define RTC_BOOT_TIME_LOW_REG   LP_SYSTEM_REG_LP_STORE2_REG
+-#define RTC_BOOT_TIME_HIGH_REG  LP_SYSTEM_REG_LP_STORE3_REG
+-#define RTC_XTAL_FREQ_REG       LP_SYSTEM_REG_LP_STORE4_REG
+-#define RTC_ENTRY_LENGTH_REG    LP_SYSTEM_REG_LP_STORE5_REG
+-#define RTC_ENTRY_ADDR_REG      LP_SYSTEM_REG_LP_STORE6_REG
+-#define RTC_RESET_CAUSE_REG     LP_SYSTEM_REG_LP_STORE6_REG
+-#define RTC_MEMORY_CRC_REG      LP_SYSTEM_REG_LP_STORE7_REG
+-
++#define RTC_CNTL_STORE0_REG  LP_SYSTEM_REG_LP_STORE0_REG
++#define RTC_CNTL_STORE1_REG  LP_SYSTEM_REG_LP_STORE1_REG
++#define RTC_CNTL_STORE2_REG  LP_SYSTEM_REG_LP_STORE2_REG
++#define RTC_CNTL_STORE3_REG  LP_SYSTEM_REG_LP_STORE3_REG
++#define RTC_CNTL_STORE4_REG  LP_SYSTEM_REG_LP_STORE4_REG
++#define RTC_CNTL_STORE5_REG  LP_SYSTEM_REG_LP_STORE5_REG
++#define RTC_CNTL_STORE6_REG  LP_SYSTEM_REG_LP_STORE6_REG
++#define RTC_CNTL_STORE7_REG  LP_SYSTEM_REG_LP_STORE7_REG
++#define RTC_CNTL_STORE8_REG  LP_SYSTEM_REG_LP_STORE8_REG
++#define RTC_CNTL_STORE9_REG  LP_SYSTEM_REG_LP_STORE9_REG
++#define RTC_CNTL_STORE10_REG LP_SYSTEM_REG_LP_STORE10_REG
++#define RTC_CNTL_STORE11_REG LP_SYSTEM_REG_LP_STORE11_REG
++#define RTC_CNTL_STORE12_REG LP_SYSTEM_REG_LP_STORE12_REG
++#define RTC_CNTL_STORE13_REG LP_SYSTEM_REG_LP_STORE13_REG
++#define RTC_CNTL_STORE14_REG LP_SYSTEM_REG_LP_STORE14_REG
++#define RTC_CNTL_STORE15_REG LP_SYSTEM_REG_LP_STORE15_REG
+ // light sleep
+ /* use LP_SYS_LP_STORE8_REG to store light sleep wake stub addr and sleep mode for dualcore
+  *
+@@ -69,120 +71,53 @@
+ /* this MACRO is common to hpcore and lpcore
+  * they use different bitmask to check same value
+  */
+-#define RTC_SLEEP_WAKE_STUB_ADDR_REG  LP_SYSTEM_REG_LP_STORE8_REG
+-#define RTC_SLEEP_MODE_REG            LP_SYSTEM_REG_LP_STORE8_REG
+-
+-#define ROM_LOG_CTRL_REG              LP_SYSTEM_REG_LP_STORE4_REG
+-#define RTC_DISABLE_ROM_LOG           ((1 << 0) | (1 << 16)) //!< Disable logging from the ROM code.
+-
+-
+-
+-typedef enum {
+-    AWAKE = 0,             //<CPU ON
+-    LIGHT_SLEEP = BIT0,    //CPU waiti, PLL ON.  We don't need explicitly set this mode.
+-    DEEP_SLEEP  = BIT1     //CPU OFF, PLL OFF, only specific timer could wake up
+-} SLEEP_MODE;
+-
+-typedef enum {
+-    SW_CLR = 0,
+-    POWERON_RESET = 1,          /**<1, Vbat power on reset*/
+-    SW_SYS_RESET = 3,           /**<3, Software reset digital core*/
+-    PMU_SYS_PWR_DOWN_RESET = 5, /**<5, PMU HP system power down reset*/
+-    PMU_CPU_PWR_DOWN_RESET = 6, /**<6, PMU CPU system power down reset*/
+-    HP_SYS_HP_WDT0_RESET = 7,   /**<7, HP system reset from HP watchdog0*/
+-    HP_SYS_HP_WDT1_RESET = 8,   /**<8, HP system reset from HP watchdog1*/
+-    HP_SYS_LP_WDT_RESET = 9,    /**<9, HP system reset from LP watchdog*/
+-    HP_CORE_HP_WDT_RESET = 11,  /**<11, HP core reset from HP watchdog*/
+-    SW_CPU_RESET = 12,          /**<12, software reset cpu*/
+-    HP_CORE_LP_WDT_RESET = 13,  /**<13, HP core reset from LP watchdog*/
+-    BROWN_OUT_RESET = 15,       /**<15, Reset when the vdd voltage is not stable*/
+-    CHIP_LP_WDT_RESET = 16,     /**<16, LP watchdog chip reset*/
+-    SUPER_WDT_RESET = 18,       /**<18, super watchdog reset*/
+-    GLITCH_RTC_RESET = 19,      /**<19, glitch reset*/
+-    EFUSE_CRC_ERR_RESET = 20,   /**<20, efuse ecc error reset*/
+-    CHIP_USB_JTAG_RESET = 22,   /**<22, HP usb jtag chip reset*/
+-    CHIP_USB_UART_RESET = 23,   /**<23, HP usb uart chip reset*/
+-    JTAG_RESET = 24,            /**<24, jtag reset*/
+-    CPU_LOCKUP_RESET = 26,      /**<26, cpu lockup reset*/
+-} RESET_REASON;
+-
+-// Check if the reset reason defined in ROM is compatible with soc/reset_reasons.h
+-ESP_STATIC_ASSERT((soc_reset_reason_t)POWERON_RESET           == RESET_REASON_CHIP_POWER_ON,      "POWERON_RESET != RESET_REASON_CHIP_POWER_ON");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)SW_SYS_RESET            == RESET_REASON_CORE_SW,            "SW_SYS_RESET != RESET_REASON_CORE_SW");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)PMU_SYS_PWR_DOWN_RESET  == RESET_REASON_CORE_DEEP_SLEEP,    "PMU_SYS_PWR_DOWN_RESET != RESET_REASON_CORE_DEEP_SLEEP");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)PMU_SYS_PWR_DOWN_RESET  == RESET_REASON_CORE_PMU_PWR_DOWN,  "PMU_SYS_PWR_DOWN_RESET != RESET_REASON_CORE_PMU_PWR_DOWN");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)PMU_CPU_PWR_DOWN_RESET  == RESET_REASON_CPU_PMU_PWR_DOWN,   "PMU_CPU_PWR_DOWN_RESET != RESET_REASON_CPU_PMU_PWR_DOWN");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)HP_SYS_HP_WDT0_RESET    == RESET_REASON_CORE_MWDT0,         "HP_SYS_HP_WDT0_RESET != RESET_REASON_CORE_MWDT0");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)HP_SYS_HP_WDT1_RESET    == RESET_REASON_CORE_MWDT1,         "HP_SYS_HP_WDT1_RESET != RESET_REASON_CORE_MWDT1");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)HP_SYS_LP_WDT_RESET     == RESET_REASON_CORE_RWDT,          "HP_SYS_LP_WDT_RESET != RESET_REASON_CORE_RWDT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)HP_CORE_HP_WDT_RESET    == RESET_REASON_CPU_MWDT,           "HP_CORE_HP_WDT_RESET != RESET_REASON_CPU_MWDT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)SW_CPU_RESET            == RESET_REASON_CPU_SW,             "SW_CPU_RESET != RESET_REASON_CPU_SW");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)HP_CORE_LP_WDT_RESET    == RESET_REASON_CPU_RWDT,           "HP_CORE_LP_WDT_RESET != RESET_REASON_CPU_RWDT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)BROWN_OUT_RESET         == RESET_REASON_SYS_BROWN_OUT,      "BROWN_OUT_RESET != RESET_REASON_SYS_BROWN_OUT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)CHIP_LP_WDT_RESET       == RESET_REASON_SYS_RWDT,           "CHIP_LP_WDT_RESET != RESET_REASON_SYS_RWDT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)SUPER_WDT_RESET         == RESET_REASON_SYS_SUPER_WDT,      "SUPER_WDT_RESET != RESET_REASON_SYS_SUPER_WDT");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)GLITCH_RTC_RESET        == RESET_REASON_CORE_PWR_GLITCH,    "GLITCH_RTC_RESET != RESET_REASON_CORE_PWR_GLITCH");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)EFUSE_CRC_ERR_RESET     == RESET_REASON_CORE_EFUSE_CRC,     "EFUSE_CRC_ERR_RESET != RESET_REASON_CORE_EFUSE_CRC");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)CHIP_USB_JTAG_RESET     == RESET_REASON_CORE_USB_JTAG,      "CHIP_USB_JTAG_RESET != RESET_REASON_CORE_USB_JTAG");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)CHIP_USB_UART_RESET     == RESET_REASON_CORE_USB_UART,      "CHIP_USB_UART_RESET != RESET_REASON_CORE_USB_UART");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)JTAG_RESET              == RESET_REASON_CPU_JTAG,           "JTAG_RESET != RESET_REASON_CPU_JTAG");
+-ESP_STATIC_ASSERT((soc_reset_reason_t)CPU_LOCKUP_RESET        == RESET_REASON_CPU_LOCKUP,         "CPU_LOCKUP_RESET != RESET_REASON_CPU_LOCKUP");
+-
+-/**
+-  * @brief  Get the reset reason for CPU.
+-  *
+-  * @param  int cpu_no : CPU no.
+-  *
+-  * @return RESET_REASON
+-  */
+-RESET_REASON rtc_get_reset_reason(int cpu_no);
+-
+-/**
+-  * @brief Suppress ROM log by setting specific RTC control register.
+-  * @note This is not a permanent disable of ROM logging since the RTC register can not retain after chip reset.
+-  *
+-  * @param  None
+-  *
+-  * @return None
+-  */
+-static inline void rtc_suppress_rom_log(void)
+-{
+-    /* To disable logging in the ROM, only the least significant bit of the register is used,
+-     * but since this register is also used to store the frequency of the main crystal (RTC_XTAL_FREQ_REG),
+-     * you need to write to this register in the same format.
+-     * Namely, the upper 16 bits and lower should be the same.
+-     */
+-    REG_SET_BIT(LP_SYSTEM_REG_LP_STORE4_REG, RTC_DISABLE_ROM_LOG);
+-}
+-
+-/**
+-  * @brief Software Reset digital core.
+-  *
+-  * It is not recommended to use this function in esp-idf, use
+-  * esp_restart() instead.
+-  *
+-  * @param  None
+-  *
+-  * @return None
+-  */
+-void software_reset(void);
+-
+-/**
+-  * @brief Software Reset digital core.
+-  *
+-  * It is not recommended to use this function in esp-idf, use
+-  * esp_restart() instead.
+-  *
+-  * @param  int cpu_no : The CPU to reset, 0 for PRO CPU, 1 for APP CPU.
+-  *
+-  * @return None
+-  */
+-void software_reset_cpu(int cpu_no);
++#define SLEEP_MODE_LIGHT_SLEEP 0
++// hpcore use bit0 to check the mode
++#define SLEEP_MODE_MASK BIT(0)
++
++#define RTC_LIGHT_SLEEP_WAKE_STUB_ADDR_REG     RTC_CNTL_STORE8_REG
++#define RTC_LIGHT_SLEEP_RESTORE_FUNC_ADDR_MASK 0xFFFFFFFC
++#define SLEEP_MODE_REG                         RTC_CNTL_STORE8_REG
++// system
++#define RTC_SLOW_CLK_CAL_REG   RTC_CNTL_STORE1_REG
++#define RTC_BOOT_TIME_LOW_REG  RTC_CNTL_STORE2_REG
++#define RTC_BOOT_TIME_HIGH_REG RTC_CNTL_STORE3_REG
++#define RTC_XTAL_FREQ_REG      RTC_CNTL_STORE4_REG
++// deep sleep
++#define RTC_ENTRY_LENGTH_REG RTC_CNTL_STORE5_REG
++#define RTC_ENTRY_ADDR_REG   RTC_CNTL_STORE6_REG
++/* use RTC_ENTRY_ADDR_REG[0] to store if we need do stub crc check
++ * 0: we do not need do crc check, then RTC_MEMORY_CRC_REG and RTC_ENTRY_LENGTH_REG can be freed
++ * 1: we need do crc check
++*/
++#define RTC_DEEP_SLEEP_STUB_CHECK_CRC 0x1
++#define RTC_MEMORY_CRC_REG            RTC_CNTL_STORE7_REG
++#define ROM_LOG_CTRL_REG              RTC_XTAL_FREQ_REG
++
++/* Reset reason hint register - same as RTC_ENTRY_ADDR_REG, can be used for both
++ * deep sleep wake stub entry address and reset reason hint, since wake stub
++ * is only used for deep sleep reset.
++ */
++#define RTC_RESET_CAUSE_REG RTC_ENTRY_ADDR_REG
+ 
++// used to check if app core need hot boot in start.S
++#define APP_CORE_BOOT_ADDR_REG LP_SYS_BOOT_ADDR_HP_CORE1_REG
++// used to check if we need do software retention in start.S
++#define RESET_REASON_REG       LP_AONCLKRST_HPCORE0_RESET_CAUSE_REG
++#define RESET_REASON_MASK      LP_AONCLKRST_HPCORE0_RESET_CAUSE
++#define CORE0_RESET_REASON_POS LP_AONCLKRST_HPCORE0_RESET_CAUSE_S
++
++#define RESET_REASON1_REG      LP_AONCLKRST_HPCORE0_RESET_CAUSE_REG
++#define RESET_REASON1_MASK     LP_AONCLKRST_HPCORE0_RESET_CAUSE
++#define CORE1_RESET_REASON_POS LP_AONCLKRST_HPCORE1_RESET_CAUSE_S
+ /**
+-  * @}
+-  */
++ * start.S check reset reason and sleep mode register to decide if doing software retention
++ */
++#define RESET_REASON_TOP_SLEEP_WAKEUP 5
++#define RESET_REASON_CPU_SLEEP_WAKEUP 6 // wake up from CPU domain power-down sleep
+ 
+ #ifdef __cplusplus
+ }
+ #endif
++
++#endif /* _ROM_RTC_H_ */
+--- a/components/esp_rom/esp32s3/include/esp32s3/rom/uart.h
++++ b/components/esp_rom/esp32s3/include/esp32s3/rom/uart.h
+@@ -111,6 +111,8 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Workaround: EMPTY conflicts with Zephyr's util_macro.h */
++#undef EMPTY
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32s3/ld/esp32s3.rom.newlib.ld
++++ b/components/esp_rom/esp32s3/ld/esp32s3.rom.newlib.ld
+@@ -15,14 +15,20 @@
+  * multiple files to make it compatible with picolibc.
+  */
+ 
+-strdup = 0x40001380;
+-strndup = 0x400013ec;
+-rand = 0x400014a0;
+-srand = 0x400014ac;
+-atoi = 0x400014d0;
+-atol = 0x400014dc;
+-strtol = 0x400014e8;
+-strtoul = 0x400014f4;
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( atoi = 0x400014d0 );
++PROVIDE ( atol = 0x400014dc );
++PROVIDE ( strdup = 0x40001380 );
++PROVIDE ( strndup = 0x400013ec );
++PROVIDE ( rand_r = 0x40001494 );
++PROVIDE ( rand = 0x400014a0 );
++PROVIDE ( srand = 0x400014ac );
++PROVIDE ( strtol = 0x400014e8 );
++PROVIDE ( strtoul = 0x400014f4 );
++PROVIDE ( longjmp = 0x40001440 );
++PROVIDE ( setjmp = 0x4000144c );
++/*******************************************/
++
+ PROVIDE( fflush = 0x40001500 );
+ PROVIDE( _fflush_r = 0x4000150c );
+ PROVIDE( _fwalk = 0x40001518 );
+--- a/components/esp_rom/patches/esp_rom_print.c
++++ b/components/esp_rom/patches/esp_rom_print.c
+@@ -8,7 +8,7 @@
+ #include <stdbool.h>
+ #include <stdarg.h>
+ #include <stddef.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_rom_caps.h"
+ #include "esp_rom_sys.h"
+ #include "rom/ets_sys.h"
+--- a/components/esp_rom/patches/esp_rom_regi2c_esp32s2.c
++++ b/components/esp_rom/patches/esp_rom_regi2c_esp32s2.c
+@@ -115,7 +115,8 @@
+     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
+                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
+     REG_WRITE(I2C_RTC_CONFIG2, temp);
+-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
++    int timeout = 10000;
++    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
+     return REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
+ }
+ 
+@@ -127,7 +128,8 @@
+     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
+                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
+     REG_WRITE(I2C_RTC_CONFIG2, temp);
+-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
++    int timeout = 10000;
++    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
+     uint32_t data = REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
+     return (uint8_t)((data >> lsb) & (~(0xFFFFFFFF << (msb - lsb + 1))));
+ }
+@@ -141,7 +143,8 @@
+                     | ((0x1 & I2C_RTC_WR_CNTL_V) << I2C_RTC_WR_CNTL_S)
+                     | (((uint32_t)data & I2C_RTC_DATA_V) << I2C_RTC_DATA_S);
+     REG_WRITE(I2C_RTC_CONFIG2, temp);
+-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
++    int timeout = 10000;
++    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
+ }
+ 
+ void IRAM_ATTR esp_rom_regi2c_write_mask(uint8_t block, uint8_t host_id, uint8_t reg_add, uint8_t msb, uint8_t lsb, uint8_t data)
+@@ -153,7 +156,8 @@
+     uint32_t temp = ((block & I2C_RTC_SLAVE_ID_V) << I2C_RTC_SLAVE_ID_S)
+                     | (reg_add & I2C_RTC_ADDR_V) << I2C_RTC_ADDR_S;
+     REG_WRITE(I2C_RTC_CONFIG2, temp);
+-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
++    int timeout = 10000;
++    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
+     temp = REG_GET_FIELD(I2C_RTC_CONFIG2, I2C_RTC_DATA);
+     /*Write the i2c bus register*/
+     temp &= ((~(0xFFFFFFFF << lsb)) | (0xFFFFFFFF << (msb + 1)));
+@@ -163,5 +167,6 @@
+             | ((0x1 & I2C_RTC_WR_CNTL_V) << I2C_RTC_WR_CNTL_S)
+             | ((temp & I2C_RTC_DATA_V) << I2C_RTC_DATA_S);
+     REG_WRITE(I2C_RTC_CONFIG2, temp);
+-    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY));
++    timeout = 10000;
++    while (REG_GET_BIT(I2C_RTC_CONFIG2, I2C_RTC_BUSY) && --timeout > 0);
+ }
+--- a/components/esp_rom/patches/esp_rom_sys.c
++++ b/components/esp_rom/patches/esp_rom_sys.c
+@@ -146,7 +146,7 @@
+     }
+ }
+ 
+-void __attribute__((constructor)) ets_ops_set_rom_patches(void)
++void ets_ops_set_rom_patches(void)
+ {
+     /* Copy ROM default function table into our patch table */
+     memcpy(&ets_ops_patch_table_ptr, ets_ops_table_ptr, sizeof(struct ets_ops));
+--- a/components/esp_rom/patches/esp_rom_tlsf.c
++++ b/components/esp_rom/patches/esp_rom_tlsf.c
+@@ -163,7 +163,7 @@
+  * This function must not be defined as static, as it is marked as "undefined" in the linker flags
+  * (to force the linker to integrate the functions of this file inside the final binary)
+  */
+-void __attribute__((constructor)) tlsf_set_rom_patches(void)
++void tlsf_set_rom_patches(void)
+ {
+     /* Copy the ROM default table inside our table */
+     memcpy(&heap_tlsf_patch_table_ptr, heap_tlsf_table_ptr, sizeof(struct heap_tlsf_stub_table_t));

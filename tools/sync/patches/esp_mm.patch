@@ -1,0 +1,253 @@
+--- a/components/esp_mm/cache_esp32.c
++++ b/components/esp_mm/cache_esp32.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <inttypes.h>
+ #include "sdkconfig.h"
+ #include "rom/cache.h"
+--- a/components/esp_mm/esp_cache_msync.c
++++ b/components/esp_mm/esp_cache_msync.c
+@@ -4,14 +4,14 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <inttypes.h>
+ #include <string.h>
+ #include "sys/lock.h"
+ #include "sdkconfig.h"
+ #include "esp_check.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "esp_heap_caps.h"
+ #include "esp_rom_caps.h"
+ #include "soc/soc_caps.h"
+@@ -47,7 +47,7 @@
+ static void s_c2m_ops(uint32_t vaddr, size_t size)
+ {
+ #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
+-    if (!xPortInIsrContext()) {
++    if (!k_is_in_isr()) {
+         bool valid = true;
+         size_t offset = 0;
+         while (offset < size) {
+@@ -75,7 +75,7 @@
+ static void s_acquire_mutex_from_task_context(void)
+ {
+ #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
+-    if (xPortCanYield()) {
++    if (!k_is_in_isr()) {
+         _lock_acquire(&s_mutex);
+         ESP_LOGD(TAG, "mutex is taken");
+     }
+@@ -86,7 +86,7 @@
+ static void s_release_mutex_from_task_context(void)
+ {
+ #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
+-    if (xPortCanYield()) {
++    if (!k_is_in_isr()) {
+         _lock_release(&s_mutex);
+         ESP_LOGD(TAG, "mutex is free");
+     }
+--- a/components/esp_mm/esp_cache_utils.c
++++ b/components/esp_mm/esp_cache_utils.c
+@@ -4,20 +4,21 @@
+ * SPDX-License-Identifier: Apache-2.0
+ */
+ 
+-#include <sys/param.h>
+ #include <inttypes.h>
+ #include <string.h>
+ #include "sys/lock.h"
+ #include "sdkconfig.h"
+ #include "esp_check.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
+ #include "esp_memory_utils.h"
+ #include "soc/soc_caps.h"
+ #include "hal/cache_hal.h"
+ #include "hal/cache_ll.h"
+ #include "esp_private/esp_cache_private.h"
+ #include "esp_private/critical_section.h"
++#include "esp_cpu.h"
++#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+ #if __riscv
+ #include "riscv/rv_utils.h"
+ #endif
+@@ -51,7 +52,7 @@
+ {
+ #if (CONFIG_SPIRAM && SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE)
+ #if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+-    int cpuid = xPortGetCoreID();
++    int cpuid = esp_cpu_get_core_id();
+     uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
+     esp_cpu_stall(other_cpuid);
+ #else
+--- a/components/esp_mm/esp_mmu_map.c
++++ b/components/esp_mm/esp_mmu_map.c
+@@ -6,10 +6,10 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <sys/queue.h>
+ #include <inttypes.h>
+-#include <sys/lock.h>
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_log.h"
+@@ -111,7 +111,7 @@
+     /**
+      * driver layer mutex lock
+      */
+-    _lock_t mutex;
++    struct k_mutex mutex;
+ } mmu_ctx_t;
+ 
+ static mmu_ctx_t s_mmu_ctx;
+@@ -258,6 +258,8 @@
+         TAILQ_INIT(&s_mmu_ctx.mem_regions[i].mem_block_head);
+     }
+ 
++    k_mutex_init(&s_mmu_ctx.mutex);
++
+     assert(available_region_idx == region_num);
+ }
+ 
+@@ -442,7 +444,7 @@
+      */
+     s_stop_cache();
+ 
+-    uint32_t actual_mapped_len = s_mapping_operation(target, vaddr_start, paddr_start, size);
++    uint32_t actual_mapped_len __attribute__((unused)) = s_mapping_operation(target, vaddr_start, paddr_start, size);
+ 
+     cache_bus_mask_t bus_mask = cache_ll_l1_get_bus(0, vaddr_start, size);
+     cache_ll_l1_enable_bus(0, bus_mask);
+@@ -469,7 +471,7 @@
+     ESP_RETURN_ON_FALSE((paddr_start % CONFIG_MMU_PAGE_SIZE == 0), ESP_ERR_INVALID_ARG, TAG, "paddr must be rounded up to the nearest multiple of CONFIG_MMU_PAGE_SIZE");
+     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
+ 
+-    _lock_acquire(&s_mmu_ctx.mutex);
++    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+     mem_block_t *dummy_head = NULL;
+     mem_block_t *dummy_tail = NULL;
+     size_t aligned_size = ALIGN_UP_BY(size, CONFIG_MMU_PAGE_SIZE);
+@@ -534,7 +536,7 @@
+          * address.
+          */
+         const uint32_t new_paddr_offset = paddr_start - mem_block->paddr_start;
+-        *out_ptr = (void *)mem_block->vaddr_start + new_paddr_offset;
++        *out_ptr = (void *)(mem_block->vaddr_start + new_paddr_offset);
+         ESP_LOGD(TAG, "paddr block is mapped already, vaddr_start: %p, size: 0x%x", (void *)mem_block->vaddr_start, mem_block->size);
+         ret = ESP_ERR_INVALID_STATE;
+         goto err;
+@@ -597,18 +599,18 @@
+     //do mapping
+     s_do_mapping(target, new_block->vaddr_start, paddr_start, aligned_size);
+     *out_ptr = (void *)new_block->vaddr_start;
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+ 
+     return ESP_OK;
+ 
+ err:
+     if (dummy_tail) {
+-        free(dummy_tail);
++        k_free(dummy_tail);
+     }
+     if (dummy_head) {
+-        free(dummy_head);
++        k_free(dummy_head);
+     }
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+ 
+     return ret;
+ }
+@@ -655,7 +657,7 @@
+     uint32_t ptr_laddr = mmu_ll_vaddr_to_laddr((uint32_t)ptr);
+     size_t slot_len = 0;
+ 
+-    _lock_acquire(&s_mmu_ctx.mutex);
++    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+     for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
+         ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-out-of-bounds")
+         if (ptr_laddr >= s_mmu_ctx.mem_regions[i].free_head && ptr_laddr < s_mmu_ctx.mem_regions[i].end) {
+@@ -691,15 +693,15 @@
+ 
+     //do unmap
+     s_do_unmapping(mem_block->vaddr_start, mem_block->size);
+-    free(found_block);
++    k_free(found_block);
+ 
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+ 
+     return ESP_OK;
+ 
+ err:
+ 
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+     return ret;
+ }
+ 
+@@ -729,10 +731,10 @@
+         int id = 0;
+         TAILQ_FOREACH(mem_block, &region->mem_block_head, entries) {
+             if (mem_block != TAILQ_FIRST(&region->mem_block_head) && mem_block != TAILQ_LAST(&region->mem_block_head, mem_block_head_)) {
+-                snprintf(buf, len, "%-4d 0x%-11x 0x%-10x 0x%-10x 0x%-4x 0x%-11"PRIx32" 0x%-8"PRIx32"\n",
++                snprintf(buf, len, "%-4d 0x%-11"PRIxPTR" 0x%-10"PRIxPTR" 0x%-10x 0x%-4x 0x%-11"PRIx32" 0x%-8"PRIx32"\n",
+                          id,
+-                         mem_block->vaddr_start,
+-                         mem_block->vaddr_end,
++                         (uintptr_t)mem_block->vaddr_start,
++                         (uintptr_t)mem_block->vaddr_end,
+                          mem_block->size,
+                          mem_block->caps,
+                          mem_block->paddr_start,
+@@ -781,7 +783,7 @@
+ {
+     uint32_t mmu_id = 0;
+ 
+-    _lock_acquire(&s_mmu_ctx.mutex);
++    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+ 
+ #if SOC_MMU_PER_EXT_MEM_TARGET
+     mmu_id = mmu_hal_get_id_from_vaddr(vaddr);
+@@ -793,7 +795,7 @@
+     }
+ #endif
+ 
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+ 
+     return is_mapped;
+ }
+@@ -817,7 +819,7 @@
+ 
+ static bool s_paddr_to_vaddr(esp_paddr_t paddr, mmu_target_t target, mmu_vaddr_t type, uint32_t *out_vaddr)
+ {
+-    _lock_acquire(&s_mmu_ctx.mutex);
++    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+ 
+     uint32_t mmu_id = 0;
+ #if SOC_MMU_PER_EXT_MEM_TARGET
+@@ -825,7 +827,7 @@
+ #endif
+     bool found = mmu_hal_paddr_to_vaddr(mmu_id, paddr, target, type, out_vaddr);
+ 
+-    _lock_release(&s_mmu_ctx.mutex);
++    k_mutex_unlock(&s_mmu_ctx.mutex);
+ 
+     return found;
+ }

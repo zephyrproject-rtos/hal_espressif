@@ -1,0 +1,205 @@
+--- a/components/hal/cache_hal.c
++++ b/components/hal/cache_hal.c
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include "esp_err.h"
+--- a/components/hal/efuse_hal.c
++++ b/components/hal/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/efuse_ll.h"
+ #include "hal/assert.h"
+--- a/components/hal/esp32c2/efuse_hal.c
++++ b/components/hal/esp32c2/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32c3/efuse_hal.c
++++ b/components/hal/esp32c3/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32c5/efuse_hal.c
++++ b/components/hal/esp32c5/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32c61/efuse_hal.c
++++ b/components/hal/esp32c61/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32c6/efuse_hal.c
++++ b/components/hal/esp32c6/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32/cache_hal_esp32.c
++++ b/components/hal/esp32/cache_hal_esp32.c
+@@ -73,6 +73,7 @@
+ 
+ bool cache_hal_invalidate_addr(uint32_t vaddr, uint32_t size)
+ {
+-    //esp32 doesn't support invalidate certain addr
++    /* esp32 doesn't support invalidate certain addr */
+     abort();
++    return false; /* unreachable, silence compiler warning */
+ }
+--- a/components/hal/esp32/efuse_hal.c
++++ b/components/hal/esp32/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/efuse_ll.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32h21/efuse_hal.c
++++ b/components/hal/esp32h21/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32h2/efuse_hal.c
++++ b/components/hal/esp32h2/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "soc/chip_revision.h"
+ #include "hal/assert.h"
+--- a/components/hal/esp32h4/efuse_hal.c
++++ b/components/hal/esp32h4/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32p4/efuse_hal.c
++++ b/components/hal/esp32p4/efuse_hal.c
+@@ -5,7 +5,7 @@
+  */
+ 
+ #include "esp_attr.h"
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32s2/efuse_hal.c
++++ b/components/hal/esp32s2/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/esp32s31/efuse_hal.c
++++ b/components/hal/esp32s31/efuse_hal.c
+@@ -5,7 +5,7 @@
+  */
+ 
+ #include "esp_attr.h"
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+ #include "hal/efuse_ll.h"
+--- a/components/hal/esp32s3/efuse_hal.c
++++ b/components/hal/esp32s3/efuse_hal.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "hal/assert.h"
+ #include "hal/efuse_hal.h"
+--- a/components/hal/mmu_hal.c
++++ b/components/hal/mmu_hal.c
+@@ -3,7 +3,7 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include "esp_err.h"
+--- a/components/hal/platform_port/include/hal/assert.h
++++ b/components/hal/platform_port/include/hal/assert.h
+@@ -11,6 +11,7 @@
+ extern "C" {
+ #endif
+ 
++#ifndef __noreturn
+ #if CONFIG_LIBC_PICOLIBC
+ #if defined(__cplusplus) && __cplusplus >= 201103L
+ #define __noreturn [[noreturn]]
+@@ -22,6 +23,7 @@
+ #else
+ #define __noreturn
+ #endif
++#endif
+ 
+ __noreturn void __assert_func(const char *file, int line, const char *func, const char *expr);
+ __noreturn void abort(void);

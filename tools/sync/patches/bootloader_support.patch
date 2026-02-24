@@ -1,0 +1,173 @@
+--- a/components/bootloader_support/bootloader_flash/include/bootloader_flash_priv.h
++++ b/components/bootloader_support/bootloader_flash/include/bootloader_flash_priv.h
+@@ -198,6 +198,19 @@
+  */
+ void bootloader_spi_flash_reset(void);
+ 
++#ifdef __ZEPHYR__
++/**
++ * Zephyr-specific flash ROM function wrappers.
++ * These are implemented in zephyr/port/bootloader/bootloader_flash.c
++ */
++esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
++esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
++esp_err_t esp_rom_flash_erase_sector(size_t sector);
++esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size);
++const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size);
++void esp_rom_flash_unmmap(const void *mapping);
++#endif /* __ZEPHYR__ */
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/components/bootloader_support/src/bootloader_clock_init.c
++++ b/components/bootloader_support/src/bootloader_clock_init.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -9,7 +9,14 @@
+ #include "soc/chip_revision.h"
+ #include "hal/efuse_hal.h"
+ 
+-#include "soc/rtc_cntl_periph.h"
++#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3  // TODO: IDF-5645
++#include "soc/rtc_cntl_reg.h"
++#else
++#include "soc/lp_wdt_reg.h"
++#include "soc/lp_timer_reg.h"
++#include "soc/lp_analog_peri_reg.h"
++#include "soc/pmu_reg.h"
++#endif
+ 
+ #if CONFIG_IDF_TARGET_ESP32
+ #include "hal/clk_tree_ll.h"
+@@ -156,16 +163,7 @@
+     SET_PERI_REG_MASK(LP_ANALOG_PERI_LP_INT_CLR_REG, LP_ANALOG_PERI_LP_INT_CLR_REG);                        /* BROWN_OUT */
+     SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);                                           /* WDT */
+ #elif CONFIG_IDF_TARGET_ESP32S31
+-    // CLR ENA
+-    CLEAR_PERI_REG_MASK(RTC_WDT_INT_ENA_REG, RTC_WDT_SUPER_WDT_INT_ENA);                                    /* SWD */
+-    CLEAR_PERI_REG_MASK(LP_ANA_LP_INT_ENA_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                /* BROWN_OUT */
+-    CLEAR_PERI_REG_MASK(RTC_WDT_INT_ENA_REG, RTC_WDT_LP_WDT_INT_ENA);                                       /* WDT */
+-    CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_WAKEUP_INT_ENA);                                        /* SLP_REJECT */
+-    CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_SLEEP_REJECT_INT_ENA);                                  /* SLP_WAKEUP */
+-    // SET CLR
+-    SET_PERI_REG_MASK(RTC_WDT_INT_CLR_REG, RTC_WDT_SUPER_WDT_INT_CLR);                                      /* SWD */
+-    SET_PERI_REG_MASK(LP_ANA_LP_INT_CLR_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                  /* BROWN_OUT */
+-    SET_PERI_REG_MASK(RTC_WDT_INT_CLR_REG, RTC_WDT_LP_WDT_INT_CLR);                                         /* WDT */
++    //ESP32S31-TODO  IDF-14696
+ #else
+     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
+     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+--- a/components/bootloader_support/src/bootloader_console.c
++++ b/components/bootloader_support/src/bootloader_console.c
+@@ -50,8 +50,6 @@
+ void bootloader_console_init(void)
+ {
+     const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
+-    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused)); // To avoid build errors/warnings about __DECLARE_RCC_ATOMIC_ENV
+-
+     // Install rom uart printf as console.
+     esp_rom_install_uart_printf();
+ 
+@@ -99,7 +97,7 @@
+     // Set configured UART console baud rate
+     uint32_t clock_hz = rtc_clk_apb_freq_get();
+ #if ESP_ROM_UART_CLK_IS_XTAL
+-    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ; // From esp32-s3 on, UART clk source is selected to XTAL in ROM
++    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ(1); // From esp32-s3 on, UART clk source is selected to XTAL in ROM
+ #endif
+     _uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
+ }
+--- a/components/bootloader_support/src/bootloader_random.c
++++ b/components/bootloader_support/src/bootloader_random.c
+@@ -45,7 +45,7 @@
+     assert(buffer != NULL);
+ 
+     for (size_t i = 0; i < length; i++) {
+-#if !SOC_RTC_TIMER_V1
++#if SOC_RTC_TIMER_V2_SUPPORTED
+         random = REG_READ(WDEV_RND_REG);
+         start = esp_cpu_get_cycle_count();
+         do {
+--- a/components/bootloader_support/src/bootloader_sha.c
++++ b/components/bootloader_support/src/bootloader_sha.c
+@@ -7,7 +7,7 @@
+ #include <assert.h>
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "bootloader_sha.h"
+ #include "soc/soc_caps.h"
+--- a/components/bootloader_support/src/bootloader_utility.c
++++ b/components/bootloader_support/src/bootloader_utility.c
+@@ -6,7 +6,7 @@
+ #include <string.h>
+ #include <stdint.h>
+ #include <limits.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "esp_attr.h"
+ #include "esp_log.h"
+--- a/components/bootloader_support/src/esp32c6/bootloader_ecdsa.c
++++ b/components/bootloader_support/src/esp32c6/bootloader_ecdsa.c
+@@ -5,7 +5,7 @@
+  */
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "rom/ecdsa.h"
+ 
+ #define ROM_FUNC_TYPECAST  int(*)(const uint8_t*, const uint8_t*, int, const uint8_t*, uint8_t*)
+--- a/components/bootloader_support/src/esp_image_format.c
++++ b/components/bootloader_support/src/esp_image_format.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_cpu.h>
+ #include <bootloader_utility.h>
+ #include <esp_secure_boot.h>
+--- a/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_app.c
++++ b/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_app.c
+@@ -13,7 +13,7 @@
+ #include "esp_secure_boot.h"
+ #include "psa/crypto.h"
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "mbedtls/pk.h"
+ 
+ 
+--- a/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_bootloader.c
++++ b/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_bootloader.c
+@@ -15,7 +15,7 @@
+ #include "esp32/rom/sha.h"
+ #include "uECC_verify_antifault.h"
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <string.h>
+ 
+ ESP_LOG_ATTR_TAG(TAG, "secure_boot");
+--- a/components/bootloader_support/src/secure_boot_v2/secure_boot_signatures_app.c
++++ b/components/bootloader_support/src/secure_boot_v2/secure_boot_signatures_app.c
+@@ -12,7 +12,7 @@
+ #include "esp_log.h"
+ #include "esp_image_format.h"
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_secure_boot.h"
+ #include "esp_ota_ops.h"
+ #include "esp_efuse.h"

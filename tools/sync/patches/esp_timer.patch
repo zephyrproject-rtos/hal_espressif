@@ -1,0 +1,803 @@
+--- a/components/esp_timer/src/esp_timer.c
++++ b/components/esp_timer/src/esp_timer.c
+@@ -4,7 +4,9 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/kernel.h>
++#include <zephyr/init.h>
++#include <zephyr/sys/util.h>
+ #include <string.h>
+ #include "soc/soc.h"
+ #include "esp_types.h"
+@@ -12,17 +14,17 @@
+ #include "esp_err.h"
+ #include "esp_task.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-#include "freertos/semphr.h"
+ #include "esp_timer.h"
+ #include "esp_timer_impl.h"
+ #include "esp_compiler.h"
+ #include "esp_private/startup_internal.h"
+ #include "esp_private/esp_timer_private.h"
+ #include "esp_private/system_internal.h"
++#include "esp_private/critical_section.h"
+ #include "sdkconfig.h"
+ 
++#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
++
+ #ifdef CONFIG_ESP_TIMER_PROFILING
+ #define WITH_PROFILING 1
+ #endif
+@@ -86,17 +88,20 @@
+     [0 ...(ESP_TIMER_MAX - 1)] = LIST_HEAD_INITIALIZER(s_timers)
+ };
+ #endif
++
++K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
+ // task used to dispatch timer callbacks
+-static TaskHandle_t s_timer_task;
++static struct k_thread s_timer_task;
++/* counting semaphore used to notify the timer task from ISR */
++static struct k_sem s_timer_semaphore;
++static bool s_timer_task_created = false;
+ 
+-// lock protecting s_timers, s_inactive_timers
+-static portMUX_TYPE s_timer_lock[ESP_TIMER_MAX] = {
+-    [0 ...(ESP_TIMER_MAX - 1)] = portMUX_INITIALIZER_UNLOCKED
+-};
++/* lock key for critical sections */
++static unsigned int s_timer_lock_key[ESP_TIMER_MAX];
+ 
+ #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+ // For ISR dispatch method, a callback function of the timer may require a context switch
+-static volatile BaseType_t s_isr_dispatch_need_yield = pdFALSE;
++static volatile bool s_isr_dispatch_need_yield = false;
+ #endif // CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+ 
+ esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
+@@ -109,7 +114,7 @@
+             args->dispatch_method < 0 || args->dispatch_method >= ESP_TIMER_MAX) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    esp_timer_handle_t result = (esp_timer_handle_t) heap_caps_calloc(1, sizeof(*result), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
++    esp_timer_handle_t result = (esp_timer_handle_t) k_calloc(1, sizeof(*result));
+     if (result == NULL) {
+         return ESP_ERR_NO_MEM;
+     }
+@@ -311,45 +316,53 @@
+     timer_list_unlock(dispatch_method);
+ 
+     if (callback_running) {
+-        // timer_process_alarm() releases the timer list lock while executing the callback.
+-        // So it is possible that timer is disarmed but its callback is still running.
+-        // To guarantee that the callback will not run after esp_timer_stop_blocking(),
+-        // we need to wait for the callback to complete here.
++        /*
++         * timer_process_alarm() releases the timer list lock while executing the callback.
++         * So it is possible that timer is disarmed but its callback is still running.
++         * To guarantee that the callback will not run after esp_timer_stop_blocking(),
++         * we need to wait for the callback to complete here.
++         */
+ 
+         // In ISR context: do not wait to avoid blocking
+-        if (xPortInIsrContext()) {
++        if (k_is_in_isr()) {
+             return ESP_ERR_NOT_FINISHED;
+         }
+ 
+-        if (xTaskGetCurrentTaskHandle() == s_timer_task) {
+-            // Called from the esp_timer task context (i.e., the callback owner is a TASK-dispatch timer).
+-            // Concurrency model:
+-            // - TASK-dispatch callbacks are executed by a single esp_timer task and are strictly serialized.
+-            //   Therefore, only one TASK callback can be running at any time.
+-            // - If CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD is enabled,
+-            //   ISR-dispatch callbacks and TASK-dispatch callbacks may be running at the same time.
++        if (k_current_get() == &s_timer_task) {
++            /*
++             * Called from the esp_timer task context (i.e., the callback owner is a TASK-dispatch timer).
++             * Concurrency model:
++             * - TASK-dispatch callbacks are executed by a single esp_timer task and are strictly serialized.
++             *   Therefore, only one TASK callback can be running at any time.
++             * - If CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD is enabled,
++             *   ISR-dispatch callbacks and TASK-dispatch callbacks may be running at the same time.
++             */
+             if (dispatch_method == ESP_TIMER_TASK) {
+-                // Only one ESP_TIMER_TASK callback can be running at any time.
+-                // So we are stopping the timer from its own callback context:
+-                // the callback will complete naturally after this function returns.
++                /*
++                 * Only one ESP_TIMER_TASK callback can be running at any time.
++                 * So we are stopping the timer from its own callback context:
++                 * the callback will complete naturally after this function returns.
++                 */
+                 return ESP_OK;
+             }
+ 
+-            // Stopping a running ISR-dispatch timer from a foreign callback:
+-            // we cannot wait for ISR context to complete, and blocking the esp_timer task would
+-            // stall TASK-dispatch callbacks. Report that the timer callback is still running.
++            /*
++             * Stopping a running ISR-dispatch timer from a foreign callback:
++             * we cannot wait for ISR context to complete, and blocking the esp_timer task would
++             * stall TASK-dispatch callbacks. Report that the timer callback is still running.
++             */
+             return ESP_ERR_NOT_FINISHED;
+         }
+ 
+-        TickType_t start_time = xTaskGetTickCount();
++        int64_t start_time = k_uptime_get();
+         while (is_callback_running(timer, dispatch_method)) {
+-            if (timeout_ticks != portMAX_DELAY) {
+-                TickType_t elapsed = xTaskGetTickCount() - start_time;
+-                if (elapsed >= timeout_ticks) {
++            if (timeout_ticks != K_FOREVER.ticks) {
++                int64_t elapsed = k_uptime_get() - start_time;
++                if (elapsed >= k_ticks_to_ms_floor64(timeout_ticks)) {
+                     return ESP_ERR_TIMEOUT;
+                 }
+             }
+-            vTaskDelay(1);
++            k_sleep(K_MSEC(1));
+         }
+     }
+ 
+@@ -466,12 +479,12 @@
+ 
+ static ESP_TIMER_IRAM_ATTR void timer_list_lock(esp_timer_dispatch_t timer_type)
+ {
+-    portENTER_CRITICAL_SAFE(&s_timer_lock[timer_type]);
++    esp_os_enter_critical_safe(&s_timer_lock_key[timer_type]);
+ }
+ 
+ static ESP_TIMER_IRAM_ATTR void timer_list_unlock(esp_timer_dispatch_t timer_type)
+ {
+-    portEXIT_CRITICAL_SAFE(&s_timer_lock[timer_type]);
++    esp_os_exit_critical_safe(&s_timer_lock_key[timer_type]);
+ }
+ 
+ #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+@@ -497,7 +510,7 @@
+             // It is handled only by ESP_TIMER_TASK (see esp_timer_delete()).
+             // All the ESP_TIMER_ISR timers which should be deleted are moved by esp_timer_delete() to the ESP_TIMER_TASK list.
+             // We want to free memory of the timer in a task context instead of an isr context.
+-            free(it);
++            k_free(it);
+             it = NULL;
+         } else {
+             it->flags |= FL_CALLBACK_IS_RUNNING;
+@@ -546,10 +559,14 @@
+     return processed;
+ }
+ 
+-static void timer_task(void* arg)
++static void timer_task(void *p1, void *p2, void *p3)
+ {
++    ARG_UNUSED(p1);
++    ARG_UNUSED(p2);
++    ARG_UNUSED(p3);
++
+     while (true) {
+-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
++        k_sem_take(&s_timer_semaphore, K_FOREVER);
+         // all deferred events are processed at a time
+         timer_process_alarm(ESP_TIMER_TASK);
+     }
+@@ -558,35 +575,30 @@
+ #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+ ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
+ {
+-    assert(xPortInIsrContext());
+-    s_isr_dispatch_need_yield = pdTRUE;
++    s_isr_dispatch_need_yield = true;
+ }
+ #endif
+ 
+-static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void* arg)
++static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void *arg)
+ {
+-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
++    ARG_UNUSED(arg);
+     bool isr_timers_processed = false;
+ 
+ #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+     esp_timer_impl_try_to_set_next_alarm();
+-    // process timers with ISR dispatch method
++    /* process timers with ISR dispatch method */
+     isr_timers_processed = timer_process_alarm(ESP_TIMER_ISR);
+-    xHigherPriorityTaskWoken = s_isr_dispatch_need_yield;
+-    s_isr_dispatch_need_yield = pdFALSE;
++    s_isr_dispatch_need_yield = false;
+ #endif
+ 
+     if (isr_timers_processed == false) {
+-        vTaskNotifyGiveFromISR(s_timer_task, &xHigherPriorityTaskWoken);
+-    }
+-    if (xHigherPriorityTaskWoken == pdTRUE) {
+-        portYIELD_FROM_ISR();
++        k_sem_give(&s_timer_semaphore);
+     }
+ }
+ 
+ static ESP_TIMER_IRAM_ATTR inline bool is_initialized(void)
+ {
+-    return s_timer_task != NULL;
++    return s_timer_task_created;
+ }
+ 
+ static esp_err_t init_timer_task(void)
+@@ -596,40 +608,31 @@
+         ESP_EARLY_LOGE(TAG, "Task is already initialized");
+         err = ESP_ERR_INVALID_STATE;
+     } else {
+-        int ret = xTaskCreatePinnedToCore(
+-                      &timer_task, "esp_timer",
+-                      ESP_TASK_TIMER_STACK, NULL, ESP_TASK_TIMER_PRIO,
+-                      &s_timer_task, CONFIG_ESP_TIMER_TASK_AFFINITY);
+-        if (ret != pdPASS) {
+-            ESP_EARLY_LOGE(TAG, "Not enough memory to create timer task");
+-            err = ESP_ERR_NO_MEM;
+-        }
++        k_sem_init(&s_timer_semaphore, 0, 1);
++
++        k_thread_create(&s_timer_task, timer_task_stack,
++                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
++                        timer_task, NULL, NULL, NULL,
++                        K_PRIO_COOP(2), 0, K_NO_WAIT);
++        k_thread_name_set(&s_timer_task, "esp_timer");
++        s_timer_task_created = true;
+     }
+     return err;
+ }
+ 
+ static void deinit_timer_task(void)
+ {
+-    if (s_timer_task) {
+-        vTaskDelete(s_timer_task);
+-        s_timer_task = NULL;
++    if (s_timer_task_created) {
++        k_thread_abort(&s_timer_task);
++        s_timer_task_created = false;
+     }
+ }
+ 
+ esp_err_t esp_timer_init(void)
+ {
+     esp_err_t err = ESP_OK;
+-#ifndef CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
++
+     err = init_timer_task();
+-#else
+-    /* This function will be run on all cores if CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY is enabled,
+-     * We do it that way because we need to allocate the timer ISR on MULTIPLE cores.
+-     * timer task will be created by CPU0.
+-     */
+-    if (xPortGetCoreID() == 0) {
+-        err = init_timer_task();
+-    }
+-#endif // CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
+     if (err == ESP_OK) {
+         err = esp_timer_impl_init(&timer_alarm_handler);
+         if (err != ESP_OK) {
+@@ -640,31 +643,9 @@
+     return err;
+ }
+ 
+-#if CONFIG_ESP_TIMER_ISR_AFFINITY_CPU0
+-#define ESP_TIMER_INIT_MASK BIT(0)
+-#elif CONFIG_ESP_TIMER_ISR_AFFINITY_CPU1
+-#define ESP_TIMER_INIT_MASK BIT(1)
+-#elif CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
+-#define ESP_TIMER_INIT_MASK ESP_SYSTEM_INIT_ALL_CORES
+-#endif // CONFIG_ESP_TIMER_ISR_AFFINITY_*
+-
+-/*
+- * This function initializes a task and ISR that esp_timer uses.
+- *
+- * We keep the esp_timer initialization function here to allow the linker
+- * to automatically include esp_timer_init_os if other components call esp_timer APIs.
+- * If no other code calls esp_timer APIs, then esp_timer_init_os will be skipped.
+-*/
+-ESP_SYSTEM_INIT_FN(esp_timer_init_os, SECONDARY, ESP_TIMER_INIT_MASK, 100)
+-{
+-    esp_err_t err = ESP_OK;
+-    if (is_initialized()) {
+-        err = ESP_OK;
+-    } else {
+-        err = esp_timer_init();
+-    }
+-    return err;
+-}
++#if defined(CONFIG_WIFI_ESP32) || defined(CONFIG_BT_ESP32) || defined(CONFIG_IEEE802154_ESP32)
++SYS_INIT(esp_timer_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
++#endif
+ 
+ esp_err_t esp_timer_deinit(void)
+ {
+@@ -750,7 +731,7 @@
+      * slightly more and the output will be truncated if that is not enough.
+      */
+     size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
+-    char* print_buf = calloc(1, buf_size + 1);
++    char* print_buf = k_calloc(1, buf_size + 1);
+     if (print_buf == NULL) {
+         return ESP_ERR_NO_MEM;
+     }
+@@ -783,7 +764,7 @@
+         fputs(print_buf, stream);
+     }
+ 
+-    free(print_buf);
++    k_free(print_buf);
+     return ESP_OK;
+ }
+ 
+@@ -866,8 +847,8 @@
+     esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
+ 
+     timer_list_lock(dispatch_method);
+-    // Timer is active if it is armed or its callback is currently running
+-    // After esp_timer_stop() timer is disarmed, but its callback may still be running
++    /* Timer is active if it is armed or its callback is currently running
++     * After esp_timer_stop() timer is disarmed, but its callback may still be running */
+     bool active = (timer_armed(timer) && timer->event_id != EVENT_ID_DELETE_TIMER)
+                   || ((timer->flags & FL_CALLBACK_IS_RUNNING) != 0);
+     timer_list_unlock(dispatch_method);
+--- a/components/esp_timer/src/esp_timer_impl_common.c
++++ b/components/esp_timer/src/esp_timer_impl_common.c
+@@ -9,9 +9,11 @@
+ #include "esp_err.h"
+ #include "esp_task.h"
+ #include "esp_attr.h"
++#include <zephyr/kernel.h>
++#include "esp_private/critical_section.h"
+ 
+ /* Spinlock used to protect access to the hardware registers. */
+-portMUX_TYPE s_time_update_lock = portMUX_INITIALIZER_UNLOCKED;
++unsigned int s_time_update_lock = 0;
+ 
+ /* Alarm values to generate interrupt on match
+  * [0] - for ESP_TIMER_TASK alarms,
+@@ -21,12 +23,12 @@
+ 
+ void esp_timer_impl_lock(void)
+ {
+-    portENTER_CRITICAL(&s_time_update_lock);
++    esp_os_enter_critical(&s_time_update_lock);
+ }
+ 
+ void esp_timer_impl_unlock(void)
+ {
+-    portEXIT_CRITICAL(&s_time_update_lock);
++    esp_os_exit_critical(&s_time_update_lock);
+ }
+ 
+ void esp_timer_private_lock(void) __attribute__((alias("esp_timer_impl_lock")));
+@@ -40,7 +42,8 @@
+ #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
+ void ESP_TIMER_IRAM_ATTR esp_timer_impl_try_to_set_next_alarm(void)
+ {
+-    portENTER_CRITICAL_ISR(&s_time_update_lock);
++    unsigned int key;
++    esp_os_enter_critical_isr(&key);
+     unsigned now_alarm_idx;  // ISR is called due to this current alarm
+     unsigned next_alarm_idx; // The following alarm after now_alarm_idx
+     if (timestamp_id[0] < timestamp_id[1]) {
+@@ -60,7 +63,7 @@
+         // Remove the current alarm from consideration as well.
+         timestamp_id[now_alarm_idx] = UINT64_MAX;
+     }
+-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
++    esp_os_exit_critical_isr(&key);
+ }
+ #endif
+ 
+--- a/components/esp_timer/src/esp_timer_impl_lac.c
++++ b/components/esp_timer/src/esp_timer_impl_lac.c
+@@ -21,7 +21,8 @@
+ #include "soc/timer_group_reg.h"
+ #include "soc/rtc.h"
+ #include "hal/lact_ll.h"
+-#include "freertos/FreeRTOS.h"
++#include <zephyr/kernel.h>
++#include "esp_private/critical_section.h"
+ 
+ /**
+  * @file esp_timer_lac.c
+@@ -74,11 +75,8 @@
+ #define NOT_USED 0xBAD00FAD
+ 
+ /* Interrupt handle returned by the interrupt allocator */
+-#ifdef CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
+-#define ISR_HANDLERS (CONFIG_FREERTOS_NUMBER_OF_CORES)
+-#else
++/* Zephyr uses single ISR handler */
+ #define ISR_HANDLERS (1)
+-#endif
+ static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
+ 
+ /* Function from the upper layer to be called when the interrupt happens.
+@@ -87,7 +85,7 @@
+ static intr_handler_t s_alarm_handler = NULL;
+ 
+ /* Spinlock used to protect access to the hardware registers. */
+-extern portMUX_TYPE s_time_update_lock;
++extern unsigned int s_time_update_lock;
+ 
+ /* Alarm values to generate interrupt on match */
+ extern uint64_t timestamp_id[2];
+@@ -133,7 +131,7 @@
+ void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
+ {
+     assert(alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]));
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     timestamp_id[alarm_id] = timestamp;
+     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
+     if (timestamp != UINT64_MAX) {
+@@ -148,16 +146,16 @@
+             now_time = esp_timer_impl_get_counter_reg();
+             int64_t delta = (int64_t)alarm.val - (int64_t)now_time;
+             if (delta <= 0 && REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST) == 0) {
+-                // new alarm is less than the counter and the interrupt flag is not set
++                /* new alarm is less than the counter and the interrupt flag is not set */
+                 offset += llabs(delta) + LACT_TICKS_PER_US * 2;
+                 alarm.val = now_time + offset;
+             } else {
+-                // finish if either (alarm > counter) or the interrupt flag is already set.
++                /* finish if either (alarm > counter) or the interrupt flag is already set. */
+                 break;
+             }
+         } while (1);
+     }
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+ }
+ 
+ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
+@@ -172,7 +170,7 @@
+     static volatile uint32_t processed_by = NOT_USED;
+     static volatile bool pending_alarm = false;
+     /* CRITICAL section ensures the read/clear is atomic between cores */
+-    portENTER_CRITICAL_ISR(&s_time_update_lock);
++    esp_os_enter_critical_isr(&s_time_update_lock);
+     if (REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST)) {
+         // Clear interrupt status
+         REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
+@@ -184,11 +182,11 @@
+                 pending_alarm = false;
+                 // Clear interrupt status
+                 REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
+-                portEXIT_CRITICAL_ISR(&s_time_update_lock);
++                esp_os_exit_critical_isr(&s_time_update_lock);
+ 
+                 (*s_alarm_handler)(arg);
+ 
+-                portENTER_CRITICAL_ISR(&s_time_update_lock);
++                esp_os_enter_critical_isr(&s_time_update_lock);
+                 // Another alarm could have occurred while were handling the previous alarm.
+                 // Check if we need to call the s_alarm_handler again:
+                 //   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
+@@ -202,18 +200,18 @@
+             pending_alarm = true;
+         }
+     }
+-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
++    esp_os_exit_critical_isr(&s_time_update_lock);
+ #endif // ISR_HANDLERS != 1
+ }
+ 
+ void esp_timer_impl_set(uint64_t new_us)
+ {
+-    portENTER_CRITICAL(&s_time_update_lock);
++    esp_os_enter_critical(&s_time_update_lock);
+     timer_64b_reg_t dst = { .val = new_us * LACT_TICKS_PER_US };
+     REG_WRITE(LOAD_LO_REG, dst.lo);
+     REG_WRITE(LOAD_HI_REG, dst.hi);
+     REG_WRITE(LOAD_REG, 1);
+-    portEXIT_CRITICAL(&s_time_update_lock);
++    esp_os_exit_critical(&s_time_update_lock);
+ }
+ 
+ void esp_timer_impl_advance(int64_t time_diff_us)
+@@ -248,21 +246,19 @@
+ 
+ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
+ {
+-    if (s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()] != NULL) {
++    /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
++    esp_timer_impl_early_init();
++
++    if (s_timer_interrupt_handle[0] != NULL) {
+         ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
+         return ESP_ERR_INVALID_STATE;
+     }
+ 
+-    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
+-                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
+-#if CONFIG_ESP_TIMER_IN_IRAM
+-                    | ESP_INTR_FLAG_IRAM
+-#endif
+-                    ;
++    int isr_flags = 0;
+ 
+     esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
+                                    &timer_alarm_isr, NULL,
+-                                   &s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
++                                   &s_timer_interrupt_handle[0]);
+ 
+     if (err != ESP_OK) {
+         ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
+@@ -276,16 +272,16 @@
+         * will not cause issues in practice.
+         */
+         REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
+-        portENTER_CRITICAL_SAFE(&s_time_update_lock);
+-        lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ / LACT_TICKS_PER_US);
+-        portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+-        // Set the step for the sleep mode when the timer will work
+-        // from a slow_clk frequency instead of the APB frequency.
++        esp_os_enter_critical_safe(&s_time_update_lock);
++        lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
++        esp_os_exit_critical_safe(&s_time_update_lock);
++        /* Set the step for the sleep mode when the timer will work
++         * from a slow_clk frequency instead of the APB frequency. */
+         uint32_t slowclk_ticks_per_us = esp_clk_slowclk_cal_get() * LACT_TICKS_PER_US;
+         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
+     }
+ 
+-    err = esp_intr_enable(s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
++    err = esp_intr_enable(s_timer_interrupt_handle[0]);
+     if (err != ESP_OK) {
+         ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
+     }
+@@ -315,12 +311,12 @@
+ 
+ uint64_t esp_timer_impl_get_alarm_reg(void)
+ {
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     timer_64b_reg_t alarm = {
+         .lo = REG_READ(ALARM_LO_REG),
+         .hi = REG_READ(ALARM_HI_REG)
+     };
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+     return alarm.val;
+ }
+ 
+--- a/components/esp_timer/src/esp_timer_impl_systimer.c
++++ b/components/esp_timer/src/esp_timer_impl_systimer.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_timer_impl.h"
+ #include "esp_err.h"
+@@ -18,7 +18,8 @@
+ #include "esp_private/esp_clk.h"
+ #include "esp_private/systimer.h"
+ #include "esp_private/periph_ctrl.h"
+-#include "freertos/FreeRTOS.h"
++#include "esp_private/critical_section.h"
++#include <zephyr/kernel.h>
+ #include "hal/systimer_ll.h"
+ #include "hal/systimer_types.h"
+ #include "hal/systimer_hal.h"
+@@ -55,7 +56,7 @@
+ static systimer_hal_context_t systimer_hal;
+ 
+ /* Spinlock used to protect access to the hardware registers. */
+-extern portMUX_TYPE s_time_update_lock;
++extern unsigned int s_time_update_lock;
+ 
+ /* Alarm values to generate interrupt on match */
+ extern uint64_t timestamp_id[2];
+@@ -77,17 +78,17 @@
+ void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
+ {
+     assert(alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]));
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     timestamp_id[alarm_id] = timestamp;
+     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
+     systimer_hal_set_alarm_target(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, timestamp);
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+ }
+ 
+ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
+ {
+ #if ISR_HANDLERS == 1
+-    // clear the interrupt
++    /* clear the interrupt */
+     systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
+     /* Call the upper layer handler */
+     (*s_alarm_handler)(arg);
+@@ -95,56 +96,56 @@
+     static volatile uint32_t processed_by = NOT_USED;
+     static volatile bool pending_alarm = false;
+     /* CRITICAL section ensures the read/clear is atomic between cores */
+-    portENTER_CRITICAL_ISR(&s_time_update_lock);
++    esp_os_enter_critical_isr(&s_time_update_lock);
+     if (systimer_ll_is_alarm_int_fired(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER)) {
+-        // Clear interrupt status
++        /* Clear interrupt status */
+         systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
+-        // Is the other core already processing a previous alarm?
++        /* Is the other core already processing a previous alarm? */
+         if (processed_by == NOT_USED) {
+-            // Current core is not processing an alarm yet
+-            processed_by = xPortGetCoreID();
++            /* Current core is not processing an alarm yet */
++            processed_by = 0;
+             do {
+                 pending_alarm = false;
+-                // Clear interrupt status
++                /* Clear interrupt status */
+                 systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
+-                portEXIT_CRITICAL_ISR(&s_time_update_lock);
++                esp_os_exit_critical_isr(&s_time_update_lock);
+ 
+                 (*s_alarm_handler)(arg);
+ 
+-                portENTER_CRITICAL_ISR(&s_time_update_lock);
+-                // Another alarm could have occurred while were handling the previous alarm.
+-                // Check if we need to call the s_alarm_handler again:
+-                //   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
+-                //   2) handle pending alarm that was cleared by the other core in time when this core worked with the current alarm.
++                esp_os_enter_critical_isr(&s_time_update_lock);
++                /* Another alarm could have occurred while were handling the previous alarm.
++                 * Check if we need to call the s_alarm_handler again:
++                 *   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
++                 *   2) handle pending alarm that was cleared by the other core in time when this core worked with the current alarm. */
+             } while (systimer_ll_is_alarm_int_fired(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER) || pending_alarm);
+             processed_by = NOT_USED;
+         } else {
+-            // Current core arrived at ISR but the other core is still handling a previous alarm.
+-            // Once we already cleared the ISR status we need to let the other core know that it was.
+-            // Set the flag to handle the current alarm by the other core later.
++            /* Current core arrived at ISR but the other core is still handling a previous alarm.
++             * Once we already cleared the ISR status we need to let the other core know that it was.
++             * Set the flag to handle the current alarm by the other core later. */
+             pending_alarm = true;
+         }
+     }
+-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
+-#endif // ISR_HANDLERS != 1
++    esp_os_exit_critical_isr(&s_time_update_lock);
++#endif
+ }
+ 
+ void esp_timer_impl_set(uint64_t new_us)
+ {
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     systimer_counter_value_t new_count = {
+         .val = systimer_hal.us_to_ticks(new_us),
+     };
+     systimer_ll_set_counter_value(systimer_hal.dev, SYSTIMER_COUNTER_ESPTIMER, new_count.val);
+     systimer_ll_apply_counter_value(systimer_hal.dev, SYSTIMER_COUNTER_ESPTIMER);
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+ }
+ 
+ void esp_timer_impl_advance(int64_t time_diff_us)
+ {
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     systimer_hal_counter_value_advance(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, time_diff_us);
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+ }
+ 
+ esp_err_t esp_timer_impl_early_init(void)
+@@ -174,7 +175,7 @@
+     systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
+ 
+     for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
+-        bool can_stall = (cpuid < portNUM_PROCESSORS);
++        bool can_stall = (cpuid < 1);
+         systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, can_stall);
+     }
+ 
+@@ -183,7 +184,7 @@
+ 
+ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
+ {
+-    if (s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()] != NULL) {
++    if (s_timer_interrupt_handle[0] != NULL) {
+         ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
+         return ESP_ERR_INVALID_STATE;
+     }
+@@ -200,7 +201,7 @@
+ 
+     esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
+                                    &timer_alarm_isr, NULL,
+-                                   &s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
++                                   &s_timer_interrupt_handle[0]);
+     if (err != ESP_OK) {
+         ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
+         return err;
+@@ -208,14 +209,10 @@
+ 
+     if (s_alarm_handler == NULL) {
+         s_alarm_handler = alarm_handler;
+-        /* TODO: if SYSTIMER is used for anything else, access to SYSTIMER_INT_ENA_REG has to be
+-        * protected by a shared spinlock. Since this code runs as part of early startup, this
+-        * is practically not an issue.
+-        */
+         systimer_hal_enable_alarm_int(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
+     }
+ 
+-    err = esp_intr_enable(s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
++    err = esp_intr_enable(s_timer_interrupt_handle[0]);
+     if (err != ESP_OK) {
+         ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
+     }
+@@ -240,9 +237,9 @@
+ 
+ uint64_t esp_timer_impl_get_alarm_reg(void)
+ {
+-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_enter_critical_safe(&s_time_update_lock);
+     uint64_t val = systimer_hal_get_alarm_value(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
+-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
++    esp_os_exit_critical_safe(&s_time_update_lock);
+     return val;
+ }
+ 
+--- a/components/esp_timer/src/ets_timer_legacy.c
++++ b/components/esp_timer/src/ets_timer_legacy.c
+@@ -16,14 +16,12 @@
+ #include "esp_log.h"
+ #include "esp_attr.h"
+ #include "esp_intr_alloc.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-#include "freertos/semphr.h"
+ #include "sdkconfig.h"
+ #include "esp_timer.h"
+ #include "esp_timer_impl.h"
++#include "esp_rom_sys.h"
+ 
+-// for ETSTimer type
++/* for ETSTimer type */
+ #include "rom/ets_sys.h"
+ 
+ /* We abuse 'timer_arg' field of ETSTimer structure to hold a pointer to esp_timer */
+@@ -47,6 +45,10 @@
+         TIMER_INITIALIZED_FIELD(ptimer) = TIMER_INITIALIZED_VAL;
+     }
+ 
++    /* Store the callback function pointer in the ETSTimer struct */
++    /* The blob may check this field */
++    ptimer->timer_func = pfunction;
++
+     if (ESP_TIMER(ptimer) == NULL) {
+         const esp_timer_create_args_t create_args = {
+             .callback = pfunction,
+@@ -62,7 +64,7 @@
+ void ESP_TIMER_IRAM_ATTR ets_timer_arm_us(ETSTimer *ptimer, uint32_t time_us, bool repeat_flag)
+ {
+     assert(timer_initialized(ptimer));
+-    esp_timer_stop(ESP_TIMER(ptimer));  // no error check
++    esp_timer_stop(ESP_TIMER(ptimer));
+     if (!repeat_flag) {
+         ESP_ERROR_CHECK(esp_timer_start_once(ESP_TIMER(ptimer), time_us));
+     } else {
+@@ -74,7 +76,7 @@
+ {
+     uint64_t time_us = 1000LL * (uint64_t) time_ms;
+     assert(timer_initialized(ptimer));
+-    esp_timer_stop(ESP_TIMER(ptimer));  // no error check
++    esp_timer_stop(ESP_TIMER(ptimer));
+     if (!repeat_flag) {
+         ESP_ERROR_CHECK(esp_timer_start_once(ESP_TIMER(ptimer), time_us));
+     } else {

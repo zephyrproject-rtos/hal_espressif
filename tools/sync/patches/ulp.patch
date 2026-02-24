@@ -1,0 +1,846 @@
+--- a/components/ulp/lp_core/lp_core.c
++++ b/components/ulp/lp_core/lp_core.c
+@@ -21,6 +21,8 @@
+ #include "hal/lp_core_ll.h"
+ #include "hal/pmu_ll.h"
+ 
++#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
++
+ #if CONFIG_IDF_TARGET_ESP32P4
+ #include "esp32p4/rom/rtc.h"
+ #endif
+@@ -87,7 +89,7 @@
+ #endif //ESP_ROM_HAS_LP_ROM
+ 
+     PERIPH_RCC_ATOMIC() {
+-#if CONFIG_ULP_NORESET_UNDER_DEBUG
++#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+         /* lp_core module reset causes loss of configured HW breakpoints and dcsr.ebreak* */
+         if (!esp_cpu_dbgr_is_attached()) {
+             lp_core_ll_reset_register();
+@@ -109,7 +111,11 @@
+     /* Enable reset CPU when going to sleep */
+     /* Avoid resetting chip in sleep mode when debugger is attached,
+        otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
+-    lp_core_ll_rst_at_sleep_enable(!(CONFIG_ULP_NORESET_UNDER_DEBUG && esp_cpu_dbgr_is_attached()));
++#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
++    lp_core_ll_rst_at_sleep_enable(!esp_cpu_dbgr_is_attached());
++#else
++    lp_core_ll_rst_at_sleep_enable(true);
++#endif
+ 
+     /* Set wake-up sources */
+     lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
+@@ -127,7 +133,7 @@
+     }
+ #endif
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+     ulp_lp_core_memory_shared_cfg_t* shared_mem = ulp_lp_core_memory_shared_cfg_get();
+ 
+     if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER) {
+@@ -150,7 +156,7 @@
+     if (program_binary == NULL) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (program_size_bytes > ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+ 
+@@ -162,8 +168,10 @@
+     uint32_t* base = RTC_SLOW_MEM;
+ #endif
+ 
+-    //Start by clearing memory reserved with zeros, this will also will initialize the bss:
+-    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
++    /* Clear only the binary region to initialize bss without wiping
++     * shared memory structures (e.g. mbox lock) at the end of LP SRAM.
++     */
++    hal_memset(base, 0, program_size_bytes);
+     hal_memcpy(base, program_binary, program_size_bytes);
+ 
+     return ESP_OK;
+@@ -177,7 +185,11 @@
+         lp_core_ll_stall_at_sleep_request(true);
+         /* Avoid resetting chip in sleep mode when debugger is attached,
+         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
+-        lp_core_ll_rst_at_sleep_enable(!CONFIG_ULP_NORESET_UNDER_DEBUG);
++#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
++        lp_core_ll_rst_at_sleep_enable(false);
++#else
++        lp_core_ll_rst_at_sleep_enable(true);
++#endif
+         lp_core_ll_debug_module_enable(true);
+     }
+     /* Disable wake-up source and put lp core to sleep */
+--- a/components/ulp/lp_core/lp_core/include/ulp_lp_core_print.h
++++ b/components/ulp/lp_core/lp_core/include/ulp_lp_core_print.h
+@@ -21,15 +21,15 @@
+  * @param ...           variable argument list
+  *
+  */
+-#if CONFIG_ULP_ROM_PRINT_ENABLE
++#if CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
+ extern int ets_printf(const char* format, ...);
+ #define lp_core_printf ets_printf
+ #else
+ //TODO: Change return type from void to int in IDF 6.0
+ void lp_core_printf(const char* format, ...);
+-#endif /* CONFIG_ULP_ROM_PRINT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
+ 
+-#if CONFIG_ULP_ROM_PRINT_ENABLE
++#if CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
+ /**
+  * @brief Install LP ROM UART printf function as standard putc handler to enable prints
+  *
+@@ -40,7 +40,7 @@
+  */
+ extern void ets_install_uart_printf(void);
+ #define lp_core_install_uart_print ets_install_uart_printf
+-#endif /* CONFIG_ULP_ROM_PRINT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
+ 
+ /**
+  * @brief Print a single character from the LP core
+--- a/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
++++ b/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -53,26 +53,6 @@
+ }
+ 
+ /**
+- * @brief Check whether an mcycle-based timeout has elapsed.
+- *
+- * @note A timeout value of -1 means "wait forever".
+- *       Other values are interpreted as unsigned cycle counts.
+- *
+- * @param start_cycle_count Cycle counter value captured at timeout start.
+- * @param cycles_to_wait Timeout in CPU cycles, or -1 to disable timeout.
+- *
+- * @return true if timeout elapsed, false otherwise.
+- */
+-static inline bool ulp_lp_core_is_timeout_elapsed(uint32_t start_cycle_count, int32_t cycles_to_wait)
+-{
+-    if (cycles_to_wait == -1) {
+-        return false;
+-    }
+-
+-    return (ulp_lp_core_get_cpu_cycles() - start_cycle_count) >= (uint32_t)cycles_to_wait;
+-}
+-
+-/**
+  * @brief Makes the co-processor busy wait for a certain number of microseconds
+  *
+  * @param us Number of microseconds to busy-wait for
+@@ -161,7 +141,7 @@
+     return ulp_lp_core_sw_intr_from_hp_clear();
+ }
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+ /**
+  * @brief Enable the LP Timer interrupt
+  *
+--- a/components/ulp/lp_core/lp_core/lp_core_i2c.c
++++ b/components/ulp/lp_core/lp_core/lp_core_i2c.c
+@@ -1,11 +1,11 @@
+ /*
+- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+ #include "sdkconfig.h"
+-#include <sys/param.h>  /* For MIN macro */
++#include <zephyr/sys/util.h>
+ #include "soc/soc_caps.h"
+ #include "ulp_lp_core_i2c.h"
+ #include "ulp_lp_core_utils.h"
+@@ -68,7 +68,7 @@
+ static inline esp_err_t lp_core_i2c_wait_for_interrupt(uint32_t intr_mask, int32_t cycles_to_wait)
+ {
+     uint32_t intr_status = 0;
+-    uint32_t start = ulp_lp_core_get_cpu_cycles();
++    uint32_t to = 0;
+ 
+     while (1) {
+         i2c_ll_get_intr_raw_mask(dev, &intr_status);
+@@ -96,10 +96,17 @@
+             break;
+         }
+ 
+-        if (ulp_lp_core_is_timeout_elapsed(start, cycles_to_wait)) {
+-            /* Timeout. Clear interrupt bits and return an error */
+-            i2c_ll_clear_intr_mask(dev, intr_mask);
+-            return ESP_ERR_TIMEOUT;
++        if (cycles_to_wait > -1) {
++            /* If the cycles_to_wait value is not -1, keep track of cycles and
++             * break from the loop once the timeout is reached.
++             */
++            ulp_lp_core_delay_cycles(1);
++            to++;
++            if (to >= cycles_to_wait) {
++                /* Timeout. Clear interrupt bits and return an error */
++                i2c_ll_clear_intr_mask(dev, intr_mask);
++                return ESP_ERR_TIMEOUT;
++            }
+         }
+     }
+ 
+--- a/components/ulp/lp_core/lp_core/lp_core_panic.c
++++ b/components/ulp/lp_core/lp_core/lp_core_panic.c
+@@ -10,7 +10,7 @@
+ #include "ulp_lp_core_print.h"
+ #include "riscv/rvruntime-frames.h"
+ 
+-#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
++#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
+ 
+ static void dump_stack(RvExcFrame *frame, int exccause)
+ {
+@@ -85,4 +85,4 @@
+     }
+ }
+ 
+-#endif //#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
++#endif //#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
+--- a/components/ulp/lp_core/lp_core/lp_core_print.c
++++ b/components/ulp/lp_core/lp_core/lp_core_print.c
+@@ -14,7 +14,7 @@
+ 
+ #define is_digit(c) ((c >= '0') && (c <= '9'))
+ 
+-#if CONFIG_ULP_HP_UART_CONSOLE_PRINT
++#if CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT
+ void __attribute__((alias("hp_uart_send_char"))) lp_core_print_char(char c);
+ 
+ static void hp_uart_send_char(char t)
+@@ -26,7 +26,7 @@
+     }
+     uart_ll_write_txfifo(uart, &t, 1);
+ }
+-#elif !CONFIG_ULP_ROM_PRINT_ENABLE
++#elif !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
+ void __attribute__((alias("lp_uart_send_char"))) lp_core_print_char(char c);
+ static void lp_uart_send_char(char c)
+ {
+@@ -44,9 +44,9 @@
+ {
+     esp_rom_output_putc(c);
+ }
+-#endif // CONFIG_ULP_HP_UART_CONSOLE_PRINT
++#endif // CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT
+ 
+-#if !CONFIG_ULP_ROM_PRINT_ENABLE
++#if !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
+ 
+ // Ported over ROM function _cvt()
+ static int lp_core_cvt(unsigned long long val, char *buf, long radix, char *digits)
+@@ -297,7 +297,7 @@
+     return ret;
+ }
+ 
+-#endif /* !CONFIG_ULP_ROM_PRINT_ENABLE */
++#endif /* !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE */
+ 
+ void lp_core_print_str(const char *str)
+ {
+--- a/components/ulp/lp_core/lp_core/lp_core_spi.c
++++ b/components/ulp/lp_core/lp_core/lp_core_spi.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -12,7 +12,6 @@
+ #include <string.h>
+ #include "esp_err.h"
+ #include "ulp_lp_core_spi.h"
+-#include "ulp_lp_core_utils.h"
+ #include "soc/lp_spi_struct.h"
+ 
+ /* Use the register structure to access LP_SPI module registers */
+@@ -20,12 +19,18 @@
+ 
+ static inline esp_err_t lp_core_spi_wait_for_interrupt(int32_t cycles_to_wait)
+ {
+-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
++    uint32_t to = 0;
+     while (!lp_spi_dev->spi_dma_int_raw.reg_trans_done_int_raw) {
+-        if (ulp_lp_core_is_timeout_elapsed(timeout_start, cycles_to_wait)) {
+-            /* Clear interrupt bits */
+-            lp_spi_dev->spi_dma_int_clr.reg_trans_done_int_clr = 1;
+-            return ESP_ERR_TIMEOUT;
++        if (cycles_to_wait > -1) {
++            /* If the cycles_to_wait value is not -1, keep track of cycles and
++             * break from the loop once the timeout is reached.
++             */
++            to++;
++            if (to >= cycles_to_wait) {
++                /* Clear interrupt bits */
++                lp_spi_dev->spi_dma_int_clr.reg_trans_done_int_clr = 1;
++                return ESP_ERR_TIMEOUT;
++            }
+         }
+     }
+ 
+--- a/components/ulp/lp_core/lp_core/lp_core_startup.c
++++ b/components/ulp/lp_core/lp_core/lp_core_startup.c
+@@ -18,7 +18,7 @@
+ void lp_core_startup()
+ {
+ 
+-#if CONFIG_ULP_HP_UART_CONSOLE_PRINT && ESP_ROM_HAS_LP_ROM
++#if CONFIG_ESP32_ULP_HP_UART_CONSOLE_PRINT && ESP_ROM_HAS_LP_ROM
+     ets_install_putc1(lp_core_print_char);
+ #endif
+ 
+@@ -28,13 +28,13 @@
+ 
+     ulp_lp_core_memory_shared_cfg_t* shared_mem = ulp_lp_core_memory_shared_cfg_get();
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+     uint64_t sleep_duration_ticks = shared_mem->sleep_duration_ticks;
+ 
+     if (sleep_duration_ticks) {
+         ulp_lp_core_lp_timer_set_wakeup_ticks(sleep_duration_ticks);
+     }
+-#endif // SOC_RTC_TIMER_SUPPORTED
++#endif // SOC_RTC_TIMER_V2_SUPPORTED
+ 
+     ulp_lp_core_halt();
+ }
+--- a/components/ulp/lp_core/lp_core/lp_core_uart.c
++++ b/components/ulp/lp_core/lp_core/lp_core_uart.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -22,14 +22,19 @@
+     .dev = (uart_dev_t *)UART_LL_GET_HW(LP_UART_NUM_0),
+ };
+ 
+-static esp_err_t lp_core_uart_check_timeout(uint32_t intr_mask, int32_t timeout, uint32_t timeout_start)
++static esp_err_t lp_core_uart_check_timeout(uint32_t intr_mask, int32_t timeout, uint32_t *cycle_count)
+ {
+-    if (ulp_lp_core_is_timeout_elapsed(timeout_start, timeout)) {
+-        /* Disable and clear interrupt bits */
+-        uart_hal_disable_intr_mask(&hal, intr_mask);
+-        uart_hal_clr_intsts_mask(&hal, intr_mask);
++    if (timeout > -1) {
++        /* If the timeout value is not -1, delay for 1 CPU cycle and keep track of cycles */
++        ulp_lp_core_delay_cycles(1);
++        (*cycle_count)++;
++        if (*cycle_count >= (uint32_t)timeout) {
++            /* Disable and clear interrupt bits */
++            uart_hal_disable_intr_mask(&hal, intr_mask);
++            uart_hal_clr_intsts_mask(&hal, intr_mask);
+ 
+-        return ESP_ERR_TIMEOUT;
++            return ESP_ERR_TIMEOUT;
++        }
+     }
+ 
+     return ESP_OK;
+@@ -101,12 +106,12 @@
+     int32_t remaining_bytes = size;
+     esp_err_t ret = ESP_OK;
+     uint32_t intr_status = 0;
+-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
++    uint32_t to = 0;
+ 
+     while (remaining_bytes > 0) {
+         /* Write to the Tx FIFO */
+         tx_len = 0;
+-        uart_hal_write_txfifo(&hal, src + bytes_sent, remaining_bytes, &tx_len);
++        uart_hal_write_txfifo(&hal, (const uint8_t *)src + bytes_sent, remaining_bytes, &tx_len);
+ 
+         if (tx_len) {
+             /* We have managed to write some data to the Tx FIFO. Check Tx interrupt status */
+@@ -124,7 +129,7 @@
+                 }
+ 
+                 /* Check for transaction timeout */
+-                ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
++                ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
+                 if (ret == ESP_ERR_TIMEOUT) {
+                     /* Timeout. Clear interrupt status and break */
+                     uart_hal_clr_intsts_mask(&hal, intr_mask);
+@@ -137,7 +142,7 @@
+             remaining_bytes -= tx_len;
+         } else {
+             /* Tx FIFO does not have empty slots. Check for transaction timeout */
+-            ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
++            ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
+             if (ret == ESP_ERR_TIMEOUT) {
+                 /* Timeout. Clear interrupt status and break */
+                 uart_hal_clr_intsts_mask(&hal, intr_mask);
+@@ -177,14 +182,14 @@
+     int32_t remaining_bytes = size;
+     esp_err_t ret = ESP_OK;
+     uint32_t intr_status = 0;
+-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
++    uint32_t to = 0;
+ 
+     while (remaining_bytes > 0) {
+         /* Read from the Rx FIFO
+          * We set rx_len to -1 to read all bytes in the Rx FIFO
+          */
+         rx_len = -1;
+-        uart_hal_read_rxfifo(&hal, (uint8_t *)(buf + bytes_rcvd), &rx_len);
++        uart_hal_read_rxfifo(&hal, (uint8_t *)buf + bytes_rcvd, &rx_len);
+ 
+         if (rx_len) {
+             /* We have some data to read from the Rx FIFO. Check Rx interrupt status */
+@@ -210,7 +215,7 @@
+             remaining_bytes -= rx_len;
+         } else {
+             /* We have no data to read from the Rx FIFO. Check for transaction timeout */
+-            ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
++            ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
+             if (ret == ESP_ERR_TIMEOUT) {
+                 /* Timeout. Clear interrupt status and break */
+                 uart_hal_clr_intsts_mask(&hal, intr_mask);
+--- a/components/ulp/lp_core/lp_core/lp_core_ubsan.c
++++ b/components/ulp/lp_core/lp_core/lp_core_ubsan.c
+@@ -88,7 +88,7 @@
+ 
+ __attribute__((noreturn)) static void __ubsan_default_handler(struct source_location *loc, const char *func)
+ {
+-#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
++#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
+     lp_core_printf("LP_CORE: Undefined behavior of type '%s' @\r\n"
+                    "%s:%d\r\n", func, loc->file_name, loc->line);
+ #endif
+--- a/components/ulp/lp_core/lp_core/lp_core_utils.c
++++ b/components/ulp/lp_core/lp_core/lp_core_utils.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -19,7 +19,7 @@
+ #include "hal/lp_i2s_ll.h"
+ #endif
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+ #include "hal/rtc_timer_ll.h"
+ #endif
+ 
+@@ -82,13 +82,13 @@
+     }
+ #endif /* SOC_ETM_SUPPORTED */
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER) \
+             && (rtc_timer_ll_get_intr_raw(&LP_TIMER, 1) & LP_TIMER_MAIN_TIMER_LP_INT_RAW)) {
+         lp_wakeup_cause |= LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER;
+         rtc_timer_ll_clear_alarm_intr_status(&LP_TIMER, 1);
+     }
+-#endif /* SOC_RTC_TIMER_SUPPORTED */
++#endif /* SOC_RTC_TIMER_V2_SUPPORTED */
+ 
+ }
+ 
+@@ -163,15 +163,14 @@
+     lp_core_ll_request_sleep();
+ }
+ 
+-void __attribute__((noreturn)) abort(void)
+-{
+-    // By calling abort users expect some panic message to be printed,
+-    // so cause an exception like it is done in HP core's version of abort().
+-    // If CONFIG_ULP_PANIC_OUTPUT_ENABLE is YES then panic handler will print smth
+-    // If debugger is attached it will stop here and user can inspect the backtrace.
+-    esp_cpu_dbgr_break();
+-    while (1); // to make compiler happy about noreturn attr
+-}
++// #if IS_ULP_COCPU
++// void __attribute__((noreturn)) abort(void)
++// {
++//     /* Cause an exception so a debugger can inspect the backtrace */
++//     esp_cpu_dbgr_break();
++//     while (1);
++// }
++// #endif
+ 
+ void __attribute__((noreturn)) ulp_lp_core_abort(void)
+ {
+@@ -196,7 +195,7 @@
+     pmu_ll_lp_clear_sw_intr_status(&PMU);
+ }
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+ void ulp_lp_core_lp_timer_intr_enable(bool enable)
+ {
+     rtc_timer_ll_alarm_intr_enable(&LP_TIMER, 1, enable);
+--- a/components/ulp/lp_core/lp_core_uart.c
++++ b/components/ulp/lp_core/lp_core_uart.c
+@@ -65,6 +65,7 @@
+         /* Unachievable baud rate */
+         return ESP_FAIL;
+     }
++
+     uart_hal_set_parity(&hal, cfg->uart_proto_cfg.parity);
+     uart_hal_set_data_bit_num(&hal, cfg->uart_proto_cfg.data_bits);
+     uart_hal_set_stop_bits(&hal, cfg->uart_proto_cfg.stop_bits);
+--- a/components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
++++ b/components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
+@@ -6,7 +6,7 @@
+ #include "ulp_lp_core_lp_timer_shared.h"
+ #include "soc/soc_caps.h"
+ 
+-#if SOC_RTC_TIMER_SUPPORTED
++#if SOC_RTC_TIMER_V2_SUPPORTED
+ #include "hal/rtc_timer_ll.h"
+ #include "hal/clk_tree_ll.h"
+ #include "soc/rtc.h"
+@@ -45,4 +45,4 @@
+     return (sleep_duration_us * (1 << RTC_CLK_CAL_FRACT) / clk_ll_rtc_slow_load_cal());
+ }
+ 
+-#endif // SOC_RTC_TIMER_SUPPORTED
++#endif // SOC_RTC_TIMER_V2_SUPPORTED
+--- a/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
++++ b/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
+@@ -9,10 +9,14 @@
+ #include "soc/soc.h"
+ #include "esp_rom_caps.h"
+ #include "esp_assert.h"
++#include <zephyr/devicetree.h>
+ 
+ #define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
+ 
+-/* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
++#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
++#define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
++
++/* The last ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
+    The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
+    esp32ulp_mapgen.py, but this is not available when compiling the ULP library.
+ 
+@@ -21,7 +25,7 @@
+ 
+ #if IS_ULP_COCPU
+ static ulp_lp_core_memory_shared_cfg_t __attribute__((section(".shared_mem"))) s_shared_mem = {};
+-ESP_STATIC_ASSERT(CONFIG_ULP_SHARED_MEM == sizeof(ulp_lp_core_memory_shared_cfg_t));
++ESP_STATIC_ASSERT(DT_REG_SIZE(DT_NODELABEL(ulp_shm)) >= sizeof(ulp_lp_core_memory_shared_cfg_t));
+ #endif
+ 
+ ulp_lp_core_memory_shared_cfg_t* ulp_lp_core_memory_shared_cfg_get(void)
+@@ -38,6 +42,6 @@
+     /* Ensure the end where the shared memory starts is aligned to 8 bytes
+     if updating this also update the same in ulp_lp_core_riscv.ld
+     */
+-    return (ulp_lp_core_memory_shared_cfg_t *)(ulp_base_addr + ALIGN_DOWN(CONFIG_ULP_COPROC_RESERVE_MEM, 0x8)  - CONFIG_ULP_SHARED_MEM);
++    return (ulp_lp_core_memory_shared_cfg_t *)(ulp_base_addr + ALIGN_DOWN(ULP_COPROC_RESERVE_MEM, 0x8)  - ULP_SHARED_MEM);
+ #endif
+ }
+--- a/components/ulp/ulp_fsm/ulp.c
++++ b/components/ulp/ulp_fsm/ulp.c
+@@ -114,10 +114,10 @@
+     if (program_size_bytes < sizeof(ulp_binary_header_t)) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+-    if (load_addr_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (load_addr_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    if (load_addr_bytes + program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (load_addr_bytes + program_size_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+ 
+--- a/components/ulp/ulp_fsm/ulp_macro.c
++++ b/components/ulp/ulp_fsm/ulp_macro.c
+@@ -187,7 +187,7 @@
+         ++read_ptr;
+     }
+     size_t real_program_size = *psize - macro_count;
+-    const size_t ulp_mem_end = CONFIG_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
++    const size_t ulp_mem_end = CONFIG_ESP32_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
+     if (load_addr > ulp_mem_end) {
+         ESP_LOGW(TAG, "invalid load address %"PRIx32", max is %x",
+                  load_addr, ulp_mem_end);
+--- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_gpio.h
++++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_gpio.h
+@@ -107,7 +107,7 @@
+     CLEAR_PERI_REG_MASK(RTC_IO_TOUCH_PAD0_REG + gpio_num * 4, RTC_IO_TOUCH_PAD0_RDE);
+ }
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ 
+ /**
+  * @brief Set RTC IO interrupt type and handler
+@@ -130,7 +130,7 @@
+  */
+ esp_err_t ulp_riscv_gpio_isr_deregister(gpio_num_t gpio_num);
+ 
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+ 
+ #ifdef __cplusplus
+ }
+--- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_interrupt.h
++++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_interrupt.h
+@@ -14,7 +14,7 @@
+ {
+ #endif
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ 
+ /* ULP RISC-V Interrupt sources */
+ typedef enum {
+@@ -64,7 +64,7 @@
+  */
+ esp_err_t ulp_riscv_intr_free(ulp_riscv_interrupt_source_t source);
+ 
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+ 
+ #ifdef __cplusplus
+ }
+--- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
++++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -12,7 +12,6 @@
+ 
+ #include "sdkconfig.h"
+ #include <stdint.h>
+-#include <stdbool.h>
+ #include "ulp_riscv_register_ops.h"
+ #include "ulp_riscv_interrupt.h"
+ 
+@@ -101,26 +100,6 @@
+ }
+ 
+ /**
+- * @brief Check whether an mcycle-based timeout has elapsed.
+- *
+- * @note A timeout value of -1 means "wait forever".
+- *       Other values are interpreted as unsigned cycle counts.
+- *
+- * @param start_cycle_count Cycle counter value captured at timeout start.
+- * @param cycles_to_wait Timeout in CPU cycles, or -1 to disable timeout.
+- *
+- * @return true if timeout elapsed, false otherwise.
+- */
+-static inline bool ulp_riscv_is_timeout_elapsed(uint32_t start_cycle_count, int32_t cycles_to_wait)
+-{
+-    if (cycles_to_wait == -1) {
+-        return false;
+-    }
+-
+-    return (ulp_riscv_get_cpu_cycles() - start_cycle_count) >= (uint32_t)cycles_to_wait;
+-}
+-
+-/**
+  * @brief Makes the co-processor busy wait for a certain number of cycles
+  *
+  * @note This function is not accurate for delays shorter than 20 cycles,
+@@ -146,7 +125,7 @@
+  */
+ void ulp_riscv_gpio_wakeup_clear(void);
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ /**
+  * @brief Enable ULP RISC-V SW Interrupt
+  *
+@@ -188,12 +167,12 @@
+  */
+ #define ULP_RISCV_EXIT_CRITICAL()   asm volatile (".word 0x0600600b");
+ 
+-#else /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#else /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+ 
+ #define ULP_RISCV_ENTER_CRITICAL()
+ #define ULP_RISCV_EXIT_CRITICAL()
+ 
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+ 
+ #ifdef __cplusplus
+ }
+--- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_gpio.c
++++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_gpio.c
+@@ -7,7 +7,7 @@
+ #include "ulp_riscv_gpio.h"
+ #include "include/ulp_riscv_gpio.h"
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ esp_err_t ulp_riscv_gpio_isr_register(gpio_num_t gpio_num, ulp_riscv_gpio_int_type_t intr_type, intr_handler_t handler, void *arg)
+ {
+     if (gpio_num < 0 || gpio_num >= GPIO_NUM_MAX) {
+@@ -33,4 +33,4 @@
+ {
+     return ulp_riscv_intr_free(ULP_RISCV_RTCIO0_INTR_SOURCE + gpio_num);
+ }
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+--- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
++++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -32,7 +32,7 @@
+ #endif // CONFIG_IDF_TARGET_ESP32S3
+ 
+ /* Read/Write timeout (number of iterationis) */
+-#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ULP_RISCV_I2C_RW_TIMEOUT
++#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ESP32_ULP_RISCV_I2C_RW_TIMEOUT
+ 
+ /*
+  * The RTC I2C controller follows the I2C command registers to perform read/write operations.
+@@ -70,7 +70,7 @@
+ static inline int32_t ulp_riscv_i2c_wait_for_interrupt(int32_t cycles_to_wait)
+ {
+     uint32_t status = 0;
+-    uint32_t timeout_start = ulp_riscv_get_cpu_cycles();
++    uint32_t to = 0;
+ 
+     while (1) {
+         status = READ_PERI_REG(RTC_I2C_INT_ST_REG);
+@@ -90,8 +90,15 @@
+             return -1;
+         }
+ 
+-        if (ulp_riscv_is_timeout_elapsed(timeout_start, cycles_to_wait)) {
+-            return -1;
++        if (cycles_to_wait > -1) {
++            /* If the cycles_to_wait value is not -1, keep track of cycles and
++             * break from the loop once the timeout is reached.
++             */
++            ulp_riscv_delay_cycles(1);
++            to++;
++            if (to >= cycles_to_wait) {
++                return -1;
++            }
+         }
+     }
+ }
+--- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_interrupt.c
++++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_interrupt.c
+@@ -11,7 +11,7 @@
+ #include "ulp_riscv_gpio.h"
+ #include "soc/sens_reg.h"
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ 
+ #define ULP_RISCV_TIMER_INT                         (1 << 0U)   /* Internal Timer Interrupt */
+ #define ULP_RISCV_EBREAK_ECALL_ILLEGAL_INSN_INT     (1 << 1U)   /* EBREAK, ECALL or Illegal instruction */
+@@ -134,4 +134,4 @@
+     }
+ }
+ 
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+--- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_uart.c
++++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_uart.c
+@@ -11,7 +11,7 @@
+ #include "ulp_riscv_uart_ulp_core.h"
+ 
+ /* We calculate the bit duration at compile time to speed up and avoid pulling in soft-float libs */
+-#define BIT_DURATION_CYCLES ( ULP_RISCV_CYCLES_PER_US * ((1000*1000) / CONFIG_ULP_RISCV_UART_BAUDRATE) )
++#define BIT_DURATION_CYCLES ( ULP_RISCV_CYCLES_PER_US * ((1000*1000) / CONFIG_ESP32_ULP_RISCV_UART_BAUDRATE) )
+ 
+ void ulp_riscv_uart_init(ulp_riscv_uart_t *uart, const ulp_riscv_uart_cfg_t *cfg)
+ {
+--- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
++++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
+@@ -49,7 +49,7 @@
+     SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_GPIO_WAKEUP_CLR);
+ }
+ 
+-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
++#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
+ 
+ void ulp_riscv_enable_sw_intr(intr_handler_t handler, void *arg)
+ {
+@@ -76,4 +76,4 @@
+     SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SW_INT_TRIGGER);
+ }
+ 
+-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
++#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+--- a/components/ulp/ulp_riscv/ulp_riscv.c
++++ b/components/ulp/ulp_riscv/ulp_riscv.c
+@@ -196,14 +196,14 @@
+     if (program_binary == NULL) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (program_size_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+ 
+     uint8_t* base = (uint8_t*) RTC_SLOW_MEM;
+ 
+     //Start by clearing memory reserved with zeros, this will also will initialize the bss:
+-    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
++    hal_memset(base, 0, CONFIG_ESP32_ULP_COPROC_RESERVE_MEM);
+     hal_memcpy(base, program_binary, program_size_bytes);
+ 
+     return ESP_OK;
+--- a/components/ulp/ulp_riscv/ulp_riscv_i2c.c
++++ b/components/ulp/ulp_riscv/ulp_riscv_i2c.c
+@@ -45,7 +45,7 @@
+ #define MICROSEC_TO_RTC_FAST_CLK(period)    (period) * ((float)(SOC_CLK_RC_FAST_FREQ_APPROX) / (1000000.0))
+ 
+ /* Read/Write timeout (number of iterations)*/
+-#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ULP_RISCV_I2C_RW_TIMEOUT
++#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ESP32_ULP_RISCV_I2C_RW_TIMEOUT
+ 
+ /* RTC I2C lock */
+ static portMUX_TYPE rtc_i2c_lock = portMUX_INITIALIZER_UNLOCKED;
+@@ -271,13 +271,13 @@
+             break;
+         }
+ 
+-        if ((uint32_t)ticks_to_wait != (uint32_t) -1) {
++        if (ticks_to_wait > -1) {
+             /* If the ticks_to_wait value is not -1, keep track of ticks and
+              * break from the loop once the timeout is reached.
+              */
+             vTaskDelay(1);
+             to++;
+-            if (to >= (uint32_t)ticks_to_wait) {
++            if (to >= ticks_to_wait) {
+                 ret = ESP_ERR_TIMEOUT;
+                 break;
+             }
