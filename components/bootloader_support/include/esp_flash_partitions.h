@@ -41,7 +41,7 @@ extern "C" {
 #define ESP_PARTITION_MD5_OFFSET 16
 
 #ifndef CONFIG_MCUBOOT_ESPRESSIF
-#define CONFIG_BOOTLOADER_OFFSET_IN_FLASH FIXED_PARTITION_OFFSET(boot_partition)  /* Offset of bootloader image. */
+#define CONFIG_BOOTLOADER_OFFSET_IN_FLASH PARTITION_OFFSET(boot_partition)  /* Offset of bootloader image. */
 #endif
 
 /* Pre-partition table fixed flash offsets */
