@@ -235,8 +235,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   zephyr_sources_ifdef(CONFIG_DAC_ESP32
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/dac_periph.c
     ../../components/esp_driver_dac/dac_common.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     )
 
   if (CONFIG_ADC_ESP32)
@@ -250,8 +248,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/adc_periph.c
@@ -270,9 +266,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_driver_gpio/src/gpio.c
-      ../../components/esp_driver_gpio/src/rtc_io.c
       ../../components/esp_hw_support/sleep_modem.c
-      ../../components/esp_hal_gpio/rtc_io_hal.c
       ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_legacy_hal.c
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
@@ -283,8 +277,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR
     ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_periph.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_touch_sens/touch_sensor_legacy_hal.c
     ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_legacy_hal.c
     )
@@ -322,10 +314,12 @@ if(CONFIG_SOC_SERIES_ESP32S2)
   endif()
 
   zephyr_sources(
+    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/esp_hal_ana_conv/temperature_sensor_hal.c
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_pmu/brownout_hal.c
     ../../components/esp_hal_systimer/systimer_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c

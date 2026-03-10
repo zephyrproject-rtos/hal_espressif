@@ -227,7 +227,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   if(CONFIG_PM OR CONFIG_POWEROFF)
   zephyr_sources(
     ../../components/esp_driver_gpio/src/gpio.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
@@ -240,7 +239,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/sleep_system_peripheral.c
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hw_support/sleep_uart.c
     ../../components/esp_hw_support/clk_utils.c
     ../../components/esp_hw_support/esp_memory_utils.c
@@ -275,10 +273,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   endif()
 
   zephyr_sources_ifdef(CONFIG_SOC_ESP32C6_HPCORE
+    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/esp_hal_ana_conv/temperature_sensor_hal.c
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_systimer/systimer_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
@@ -404,8 +404,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hal_ana_conv/adc_hal.c
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
@@ -426,7 +424,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/ulp/lp_core/lp_core.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-      ../../components/esp_hal_gpio/rtc_io_hal.c
       )
 
     zephyr_sources_ifdef(CONFIG_SOC_ESP32C6_LPCORE
@@ -436,10 +433,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/ulp/lp_core/lp_core/lp_core_uart.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-      ../../components/esp_hal_uart/uart_hal_iram.c
-      ../../components/esp_hal_uart/uart_hal.c
       ../../components/esp_hal_gpio/rtc_io_hal.c
       ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+      ../../components/esp_hal_uart/uart_hal_iram.c
+      ../../components/esp_hal_uart/uart_hal.c
       )
   endif()
 
