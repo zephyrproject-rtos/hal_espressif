@@ -255,8 +255,6 @@ if(CONFIG_SOC_SERIES_ESP32)
   zephyr_sources_ifdef(CONFIG_DAC_ESP32
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/dac_periph.c
     ../../components/esp_driver_dac/dac_common.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     )
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
@@ -264,10 +262,8 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_driver_gpio/src/gpio.c
-      ../../components/esp_driver_gpio/src/rtc_io.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
       ../../components/esp_hw_support/sleep_modem.c
-      ../../components/esp_hal_gpio/rtc_io_hal.c
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
       ../../components/esp_hw_support/esp_memory_utils.c
@@ -278,8 +274,6 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR
     ../../components/esp_hal_touch_sens/esp32/touch_sensor_periph.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_touch_sens/touch_sensor_legacy_hal.c
     ../../components/esp_hal_touch_sens/esp32/touch_sensor_legacy_hal.c
     )
@@ -295,8 +289,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
-    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/adc_cali_line_fitting.c
@@ -341,8 +333,10 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_sources(
     ../../components/bootloader_support/src/bootloader_efuse.c
+    ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
+    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_security/mpu_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c
     ../../components/esp_hw_support/clk_ctrl_os.c
