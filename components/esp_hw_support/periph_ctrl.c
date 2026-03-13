@@ -25,6 +25,8 @@
 #include <zephyr/dt-bindings/clock/esp32c2_clock.h>
 #elif defined(CONFIG_SOC_SERIES_ESP32C3)
 #include <zephyr/dt-bindings/clock/esp32c3_clock.h>
+#elif defined(CONFIG_SOC_SERIES_ESP32C5)
+#include <zephyr/dt-bindings/clock/esp32c5_clock.h>
 #elif defined(CONFIG_SOC_SERIES_ESP32C6)
 #include <zephyr/dt-bindings/clock/esp32c6_clock.h>
 #elif defined(CONFIG_SOC_SERIES_ESP32H2)
@@ -142,7 +144,10 @@ void periph_rcc_acquire_exit(shared_periph_module_t periph, uint8_t ref_count)
 uint8_t periph_rcc_release_enter(shared_periph_module_t periph)
 {
     periph_rcc_enter();
-    return ref_counts[periph] - 1;
+    if (ref_counts[periph] > 0) {
+        return ref_counts[periph] - 1;
+    }
+    return 0;
 }
 
 void periph_rcc_release_exit(shared_periph_module_t periph, uint8_t ref_count)

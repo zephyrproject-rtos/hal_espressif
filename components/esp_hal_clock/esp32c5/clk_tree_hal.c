@@ -8,6 +8,9 @@
 #include "hal/clk_tree_hal.h"
 #include "hal/clk_tree_ll.h"
 
+#undef MHZ
+#define MHZ (1000000)
+
 uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
 {
     switch (cpu_clk_src) {

@@ -17,6 +17,11 @@
  Group libc
  ***************************************/
 
+/* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( longjmp = 0x40000580 );
+PROVIDE ( setjmp = 0x40000584 );
+/*******************************************/
+
 /* Functions */
 esp_rom_newlib_init_common_mutexes = 0x400004b4;
 memset = 0x400004b8;
@@ -46,8 +51,6 @@ strrchr = 0x4000056c;
 strsep = 0x40000570;
 strspn = 0x40000574;
 strtok_r = 0x40000578;
-longjmp = 0x40000580;
-setjmp = 0x40000584;
 abs = 0x40000588;
 div = 0x4000058c;
 labs = 0x40000590;

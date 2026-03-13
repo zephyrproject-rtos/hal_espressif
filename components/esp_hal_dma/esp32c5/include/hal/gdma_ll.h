@@ -19,6 +19,44 @@
 #define GDMA_LL_MAX_BURST_SIZE_PSRAM      32 // PSRAM controller doesn't support burst access with size > 32 bytes
 #define GDMA_LL_ACCESS_ENCRYPTION_MEM_ALIGNMENT 16 // The alignment of the memory and size when DMA accesses encrypted memory
 
+/*
+ * Compatibility aliases: map gdma_ll_* names to the ahb_dma_ll_* API
+ * so that Zephyr drivers written against the v1 GDMA interface compile on
+ * AHB-GDMA-v2 SoCs without source changes.
+ */
+#define GDMA_LL_M2M_FREE_PERIPH_ID_MASK          AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK
+#define gdma_ll_force_enable_reg_clock            ahb_dma_ll_force_enable_reg_clock
+#define gdma_ll_rx_clear_interrupt_status          ahb_dma_ll_rx_clear_interrupt_status
+#define gdma_ll_rx_connect_to_mem                  ahb_dma_ll_rx_connect_to_mem
+#define gdma_ll_rx_connect_to_periph               ahb_dma_ll_rx_connect_to_periph
+#define gdma_ll_rx_enable_data_burst               ahb_dma_ll_rx_enable_data_burst
+#define gdma_ll_rx_enable_descriptor_burst         ahb_dma_ll_rx_enable_descriptor_burst
+#define gdma_ll_rx_enable_interrupt                ahb_dma_ll_rx_enable_interrupt
+#define gdma_ll_rx_enable_owner_check              ahb_dma_ll_rx_enable_owner_check
+#define gdma_ll_rx_get_interrupt_status            ahb_dma_ll_rx_get_interrupt_status
+#define gdma_ll_rx_get_interrupt_status_reg        ahb_dma_ll_rx_get_interrupt_status_reg
+#define gdma_ll_rx_get_prefetched_desc_addr        ahb_dma_ll_rx_get_prefetched_desc_addr
+#define gdma_ll_rx_get_success_eof_desc_addr       ahb_dma_ll_rx_get_success_eof_desc_addr
+#define gdma_ll_rx_is_desc_fsm_idle                ahb_dma_ll_rx_is_desc_fsm_idle
+#define gdma_ll_rx_reset_channel                   ahb_dma_ll_rx_reset_channel
+#define gdma_ll_rx_set_desc_addr                   ahb_dma_ll_rx_set_desc_addr
+#define gdma_ll_rx_start                           ahb_dma_ll_rx_start
+#define gdma_ll_rx_stop                            ahb_dma_ll_rx_stop
+#define gdma_ll_tx_clear_interrupt_status          ahb_dma_ll_tx_clear_interrupt_status
+#define gdma_ll_tx_connect_to_mem                  ahb_dma_ll_tx_connect_to_mem
+#define gdma_ll_tx_connect_to_periph               ahb_dma_ll_tx_connect_to_periph
+#define gdma_ll_tx_enable_data_burst               ahb_dma_ll_tx_enable_data_burst
+#define gdma_ll_tx_enable_descriptor_burst         ahb_dma_ll_tx_enable_descriptor_burst
+#define gdma_ll_tx_enable_interrupt                ahb_dma_ll_tx_enable_interrupt
+#define gdma_ll_tx_get_interrupt_status            ahb_dma_ll_tx_get_interrupt_status
+#define gdma_ll_tx_get_interrupt_status_reg        ahb_dma_ll_tx_get_interrupt_status_reg
+#define gdma_ll_tx_get_prefetched_desc_addr        ahb_dma_ll_tx_get_prefetched_desc_addr
+#define gdma_ll_tx_is_desc_fsm_idle                ahb_dma_ll_tx_is_desc_fsm_idle
+#define gdma_ll_tx_reset_channel                   ahb_dma_ll_tx_reset_channel
+#define gdma_ll_tx_set_desc_addr                   ahb_dma_ll_tx_set_desc_addr
+#define gdma_ll_tx_start                           ahb_dma_ll_tx_start
+#define gdma_ll_tx_stop                            ahb_dma_ll_tx_stop
+
 #ifdef __cplusplus
 extern "C" {
 #endif

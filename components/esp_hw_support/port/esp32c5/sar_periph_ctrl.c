@@ -15,9 +15,9 @@
  */
 
 #include <sys/lock.h>
+#include <zephyr/kernel.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/regi2c_ctrl.h"
 #include "esp_private/esp_modem_clock.h"
@@ -28,8 +28,8 @@
 #include "hal/temperature_sensor_ll.h"
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
-extern portMUX_TYPE rtc_spinlock;
-static _lock_t adc_reset_lock;
+extern unsigned int rtc_spinlock;
+K_MUTEX_DEFINE(adc_reset_lock);
 
 void sar_periph_ctrl_init(void)
 {
@@ -150,10 +150,10 @@ void sar_periph_ctrl_adc_reset(void)
 
 void adc_reset_lock_acquire(void)
 {
-    _lock_acquire(&adc_reset_lock);
+    k_mutex_lock(&adc_reset_lock, K_FOREVER);
 }
 
 void adc_reset_lock_release(void)
 {
-    _lock_release(&adc_reset_lock);
+    k_mutex_unlock(&adc_reset_lock);
 }
