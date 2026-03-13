@@ -27,6 +27,9 @@
 #include "esp_attr.h"
 #include "esp_private/esp_pmu.h"
 
+#undef MHZ
+#define MHZ (1000000)
+
 ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
 
 // Current PLL frequency, in 480MHz. Zero if PLL is not enabled.

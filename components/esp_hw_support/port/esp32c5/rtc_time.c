@@ -17,6 +17,9 @@
 #include "assert.h"
 #include "esp_private/periph_ctrl.h"
 
+#undef MHZ
+#define MHZ (1000000)
+
 ESP_LOG_ATTR_TAG(TAG, "rtc_time");
 
 #define CLK_CAL_TIMEOUT_THRES(cal_clk_sel, cycles) ((cal_clk_sel == CLK_CAL_32K_XTAL || cal_clk_sel == CLK_CAL_32K_OSC_SLOW) ? (cycles << 12) : (cycles << 10))
@@ -203,7 +206,7 @@ uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal
 
 /// @brief if the calibration is used, we need to enable the timer group0 first
 
-static void enable_timer_group0_for_calibration(void)
+static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
 {
 #ifndef BOOTLOADER_BUILD
     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {

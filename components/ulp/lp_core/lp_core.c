@@ -183,9 +183,9 @@ void ulp_lp_core_stop(void)
         /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
            so configure it to stall when going to sleep */
         lp_core_ll_stall_at_sleep_request(true);
+#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
         /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
-#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
         lp_core_ll_rst_at_sleep_enable(false);
 #else
         lp_core_ll_rst_at_sleep_enable(true);

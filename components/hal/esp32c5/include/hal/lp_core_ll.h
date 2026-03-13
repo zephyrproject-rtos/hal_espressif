@@ -52,6 +52,10 @@ static inline void lp_core_ll_reset_register(void)
 {
     LPPERI.reset_en.lp_cpu_reset_en = 1;
     LPPERI.reset_en.lp_cpu_reset_en = 0;
+
+    /* After reset, configure LP core to boot from LP memory (not ROM).
+     * Default stat_vector_sel=1 selects ROM which does not exist on C5. */
+    LP_AON.cpucore0_cfg.cpu_core0_stat_vector_sel = 0;
 }
 
 /// use a macro to wrap the function, force the caller to use it in a critical section

@@ -17,24 +17,27 @@
  Group newlib
  ***************************************/
 
+/* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( strdup = 0x40000540 );
+PROVIDE ( strndup = 0x40000564 );
+PROVIDE ( rand = 0x400005a0 );
+PROVIDE ( srand = 0x400005a4 );
+PROVIDE ( rand_r = 0x4000059c );
+PROVIDE ( atoi = 0x400005b0 );
+PROVIDE ( atol = 0x400005b4 );
+PROVIDE ( strtol = 0x400005b8 );
+PROVIDE ( strtoul = 0x400005bc );
+PROVIDE ( fflush = 0x400005c0 );
+PROVIDE ( _fflush_r = 0x400005c4 );
+PROVIDE ( _fwalk = 0x400005c8 );
+PROVIDE ( _fwalk_reent = 0x400005cc );
+PROVIDE ( __swbuf_r = 0x400005d8 );
+/*******************************************/
+
 /* Functions */
 _isatty_r = 0x400004e4;
-strdup = 0x40000540;
-strndup = 0x40000564;
-rand_r = 0x4000059c;
-rand = 0x400005a0;
-srand = 0x400005a4;
-atoi = 0x400005b0;
-atol = 0x400005b4;
-strtol = 0x400005b8;
-strtoul = 0x400005bc;
-fflush = 0x400005c0;
-_fflush_r = 0x400005c4;
-_fwalk = 0x400005c8;
-_fwalk_reent = 0x400005cc;
 __smakebuf_r = 0x400005d0;
 __swhatbuf_r = 0x400005d4;
-__swbuf_r = 0x400005d8;
 __swbuf = 0x400005dc;
 __swsetup_r = 0x400005e0;
 toupper = 0x4000051c;

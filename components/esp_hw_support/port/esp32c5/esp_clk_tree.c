@@ -16,6 +16,9 @@
 #include "esp_private/esp_clk_tree_common.h"
 #include "esp_rom_sys.h"
 
+#undef MHZ
+#define MHZ (1000000)
+
 ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
 
 esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_src_freq_precision_t precision,

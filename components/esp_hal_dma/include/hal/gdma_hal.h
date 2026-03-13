@@ -68,6 +68,7 @@ struct gdma_hal_context_t {
 #endif
 #if SOC_AHB_GDMA_VERSION == 2
         ahb_dma_dev_t *ahb_dma_dev;
+        ahb_dma_dev_t *dev;
 #endif
 #if SOC_HAS(AXI_GDMA)
         axi_dma_dev_t *axi_dma_dev;

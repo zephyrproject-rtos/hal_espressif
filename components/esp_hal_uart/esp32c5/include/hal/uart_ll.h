@@ -1164,6 +1164,11 @@ FORCE_INLINE_ATTR void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
     uart_ll_update(hw);
 }
 
+FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
+}
+
 /**
  * @brief  Configure the UART work in collision_detect mode.
  *

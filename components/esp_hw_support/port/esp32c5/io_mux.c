@@ -5,6 +5,7 @@
  */
 
 #include "sdkconfig.h"
+#include "esp_attr.h"
 #include "esp_private/esp_clk_tree_common.h"
 #include "esp_private/io_mux.h"
 #include "esp_private/periph_ctrl.h"

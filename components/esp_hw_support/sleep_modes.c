@@ -1255,11 +1255,10 @@ static esp_err_t FORCE_IRAM_ATTR deep_sleep_start(bool allow_sleep_rejection)
     // Safety net: enable WDT in case exit from deep sleep fails
     wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
     bool rtc_wdt_was_enabled = wdt_hal_is_enabled(&rtc_wdt_ctx);    // If WDT was enabled in the user code, then do not change it here.
-    if (!rtc_wdt_was_enabled) {
-        sleep_rtc_wdt_prepare(true);
-    } else {
-        ESP_EARLY_LOGW(TAG, "RTC WDT is enabled and will not be reconfigured again!");
+    if (rtc_wdt_was_enabled) {
+        sleep_rtc_wdt_prepare(false);
     }
+    rtc_wdt_was_enabled = false;
 
 #if SOC_PMU_SUPPORTED
     uint32_t force_pd_flags = PMU_SLEEP_PD_TOP | PMU_SLEEP_PD_VDDSDIO | PMU_SLEEP_PD_MODEM | PMU_SLEEP_PD_HP_PERIPH \
@@ -2847,9 +2846,9 @@ static SLEEP_FN_ATTR uint32_t get_power_down_flags(void)
     }
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32C6
+#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32C5
     if (!(pd_flags & PMU_SLEEP_PD_TOP)) {
-        // TOP power domain depends on the RTC_PERIPH power domain on ESP32C6, RTC_PERIPH should only be disabled when the TOP domain is down.
+        // TOP power domain depends on the RTC_PERIPH power domain on ESP32C6/C5, RTC_PERIPH should only be disabled when the TOP domain is down.
         pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
     }
 #endif

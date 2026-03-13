@@ -47,7 +47,9 @@ extern "C" {
  * - rtc_time: reading RTC counter, conversion between counter values and time
  */
 
-#define MHZ (1000000)
+#ifndef MHZ
+#define MHZ(x) ((x) * 1000000UL)
+#endif
 
 #define OTHER_BLOCKS_POWERUP        1
 #define OTHER_BLOCKS_WAIT           1
@@ -357,7 +359,6 @@ void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config);
  */
 void rtc_clk_cpu_freq_set_xtal(void);
 
-#ifndef BOOTLOADER_BUILD
 /**
  * @brief Switch root clock source to PLL (only used by sleep) release root clock source locked by PMU
  *
@@ -370,7 +371,6 @@ void rtc_clk_cpu_freq_set_xtal(void);
  * @param[in] Maximum CPU frequency, in MHz
  */
 void rtc_clk_cpu_freq_to_pll_and_pll_lock_release(int cpu_freq_mhz);
-#endif
 
 /**
  * @brief Get the current APB frequency.

@@ -31,7 +31,7 @@
 #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ((addr) & ~((SOC_MMU_PAGE_SIZE) - 1))
 #define ALIGN_UP(addr, align)  ((addr) & ~((align) - 1))
 
-static void esp_cpu_configure_invalid_regions(void)
+void esp_cpu_configure_invalid_regions(void)
 {
     const unsigned PMA_NONE                            = PMA_L | PMA_EN;
     __attribute__((unused)) const unsigned PMA_RW      = PMA_L | PMA_EN | PMA_R | PMA_W;

@@ -5,6 +5,7 @@
  */
 
 #include "sdkconfig.h"
+#include "zephyr_compat.h"
 #include "soc/soc_caps.h"
 #include "phy_init_data.h"
 #include "esp_private/phy.h"
