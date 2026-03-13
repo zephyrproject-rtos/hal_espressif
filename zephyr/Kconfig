@@ -30,6 +30,10 @@ if SOC_SERIES_ESP32C3
 rsource "../components/soc/esp32c3/include/soc/Kconfig.soc_caps.in"
 endif
 
+if SOC_SERIES_ESP32C5
+rsource "../components/soc/esp32c5/include/soc/Kconfig.soc_caps.in"
+endif
+
 if SOC_SERIES_ESP32C6
 rsource "../components/soc/esp32c6/include/soc/Kconfig.soc_caps.in"
 endif
@@ -49,6 +53,7 @@ config XTAL_FREQ
 	default 26 if XTAL_FREQ_HZ = 26000000
 	default 32 if XTAL_FREQ_HZ = 32000000
 	default 40 if XTAL_FREQ_HZ = 40000000
+	default 48 if XTAL_FREQ_HZ = 48000000
 
 # XTAL frequency selection flags for ESP-IDF
 config XTAL_FREQ_26
@@ -63,6 +68,10 @@ config XTAL_FREQ_40
 	bool
 	default y if XTAL_FREQ = 40
 
+config XTAL_FREQ_48
+	bool
+	default y if XTAL_FREQ = 48
+
 config BOOTLOADER_OFFSET_IN_FLASH
 	hex
 	default $(dt_node_reg_addr_hex,$(dt_nodelabel_path,boot_partition))
@@ -70,6 +79,7 @@ config BOOTLOADER_OFFSET_IN_FLASH
 config BOOTLOADER_CPU_CLK_FREQ_MHZ
 	int
 	default 120 if SOC_SERIES_ESP32C2
+	default 160 if SOC_SERIES_ESP32C5
 	default 160 if SOC_SERIES_ESP32C6
 	default 96 if SOC_SERIES_ESP32H2
 	default 80
@@ -169,6 +179,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x0009 if SOC_SERIES_ESP32S3
 	default 0x000C if SOC_SERIES_ESP32C2
 	default 0x0005 if SOC_SERIES_ESP32C3
+	default 0x0017 if SOC_SERIES_ESP32C5
 	default 0x000D if SOC_SERIES_ESP32C6
 	default 0x0010 if SOC_SERIES_ESP32H2
 
@@ -203,6 +214,10 @@ config IDF_TARGET_ESP32C2
 config IDF_TARGET_ESP32C3
 	bool
 	default y if SOC_SERIES_ESP32C3
+
+config IDF_TARGET_ESP32C5
+	bool
+	default y if SOC_SERIES_ESP32C5
 
 config IDF_TARGET_ESP32C6
 	bool
@@ -248,6 +263,16 @@ config ESP32_BT_CTLR_PINNED_TO_CORE
 	default 0
 
 endif
+
+config ESP_ENABLE_PVT
+	bool "Auto adjust hp & lp voltage using pvt function"
+	depends on SOC_PMU_PVT_SUPPORTED
+	default n if IDF_TARGET_ESP32C6
+	default y
+	help
+	  If enabled, hp & lp voltage can be auto adjusted by PVT characteristic.
+	  Otherwise, internal voltage will be set to fixed dbias.
+	  This is a must for stable mass production. Disable for debugging only.
 
 menu "Sleep config"
 
