@@ -106,6 +106,141 @@
      return apb_freq_hz - remainder;
  }
  
+--- a/components/esp_hal_clock/esp32c5/clk_tree_hal.c
++++ b/components/esp_hal_clock/esp32c5/clk_tree_hal.c
+@@ -8,6 +8,9 @@
+ #include "hal/clk_tree_hal.h"
+ #include "hal/clk_tree_ll.h"
+ 
++#undef MHZ
++#define MHZ (1000000)
++
+ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
+ {
+     switch (cpu_clk_src) {
+--- a/components/esp_hal_clock/esp32c5/include/hal/clk_gate_ll.h
++++ b/components/esp_hal_clock/esp32c5/include/hal/clk_gate_ll.h
+@@ -9,7 +9,10 @@
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include "esp_attr.h"
++#include "soc/soc.h"
+ #include "soc/reset_reasons.h"
++#include "soc/periph_defs.h"
++#include "soc/pcr_reg.h"
+ #include "soc/pcr_struct.h"
+ #include "soc/ahb_dma_struct.h"
+ #include "soc/lpperi_struct.h"
+@@ -28,6 +31,96 @@
+ extern "C" {
+ #endif
+ 
++static inline uint32_t periph_ll_get_clk_en_mask(shared_periph_module_t periph)
++{
++    switch (periph) {
++    case PERIPH_TIMG0_MODULE:
++        return PCR_TG0_CLK_EN;
++    case PERIPH_TIMG1_MODULE:
++        return PCR_TG1_CLK_EN;
++    case PERIPH_UHCI0_MODULE:
++        return PCR_UHCI_CLK_EN;
++    case PERIPH_SYSTIMER_MODULE:
++        return PCR_SYSTIMER_CLK_EN;
++    default:
++        return 0;
++    }
++}
++
++static inline uint32_t periph_ll_get_rst_en_mask(shared_periph_module_t periph, bool enable)
++{
++    (void)enable;
++
++    switch (periph) {
++    case PERIPH_TIMG0_MODULE:
++        return PCR_TG0_RST_EN;
++    case PERIPH_TIMG1_MODULE:
++        return PCR_TG1_RST_EN;
++    case PERIPH_UHCI0_MODULE:
++        return PCR_UHCI_RST_EN;
++    case PERIPH_SYSTIMER_MODULE:
++        return PCR_SYSTIMER_RST_EN;
++    default:
++        return 0;
++    }
++}
++
++static inline uint32_t periph_ll_get_clk_en_reg(shared_periph_module_t periph)
++{
++    switch (periph) {
++    case PERIPH_TIMG0_MODULE:
++        return PCR_TIMERGROUP0_CONF_REG;
++    case PERIPH_TIMG1_MODULE:
++        return PCR_TIMERGROUP1_CONF_REG;
++    case PERIPH_UHCI0_MODULE:
++        return PCR_UHCI_CONF_REG;
++    case PERIPH_SYSTIMER_MODULE:
++        return PCR_SYSTIMER_CONF_REG;
++    default:
++        return 0;
++    }
++}
++
++static inline uint32_t periph_ll_get_rst_en_reg(shared_periph_module_t periph)
++{
++    switch (periph) {
++    case PERIPH_TIMG0_MODULE:
++        return PCR_TIMERGROUP0_CONF_REG;
++    case PERIPH_TIMG1_MODULE:
++        return PCR_TIMERGROUP1_CONF_REG;
++    case PERIPH_UHCI0_MODULE:
++        return PCR_UHCI_CONF_REG;
++    case PERIPH_SYSTIMER_MODULE:
++        return PCR_SYSTIMER_CONF_REG;
++    default:
++        return 0;
++    }
++}
++
++static inline void periph_ll_enable_clk_clear_rst(shared_periph_module_t periph)
++{
++    SET_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
++    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, true));
++}
++
++static inline void periph_ll_disable_clk_set_rst(shared_periph_module_t periph)
++{
++    CLEAR_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
++    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
++}
++
++static inline void periph_ll_reset(shared_periph_module_t periph)
++{
++    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
++    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
++}
++
++static inline bool IRAM_ATTR periph_ll_periph_enabled(shared_periph_module_t periph)
++{
++    return REG_GET_BIT(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false)) == 0 &&
++           REG_GET_BIT(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph)) != 0;
++}
++
+ /**
+  * Enable or disable the clock gate for ref_12m.
+  * @param  enable Enable / disable
+--- a/components/esp_hal_clock/esp32c5/include/hal/clk_tree_ll.h
++++ b/components/esp_hal_clock/esp32c5/include/hal/clk_tree_ll.h
+@@ -25,7 +25,9 @@
+ #include "hal/misc.h"
+ #include "hal/efuse_hal.h"
+ 
+-#define MHZ                 (1000000)
++#ifndef MHZ
++#define MHZ(x) ((x) * 1000000UL)
++#endif
+ 
+ #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
+ #define CLK_LL_PLL_120M_FREQ_MHZ   (120)
 --- a/components/esp_hal_clock/esp32c6/clk_tree_hal.c
 +++ b/components/esp_hal_clock/esp32c6/clk_tree_hal.c
 @@ -19,7 +19,7 @@

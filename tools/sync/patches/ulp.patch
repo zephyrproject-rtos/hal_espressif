@@ -62,12 +62,14 @@
      hal_memcpy(base, program_binary, program_size_bytes);
  
      return ESP_OK;
-@@ -177,7 +185,11 @@
+@@ -175,9 +183,13 @@
+         /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
+            so configure it to stall when going to sleep */
          lp_core_ll_stall_at_sleep_request(true);
++#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
          /* Avoid resetting chip in sleep mode when debugger is attached,
          otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
 -        lp_core_ll_rst_at_sleep_enable(!CONFIG_ULP_NORESET_UNDER_DEBUG);
-+#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
 +        lp_core_ll_rst_at_sleep_enable(false);
 +#else
 +        lp_core_ll_rst_at_sleep_enable(true);

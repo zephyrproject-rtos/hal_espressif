@@ -12,7 +12,7 @@
  #include "rom/cache.h"
  
  #if CONFIG_IDF_TARGET_ESP32
-@@ -26,230 +25,23 @@
+@@ -26,230 +25,24 @@
  #include "hal/cache_ll.h"
  #include <soc/soc.h>
  #include "sdkconfig.h"
@@ -22,6 +22,7 @@
  #include "esp_attr.h"
  #include "esp_memory_utils.h"
  #include "esp_intr_alloc.h"
++#include "esp_cpu.h"
  #include "esp_private/esp_cache_private.h"
  #include "esp_private/cache_utils.h"
  #include "esp_private/spi_flash_os.h"
@@ -247,7 +248,7 @@
  
  void spi_flash_init_lock(void)
  {
-@@ -257,32 +49,18 @@
+@@ -257,32 +50,18 @@
  
  void spi_flash_op_lock(void)
  {
@@ -284,7 +285,7 @@
      esp_intr_noniram_disable();
      spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
  }
-@@ -291,27 +69,21 @@
+@@ -291,27 +70,21 @@
  {
      spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
      esp_intr_noniram_enable();
@@ -313,7 +314,7 @@
  
  void IRAM_ATTR spi_flash_enable_cache(uint32_t cpuid)
  {
-@@ -660,7 +432,6 @@
+@@ -660,7 +433,6 @@
  #else
      cache_line_size = CACHE_LINE_SIZE_64B;
  #endif

@@ -40,6 +40,20 @@
   * @brief  Configure the UART work in collision_detect mode.
   *
   * @param  hw Beginning address of the peripheral registers.
+--- a/components/esp_hal_uart/esp32c5/include/hal/uart_ll.h
++++ b/components/esp_hal_uart/esp32c5/include/hal/uart_ll.h
+@@ -1164,6 +1164,11 @@
+     uart_ll_update(hw);
+ }
+ 
++FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
++{
++    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
++}
++
+ /**
+  * @brief  Configure the UART work in collision_detect mode.
+  *
 --- a/components/esp_hal_uart/esp32c6/include/hal/uart_ll.h
 +++ b/components/esp_hal_uart/esp32c6/include/hal/uart_ll.h
 @@ -1146,6 +1146,18 @@
