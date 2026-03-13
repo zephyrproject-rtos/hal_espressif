@@ -465,7 +465,15 @@
           periph_rcc_exit(), _rc_cnt--)
  
  /** @cond */
-@@ -122,6 +122,20 @@
+@@ -76,6 +76,7 @@
+     defined(CONFIG_IDF_TARGET_ESP32S3) || \
+     defined(CONFIG_IDF_TARGET_ESP32C2) || \
+     defined(CONFIG_IDF_TARGET_ESP32C3) || \
++    defined(CONFIG_IDF_TARGET_ESP32C5) || \
+     defined(CONFIG_IDF_TARGET_ESP32C6) || \
+     defined(CONFIG_IDF_TARGET_ESP32H2)
+ #define __PERIPH_CTRL_ALLOW_LEGACY_API
+@@ -122,6 +123,20 @@
  void periph_module_reset(shared_periph_module_t periph);
  
  /**
@@ -540,7 +548,7 @@
          }
 --- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
-@@ -8,7 +8,7 @@
+@@ -8,15 +8,14 @@
  #include <string.h>
  #include <inttypes.h>
  #include <sys/lock.h>
@@ -549,6 +557,15 @@
  
  #include "esp_attr.h"
  #include "esp_check.h"
+ #include "esp_sleep.h"
+ #include "esp_log.h"
+ #include "esp_rom_crc.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
++#include <zephyr/kernel.h>
+ #include "riscv/csr.h"
+ #include "soc/soc_caps.h"
+ #include "soc/rtc_periph.h"
 --- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -842,7 +859,7 @@
  #include "esp_attr.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/critical_section.h"
-@@ -13,24 +15,116 @@
+@@ -13,24 +15,118 @@
  #endif
  #include "esp_log.h"
  
@@ -856,6 +873,8 @@
 +#include <zephyr/dt-bindings/clock/esp32c2_clock.h>
 +#elif defined(CONFIG_SOC_SERIES_ESP32C3)
 +#include <zephyr/dt-bindings/clock/esp32c3_clock.h>
++#elif defined(CONFIG_SOC_SERIES_ESP32C5)
++#include <zephyr/dt-bindings/clock/esp32c5_clock.h>
 +#elif defined(CONFIG_SOC_SERIES_ESP32C6)
 +#include <zephyr/dt-bindings/clock/esp32c6_clock.h>
 +#elif defined(CONFIG_SOC_SERIES_ESP32H2)
@@ -966,7 +985,19 @@
  }
  
  uint8_t periph_rcc_acquire_enter(shared_periph_module_t periph)
-@@ -61,12 +155,12 @@
+@@ -48,7 +144,10 @@
+ uint8_t periph_rcc_release_enter(shared_periph_module_t periph)
+ {
+     periph_rcc_enter();
+-    return ref_counts[periph] - 1;
++    if (ref_counts[periph] > 0) {
++        return ref_counts[periph] - 1;
++    }
++    return 0;
+ }
+ 
+ void periph_rcc_release_exit(shared_periph_module_t periph, uint8_t ref_count)
+@@ -61,12 +160,12 @@
  {
  #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
      assert(periph < PERIPH_MODULE_MAX);
@@ -981,7 +1012,7 @@
  #endif
  }
  
-@@ -74,12 +168,12 @@
+@@ -74,12 +173,12 @@
  {
  #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
      assert(periph < PERIPH_MODULE_MAX);
@@ -996,7 +1027,7 @@
  #endif
  }
  
-@@ -87,12 +181,584 @@
+@@ -87,12 +186,584 @@
  {
  #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
      assert(periph < PERIPH_MODULE_MAX);
@@ -1583,7 +1614,7 @@
  #if !SOC_IEEE802154_BLE_ONLY
  #if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED
  IRAM_ATTR void wifi_bt_common_module_enable(void)
-@@ -100,7 +766,7 @@
+@@ -100,7 +771,7 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_enable(PERIPH_PHY_MODULE);
  #else
@@ -1592,7 +1623,7 @@
      if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
          periph_ll_wifi_bt_module_enable_clk();
      }
-@@ -111,7 +777,7 @@
+@@ -111,7 +782,7 @@
      }
      ref_counts[PERIPH_COEX_MODULE]++;
  #endif
@@ -1601,7 +1632,7 @@
  #endif
  }
  
-@@ -120,7 +786,7 @@
+@@ -120,7 +791,7 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_disable(PERIPH_PHY_MODULE);
  #else
@@ -1610,7 +1641,7 @@
      ref_counts[PERIPH_WIFI_BT_COMMON_MODULE]--;
      if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
          periph_ll_wifi_bt_module_disable_clk();
-@@ -131,7 +797,7 @@
+@@ -131,7 +802,7 @@
          periph_ll_coex_module_disable_clk_set_rst();
      }
  #endif
@@ -1619,7 +1650,7 @@
  #endif
  }
  #endif  //#if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED
-@@ -143,12 +809,12 @@
+@@ -143,12 +814,12 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_enable(PERIPH_WIFI_MODULE);
  #else
@@ -1634,7 +1665,7 @@
  #endif
  }
  
-@@ -157,24 +823,24 @@
+@@ -157,24 +828,24 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_disable(PERIPH_WIFI_MODULE);
  #else
@@ -1664,7 +1695,7 @@
  #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
      periph_ll_phy_calibration_module_enable_clk_clear_rst();
      if (ref_counts[PERIPH_RNG_MODULE] == 0) {
-@@ -194,17 +860,17 @@
+@@ -194,17 +865,17 @@
      }
      ref_counts[PERIPH_BT_MODULE]++;
  #endif
@@ -1685,7 +1716,7 @@
  #if SOC_BT_SUPPORTED
      ref_counts[PERIPH_BT_MODULE]--;
      if (ref_counts[PERIPH_BT_MODULE] == 0) {
-@@ -218,10 +884,10 @@
+@@ -218,10 +889,10 @@
      }
  #endif
  #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
@@ -1698,7 +1729,7 @@
  #endif
  }
  
-@@ -249,14 +915,14 @@
+@@ -249,14 +920,14 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_enable(PERIPH_COEX_MODULE);
  #else
@@ -1715,7 +1746,7 @@
  #endif
  }
  
-@@ -265,14 +931,14 @@
+@@ -265,14 +936,14 @@
  #if SOC_MODEM_CLOCK_IS_INDEPENDENT
      modem_clock_module_disable(PERIPH_COEX_MODULE);
  #else
@@ -2094,19 +2125,46 @@
 -    _lock_release(&adc_reset_lock);
 +    k_mutex_unlock(&adc_reset_lock);
  }
+--- a/components/esp_hw_support/port/esp32c5/cpu_region_protect.c
++++ b/components/esp_hw_support/port/esp32c5/cpu_region_protect.c
+@@ -31,7 +31,7 @@
+ #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ((addr) & ~((SOC_MMU_PAGE_SIZE) - 1))
+ #define ALIGN_UP(addr, align)  ((addr) & ~((align) - 1))
+ 
+-static void esp_cpu_configure_invalid_regions(void)
++void esp_cpu_configure_invalid_regions(void)
+ {
+     const unsigned PMA_NONE                            = PMA_L | PMA_EN;
+     __attribute__((unused)) const unsigned PMA_RW      = PMA_L | PMA_EN | PMA_R | PMA_W;
+--- a/components/esp_hw_support/port/esp32c5/esp_clk_tree.c
++++ b/components/esp_hw_support/port/esp32c5/esp_clk_tree.c
+@@ -16,6 +16,9 @@
+ #include "esp_private/esp_clk_tree_common.h"
+ #include "esp_rom_sys.h"
+ 
++#undef MHZ
++#define MHZ (1000000)
++
+ ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
+ 
+ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_src_freq_precision_t precision,
 --- a/components/esp_hw_support/port/esp32c5/include/soc/rtc.h
 +++ b/components/esp_hw_support/port/esp32c5/include/soc/rtc.h
-@@ -49,6 +49,9 @@
+@@ -47,7 +47,12 @@
+  * - rtc_time: reading RTC counter, conversion between counter values and time
+  */
  
- #define MHZ (1000000)
- 
+-#define MHZ (1000000)
++#ifndef MHZ
++#define MHZ(x) ((x) * 1000000UL)
++#endif
++
 +#define OTHER_BLOCKS_POWERUP        1
 +#define OTHER_BLOCKS_WAIT           1
-+
+ 
  /* Delays for various clock sources to be enabled/switched.
   * All values are in microseconds.
-  */
-@@ -57,9 +60,45 @@
+@@ -57,9 +62,45 @@
  #define SOC_DELAY_RC_FAST_ENABLE            50
  #define SOC_DELAY_RC_FAST_DIGI_SWITCH       5
  
@@ -2152,7 +2210,7 @@
  #if CONFIG_ESP_ENABLE_PVT
  /*
  set pvt default param
-@@ -119,6 +158,9 @@
+@@ -119,6 +160,9 @@
  
  #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
  
@@ -2162,9 +2220,33 @@
  #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
  #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
  #define RTC_CAL_32K_OSC_SLOW _Pragma ("GCC warning \"'RTC_CAL_32K_OSC_SLOW' macro is deprecated\"") CLK_CAL_32K_OSC_SLOW
+@@ -315,7 +359,6 @@
+  */
+ void rtc_clk_cpu_freq_set_xtal(void);
+ 
+-#ifndef BOOTLOADER_BUILD
+ /**
+  * @brief Switch root clock source to PLL (only used by sleep) release root clock source locked by PMU
+  *
+@@ -328,7 +371,6 @@
+  * @param[in] Maximum CPU frequency, in MHz
+  */
+ void rtc_clk_cpu_freq_to_pll_and_pll_lock_release(int cpu_freq_mhz);
+-#endif
+ 
+ /**
+  * @brief Get the current APB frequency.
 --- a/components/esp_hw_support/port/esp32c5/io_mux.c
 +++ b/components/esp_hw_support/port/esp32c5/io_mux.c
-@@ -17,7 +17,7 @@
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include "sdkconfig.h"
++#include "esp_attr.h"
+ #include "esp_private/esp_clk_tree_common.h"
+ #include "esp_private/io_mux.h"
+ #include "esp_private/periph_ctrl.h"
+@@ -17,7 +18,7 @@
  DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
  static soc_module_clk_t s_io_mux_clk_src = 0; // by default, the clock source is not set explicitly by any consumer (e.g. SDM, Filter)
  
@@ -2184,6 +2266,120 @@
  #include <esp_types.h>
  #include "sdkconfig.h"
  #include "esp_err.h"
+@@ -122,14 +122,12 @@
+     const int lp_clk_power_on_wait_time_us  = ((sleep_flags & PMU_SLEEP_PD_XTAL) && (sleep_flags & RTC_SLEEP_XTAL_AS_RTC_FAST)) \
+                                             ? mc->lp.xtal_wait_stable_time_us \
+                                             : rtc_time_slowclk_to_us(mc->lp.clk_power_on_wait_cycle, slowclk_period);
+-    const int lp_control_wait_time_us       = mc->lp.isolate_wait_time_us + mc->lp.reset_wait_time_us;
+     const int lp_hw_wait_time_us = mc->lp.min_slp_time_us + mc->lp.analog_wait_time_us + lp_clk_power_on_wait_time_us \
+                             + lp_wakeup_wait_time_us + lp_clk_switch_time_us + mc->lp.power_supply_wait_time_us \
+-                                + mc->lp.power_up_wait_time_us + lp_control_wait_time_us;
++                                + mc->lp.power_up_wait_time_us;
+ 
+     /* HP core hardware wait time, microsecond */
+     const int hp_digital_power_up_wait_time_us = mc->hp.power_supply_wait_time_us + mc->hp.power_up_wait_time_us;
+-    const int hp_control_wait_time_us = mc->hp.isolate_wait_time_us + mc->hp.reset_wait_time_us;
+     const int hp_regdma_wait_time_us = s_pmu_sleep_regdma_backup_enabled \
+                                 ? MAX(mc->hp.regdma_s2m_work_time_us + mc->hp.regdma_m2a_work_time_us, mc->hp.regdma_s2a_work_time_us) \
+                                 : 0;
+@@ -137,8 +135,8 @@
+     const int hp_clock_wait_time_us = ((sleep_flags & PMU_SLEEP_PD_XTAL) && !(sleep_flags & RTC_SLEEP_XTAL_AS_RTC_FAST)) \
+                                     ? mc->hp.xtal_wait_stable_time_us + mc->hp.pll_wait_stable_time_us \
+                                     : mc->hp.pll_wait_stable_time_us;
+-    const int hp_hw_wait_time_us = mc->hp.analog_wait_time_us + hp_digital_power_up_wait_time_us + hp_clock_wait_time_us \
+-                                     + hp_regdma_wait_time_us + hp_control_wait_time_us;
++
++    const int hp_hw_wait_time_us = mc->hp.analog_wait_time_us + hp_digital_power_up_wait_time_us + hp_regdma_wait_time_us + hp_clock_wait_time_us;
+ 
+     /* When the SOC wakeup (lp timer or GPIO wakeup) and Modem wakeup (Beacon wakeup) complete, the soc
+      * wakeup will be delayed until the RF is turned on in Modem state.
+@@ -204,8 +202,6 @@
+     param->hp_sys.digital_power_supply_wait_cycle = rtc_time_us_to_fastclk(mc->hp.power_supply_wait_time_us, fastclk_period);
+     param->hp_sys.digital_power_up_wait_cycle     = rtc_time_us_to_fastclk(mc->hp.power_up_wait_time_us, fastclk_period);
+     param->hp_sys.pll_stable_wait_cycle           = rtc_time_us_to_fastclk(mc->hp.pll_wait_stable_time_us, fastclk_period);
+-    param->hp_sys.isolate_wait_cycle              = rtc_time_us_to_fastclk(mc->hp.isolate_wait_time_us, fastclk_period);
+-    param->hp_sys.reset_wait_cycle                = rtc_time_us_to_fastclk(mc->hp.reset_wait_time_us, fastclk_period);
+ 
+     const int hw_wait_time_us = pmu_sleep_calculate_hw_wait_time(sleep_flags, slowclk_src, slowclk_period, fastclk_period);
+     const int modem_state_skip_time_us = mc->hp.regdma_m2a_work_time_us + mc->hp.system_dfs_up_work_time_us + mc->lp.min_slp_time_us;
+@@ -216,8 +212,6 @@
+     param->lp_sys.analog_wait_target_cycle        = rtc_time_us_to_slowclk(mc->lp.analog_wait_time_us, slowclk_period);
+     param->lp_sys.digital_power_supply_wait_cycle = rtc_time_us_to_fastclk(mc->lp.power_supply_wait_time_us, fastclk_period);
+     param->lp_sys.digital_power_up_wait_cycle     = rtc_time_us_to_fastclk(mc->lp.power_up_wait_time_us, fastclk_period);
+-    param->lp_sys.isolate_wait_cycle              = rtc_time_us_to_fastclk(mc->lp.isolate_wait_time_us, fastclk_period);
+-    param->lp_sys.reset_wait_cycle                = rtc_time_us_to_fastclk(mc->lp.reset_wait_time_us, fastclk_period);
+ 
+     if (power->hp_sys.xtal.xpd_xtal) {
+         param->hp_lp.xtal_stable_wait_slow_clk_cycle = rtc_time_us_to_slowclk(mc->lp.xtal_wait_stable_time_us, slowclk_period);
+@@ -239,6 +233,10 @@
+     )
+ {
+     pmu_sleep_power_config_t power_default = PMU_SLEEP_POWER_CONFIG_DEFAULT(sleep_flags);
++    config->power = power_default;
++
++    pmu_sleep_param_config_t param_default = PMU_SLEEP_PARAM_CONFIG_DEFAULT(sleep_flags);
++    config->param = *pmu_sleep_param_config_default(&param_default, &power_default, sleep_flags, adjustment, slowclk_src, slowclk_period, fastclk_period);
+ 
+     if (dslp) {
+         config->param.lp_sys.analog_wait_target_cycle  = rtc_time_us_to_slowclk(PMU_LP_ANALOG_WAIT_TARGET_TIME_DSLP_US, slowclk_period);
+@@ -261,16 +259,20 @@
+         analog_default.hp_sys.analog.dbias = get_lslp_hp_dbias();
+         analog_default.lp_sys[LP(SLEEP)].analog.dbias = PMU_LP_DBIAS_LIGHTSLEEP_0V7_DEFAULT;
+ 
+-        if (!(sleep_flags & PMU_SLEEP_PD_XTAL) || !(sleep_flags & PMU_SLEEP_PD_RC_FAST)){
++        if (!(sleep_flags & PMU_SLEEP_PD_XTAL)){
+             analog_default.hp_sys.analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
+             analog_default.hp_sys.analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
+-            analog_default.hp_sys.analog.dbias =  get_act_hp_dbias();
+-            analog_default.hp_sys.analog.dbg_atten = 0;
++            analog_default.hp_sys.analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
++            analog_default.hp_sys.analog.dbias = get_act_hp_dbias();
+ 
+             analog_default.lp_sys[LP(SLEEP)].analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
+             analog_default.lp_sys[LP(SLEEP)].analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
++            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
++            analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
++        } else if (!(sleep_flags & PMU_SLEEP_PD_RC_FAST)) {
++            analog_default.hp_sys.analog.dbias = get_act_hp_dbias();
++            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_LIGHTSLEEP_NODROP;
+             analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
+-            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = 0;
+         }
+ 
+         config->analog = analog_default;
+@@ -281,20 +283,16 @@
+         power_default.hp_sys.xtal.xpd_xtal = 1;
+         config->analog.hp_sys.analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
+         config->analog.hp_sys.analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
+-        config->analog.hp_sys.analog.dbg_atten = 0;
++        config->analog.hp_sys.analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
+         config->analog.hp_sys.analog.dbias = get_act_hp_dbias();
+     }
+ 
+     if (sleep_flags & RTC_SLEEP_LP_PERIPH_USE_RC_FAST) {
+         config->analog.hp_sys.analog.dbias = get_act_hp_dbias();
+-        config->analog.lp_sys[LP(SLEEP)].analog.dbg_atten = 0;
++        config->analog.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_LIGHTSLEEP_NODROP;
+         config->analog.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
+     }
+ 
+-    config->power = power_default;
+-    pmu_sleep_param_config_t param_default = PMU_SLEEP_PARAM_CONFIG_DEFAULT(sleep_flags);
+-    config->param = *pmu_sleep_param_config_default(&param_default, &power_default, sleep_flags, adjustment, slowclk_src, slowclk_period, fastclk_period);
+-
+     return config;
+ }
+ 
+@@ -358,9 +356,6 @@
+     pmu_hal_hp_set_digital_power_up_wait_cycle(ctx->hal, param->hp_sys.digital_power_supply_wait_cycle, param->hp_sys.digital_power_up_wait_cycle);
+     pmu_hal_lp_set_digital_power_up_wait_cycle(ctx->hal, param->lp_sys.digital_power_supply_wait_cycle, param->lp_sys.digital_power_up_wait_cycle);
+ 
+-    pmu_hal_hp_set_control_ready_wait_cycle(ctx->hal, param->hp_sys.isolate_wait_cycle, param->hp_sys.reset_wait_cycle);
+-    pmu_hal_lp_set_control_ready_wait_cycle(ctx->hal, param->lp_sys.isolate_wait_cycle, param->lp_sys.reset_wait_cycle);
+-
+     pmu_ll_set_modem_wait_target_cycle(ctx->hal->dev, param->hp_sys.modem_wakeup_wait_cycle);
+     pmu_ll_set_xtal_stable_wait_cycle(ctx->hal->dev, param->hp_lp.xtal_stable_wait_slow_clk_cycle);
+     pmu_ll_set_pll_stable_wait_cycle(ctx->hal->dev, param->hp_sys.pll_stable_wait_cycle);
 --- a/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
 @@ -14,7 +14,7 @@
@@ -2195,17 +2391,94 @@
  #define PMU_WIFI_SOC_WAKEUP_EN      BIT(5)
  #define PMU_UART0_WAKEUP_EN         BIT(6)
  #define PMU_UART1_WAKEUP_EN         BIT(7)
+--- a/components/esp_hw_support/port/esp32c5/private_include/pmu_param.h
++++ b/components/esp_hw_support/port/esp32c5/private_include/pmu_param.h
+@@ -40,9 +40,13 @@
+ #define PMU_HP_XPD_LIGHTSLEEP       1
+ 
+ #define PMU_DBG_ATTEN_LIGHTSLEEP_DEFAULT    1
++#define PMU_DBG_ATTEN_LIGHTSLEEP_NODROP     0
+ #define PMU_HP_DBIAS_LIGHTSLEEP_0V6_DEFAULT 0
+ #define PMU_LP_DBIAS_LIGHTSLEEP_0V7_DEFAULT 15
+ 
++// FOR ACTIVE
++#define PMU_DBG_ATTEN_ACTIVE_DEFAULT        0
++
+ // FOR DEEPSLEEP
+ #define PMU_DBG_HP_DEEPSLEEP    0
+ #define PMU_HP_XPD_DEEPSLEEP    0
+--- a/components/esp_hw_support/port/esp32c5/rtc_clk.c
++++ b/components/esp_hw_support/port/esp32c5/rtc_clk.c
+@@ -27,6 +27,9 @@
+ #include "esp_attr.h"
+ #include "esp_private/esp_pmu.h"
+ 
++#undef MHZ
++#define MHZ (1000000)
++
+ ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
+ 
+ // Current PLL frequency, in 480MHz. Zero if PLL is not enabled.
 --- a/components/esp_hw_support/port/esp32c5/rtc_time.c
 +++ b/components/esp_hw_support/port/esp32c5/rtc_time.c
-@@ -202,7 +202,7 @@
+@@ -17,6 +17,9 @@
+ #include "assert.h"
+ #include "esp_private/periph_ctrl.h"
+ 
++#undef MHZ
++#define MHZ (1000000)
++
+ ESP_LOG_ATTR_TAG(TAG, "rtc_time");
+ 
+ #define CLK_CAL_TIMEOUT_THRES(cal_clk_sel, cycles) ((cal_clk_sel == CLK_CAL_32K_XTAL || cal_clk_sel == CLK_CAL_32K_OSC_SLOW) ? (cycles << 12) : (cycles << 10))
+@@ -202,8 +205,8 @@
  uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
  
  /// @brief if the calibration is used, we need to enable the timer group0 first
 -__attribute__((constructor))
+-static void enable_timer_group0_for_calibration(void)
 +
- static void enable_timer_group0_for_calibration(void)
++static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
  {
  #ifndef BOOTLOADER_BUILD
+     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
+--- a/components/esp_hw_support/port/esp32c5/sar_periph_ctrl.c
++++ b/components/esp_hw_support/port/esp32c5/sar_periph_ctrl.c
+@@ -15,9 +15,9 @@
+  */
+ 
+ #include <sys/lock.h>
++#include <zephyr/kernel.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+-#include "freertos/FreeRTOS.h"
+ #include "esp_private/sar_periph_ctrl.h"
+ #include "esp_private/regi2c_ctrl.h"
+ #include "esp_private/esp_modem_clock.h"
+@@ -28,8 +28,8 @@
+ #include "hal/temperature_sensor_ll.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
+-extern portMUX_TYPE rtc_spinlock;
+-static _lock_t adc_reset_lock;
++extern unsigned int rtc_spinlock;
++K_MUTEX_DEFINE(adc_reset_lock);
+ 
+ void sar_periph_ctrl_init(void)
+ {
+@@ -150,10 +150,10 @@
+ 
+ void adc_reset_lock_acquire(void)
+ {
+-    _lock_acquire(&adc_reset_lock);
++    k_mutex_lock(&adc_reset_lock, K_FOREVER);
+ }
+ 
+ void adc_reset_lock_release(void)
+ {
+-    _lock_release(&adc_reset_lock);
++    k_mutex_unlock(&adc_reset_lock);
+ }
 --- a/components/esp_hw_support/port/esp32c61/include/soc/rtc.h
 +++ b/components/esp_hw_support/port/esp32c61/include/soc/rtc.h
 @@ -49,6 +49,9 @@
@@ -4256,7 +4529,22 @@
  
      misc_modules_sleep_prepare(sleep_flags, deep_sleep);
  
-@@ -1362,7 +1361,7 @@
+@@ -1256,11 +1255,10 @@
+     // Safety net: enable WDT in case exit from deep sleep fails
+     wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
+     bool rtc_wdt_was_enabled = wdt_hal_is_enabled(&rtc_wdt_ctx);    // If WDT was enabled in the user code, then do not change it here.
+-    if (!rtc_wdt_was_enabled) {
+-        sleep_rtc_wdt_prepare(true);
+-    } else {
+-        ESP_EARLY_LOGW(TAG, "RTC WDT is enabled and will not be reconfigured again!");
++    if (rtc_wdt_was_enabled) {
++        sleep_rtc_wdt_prepare(false);
+     }
++    rtc_wdt_was_enabled = false;
+ 
+ #if SOC_PMU_SUPPORTED
+     uint32_t force_pd_flags = PMU_SLEEP_PD_TOP | PMU_SLEEP_PD_VDDSDIO | PMU_SLEEP_PD_MODEM | PMU_SLEEP_PD_HP_PERIPH \
+@@ -1362,7 +1360,7 @@
  #if SOC_PM_SUPPORT_TOP_PD
          if (sleep_flags & PMU_SLEEP_PD_TOP) {
              uint32_t flash_ready_hw_waited_time_us = pmu_sleep_get_wakup_retention_cost();
@@ -4265,7 +4553,7 @@
              uint32_t flash_ready_waited_time_us = flash_ready_hw_waited_time_us + flash_ready_sw_waited_time_us;
              if (flash_enable_time_us > flash_ready_waited_time_us){
                  flash_enable_time_us -= flash_ready_waited_time_us;
-@@ -1493,7 +1492,7 @@
+@@ -1493,7 +1491,7 @@
      // Re-calibrate the RTC clock
      sleep_low_power_clock_calibration(false);
  
@@ -4274,7 +4562,7 @@
      uint32_t xtal_freq = rtc_clk_xtal_freq_get();
      if (s_config.overhead_out_need_remeasure) {
          if (cur_cpu_freq < xtal_freq) {
-@@ -1525,12 +1524,10 @@
+@@ -1525,12 +1523,10 @@
  #endif
      int sleep_time_hw_adjustment = pmu_sleep_calculate_hw_wait_time(sleep_flags, rtc_clk_slow_src_get(), s_config.rtc_clk_cal_period, s_config.fast_clk_cal_period);
      s_config.sleep_time_adjustment = sleep_time_sw_adjustment + sleep_time_hw_adjustment;
@@ -4288,7 +4576,7 @@
  #endif
  
      // Decide if VDD_SDIO needs to be powered down;
-@@ -1555,11 +1552,7 @@
+@@ -1555,11 +1551,7 @@
          *    min_protect(2);
          * 4. All the adjustment time which is s_config.sleep_time_adjustment below.
          */
@@ -4300,7 +4588,7 @@
          const uint32_t vddsdio_pd_sleep_duration = MAX(FLASH_PD_MIN_SLEEP_TIME_US,
                          flash_enable_time_us + s_config.sleep_time_adjustment + rtc_slowclk_us);
  
-@@ -1609,6 +1602,7 @@
+@@ -1609,6 +1601,7 @@
  
      esp_err_t err = ESP_OK;
      int64_t final_sleep_duration_us = (int64_t)s_config.sleep_duration - (int64_t)s_config.sleep_time_adjustment;
@@ -4308,7 +4596,7 @@
  
      // reset light sleep wakeup flag before a new light sleep
      s_light_sleep_wakeup = false;
-@@ -1745,7 +1739,7 @@
+@@ -1745,7 +1738,7 @@
          s_config.wakeup_triggers &= ~(RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN);
      }
  #endif
@@ -4317,7 +4605,7 @@
      else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_ULP, RTC_ULP_TRIG_EN)) {
          s_config.wakeup_triggers &= ~RTC_ULP_TRIG_EN;
      }
-@@ -1769,10 +1763,10 @@
+@@ -1769,10 +1762,10 @@
  
  esp_err_t esp_sleep_enable_ulp_wakeup(void)
  {
@@ -4331,7 +4619,7 @@
  #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
      ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
      return ESP_ERR_NOT_SUPPORTED;
-@@ -1783,14 +1777,14 @@
+@@ -1783,14 +1776,14 @@
      }
  #endif //CONFIG_IDF_TARGET_ESP32
  
@@ -4350,7 +4638,7 @@
          s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN | RTC_LP_CORE_TRAP_TRIG_EN;
      #else
          s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN;
-@@ -1798,7 +1792,7 @@
+@@ -1798,7 +1791,7 @@
      return ESP_OK;
  #else
      return ESP_ERR_NOT_SUPPORTED;
@@ -4359,7 +4647,7 @@
  }
  
  esp_err_t esp_sleep_enable_timer_wakeup(uint64_t time_in_us)
-@@ -1806,7 +1800,7 @@
+@@ -1806,7 +1799,7 @@
  #if CONFIG_SOC_CLK_TREE_SUPPORTED
      uint32_t lp_slow_freq_hz = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_APPROX);
      assert(lp_slow_freq_hz);
@@ -4368,7 +4656,7 @@
          return ESP_ERR_INVALID_ARG;
      }
  #endif
-@@ -1919,7 +1913,7 @@
+@@ -1919,7 +1912,7 @@
  
  esp_err_t esp_sleep_enable_touchpad_wakeup(void)
  {
@@ -4377,7 +4665,7 @@
  #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
      ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
      return ESP_ERR_NOT_SUPPORTED;
-@@ -1970,7 +1964,7 @@
+@@ -1970,7 +1963,7 @@
      if (!esp_sleep_is_valid_wakeup_gpio(gpio_num)) {
          return ESP_ERR_INVALID_ARG;
      }
@@ -4386,7 +4674,7 @@
      if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
          ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
          return ESP_ERR_INVALID_STATE;
-@@ -1987,8 +1981,6 @@
+@@ -1987,8 +1980,6 @@
  {
      int rtc_gpio_num = s_config.ext0_rtc_gpio_num;
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
@@ -4395,7 +4683,7 @@
      rtcio_ll_enable_io_clock(true);
  #endif
      rtcio_hal_ext0_set_wakeup_pin(rtc_gpio_num, s_config.ext0_trigger_level);
-@@ -2122,8 +2114,6 @@
+@@ -2122,8 +2113,6 @@
              continue;
          }
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
@@ -4404,7 +4692,7 @@
          rtcio_ll_enable_io_clock(true);
  #endif
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
-@@ -2199,8 +2189,6 @@
+@@ -2199,8 +2188,6 @@
              continue;
          }
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
@@ -4413,7 +4701,7 @@
          rtcio_ll_enable_io_clock(true);
  #endif
  #if CONFIG_ESP_SLEEP_GPIO_ENABLE_INTERNAL_RESISTORS
-@@ -2260,7 +2248,7 @@
+@@ -2260,7 +2247,7 @@
  #if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
      ESP_LOGW(TAG, "%s wakeup source is not available if the peripheral power domain is powered down in sleep", "GPIO");
  #endif
@@ -4422,7 +4710,7 @@
      if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
          ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
          return ESP_ERR_INVALID_STATE;
-@@ -2726,7 +2714,7 @@
+@@ -2726,7 +2713,7 @@
          if (s_config.wakeup_triggers & (RTC_EXT0_TRIG_EN | RTC_GPIO_TRIG_EN)) {
              s_config.domain[ESP_PD_DOMAIN_RTC_PERIPH].pd_option = ESP_PD_OPTION_ON;
          }
@@ -4431,7 +4719,7 @@
          else if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
              // On ESP32, forcing power up of RTC_PERIPH
              // prevents ULP timer and touch FSMs from working correctly.
-@@ -2837,7 +2825,7 @@
+@@ -2837,7 +2824,7 @@
      }
  #endif
  
@@ -4440,7 +4728,19 @@
      if ((s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) == 0) {
          // If enabled EXT1 only and enable the additional current by touch, should be keep RTC_PERIPH power on.
          pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
-@@ -2917,7 +2905,7 @@
+@@ -2859,9 +2846,9 @@
+     }
+ #endif
+ 
+-#if CONFIG_IDF_TARGET_ESP32C6
++#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32C5
+     if (!(pd_flags & PMU_SLEEP_PD_TOP)) {
+-        // TOP power domain depends on the RTC_PERIPH power domain on ESP32C6, RTC_PERIPH should only be disabled when the TOP domain is down.
++        // TOP power domain depends on the RTC_PERIPH power domain on ESP32C6/C5, RTC_PERIPH should only be disabled when the TOP domain is down.
+         pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
+     }
+ #endif
+@@ -2917,7 +2904,7 @@
      }
  #endif
  
@@ -4449,7 +4749,7 @@
      if (s_sleep_sub_mode_ref_cnt[ESP_SLEEP_ANALOG_LOW_POWER_MODE]) {
          sleep_flags |= RTC_SLEEP_WITH_LOWPOWER_ANALOG;
      }
-@@ -3028,7 +3016,7 @@
+@@ -3028,7 +3015,7 @@
      rtc_suppress_rom_log();
  }
  

@@ -158,6 +158,19 @@
  __swbuf = 0x40000478;
  toupper = 0x400003b8;
  tolower = 0x400003bc;
+--- a/components/esp_rom/esp32c5/include/esp32c5/rom/uart.h
++++ b/components/esp_rom/esp32c5/include/esp32c5/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
 --- a/components/esp_rom/esp32c5/ld/esp32c5.rom.eco3.ld
 +++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.eco3.ld
 @@ -258,10 +258,10 @@
@@ -173,6 +186,73 @@
  phy_set_tsens_power_ = 0x40001444;
  phy_get_tsens_value_ = 0x40001448;
  phy_tsens_read_init = 0x4000144c;
+--- a/components/esp_rom/esp32c5/ld/esp32c5.rom.libc.ld
++++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.libc.ld
+@@ -17,6 +17,11 @@
+  Group libc
+  ***************************************/
+ 
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x40000580 );
++PROVIDE ( setjmp = 0x40000584 );
++/*******************************************/
++
+ /* Functions */
+ esp_rom_newlib_init_common_mutexes = 0x400004b4;
+ memset = 0x400004b8;
+@@ -46,8 +51,6 @@
+ strsep = 0x40000570;
+ strspn = 0x40000574;
+ strtok_r = 0x40000578;
+-longjmp = 0x40000580;
+-setjmp = 0x40000584;
+ abs = 0x40000588;
+ div = 0x4000058c;
+ labs = 0x40000590;
+--- a/components/esp_rom/esp32c5/ld/esp32c5.rom.newlib.ld
++++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.newlib.ld
+@@ -17,24 +17,27 @@
+  Group newlib
+  ***************************************/
+ 
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x40000540 );
++PROVIDE ( strndup = 0x40000564 );
++PROVIDE ( rand = 0x400005a0 );
++PROVIDE ( srand = 0x400005a4 );
++PROVIDE ( rand_r = 0x4000059c );
++PROVIDE ( atoi = 0x400005b0 );
++PROVIDE ( atol = 0x400005b4 );
++PROVIDE ( strtol = 0x400005b8 );
++PROVIDE ( strtoul = 0x400005bc );
++PROVIDE ( fflush = 0x400005c0 );
++PROVIDE ( _fflush_r = 0x400005c4 );
++PROVIDE ( _fwalk = 0x400005c8 );
++PROVIDE ( _fwalk_reent = 0x400005cc );
++PROVIDE ( __swbuf_r = 0x400005d8 );
++/*******************************************/
++
+ /* Functions */
+ _isatty_r = 0x400004e4;
+-strdup = 0x40000540;
+-strndup = 0x40000564;
+-rand_r = 0x4000059c;
+-rand = 0x400005a0;
+-srand = 0x400005a4;
+-atoi = 0x400005b0;
+-atol = 0x400005b4;
+-strtol = 0x400005b8;
+-strtoul = 0x400005bc;
+-fflush = 0x400005c0;
+-_fflush_r = 0x400005c4;
+-_fwalk = 0x400005c8;
+-_fwalk_reent = 0x400005cc;
+ __smakebuf_r = 0x400005d0;
+ __swhatbuf_r = 0x400005d4;
+-__swbuf_r = 0x400005d8;
+ __swbuf = 0x400005dc;
+ __swsetup_r = 0x400005e0;
+ toupper = 0x4000051c;
 --- a/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
 +++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
 @@ -143,12 +143,12 @@
