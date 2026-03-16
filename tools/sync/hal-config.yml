@@ -161,6 +161,15 @@ blob_filters:
     - net80211
     - phy
     - pp
+  esp32c5:
+    - ble_app
+    - btbb
+    - coexist
+    - core
+    - mesh
+    - net80211
+    - phy
+    - pp
   esp32c6:
     - ble_app
     - btbb
