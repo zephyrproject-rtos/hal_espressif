@@ -53,6 +53,8 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hal_i2c/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_i2s/include
     ../../components/esp_hal_i2s/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_lcd/include
+    ../../components/esp_hal_lcd/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_ledc/include
     ../../components/esp_hal_ledc/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_mcpwm/include
@@ -314,7 +316,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
 
   zephyr_sources_ifdef(CONFIG_MIPI_DBI_ESP32
-    ../../components/hal/lcd_hal.c
+    ../../components/esp_hal_lcd/lcd_hal.c
     )
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
