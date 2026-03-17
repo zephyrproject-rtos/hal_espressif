@@ -98,6 +98,31 @@
  {
      uint32_t maxram = 0;
      esp_psram_impl_get_available_size(&maxram);
+--- a/components/esp_psram/include/esp_psram.h
++++ b/components/esp_psram/include/esp_psram.h
+@@ -42,6 +42,22 @@
+  */
+ size_t esp_psram_get_size(void);
+ 
++/**
++ * @brief Get the mapped PSRAM region address and size (Zephyr only)
++ *
++ * Returns the virtual address and size of the PSRAM region mapped by
++ * esp_psram_init(). Used by Zephyr's shared_multi_heap to register
++ * the PSRAM heap at the correct runtime-determined address.
++ *
++ * @param[out] out_vaddr  Mapped virtual start address
++ * @param[out] out_size   Mapped region size in bytes
++ *
++ * @return
++ *        - ESP_OK:                On success
++ *        - ESP_ERR_INVALID_STATE: PSRAM not initialized
++ */
++esp_err_t esp_psram_get_mapped_region(intptr_t *out_vaddr, size_t *out_size);
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/components/esp_psram/system_layer/esp_psram.c
 +++ b/components/esp_psram/system_layer/esp_psram.c
 @@ -10,14 +10,12 @@
@@ -170,7 +195,7 @@
  #if CONFIG_IDF_TARGET_ESP32
  //If no function in esp_himem.c is used, this function will be linked into the
  //binary instead of the one in esp_himem.c, automatically making sure no memory
-@@ -470,62 +428,9 @@
+@@ -470,62 +428,19 @@
      return ESP_OK;
  }
  
@@ -217,7 +242,9 @@
 -        }
 -    }
 -#endif /* CONFIG_SPIRAM_FETCH_INSTRUCTIONS */
--
++    return ESP_OK;
++}
+ 
 -    // In the case of ESP32S2, the rodata is mapped to a read-only region (SOC_DROM0_ADDRESS_LOW - SOC_DROM0_ADDRESS_HIGH), thus we cannot add this region to the heap.
 -#if CONFIG_SPIRAM_RODATA && !CONFIG_IDF_TARGET_ESP32S2
 -    if ((uint32_t)&_rodata_reserved_end & (CONFIG_MMU_PAGE_SIZE - 1)) {
@@ -227,14 +254,20 @@
 -        if (ret == ESP_OK) {
 -            ESP_EARLY_LOGI(TAG, "Adding pool of %dK of PSRAM memory gap generated due to end address alignment of drom to the heap allocator", (rodata_alignment_gap_heap_end - rodata_alignment_gap_heap_start) / 1024);
 -        }
--    }
++esp_err_t esp_psram_get_mapped_region(intptr_t *out_vaddr, size_t *out_size)
++{
++    if (!s_psram_ctx.is_initialised) {
++        return ESP_ERR_INVALID_STATE;
+     }
 -#endif /* CONFIG_SPIRAM_RODATA */
 -#endif /* CONFIG_SPIRAM_PRE_CONFIGURE_MEMORY_PROTECTION */
 -
++    *out_vaddr = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].vaddr_start;
++    *out_size = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size;
      return ESP_OK;
  }
  
-@@ -555,31 +460,9 @@
+@@ -555,31 +470,9 @@
      return false;
  }
  
