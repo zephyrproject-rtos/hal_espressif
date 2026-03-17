@@ -434,6 +434,16 @@ esp_err_t esp_psram_extram_add_to_heap_allocator(void)
     return ESP_OK;
 }
 
+esp_err_t esp_psram_get_mapped_region(intptr_t *out_vaddr, size_t *out_size)
+{
+    if (!s_psram_ctx.is_initialised) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    *out_vaddr = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].vaddr_start;
+    *out_size = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size;
+    return ESP_OK;
+}
+
 bool IRAM_ATTR esp_psram_check_ptr_addr(const void *p)
 {
     if (!s_psram_ctx.is_initialised) {
