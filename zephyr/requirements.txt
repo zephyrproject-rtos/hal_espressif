@@ -1,1 +1,1 @@
-esptool>=5.0.2
+esptool>=5.2.0
