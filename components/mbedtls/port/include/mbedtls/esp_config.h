@@ -596,6 +596,7 @@
  *
  * Comment this macro to disable FIXED POINT curves optimisation.
  */
+#undef MBEDTLS_ECP_FIXED_POINT_OPTIM
 #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
 #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
 #else

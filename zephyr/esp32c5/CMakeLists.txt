@@ -131,6 +131,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/ieee802154/include
     ../../components/ieee802154/private_include
     ../../components/mbedtls/port/include
+    ../../components/mbedtls/port/psa_driver/include
     ../../components/riscv/${CONFIG_SOC_SERIES}/include
     ../../components/riscv/include
     ../../components/riscv/include/esp_private
@@ -645,19 +646,17 @@ if(CONFIG_SOC_SERIES_ESP32C5)
 
     if(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO)
       set(CRYPTO_SRCS
-        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/fastpbkdf2.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
-        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/fastpsk.c"
          # Add internal RC4 as RC4 has been removed from mbedtls
          "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
         )
         if(NOT CONFIG_MBEDTLS_CIPHER_DES_ENABLED)
           set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/des-internal.c")
         endif()
-        if(NOT CONFIG_MBEDTLS_MAC_CMAC_ENABLED)
+        if(NOT CONFIG_MBEDTLS_MAC_CMAC_ENABLED AND NOT CONFIG_MBEDTLS_CMAC AND NOT CONFIG_PSA_WANT_ALG_CMAC)
             set(CRYPTO_SRCS ${CRYPTO_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/aes-omac1.c")
         endif()
         if(NOT CONFIG_MBEDTLS_NIST_KW_C)
@@ -717,6 +716,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     zephyr_compile_definitions(
       __ets__
       ESP_SUPPLICANT
+      ESPRESSIF_USE
       IEEE8021X_EAPOL
       EAP_PEER_METHOD
       EAP_MSCHAPv2
@@ -730,7 +730,6 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       CONFIG_IEEE80211W
       CONFIG_SHA256
       CONFIG_NO_RADIUS
-      CONFIG_FAST_PBKDF2
       CONFIG_CRYPTO_INTERNAL
       )
 
@@ -739,8 +738,10 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_H2E CONFIG_SAE_H2E)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_WPA3_COMPATIBLE CONFIG_WPA3_COMPAT)
 
   endif()
 
