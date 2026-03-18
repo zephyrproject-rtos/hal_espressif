@@ -5,7 +5,6 @@
  */
 
 #include <string.h>
-#include <sys/cdefs.h>
 #include "esp_types.h"
 #include "sdkconfig.h"
 #include "esp_err.h"
