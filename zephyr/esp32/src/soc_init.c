@@ -6,6 +6,7 @@
 
 #include "soc_init.h"
 #include "esp_log.h"
+#include "esp32/rom/rtc.h"
 #include "rom/cache.h"
 #include "soc/dport_reg.h"
 #include "hal/mmu_hal.h"
@@ -15,6 +16,9 @@ static const char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
 }
 
 void wdt_reset_info_dump(int cpu)

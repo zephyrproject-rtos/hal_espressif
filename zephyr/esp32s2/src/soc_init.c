@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include "soc_init.h"
+#include "esp32s2/rom/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/soc.h"
 #include "soc/dport_reg.h"
@@ -18,7 +19,9 @@ static const char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
-	/* ESP32-S2 specific hardware initialization - no special action needed */
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
 }
 
 void ana_reset_config(void)

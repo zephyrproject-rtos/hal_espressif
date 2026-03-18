@@ -5,6 +5,7 @@
  */
 #include <stdbool.h>
 #include "soc_init.h"
+#include "esp32c3/rom/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "hal/rwdt_ll.h"
 #include "hal/brownout_ll.h"
@@ -23,6 +24,10 @@ const static char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
+
 	if (!ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 3)) {
 		REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_XPD_IPH, 1);
 		REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1_PVT, 12);

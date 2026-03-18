@@ -4,8 +4,8 @@ package-managers:
     requirement-files:
       - zephyr/requirements.txt
 build:
-  cmake: zephyr
-  kconfig: zephyr/Kconfig
+  cmake-ext: True
+  kconfig-ext: True
   settings:
     dts_root: .
 blobs:

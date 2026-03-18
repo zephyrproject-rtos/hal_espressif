@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include "soc_init.h"
+#include "esp32c2/rom/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/system_reg.h"
 #include "soc/assist_debug_reg.h"
@@ -20,6 +21,9 @@ static const char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
 }
 
 void ana_super_wdt_reset_config(bool enable)
