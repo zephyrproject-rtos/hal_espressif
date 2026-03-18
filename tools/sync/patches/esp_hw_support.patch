@@ -342,7 +342,15 @@
  // TODO: IDF-6968 reserve the pins that not fanned out regarding the SiP version
 --- a/components/esp_hw_support/etm/esp_etm.c
 +++ b/components/esp_hw_support/etm/esp_etm.c
-@@ -437,7 +437,7 @@
+@@ -6,7 +6,6 @@
+ 
+ #include <stdlib.h>
+ #include <stdatomic.h>
+-#include <sys/cdefs.h>
+ #include <sys/lock.h>
+ #include "sdkconfig.h"
+ #if CONFIG_ETM_ENABLE_DEBUG_LOG
+@@ -437,7 +436,7 @@
  }
  
  #if CONFIG_ETM_ENABLE_DEBUG_LOG
@@ -747,6 +755,16 @@
          .dev = NULL,
  #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
          .icg_config = NULL,
+--- a/components/esp_hw_support/modem/modem_etm.c
++++ b/components/esp_hw_support/modem/modem_etm.c
+@@ -5,7 +5,6 @@
+  */
+ 
+ #include <stdlib.h>
+-#include <sys/cdefs.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+ #include "esp_check.h"
 --- a/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
 +++ b/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
 @@ -6,7 +6,7 @@

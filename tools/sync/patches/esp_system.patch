@@ -172,16 +172,18 @@
  #include "esp_private/esp_system_attr.h"
 --- a/components/esp_system/port/soc/esp32c2/clk.c
 +++ b/components/esp_system/port/soc/esp32c2/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -23,7 +23,6 @@
+@@ -23,7 +21,6 @@
  #include "soc/rtc_periph.h"
  #include "hal/wdt_hal.h"
  #include "esp_private/periph_ctrl.h"
@@ -189,7 +191,7 @@
  #include "soc/syscon_reg.h"
  #include "esp_rom_serial_output.h"
  
-@@ -31,9 +30,7 @@
+@@ -31,9 +28,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -200,7 +202,7 @@
  
  /* Indicates that this 32k oscillator gets input from external oscillator, rather
   * than a crystal.
-@@ -106,9 +103,9 @@
+@@ -106,9 +101,9 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -225,16 +227,18 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32c3/clk.c
 +++ b/components/esp_system/port/soc/esp32c3/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,9 +32,7 @@
+@@ -32,9 +30,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -245,7 +249,7 @@
  
  /* Indicates that this 32k oscillator gets input from external oscillator, rather
   * than a crystal.
-@@ -96,11 +94,11 @@
+@@ -96,11 +92,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -260,7 +264,7 @@
      select_rtc_slow_clk(SLOW_CLK_8MD256);
  #else
      select_rtc_slow_clk(SLOW_CLK_RTC);
-@@ -258,9 +256,6 @@
+@@ -258,9 +254,6 @@
                             SYSTEM_WIFI_CLK_UNUSED_BIT12;
  
  #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
@@ -293,16 +297,18 @@
  #include "esp_cpu.h"
 --- a/components/esp_system/port/soc/esp32c5/clk.c
 +++ b/components/esp_system/port/soc/esp32c5/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -41,8 +41,9 @@
+@@ -41,8 +39,9 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -313,7 +319,7 @@
  #define MHZ (1000000)
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
-@@ -51,7 +52,7 @@
+@@ -51,7 +50,7 @@
  
  void esp_rtc_init(void)
  {
@@ -322,7 +328,7 @@
      pmu_init();
  #endif
  }
-@@ -62,16 +63,7 @@
+@@ -62,16 +61,7 @@
      assert((rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_48M) || (rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M));
  
      rtc_clk_8m_enable(true);
@@ -339,7 +345,7 @@
  #endif //!CONFIG_IDF_ENV_FPGA
  
  #ifdef CONFIG_BOOTLOADER_WDT_ENABLE
-@@ -90,9 +82,9 @@
+@@ -90,9 +80,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -407,16 +413,18 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32c6/clk.c
 +++ b/components/esp_system/port/soc/esp32c6/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "soc/soc.h"
-@@ -25,9 +25,7 @@
+@@ -25,9 +23,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -427,7 +435,7 @@
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  static __attribute__((unused)) void recalib_bbpll(void);
-@@ -42,7 +40,7 @@
+@@ -42,7 +38,7 @@
      recalib_bbpll();
  #endif
  
@@ -436,7 +444,7 @@
      pmu_init();
  #endif
  }
-@@ -72,9 +70,9 @@
+@@ -72,9 +68,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -547,16 +555,18 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32h2/clk.c
 +++ b/components/esp_system/port/soc/esp32h2/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,9 +32,7 @@
+@@ -32,9 +30,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -567,7 +577,7 @@
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  static __attribute__((unused)) void recalib_bbpll(void);
-@@ -49,7 +47,7 @@
+@@ -49,7 +45,7 @@
      recalib_bbpll();
  #endif
  
@@ -576,7 +586,7 @@
      pmu_init();
  #endif
  }
-@@ -81,9 +79,9 @@
+@@ -81,9 +77,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -695,16 +705,18 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32s2/clk.c
 +++ b/components/esp_system/port/soc/esp32s2/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -24,7 +24,6 @@
+@@ -24,7 +22,6 @@
  #include "hal/wdt_hal.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
@@ -712,7 +724,7 @@
  #include "soc/syscon_reg.h"
  
  ESP_LOG_ATTR_TAG(TAG, "clk");
-@@ -33,10 +32,10 @@
+@@ -33,10 +30,10 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -726,7 +738,7 @@
  #else
  #define RTC_XTAL_CAL_RETRY 1
  #endif
-@@ -96,11 +95,11 @@
+@@ -96,11 +93,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -793,16 +805,18 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32s3/clk.c
 +++ b/components/esp_system/port/soc/esp32s3/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -24,7 +24,6 @@
+@@ -24,7 +22,6 @@
  #include "hal/usb_serial_jtag_ll.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
@@ -810,7 +824,7 @@
  #include "soc/syscon_reg.h"
  #include "hal/gpio_ll.h"
  
-@@ -34,7 +33,7 @@
+@@ -34,7 +31,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -819,7 +833,7 @@
  
  #define RTC_XTAL_CAL_RETRY 1
  
-@@ -98,11 +97,11 @@
+@@ -98,11 +95,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -834,7 +848,7 @@
      select_rtc_slow_clk(SLOW_CLK_8MD256);
  #else
      select_rtc_slow_clk(SLOW_CLK_RTC);
-@@ -288,9 +287,6 @@
+@@ -288,9 +285,6 @@
              SYSTEM_WIFI_CLK_SDIO_HOST_EN;
  
  #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
