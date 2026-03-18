@@ -557,11 +557,13 @@ static int init_group_in_wrapper(crypto_ec_key_wrapper_t *wrapper)
 static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bits)
 {
     switch (grp_id) {
+#if defined(MBEDTLS_ECP_DP_SECP192R1)
     case MBEDTLS_ECP_DP_SECP192R1:
         if (bits) {
             *bits = 192;
         }
         return PSA_ECC_FAMILY_SECP_R1;
+#endif
     case MBEDTLS_ECP_DP_SECP256R1:
         if (bits) {
             *bits = 256;
@@ -597,11 +599,13 @@ static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bit
             *bits = 255;
         }
         return PSA_ECC_FAMILY_MONTGOMERY;
+#if defined(MBEDTLS_ECP_DP_SECP192K1)
     case MBEDTLS_ECP_DP_SECP192K1:
         if (bits) {
             *bits = 192;
         }
         return PSA_ECC_FAMILY_SECP_K1;
+#endif
     // case MBEDTLS_ECP_DP_SECP224K1:
     //     if (bits) {
     //         *bits = 224;
@@ -947,54 +951,32 @@ struct crypto_bignum *crypto_ec_key_get_private_key(struct crypto_ec_key *key)
         return (struct crypto_bignum *)wrapper->cached_private_key;
     }
 
-    mbedtls_pk_context *pkey_ctx = os_calloc(1, sizeof(mbedtls_pk_context));
-    if (!pkey_ctx) {
-        return NULL;
-    }
+    unsigned char key_buf[PSA_BITS_TO_BYTES(PSA_VENDOR_ECC_MAX_CURVE_BITS)];
+    size_t key_len = 0;
 
-    mbedtls_pk_init(pkey_ctx);
-
-    int ret = mbedtls_pk_copy_from_psa(wrapper->key_id, pkey_ctx);
-    if (ret != 0) {
-        wpa_printf(MSG_ERROR, "Failed to copy key from PSA");
-        mbedtls_pk_free(pkey_ctx);
-        os_free(pkey_ctx);
+    psa_status_t status = psa_export_key(wrapper->key_id, key_buf,
+                                          sizeof(key_buf), &key_len);
+    if (status != PSA_SUCCESS) {
+        wpa_printf(MSG_ERROR, "Failed to export private key from PSA: %d", (int)status);
         return NULL;
     }
 
     mbedtls_mpi *d = os_calloc(1, sizeof(mbedtls_mpi));
     if (!d) {
-        mbedtls_pk_free(pkey_ctx);
-        os_free(pkey_ctx);
+        forced_memzero(key_buf, sizeof(key_buf));
         return NULL;
     }
 
     mbedtls_mpi_init(d);
 
-    // Access the EC keypair directly from the PK context
-    // pkey_ctx->pk_ctx points to the underlying EC keypair
-    mbedtls_ecp_keypair *ec_key = (mbedtls_ecp_keypair *)(pkey_ctx->MBEDTLS_PRIVATE(pk_ctx));
-    if (!ec_key) {
-        wpa_printf(MSG_ERROR, "Failed to get EC keypair from PK context");
-        mbedtls_mpi_free(d);
-        os_free(d);
-        mbedtls_pk_free(pkey_ctx);
-        os_free(pkey_ctx);
-        return NULL;
-    }
-
-    ret = mbedtls_mpi_copy(d, &ec_key->MBEDTLS_PRIVATE(d));
+    int ret = mbedtls_mpi_read_binary(d, key_buf, key_len);
+    forced_memzero(key_buf, sizeof(key_buf));
     if (ret != 0) {
-        wpa_printf(MSG_ERROR, "Failed to copy private key");
+        wpa_printf(MSG_ERROR, "Failed to read private key into mpi: -0x%04x", -ret);
         mbedtls_mpi_free(d);
         os_free(d);
-        mbedtls_pk_free(pkey_ctx);
-        os_free(pkey_ctx);
         return NULL;
     }
-
-    mbedtls_pk_free(pkey_ctx);
-    os_free(pkey_ctx);
 
     // Cache the private key in wrapper for later cleanup
     wrapper->cached_private_key = d;
@@ -1395,8 +1377,6 @@ void crypto_ec_key_debug_print(struct crypto_ec_key *key, const char *title)
  */
 struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t len)
 {
-    // Use mbedtls_pk_parse_public_key() to parse SubjectPublicKeyInfo
-    // This is the recommended replacement for the deprecated mbedtls_pk_parse_subpubkey()
     mbedtls_pk_context pk_ctx;
     mbedtls_pk_init(&pk_ctx);
 
@@ -1407,69 +1387,61 @@ struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t 
         return NULL;
     }
 
-    // Get the EC keypair from the PK context
-    mbedtls_ecp_keypair *ec = (mbedtls_ecp_keypair *)(pk_ctx.MBEDTLS_PRIVATE(pk_ctx));
-    if (!ec) {
-        wpa_printf(MSG_ERROR, "Failed to get EC keypair from parsed key");
-        mbedtls_pk_free(&pk_ctx);
-        return NULL;
-    }
-
-    mbedtls_ecp_group_id grp_id = ec->MBEDTLS_PRIVATE(grp).id;
-
-    // Convert mbedtls curve ID to PSA curve family and bits
-    size_t key_bits = 0;
-    psa_ecc_family_t ecc_family = group_id_to_psa(grp_id, &key_bits);
-    if (ecc_family == 0) {
-        wpa_printf(MSG_ERROR, "Unsupported or invalid curve: %d", grp_id);
-        mbedtls_pk_free(&pk_ctx);
-        return NULL;
-    }
-
-    // Export public key in uncompressed format for PSA import
-    unsigned char pub_key_buf[PSA_EXPORT_PUBLIC_KEY_MAX_SIZE] = {0};
-    size_t pub_key_len = 0;
-
-    ret = mbedtls_ecp_point_write_binary(
-              &ec->MBEDTLS_PRIVATE(grp),
-              &ec->MBEDTLS_PRIVATE(Q),
-              MBEDTLS_ECP_PF_UNCOMPRESSED,
-              &pub_key_len,
-              pub_key_buf,
-              sizeof(pub_key_buf)
-          );
-
+    psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
+    ret = mbedtls_pk_get_psa_attributes(&pk_ctx, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
     if (ret != 0) {
-        wpa_printf(MSG_ERROR, "Failed to export public key: -0x%04x", -ret);
+        wpa_printf(MSG_ERROR, "mbedtls_pk_get_psa_attributes failed: -0x%04x", -ret);
         mbedtls_pk_free(&pk_ctx);
         return NULL;
     }
 
-    // Done with mbedtls temporary context
-    mbedtls_pk_free(&pk_ctx);
+    psa_key_type_t key_type = psa_get_key_type(&key_attributes);
+    psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
+    size_t key_bits = psa_get_key_bits(&key_attributes);
 
-    // Create wrapper structure
+    if (ecc_family == 0 || key_bits == 0) {
+        wpa_printf(MSG_ERROR, "Unsupported or invalid curve from parsed key");
+        mbedtls_pk_free(&pk_ctx);
+        return NULL;
+    }
+
+    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
+    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
+        if (key_bits == 256) {
+            grp_id = MBEDTLS_ECP_DP_SECP256R1;
+        } else if (key_bits == 384) {
+            grp_id = MBEDTLS_ECP_DP_SECP384R1;
+        } else if (key_bits == 521) {
+            grp_id = MBEDTLS_ECP_DP_SECP521R1;
+        }
+    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
+        if (key_bits == 256) {
+            grp_id = MBEDTLS_ECP_DP_BP256R1;
+        } else if (key_bits == 384) {
+            grp_id = MBEDTLS_ECP_DP_BP384R1;
+        } else if (key_bits == 512) {
+            grp_id = MBEDTLS_ECP_DP_BP512R1;
+        }
+    }
+
     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
     if (!wrapper) {
-        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
+        mbedtls_pk_free(&pk_ctx);
         return NULL;
     }
-    wrapper->curve_id = grp_id;  // Store curve ID
-    mbedtls_ecp_group_init(&wrapper->group);  // Initialize group structure
-    wrapper->group.id = MBEDTLS_ECP_DP_NONE;  // Mark as not loaded yet (lazy init)
+    wrapper->curve_id = grp_id;
+    mbedtls_ecp_group_init(&wrapper->group);
+    wrapper->group.id = MBEDTLS_ECP_DP_NONE;
 
-    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_usage_flags(&attributes,
+    psa_set_key_usage_flags(&key_attributes,
                             PSA_KEY_USAGE_VERIFY_HASH | PSA_KEY_USAGE_VERIFY_MESSAGE | PSA_KEY_USAGE_EXPORT);
-    psa_set_key_algorithm(&attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
-    psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(ecc_family));
-    psa_set_key_bits(&attributes, key_bits);
+    psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
 
-    psa_status_t status = psa_import_key(&attributes, pub_key_buf, pub_key_len, &wrapper->key_id);
-    psa_reset_key_attributes(&attributes);
+    ret = mbedtls_pk_import_into_psa(&pk_ctx, &key_attributes, &wrapper->key_id);
+    mbedtls_pk_free(&pk_ctx);
 
-    if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "Failed to import key to PSA: %d", status);
+    if (ret != 0) {
+        wpa_printf(MSG_ERROR, "mbedtls_pk_import_into_psa failed: -0x%04x", -ret);
         mbedtls_ecp_group_free(&wrapper->group);
         os_free(wrapper);
         return NULL;
@@ -1943,13 +1915,6 @@ struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
         return NULL;
     }
 
-    // Extract curve ID from parsed key
-    mbedtls_ecp_keypair *ec = (mbedtls_ecp_keypair *)(pkey->MBEDTLS_PRIVATE(pk_ctx));
-    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-    if (ec) {
-        grp_id = ec->MBEDTLS_PRIVATE(grp).id;
-    }
-
     psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
     ret = mbedtls_pk_get_psa_attributes(pkey, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
     if (ret != 0) {
@@ -1959,15 +1924,35 @@ struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
         return NULL;
     }
 
-    // Create wrapper structure
+    psa_key_type_t key_type = psa_get_key_type(&key_attributes);
+    psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
+    size_t key_bits = psa_get_key_bits(&key_attributes);
+    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
+    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
+        if (key_bits == 256) {
+            grp_id = MBEDTLS_ECP_DP_SECP256R1;
+        } else if (key_bits == 384) {
+            grp_id = MBEDTLS_ECP_DP_SECP384R1;
+        } else if (key_bits == 521) {
+            grp_id = MBEDTLS_ECP_DP_SECP521R1;
+        }
+    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
+        if (key_bits == 256) {
+            grp_id = MBEDTLS_ECP_DP_BP256R1;
+        } else if (key_bits == 384) {
+            grp_id = MBEDTLS_ECP_DP_BP384R1;
+        } else if (key_bits == 512) {
+            grp_id = MBEDTLS_ECP_DP_BP512R1;
+        }
+    }
+
     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
     if (!wrapper) {
-        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
         mbedtls_pk_free(pkey);
         os_free(pkey);
         return NULL;
     }
-    wrapper->curve_id = grp_id;  // Store curve ID
+    wrapper->curve_id = grp_id;
     mbedtls_ecp_group_init(&wrapper->group);
     wrapper->group.id = MBEDTLS_ECP_DP_NONE;  // Mark as not loaded yet (lazy init)
 

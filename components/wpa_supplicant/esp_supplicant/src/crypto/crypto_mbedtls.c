@@ -21,6 +21,7 @@
 #include "mbedtls/md.h"
 #include "mbedtls/bignum.h"
 #include "mbedtls/nist_kw.h"
+#include "mbedtls/pkcs5.h"
 
 #include "common.h"
 #include "utils/wpabuf.h"
