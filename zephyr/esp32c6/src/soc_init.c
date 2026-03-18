@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include "soc_init.h"
+#include "esp32c6/rom/rtc.h"
 #include <soc/soc.h>
 #include "soc/lp_analog_peri_reg.h"
 #include "hal/clk_tree_ll.h"
@@ -31,6 +32,10 @@ const static char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
+
 	/* In 80MHz flash mode, ROM sets the mspi module clk divider to 2, fix it here */
 #if CONFIG_ESPTOOLPY_FLASHFREQ_80M
 	clk_ll_mspi_fast_set_hs_divider(6);
