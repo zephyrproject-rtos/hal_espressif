@@ -1,3 +1,13 @@
+--- a/components/esp_adc/adc_cali.c
++++ b/components/esp_adc/adc_cali.c
+@@ -5,7 +5,6 @@
+  */
+ 
+ #include <string.h>
+-#include <sys/cdefs.h>
+ #include "esp_types.h"
+ #include "sdkconfig.h"
+ #include "esp_err.h"
 --- a/components/esp_adc/adc_cali_curve_fitting.c
 +++ b/components/esp_adc/adc_cali_curve_fitting.c
 @@ -189,8 +189,8 @@

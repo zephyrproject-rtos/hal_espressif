@@ -63,6 +63,18 @@
  #define unlikely(x)    (x)
  #endif
  #endif
+--- a/components/esp_common/include/esp_types.h
++++ b/components/esp_common/include/esp_types.h
+@@ -7,9 +7,6 @@
+ #ifndef __ESP_TYPES_H__
+ #define __ESP_TYPES_H__
+ 
+-#ifdef __GNUC__
+-#include <sys/cdefs.h>
+-#endif /*__GNUC__*/
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include <stddef.h>
 --- a/components/esp_common/src/esp_err_to_name.c
 +++ b/components/esp_common/src/esp_err_to_name.c
 @@ -326,9 +326,6 @@
