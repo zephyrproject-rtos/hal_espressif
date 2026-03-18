@@ -6,7 +6,6 @@
 
 #include <stdlib.h>
 #include <stdatomic.h>
-#include <sys/cdefs.h>
 #include <sys/lock.h>
 #include "sdkconfig.h"
 #if CONFIG_ETM_ENABLE_DEBUG_LOG
