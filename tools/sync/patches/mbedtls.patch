@@ -90,7 +90,15 @@
  #ifdef __cplusplus
 --- a/components/mbedtls/port/include/mbedtls/esp_config.h
 +++ b/components/mbedtls/port/include/mbedtls/esp_config.h
-@@ -2008,6 +2008,7 @@
+@@ -596,6 +596,7 @@
+  *
+  * Comment this macro to disable FIXED POINT curves optimisation.
+  */
++#undef MBEDTLS_ECP_FIXED_POINT_OPTIM
+ #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
+ #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
+ #else
+@@ -2008,6 +2009,7 @@
  #ifdef CONFIG_MBEDTLS_CHACHA20_C
  #define PSA_WANT_KEY_TYPE_CHACHA20 1
  #else
@@ -98,7 +106,7 @@
  #undef PSA_WANT_KEY_TYPE_CHACHA20
  #endif
  
-@@ -2018,11 +2019,12 @@
+@@ -2018,11 +2020,12 @@
   *
   * Module:  library/chachapoly.c
   *
@@ -112,7 +120,7 @@
  #undef PSA_WANT_ALG_CHACHA20_POLY1305
  #endif
  
-@@ -2519,6 +2521,20 @@
+@@ -2519,6 +2522,20 @@
  #define MBEDTLS_PLATFORM_C
  
  /**
