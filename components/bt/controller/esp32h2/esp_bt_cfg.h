@@ -99,8 +99,8 @@ extern "C" {
         #define DEFAULT_BT_LE_ACL_BUF_SIZE (255)
     #endif
 
-    #if defined(CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
-        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
+    #if defined(CONFIG_BT_BUF_ACL_TX_COUNT)
+        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_BUF_ACL_TX_COUNT)
     #else
         #define DEFAULT_BT_LE_ACL_BUF_COUNT (24)
     #endif
@@ -129,8 +129,8 @@ extern "C" {
         #define DEFAULT_BT_NIMBLE_WHITELIST_SIZE (12)
     #endif
 
-    #if defined(CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
-        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
+    #if defined(CONFIG_BT_BUF_EVT_RX_COUNT)
+        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_BUF_EVT_RX_COUNT)
     #else
         #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (30)
     #endif
