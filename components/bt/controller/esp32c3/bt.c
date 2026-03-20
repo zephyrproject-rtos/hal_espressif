@@ -109,7 +109,7 @@ do{\
 } while(0)
 
 #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
-#define OSI_VERSION              0x0001000A
+#define OSI_VERSION              0x0001000B
 #define OSI_MAGIC_VALUE          0xFADEBEAD
 
 #define BLE_PWR_HDL_INVL 0xFFFF
@@ -216,6 +216,7 @@ struct osi_funcs_t {
     void (* _esp_hw_power_down)(void);
     void (* _esp_hw_power_up)(void);
     void (* _ets_backup_dma_copy)(uint32_t reg, uint32_t mem_addr, uint32_t num, bool to_rem);
+    void *(* _malloc_retention)(size_t size);
     void (* _ets_delay_us)(uint32_t us);
     void (* _btdm_rom_table_ready)(void);
     bool (* _coex_bt_wakeup_request)(void);
@@ -463,6 +464,7 @@ static const struct osi_funcs_t osi_funcs_ro = {
     ._esp_hw_power_down = btdm_hw_mac_power_down_wrapper,
     ._esp_hw_power_up = btdm_hw_mac_power_up_wrapper,
     ._ets_backup_dma_copy = btdm_backup_dma_copy_wrapper,
+    ._malloc_retention = malloc_internal_wrapper,
     ._ets_delay_us = esp_rom_delay_us,
     ._btdm_rom_table_ready = btdm_funcs_table_ready_wrapper,
     ._coex_bt_wakeup_request = coex_bt_wakeup_request,
