@@ -56,7 +56,7 @@
 
 #define TAG "esp_adapter"
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
 extern void wifi_apb80m_request(void);
 extern void wifi_apb80m_release(void);
 #endif
@@ -353,14 +353,14 @@ static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, 
 
 static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_apb80m_request();
 #endif
 }
 
 static void IRAM_ATTR wifi_apb80m_release_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_apb80m_release();
 #endif
 }
