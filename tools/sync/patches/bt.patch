@@ -1541,8 +1541,8 @@
  
 -    #if defined(CONFIG_BT_LE_ACL_BUF_COUNT)
 -        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_LE_ACL_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
-+        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_ACL_TX_COUNT)
++        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_BUF_ACL_TX_COUNT)
      #else
          #define DEFAULT_BT_LE_ACL_BUF_COUNT (24)
      #endif
@@ -1581,8 +1581,8 @@
  
 -    #if defined(CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
 -        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_EVT_RX_COUNT)
++        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_BUF_EVT_RX_COUNT)
      #else
          #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (30)
      #endif
@@ -1871,15 +1871,6 @@
  #if CONFIG_BT_ENABLED
  
  /* Macro definition
-@@ -127,7 +109,7 @@
- } while(0)
- 
- #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
--#define OSI_VERSION              0x0001000B
-+#define OSI_VERSION              0x0001000A
- #define OSI_MAGIC_VALUE          0xFADEBEAD
- 
- #define BLE_PWR_HDL_INVL 0xFFFF
 @@ -159,9 +141,11 @@
      int (*notify_host_recv)(uint8_t *data, uint16_t len);   /*!< callback used to notify that the controller has a packet to send to the host*/
  } vhci_host_callback_t;
@@ -1895,15 +1886,7 @@
  
  typedef void (* osi_intr_handler)(void);
  
-@@ -232,7 +216,6 @@
-     void (* _esp_hw_power_down)(void);
-     void (* _esp_hw_power_up)(void);
-     void (* _ets_backup_dma_copy)(uint32_t reg, uint32_t mem_addr, uint32_t num, bool to_rem);
--    void *(* _malloc_retention)(size_t size);
-     void (* _ets_delay_us)(uint32_t us);
-     void (* _btdm_rom_table_ready)(void);
-     bool (* _coex_bt_wakeup_request)(void);
-@@ -353,6 +336,7 @@
+@@ -353,6 +337,7 @@
  static int interrupt_free_wrapper(void *handle);
  static void global_interrupt_disable(void);
  static void global_interrupt_restore(void);
@@ -1911,7 +1894,7 @@
  static void task_yield_from_isr(void);
  static void *semphr_create_wrapper(uint32_t max, uint32_t init);
  static void semphr_delete_wrapper(void *semphr);
-@@ -374,7 +358,7 @@
+@@ -374,7 +359,7 @@
  static void task_delete_wrapper(void *task_handle);
  static bool is_in_isr_wrapper(void);
  static void *malloc_internal_wrapper(size_t size);
@@ -1920,7 +1903,7 @@
  static int read_mac_wrapper(uint8_t mac[6]);
  static void srand_wrapper(unsigned int seed);
  static int rand_wrapper(void);
-@@ -430,7 +414,7 @@
+@@ -430,7 +415,7 @@
      ._interrupt_handler_set_rsv = NULL,
      ._global_intr_disable = global_interrupt_disable,
      ._global_intr_restore = global_interrupt_restore,
@@ -1929,7 +1912,7 @@
      ._task_yield_from_isr = task_yield_from_isr,
      ._semphr_create = semphr_create_wrapper,
      ._semphr_delete = semphr_delete_wrapper,
-@@ -452,10 +436,9 @@
+@@ -452,10 +437,9 @@
      ._task_delete = task_delete_wrapper,
      ._is_in_isr = is_in_isr_wrapper,
      ._cause_sw_intr_to_core = NULL,
@@ -1942,7 +1925,15 @@
      ._read_efuse_mac = read_mac_wrapper,
      ._srand = srand_wrapper,
      ._rand = rand_wrapper,
-@@ -493,7 +476,8 @@
+@@ -480,6 +464,7 @@
+     ._esp_hw_power_down = btdm_hw_mac_power_down_wrapper,
+     ._esp_hw_power_up = btdm_hw_mac_power_up_wrapper,
+     ._ets_backup_dma_copy = btdm_backup_dma_copy_wrapper,
++    ._malloc_retention = malloc_internal_wrapper,
+     ._ets_delay_us = esp_rom_delay_us,
+     ._btdm_rom_table_ready = btdm_funcs_table_ready_wrapper,
+     ._coex_bt_wakeup_request = coex_bt_wakeup_request,
+@@ -493,7 +478,8 @@
  /* Static variable declare */
  static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
  
@@ -1952,7 +1943,7 @@
  
  // low power control struct
  static DRAM_ATTR btdm_lpcntl_t s_lp_cntl;
-@@ -503,8 +487,15 @@
+@@ -503,8 +489,15 @@
  static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
  // number of fractional bit for btdm_lpcycle_us
  static DRAM_ATTR uint8_t btdm_lpcycle_us_frac = 0;
@@ -1970,7 +1961,7 @@
  // wakeup timer
  static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr = NULL;
  
-@@ -563,8 +554,7 @@
+@@ -563,8 +556,7 @@
          esp_bt_controller_log_storage(len, addr, end);
  #endif //CONFIG_BT_CTRL_LE_LOG_STORAGE_EN
      } else {
@@ -1980,7 +1971,7 @@
          esp_panic_handler_feed_wdts();
  
          if (len && addr) {
-@@ -575,7 +565,7 @@
+@@ -575,7 +567,7 @@
          }
          if (end) { esp_rom_printf("\n"); }
  
@@ -1989,7 +1980,7 @@
      }
  }
  
-@@ -586,13 +576,12 @@
+@@ -586,13 +578,12 @@
          esp_bt_read_ctrl_log_from_flash(output);
  #endif // CONFIG_BT_CTRL_LE_LOG_STORAGE_EN
      } else {
@@ -2005,7 +1996,7 @@
      }
  }
  #endif /* CONFIG_BT_CTRL_LE_LOG_MODE_BLE_LOG_V2 */
-@@ -762,8 +751,7 @@
+@@ -762,8 +753,7 @@
          return;
      }
  
@@ -2015,7 +2006,7 @@
      esp_panic_handler_feed_wdts();
      r_ble_log_async_output_dump_all(true);
      esp_bt_controller_log_deinit();
-@@ -791,7 +779,7 @@
+@@ -791,7 +781,7 @@
      }
  
      esp_rom_printf(":DUMP_END]\r\n");
@@ -2024,7 +2015,7 @@
      esp_partition_munmap(mmap_handle);
      err = esp_bt_controller_log_init(log_output_mode);
      assert(err == ESP_OK);
-@@ -868,11 +856,8 @@
+@@ -868,11 +858,8 @@
      p.fn = handler;
      p.arg = arg;
      p.handle = (intr_handle_t *)ret_handle;
@@ -2037,7 +2028,7 @@
      return p.ret;
  }
  
-@@ -893,37 +878,39 @@
+@@ -893,37 +880,39 @@
  
  static void IRAM_ATTR global_interrupt_disable(void)
  {
@@ -2094,7 +2085,7 @@
  }
  
  static void semphr_delete_wrapper(void *semphr)
-@@ -931,158 +918,216 @@
+@@ -931,158 +920,216 @@
      if (semphr == NULL) {
          return;
      }
@@ -2369,7 +2360,7 @@
  }
  
  static int IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
-@@ -1620,16 +1665,10 @@
+@@ -1620,16 +1667,10 @@
  
  static esp_err_t try_heap_caps_add_region(intptr_t start, intptr_t end)
  {
@@ -2390,7 +2381,7 @@
  }
  
  #if CONFIG_MAC_BB_PD
-@@ -1739,7 +1778,7 @@
+@@ -1739,7 +1780,7 @@
              s_lp_cntl.main_xtal_pu = 1;
  #endif
              select_src_ret = btdm_lpclk_select_src(BTDM_LPCLK_SEL_XTAL);
@@ -2399,7 +2390,7 @@
              assert(select_src_ret && set_div_ret);
              btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
              btdm_lpcycle_us = 1 << (btdm_lpcycle_us_frac);
-@@ -1801,8 +1840,8 @@
+@@ -1801,8 +1842,8 @@
          return ESP_ERR_INVALID_ARG;
      }
  
@@ -2410,7 +2401,7 @@
          ESP_LOGE(BT_LOG_TAG, "Invalid controller task prioriy or stack size");
          return ESP_ERR_INVALID_ARG;
      }
-@@ -2418,4 +2457,9 @@
+@@ -2418,4 +2459,9 @@
      esp_rom_gpio_connect_out_signal(gpio, signal_idx, out_inv, oen_inv);
  }
  
@@ -2916,6 +2907,28 @@
  
  #if CONFIG_BT_NIMBLE_ENABLED
  
+@@ -99,8 +99,8 @@
+         #define DEFAULT_BT_LE_ACL_BUF_SIZE (255)
+     #endif
+ 
+-    #if defined(CONFIG_BT_LE_ACL_BUF_COUNT)
+-        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_LE_ACL_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_ACL_TX_COUNT)
++        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_BUF_ACL_TX_COUNT)
+     #else
+         #define DEFAULT_BT_LE_ACL_BUF_COUNT (24)
+     #endif
+@@ -129,8 +129,8 @@
+         #define DEFAULT_BT_NIMBLE_WHITELIST_SIZE (12)
+     #endif
+ 
+-    #if defined(CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
+-        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_EVT_RX_COUNT)
++        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_BUF_EVT_RX_COUNT)
+     #else
+         #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (30)
+     #endif
 @@ -177,7 +177,7 @@
      #define DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER (0)
  #endif
@@ -3511,8 +3524,8 @@
  
 -    #if defined(CONFIG_BT_LE_ACL_BUF_COUNT)
 -        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_LE_ACL_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
-+        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_ACL_TX_COUNT)
++        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_BUF_ACL_TX_COUNT)
      #else
          #define DEFAULT_BT_LE_ACL_BUF_COUNT (24)
      #endif
@@ -3551,8 +3564,8 @@
  
 -    #if defined(CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
 -        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_EVT_RX_COUNT)
++        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_BUF_EVT_RX_COUNT)
      #else
          #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (30)
      #endif
@@ -4407,8 +4420,8 @@
  
 -    #if defined(CONFIG_BT_LE_ACL_BUF_COUNT)
 -        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_LE_ACL_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
-+        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_ESP32_BT_LE_ACL_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_ACL_TX_COUNT)
++        #define DEFAULT_BT_LE_ACL_BUF_COUNT (CONFIG_BT_BUF_ACL_TX_COUNT)
      #else
          #define DEFAULT_BT_LE_ACL_BUF_COUNT (24)
      #endif
@@ -4447,8 +4460,8 @@
  
 -    #if defined(CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
 -        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+    #if defined(CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
-+        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_ESP32_BT_LE_HCI_EVT_HI_BUF_COUNT)
++    #if defined(CONFIG_BT_BUF_EVT_RX_COUNT)
++        #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (CONFIG_BT_BUF_EVT_RX_COUNT)
      #else
          #define DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT (30)
      #endif
