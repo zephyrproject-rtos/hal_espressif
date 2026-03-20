@@ -5,8 +5,7 @@
  */
 
 #include <string.h>
-
-#include <bootutil/bootutil_log.h>
+#include <assert.h>
 
 #include <bootutil/fault_injection_hardening.h>
 
@@ -68,12 +67,14 @@
 #include "app_cpu_start.h"
 #endif
 
+static const char *TAG = "boot";
+
 static int load_segment(const struct flash_area *fap, uint32_t data_addr,
                         uint32_t data_len, uint32_t load_addr)
 {
     const uint32_t *data = (const uint32_t *)esp_rom_flash_mmap((fap->fa_off + data_addr), data_len);
     if (!data) {
-        BOOT_LOG_ERR("%s: Bootloader mmap failed", __func__);
+        ESP_EARLY_LOGE(TAG, "%s: Bootloader mmap failed", __func__);
         return -1;
     }
     memcpy((void *)load_addr, data, data_len);
@@ -91,10 +92,10 @@ void esp_app_image_load(int image_index, int slot,
     area_id = flash_area_id_from_multi_image_slot(image_index, slot);
     rc = flash_area_open(area_id, &fap);
     if (rc != 0) {
-        BOOT_LOG_ERR("%s: flash_area_open failed with %d", __func__, rc);
+        ESP_EARLY_LOGE(TAG, "%s: flash_area_open failed with %d", __func__, rc);
     }
 
-    BOOT_LOG_INF("Loading image %d - slot %d from flash, area id: %d",
+    ESP_EARLY_LOGI(TAG, "Loading image %d - slot %d from flash, area id: %d",
     image_index, slot, area_id);
 
     const uint32_t *data = (const uint32_t *)esp_rom_flash_mmap((fap->fa_off + hdr_offset),
@@ -104,19 +105,19 @@ void esp_app_image_load(int image_index, int slot,
     esp_rom_flash_unmmap(data);
 
     if (load_header.header_magic != ESP_LOAD_HEADER_MAGIC) {
-        BOOT_LOG_ERR("Load header magic verification failed. Aborting");
+        ESP_EARLY_LOGE(TAG, "Load header magic verification failed. Aborting");
         FIH_PANIC;
     }
 
     if (!esp_ptr_in_iram((void *)load_header.iram_dest_addr) ||
         !esp_ptr_in_iram((void *)(load_header.iram_dest_addr + load_header.iram_size))) {
-        BOOT_LOG_ERR("IRAM region in load header is not valid. Aborting");
+        ESP_EARLY_LOGE(TAG, "IRAM region in load header is not valid. Aborting");
         FIH_PANIC;
     }
 
     if (!esp_ptr_in_dram((void *)load_header.dram_dest_addr) ||
         !esp_ptr_in_dram((void *)(load_header.dram_dest_addr + load_header.dram_size))) {
-        BOOT_LOG_ERR("DRAM region in load header is not valid. Aborting");
+        ESP_EARLY_LOGE(TAG, "DRAM region in load header is not valid. Aborting");
         FIH_PANIC;
     }
 
@@ -124,7 +125,7 @@ void esp_app_image_load(int image_index, int slot,
     if ((load_header.lp_rtc_iram_size) &&
 	(!esp_ptr_in_rtc_iram_fast((void *)load_header.lp_rtc_iram_dest_addr) ||
         !esp_ptr_in_rtc_iram_fast((void *)(load_header.lp_rtc_iram_dest_addr + load_header.lp_rtc_iram_size)))) {
-        BOOT_LOG_ERR("%s_IRAM region in load header is not valid. Aborting", LP_RTC_PREFIX);
+        ESP_EARLY_LOGE(TAG, "%s_IRAM region in load header is not valid. Aborting", LP_RTC_PREFIX);
         FIH_PANIC;
     }
 #endif
@@ -133,18 +134,18 @@ void esp_app_image_load(int image_index, int slot,
     if ((load_header.lp_rtc_dram_size) &&
 	(!esp_ptr_in_rtc_slow((void *)load_header.lp_rtc_dram_dest_addr) ||
         !esp_ptr_in_rtc_slow((void *)(load_header.lp_rtc_dram_dest_addr + load_header.lp_rtc_dram_size)))) {
-        BOOT_LOG_ERR("%s_RAM region in load header is not valid. Aborting %p", LP_RTC_PREFIX, load_header.lp_rtc_dram_dest_addr);
+        ESP_EARLY_LOGE(TAG, "%s_RAM region in load header is not valid. Aborting %p", LP_RTC_PREFIX, load_header.lp_rtc_dram_dest_addr);
         FIH_PANIC;
     }
 #endif
 
     if (!esp_ptr_in_iram((void *)load_header.entry_addr)) {
-        BOOT_LOG_ERR("Application entry point (%xh) is not in IRAM. Aborting",
+        ESP_EARLY_LOGE(TAG, "Application entry point (%xh) is not in IRAM. Aborting",
         load_header.entry_addr);
         FIH_PANIC;
     }
 
-    BOOT_LOG_INF("Application start=%xh", load_header.entry_addr);
+    ESP_EARLY_LOGI(TAG, "Application start=%xh", load_header.entry_addr);
 
 #if SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED
     /* Check reset reason once for both LP segments.
@@ -155,13 +156,13 @@ void esp_app_image_load(int image_index, int slot,
 
     if (load_header.lp_rtc_dram_size > 0) {
         if (load_lp_mem) {
-            BOOT_LOG_INF("%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
+            ESP_EARLY_LOGI(TAG, "%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
                          (fap->fa_off + load_header.lp_rtc_dram_flash_offset), load_header.lp_rtc_dram_dest_addr,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_size);
             load_segment(fap, load_header.lp_rtc_dram_flash_offset,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_dest_addr);
         } else {
-            BOOT_LOG_INF("%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
+            ESP_EARLY_LOGI(TAG, "%s_RAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
                          load_header.lp_rtc_dram_flash_offset, load_header.lp_rtc_dram_dest_addr,
                          load_header.lp_rtc_dram_size, load_header.lp_rtc_dram_size);
         }
@@ -169,26 +170,26 @@ void esp_app_image_load(int image_index, int slot,
 
     if (load_header.lp_rtc_iram_size > 0) {
         if (load_lp_mem) {
-            BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
+            ESP_EARLY_LOGI(TAG, "%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load", LP_RTC_PREFIX,
                          (fap->fa_off + load_header.lp_rtc_iram_flash_offset), load_header.lp_rtc_iram_dest_addr,
                          load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
             load_segment(fap, load_header.lp_rtc_iram_flash_offset,
                          load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_dest_addr);
         } else {
-            BOOT_LOG_INF("%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
+            ESP_EARLY_LOGI(TAG, "%s_IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) noload", LP_RTC_PREFIX,
                          load_header.lp_rtc_iram_flash_offset, load_header.lp_rtc_iram_dest_addr,
                          load_header.lp_rtc_iram_size, load_header.lp_rtc_iram_size);
         }
     }
 #endif
 
-    BOOT_LOG_INF("DRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
+    ESP_EARLY_LOGI(TAG, "DRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
                  (fap->fa_off + load_header.dram_flash_offset), load_header.dram_dest_addr,
                  load_header.dram_size, load_header.dram_size);
     load_segment(fap, load_header.dram_flash_offset,
                  load_header.dram_size, load_header.dram_dest_addr);
 
-    BOOT_LOG_INF("IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
+    ESP_EARLY_LOGI(TAG, "IRAM\t: lma=%08xh vma=%08xh size=%05xh (%6d) load",
                  (fap->fa_off + load_header.iram_flash_offset), load_header.iram_dest_addr,
                  load_header.iram_size, load_header.iram_size);
     load_segment(fap, load_header.iram_flash_offset,
@@ -217,7 +218,7 @@ void start_cpu0_image(int image_index, int slot, unsigned int hdr_offset)
 
 void appcpu_start(uint32_t entry_addr)
 {
-    ESP_LOGI(TAG, "Starting APPCPU");
+    ESP_EARLY_LOGI(TAG, "Starting APPCPU");
 
 #if defined(CONFIG_SOC_SERIES_ESP32)
     Cache_Flush(1);
@@ -232,10 +233,6 @@ void appcpu_start(uint32_t entry_addr)
     DPORT_SET_PERI_REG_MASK(DPORT_APPCPU_CTRL_A_REG, DPORT_APPCPU_RESETTING);
     DPORT_CLEAR_PERI_REG_MASK(DPORT_APPCPU_CTRL_A_REG, DPORT_APPCPU_RESETTING);
 #elif defined(CONFIG_SOC_SERIES_ESP32S3)
-    // Enable clock and reset APP CPU. Note that OpenOCD may have already
-    // enabled clock and taken APP CPU out of reset. In this case don't reset
-    // APP CPU again, as that will clear the breakpoints which may have already
-    // been set.
     if (!REG_GET_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_CLKGATE_EN)) {
         REG_SET_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_CLKGATE_EN);
         REG_CLR_BIT(SYSTEM_CORE_1_CONTROL_0_REG, SYSTEM_CONTROL_CORE_1_RUNSTALL);
@@ -246,7 +243,7 @@ void appcpu_start(uint32_t entry_addr)
     ets_set_appcpu_boot_addr(entry_addr);
     ets_delay_us(10000);
     uart_tx_wait_idle(0);
-    ESP_LOGI(TAG, "APPCPU start sequence complete");
+    ESP_EARLY_LOGI(TAG, "APPCPU start sequence complete");
 }
 
 void start_cpu1_image(int image_index, int slot, unsigned int hdr_offset)
