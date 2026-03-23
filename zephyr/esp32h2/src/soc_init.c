@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include "soc_init.h"
+#include "esp32h2/rom/rtc.h"
 #include <soc/soc.h>
 #include "soc/lp_analog_peri_reg.h"
 #include "hal/clk_tree_ll.h"
@@ -27,6 +28,10 @@ const static char *TAG = "soc_init";
 
 void soc_hw_init(void)
 {
+#if CONFIG_ESP_HAL_EARLY_LOG_LEVEL == 0
+	rtc_suppress_rom_log();
+#endif
+
 	/* Disable RF pll by default */
 	CLEAR_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_RFPLL);
 	SET_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_FORCE_RFPLL);
