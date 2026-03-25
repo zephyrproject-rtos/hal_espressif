@@ -290,8 +290,8 @@ void ble_enc_funcs_reset(void)
 {
 }
 
-#if defined(CONFIG_SOC_SERIES_ESP32C2) || defined(CONFIG_SOC_SERIES_ESP32C6) || \
-	defined(CONFIG_SOC_SERIES_ESP32H2)
+#if defined(CONFIG_SOC_SERIES_ESP32C2) || defined(CONFIG_SOC_SERIES_ESP32C5) || \
+	defined(CONFIG_SOC_SERIES_ESP32C6) ||defined(CONFIG_SOC_SERIES_ESP32H2)
 
 /* Forward declarations of opaque types */
 struct osi_coex_funcs_t;
@@ -691,7 +691,8 @@ int r_os_mbuf_free_chain(struct os_mbuf *om)
 	(void)om;
 	return 0;
 }
-#endif /* CONFIG_SOC_SERIES_ESP32C2 || CONFIG_SOC_SERIES_ESP32C6 || CONFIG_SOC_SERIES_ESP32H2 */
+#endif /* CONFIG_SOC_SERIES_ESP32C2 || CONFIG_SOC_SERIES_ESP32C5 ||
+          CONFIG_SOC_SERIES_ESP32C6 || CONFIG_SOC_SERIES_ESP32H2 */
 
 #if defined(CONFIG_SOC_SERIES_ESP32C2)
 
@@ -738,7 +739,7 @@ int ble_controller_disable(void)
 
 #endif /* CONFIG_SOC_SERIES_ESP32C2 */
 
-#if defined(CONFIG_SOC_SERIES_ESP32H2) || defined(CONFIG_SOC_SERIES_ESP32C6)
+#if defined(CONFIG_SOC_SERIES_ESP32H2) || defined(CONFIG_SOC_SERIES_ESP32C5) || defined(CONFIG_SOC_SERIES_ESP32C6)
 
 uint32_t bt_bb_get_rssi_comp(void)
 {
