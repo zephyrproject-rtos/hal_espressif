@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/init.h>
 #include <zephyr/irq.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
@@ -19,6 +20,7 @@ LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "soc/rtc.h"
 #include "esp_private/esp_clk.h"
 #include "private/esp_coexist_adapter.h"
+#include "private/esp_coexist_internal.h"
 #include "esp32h2/rom/ets_sys.h"
 #include "private/esp_coexist_debug.h"
 
@@ -207,3 +209,14 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._xtal_freq_get = esp_coex_common_xtal_freq_get_wrapper,
     ._magic = COEX_ADAPTER_MAGIC,
 };
+
+#if CONFIG_ESP32_SW_COEXIST_ENABLE
+static int esp_coex_adapter_init(void)
+{
+    esp_coex_adapter_register(&g_coex_adapter_funcs);
+    coex_pre_init();
+    return 0;
+}
+
+SYS_INIT(esp_coex_adapter_init, POST_KERNEL, 50);
+#endif
