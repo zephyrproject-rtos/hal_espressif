@@ -470,6 +470,8 @@ if(CONFIG_SOC_SERIES_ESP32C5)
 
   ## shared WIFI/BT/IEEE802154 resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32 OR CONFIG_IEEE802154)
+    zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
+
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
       ../../components/esp_phy/src/lib_printf.c
@@ -480,11 +482,10 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       )
 
     if(CONFIG_ESP32_SW_COEXIST_ENABLE)
-      if(CONFIG_BUILD_ONLY_NO_BLOBS)
-        zephyr_sources(../port/stubs/coex_stubs.c)
-      endif()
+      zephyr_sources(../../components/esp_coex/src/lib_printf.c)
+      zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 
-      zephyr_link_libraries(
+      zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
         coexist
           -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
           -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.coexist.ld

@@ -447,6 +447,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
+    zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
     zephyr_compile_definitions(CONFIG_ESP_PHY_ENABLE_USB)
     zephyr_sources(
       ../../components/esp_phy/src/phy_init.c
@@ -458,13 +459,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
-      if (CONFIG_BUILD_ONLY_NO_BLOBS)
-        zephyr_sources(
-          ../port/stubs/coex_stubs.c
-          )
-      endif()
+      zephyr_sources(../../components/esp_coex/src/lib_printf.c)
+      zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 
-      zephyr_link_libraries(
+      zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
         coexist
           -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s3
         )

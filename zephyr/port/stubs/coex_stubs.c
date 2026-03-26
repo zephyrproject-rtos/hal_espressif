@@ -513,6 +513,19 @@ uint8_t coex_schm_flexible_period_get(void)
 #endif /* CONFIG_ESP_COEX_POWER_MANAGEMENT */
 
 /**
+ * @brief     Get coexistence scheme phase by phase index.
+ *
+ * @param     phase_idx    Coexistence phase index
+ *
+ * @return    Coexistence scheme phase
+ */
+void * coex_schm_get_phase_by_idx(int phase_idx)
+{
+    (void)phase_idx;
+    return 0;
+}
+
+/**
  * @brief Check the MD5 values of the coexistence adapter header files.
  *
  * @param md5 MD5 string.

@@ -99,7 +99,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hw_support/port/include
     ../../components/esp_hw_support/power_supply/include
     ../../components/esp_mm/include
-    # includes below are for CONFIG_BUILD_ONLY_NO_BLOBS only
     ../../components/esp_netif/include
     ../../components/esp_phy/include
     ../../components/esp_phy/${CONFIG_SOC_SERIES}/include
@@ -459,11 +458,14 @@ if(CONFIG_SOC_SERIES_ESP32H2)
 
   ## shared BT/IEEE802154 resources
   if (CONFIG_BT OR CONFIG_IEEE802154)
+    zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
+
     zephyr_sources(
       ../../components/esp_phy/src/phy_init_esp32hxx.c
       ../../components/esp_phy/src/lib_printf.c
       ../../components/esp_phy/src/phy_common.c
       ../../components/esp_phy/src/phy_override.c
+      ../../components/esp_coex/${CONFIG_SOC_SERIES}/esp_coex_adapter.c
       )
 
     if (CONFIG_IEEE802154)
@@ -476,13 +478,10 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     endif()
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
-      if(CONFIG_BUILD_ONLY_NO_BLOBS)
-        zephyr_sources(../port/stubs/coex_stubs.c)
-      else()
-        zephyr_sources(../../components/esp_coex/esp32h2/esp_coex_adapter.c)
-      endif()
+      zephyr_sources(../../components/esp_coex/src/lib_printf.c)
+      zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 
-      zephyr_link_libraries(
+      zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
         coexist
           -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
         )
