@@ -42,6 +42,10 @@ if SOC_SERIES_ESP32H2
 rsource "../components/soc/esp32h2/include/soc/Kconfig.soc_caps.in"
 endif
 
+if PM && TICKLESS_KERNEL
+rsource "Kconfig.pm"
+endif
+
 # XTAL frequency in Hz from devicetree
 config XTAL_FREQ_HZ
 	int

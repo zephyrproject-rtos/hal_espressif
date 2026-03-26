@@ -255,8 +255,6 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
     ../../components/esp_hw_support/port/pau_regdma.c
     ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
-    ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
-    ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
     ../../components/esp_hw_support/sleep_gpio.c
     ../../components/esp_hw_support/sleep_event.c
     ../../components/esp_hw_support/sleep_console.c
@@ -264,15 +262,27 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/sleep_system_peripheral.c
+    ../../components/soc/${CONFIG_SOC_SERIES}/system_retention_periph.c
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
     ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hw_support/sleep_uart.c
     ../../components/esp_hw_support/clk_utils.c
-    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
     ../common/pm_impl_zephyr.c
     )
+    if(CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
+        )
+      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_DYNAMIC
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
+        )
+      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_STATIC
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
+        )
+    endif()
   endif()
 
   zephyr_sources_ifdef(CONFIG_DMA_ESP32

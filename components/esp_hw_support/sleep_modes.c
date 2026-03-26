@@ -942,7 +942,7 @@ static esp_err_t FORCE_IRAM_ATTR esp_sleep_start_safe(uint32_t sleep_flags, uint
         } else
 #endif
         {
-#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
             // Skip smp retention if CPU power domain power-down is not allowed
             esp_sleep_cpu_skip_retention();
 #endif
@@ -1146,7 +1146,7 @@ static esp_err_t SLEEP_FN_ATTR esp_sleep_start(uint32_t sleep_flags, uint32_t cl
 
     if (should_skip_sleep) {
         result = ESP_ERR_SLEEP_REJECT;
-#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE && SOC_PM_CPU_RETENTION_BY_SW
+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP && SOC_PM_CPU_RETENTION_BY_SW
         esp_sleep_cpu_skip_retention();
 #endif
     } else {
@@ -1453,7 +1453,7 @@ esp_err_t esp_light_sleep_start(void)
     }
 #endif
 
-#if !CONFIG_FREERTOS_UNICORE
+#if CONFIG_SMP
 #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
     sleep_smp_cpu_sleep_prepare();
 #else
@@ -1644,7 +1644,7 @@ esp_err_t esp_light_sleep_start(void)
         }
         esp_set_time_from_rtc();
     } else {
-#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
         esp_sleep_cpu_skip_retention();
 #endif
     }
@@ -1659,7 +1659,7 @@ esp_err_t esp_light_sleep_start(void)
     }
 #endif
 
-#if !CONFIG_FREERTOS_UNICORE
+#if CONFIG_SMP
     esp_ipc_isr_stall_resume();
 #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
     sleep_smp_cpu_wakeup_prepare();

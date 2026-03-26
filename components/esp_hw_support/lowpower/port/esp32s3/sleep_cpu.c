@@ -81,7 +81,7 @@ static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t c
     index = (code_seg_vaddr / imode.cache_line_size) % sets;
     waysgrp = imode.cache_ways >> 2;
 
-    code_seg_size = ALIGNUP(imode.cache_line_size, code_seg_size);
+    code_seg_size = ROUND_UP(code_seg_size, imode.cache_line_size);
 
     s_tag_mem->icache.start_point = index;
     s_tag_mem->icache.size = (sets * waysgrp) & 0xff;
@@ -91,7 +91,7 @@ static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t c
     }
     s_tag_mem->icache.enable = (code_seg_size != 0) ? 1 : 0;
     icache_tagmem_blk_gs = s_tag_mem->icache.vld_size ? s_tag_mem->icache.vld_size : sets * waysgrp;
-    icache_tagmem_blk_gs = ALIGNUP(4, icache_tagmem_blk_gs);
+    icache_tagmem_blk_gs = ROUND_UP(icache_tagmem_blk_gs, 4);
     ESP_LOGD(TAG, "I-cache size:%"PRIu32" KiB, line size:%d B, ways:%d, sets:%"PRIu32", index:%"PRIu32", tag block groups:%"PRIu32"", (imode.cache_size>>10),
             imode.cache_line_size, imode.cache_ways, sets, index, icache_tagmem_blk_gs);
 
@@ -101,7 +101,7 @@ static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t c
     index = (data_seg_vaddr / dmode.cache_line_size) % sets;
     waysgrp = dmode.cache_ways >> 2;
 
-    data_seg_size = ALIGNUP(dmode.cache_line_size, data_seg_size);
+    data_seg_size = ROUND_UP(data_seg_size, dmode.cache_line_size);
 
     s_tag_mem->dcache.start_point = index;
     s_tag_mem->dcache.size = (sets * waysgrp) & 0x1ff;
@@ -115,7 +115,7 @@ static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t c
     s_tag_mem->dcache.enable = 1;
 #endif
     dcache_tagmem_blk_gs = s_tag_mem->dcache.vld_size ? s_tag_mem->dcache.vld_size : sets * waysgrp;
-    dcache_tagmem_blk_gs = ALIGNUP(4, dcache_tagmem_blk_gs);
+    dcache_tagmem_blk_gs = ROUND_UP(dcache_tagmem_blk_gs, 4);
     ESP_LOGD(TAG, "D-cache size:%"PRIu32" KiB, line size:%d B, ways:%d, sets:%"PRIu32", index:%"PRIu32", tag block groups:%"PRIu32"", (dmode.cache_size>>10),
             dmode.cache_line_size, dmode.cache_ways, sets, index, dcache_tagmem_blk_gs);
 

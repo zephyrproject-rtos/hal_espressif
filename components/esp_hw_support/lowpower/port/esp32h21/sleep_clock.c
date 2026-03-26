@@ -105,7 +105,7 @@ bool clock_domain_pd_allowed(void)
     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
 }
 
-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
+esp_err_t sleep_clock_startup_init(void)
 {
     sleep_retention_module_init_param_t init_param = {
         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
