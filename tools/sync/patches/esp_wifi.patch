@@ -1,6 +1,6 @@
 --- a/components/esp_wifi/esp32c2/esp_adapter.c
 +++ b/components/esp_wifi/esp32c2/esp_adapter.c
-@@ -4,101 +4,127 @@
+@@ -4,101 +4,128 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -52,6 +52,7 @@
  #include "os.h"
 -#include "esp_smartconfig.h"
 -#ifdef CONFIG_ESP_COEX_ENABLED
++#include "esp_log.h"
  #include "private/esp_coexist_internal.h"
 -#endif
 -#include "esp32c2/rom/ets_sys.h"
@@ -167,7 +168,7 @@
  {
      return wifi_create_queue(queue_len, item_size);
  }
-@@ -110,6 +136,8 @@
+@@ -110,6 +137,8 @@
  
  static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
  {
@@ -176,7 +177,7 @@
      esp_rom_route_intr_matrix(cpu_no, intr_source, intr_num);
      esprv_int_set_priority(intr_num, intr_prio);
      esprv_int_set_type(intr_num, INTR_TYPE_LEVEL);
-@@ -117,163 +145,265 @@
+@@ -117,163 +146,265 @@
  
  static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
  {
@@ -507,7 +508,7 @@
  }
  
  static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
-@@ -315,43 +445,29 @@
+@@ -315,43 +446,29 @@
      return os_get_time(t);
  }
  
@@ -517,19 +518,19 @@
 -}
 -
 -static void * IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
--{
--    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT | MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
--}
--
--static void * IRAM_ATTR zalloc_internal_wrapper(size_t size)
 +static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
  {
--    void *ptr = heap_caps_calloc(1, size, MALLOC_CAP_8BIT | MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
--    return ptr;
+-    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT | MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
 -}
 +    ARG_UNUSED(ptr);
 +    ARG_UNUSED(size);
  
+-static void * IRAM_ATTR zalloc_internal_wrapper(size_t size)
+-{
+-    void *ptr = heap_caps_calloc(1, size, MALLOC_CAP_8BIT | MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+-    return ptr;
+-}
+-
 -static esp_err_t nvs_open_wrapper(const char* name, unsigned int open_mode, nvs_handle_t *out_handle)
 -{
 -    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
@@ -563,7 +564,7 @@
  }
  
  static int coex_init_wrapper(void)
-@@ -481,7 +597,7 @@
+@@ -481,7 +598,7 @@
  #endif
  }
  
@@ -572,7 +573,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_curr_phase_get();
-@@ -490,7 +606,7 @@
+@@ -490,7 +607,7 @@
  #endif
  }
  
@@ -581,7 +582,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_register_start_cb(cb);
-@@ -535,7 +651,7 @@
+@@ -535,7 +652,7 @@
  #endif
  }
  
@@ -590,7 +591,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_get_phase_by_idx(phase_idx);
-@@ -546,7 +662,6 @@
+@@ -546,7 +663,6 @@
  
  static void IRAM_ATTR esp_empty_wrapper(void)
  {
@@ -598,7 +599,7 @@
  }
  
  static void esp_phy_enable_wrapper(void)
-@@ -561,6 +676,116 @@
+@@ -561,6 +677,116 @@
      esp_phy_disable(PHY_MODEM_WIFI);
  }
  
@@ -715,7 +716,7 @@
  wifi_osi_funcs_t g_wifi_osi_funcs = {
      ._version = ESP_WIFI_OS_ADAPTER_VERSION,
      ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
-@@ -569,9 +794,9 @@
+@@ -569,9 +795,9 @@
      ._set_isr = set_isr_wrapper,
      ._ints_on = enable_intr_wrapper,
      ._ints_off = disable_intr_wrapper,
@@ -727,7 +728,7 @@
      ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
      ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -586,30 +811,30 @@
+@@ -586,30 +812,30 @@
      ._mutex_lock = mutex_lock_wrapper,
      ._mutex_unlock = mutex_unlock_wrapper,
      ._queue_create = queue_create_wrapper,
@@ -771,7 +772,7 @@
      ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
      ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
      ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-@@ -617,7 +842,7 @@
+@@ -617,7 +843,7 @@
      ._phy_disable = esp_phy_disable_wrapper,
      ._phy_enable = esp_phy_enable_wrapper,
      ._phy_update_country_info = esp_phy_update_country_info,
@@ -780,7 +781,7 @@
      ._timer_arm = timer_arm_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
      ._timer_done = esp_coex_common_timer_done_wrapper,
-@@ -647,8 +872,8 @@
+@@ -647,8 +873,8 @@
      ._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
      ._log_write = esp_log_write_wrapper,
      ._log_writev = esp_log_writev_wrapper,
@@ -840,13 +841,14 @@
  #include "phy_init_data.h"
  #endif
  #include "soc/rtc_cntl_reg.h"
-@@ -41,67 +36,104 @@
+@@ -41,67 +36,105 @@
  #include "soc/system_reg.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
 -#include "nvs.h"
  #include "os.h"
 -#include "esp_smartconfig.h"
++#include "esp_log.h"
  #ifdef CONFIG_ESP_COEX_ENABLED
  #include "private/esp_coexist_internal.h"
  #endif
@@ -927,10 +929,9 @@
 +    queue = (wifi_static_queue_t *)wifi_malloc(sizeof(wifi_static_queue_t));
      if (!queue) {
 +        LOG_ERR("msg buffer allocation failed");
-         return NULL;
-     }
- 
--    queue->handle = xQueueCreate(queue_len, item_size);
++        return NULL;
++    }
++
 +    wifi_msgq_buffer = wifi_malloc(queue_len * item_size);
 +    if (wifi_msgq_buffer == NULL) {
 +        LOG_ERR("msg buffer allocation failed");
@@ -941,9 +942,10 @@
 +    if (queue->handle == NULL) {
 +        esp_wifi_free(wifi_msgq_buffer);
 +        LOG_ERR("queue handle allocation failed");
-+        return NULL;
-+    }
-+
+         return NULL;
+     }
+ 
+-    queue->handle = xQueueCreate(queue_len, item_size);
 +    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
 +
      return queue;
@@ -964,7 +966,7 @@
  {
      return wifi_create_queue(queue_len, item_size);
  }
-@@ -113,6 +145,8 @@
+@@ -113,6 +146,8 @@
  
  static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
  {
@@ -973,7 +975,7 @@
      esp_rom_route_intr_matrix(cpu_no, intr_source, intr_num);
      esprv_int_set_priority(intr_num, intr_prio);
      esprv_int_set_type(intr_num, INTR_TYPE_LEVEL);
-@@ -120,12 +154,15 @@
+@@ -120,12 +155,15 @@
  
  static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
  {
@@ -991,7 +993,7 @@
  }
  
  static void enable_intr_wrapper(uint32_t intr_mask)
-@@ -140,143 +177,218 @@
+@@ -140,143 +178,218 @@
  
  static bool IRAM_ATTR is_from_isr_wrapper(void)
  {
@@ -1267,7 +1269,7 @@
  }
  
  static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
-@@ -332,43 +444,189 @@
+@@ -332,43 +445,189 @@
      return os_get_time(t);
  }
  
@@ -1329,24 +1331,29 @@
 +    ARG_UNUSED(data);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static esp_err_t nvs_open_wrapper(const char* name, unsigned int open_mode, nvs_handle_t *out_handle)
 +void *xTaskGetCurrentTaskHandle(void)
-+{
+ {
+-    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
 +    return (void *)k_current_get();
-+}
-+
+ }
+ 
+-static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
 +int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
-+{
+ {
+-    return esp_log_writev((esp_log_level_t)level, tag, format, args);
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
 +int32_t nvs_get_i8(uint32_t handle, const char *key, int8_t *out_value)
-+{
+ {
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(out_value);
@@ -1370,33 +1377,28 @@
 +    ARG_UNUSED(out_value);
 +
 +    return 0;
- }
- 
--static esp_err_t nvs_open_wrapper(const char* name, unsigned int open_mode, nvs_handle_t *out_handle)
++}
++
 +int32_t nvs_set_u16(uint32_t handle, const char *key, uint16_t value)
- {
--    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
++{
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
 +
 +    return 0;
- }
- 
--static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
++}
++
 +int32_t nvs_get_u16(uint32_t handle, const char *key, uint16_t *out_value)
- {
--    return esp_log_writev((esp_log_level_t)level, tag, format, args);
++{
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(out_value);
 +
 +    return 0;
- }
- 
--static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
++}
++
 +int32_t nvs_open_wrapper(const char *name, uint32_t open_mode, uint32_t *out_handle)
- {
++{
 +    ARG_UNUSED(name);
 +    ARG_UNUSED(open_mode);
 +    ARG_UNUSED(out_handle);
@@ -1471,7 +1473,7 @@
  }
  
  static int coex_init_wrapper(void)
-@@ -498,7 +756,7 @@
+@@ -498,7 +757,7 @@
  #endif
  }
  
@@ -1480,7 +1482,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_curr_phase_get();
-@@ -507,7 +765,7 @@
+@@ -507,7 +766,7 @@
  #endif
  }
  
@@ -1489,7 +1491,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_register_start_cb(cb);
-@@ -525,7 +783,7 @@
+@@ -525,7 +784,7 @@
  #endif
  }
  
@@ -1498,7 +1500,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_register_callback(type, cb);
-@@ -552,7 +810,7 @@
+@@ -552,7 +811,7 @@
  #endif
  }
  
@@ -1507,7 +1509,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_get_phase_by_idx(phase_idx);
-@@ -563,7 +821,6 @@
+@@ -563,7 +822,6 @@
  
  static void IRAM_ATTR esp_empty_wrapper(void)
  {
@@ -1515,7 +1517,7 @@
  }
  
  static void esp_phy_enable_wrapper(void)
-@@ -588,7 +845,7 @@
+@@ -588,7 +846,7 @@
      ._ints_off = disable_intr_wrapper,
      ._is_from_isr = is_from_isr_wrapper,
      ._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
@@ -1524,7 +1526,7 @@
      ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
      ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -603,30 +860,30 @@
+@@ -603,30 +861,30 @@
      ._mutex_lock = mutex_lock_wrapper,
      ._mutex_unlock = mutex_unlock_wrapper,
      ._queue_create = queue_create_wrapper,
@@ -1567,7 +1569,7 @@
      ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
      ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
      ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-@@ -634,7 +891,7 @@
+@@ -634,7 +892,7 @@
      ._phy_disable = esp_phy_disable_wrapper,
      ._phy_enable = esp_phy_enable_wrapper,
      ._phy_update_country_info = esp_phy_update_country_info,
@@ -1576,7 +1578,7 @@
      ._timer_arm = timer_arm_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
      ._timer_done = esp_coex_common_timer_done_wrapper,
-@@ -664,8 +921,8 @@
+@@ -664,8 +922,8 @@
      ._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
      ._log_write = esp_log_write_wrapper,
      ._log_writev = esp_log_writev_wrapper,
@@ -1634,13 +1636,14 @@
  #include "esp_private/esp_modem_clock.h"
  #include "esp_private/wifi_os_adapter.h"
  #include "esp_private/wifi.h"
-@@ -39,15 +39,16 @@
+@@ -39,15 +39,17 @@
  #include "soc/rtc.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
 -#include "nvs.h"
  #include "os.h"
 -#include "esp_smartconfig.h"
++#include "esp_log.h"
  #ifdef CONFIG_ESP_COEX_ENABLED
  #include "private/esp_coexist_internal.h"
  #endif
@@ -1654,7 +1657,7 @@
  
  #if SOC_PM_MODEM_RETENTION_BY_REGDMA
  #include "esp_private/esp_regdma.h"
-@@ -56,95 +57,86 @@
+@@ -56,95 +58,86 @@
  
  #define TAG "esp_adapter"
  
@@ -1761,8 +1764,7 @@
      }
  
 -    return queue;
-+    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
- 
+-
 -_error:
 -    if (queue) {
 -        if (queue->storage) {
@@ -1771,7 +1773,8 @@
 -
 -        free(queue);
 -    }
--
++    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
+ 
 -    return NULL;
 -#else
 -    queue->handle = xQueueCreate(queue_len, item_size);
@@ -1794,7 +1797,7 @@
      }
  }
  
-@@ -160,6 +152,8 @@
+@@ -160,6 +153,8 @@
  
  static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
  {
@@ -1803,7 +1806,7 @@
      esp_rom_route_intr_matrix(cpu_no, intr_source, intr_num);
      esprv_int_set_priority(intr_num, intr_prio);
      esprv_int_set_type(intr_num, INTR_TYPE_LEVEL);
-@@ -167,12 +161,15 @@
+@@ -167,12 +162,15 @@
  
  static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
  {
@@ -1821,7 +1824,7 @@
  }
  
  static void enable_intr_wrapper(uint32_t intr_mask)
-@@ -187,168 +184,218 @@
+@@ -187,168 +185,218 @@
  
  static bool IRAM_ATTR is_from_isr_wrapper(void)
  {
@@ -2112,7 +2115,7 @@
  }
  
  static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
-@@ -392,41 +439,187 @@
+@@ -392,41 +440,187 @@
  
  static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
  {
@@ -2183,23 +2186,19 @@
 +    ARG_UNUSED(value);
 +
 +    return 0;
- }
- 
--static esp_err_t nvs_open_wrapper(const char *name, unsigned int open_mode, nvs_handle_t *out_handle)
++}
++
 +int32_t nvs_get_i8(uint32_t handle, const char *key, int8_t *out_value)
- {
--    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
++{
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(out_value);
 +
 +    return 0;
- }
- 
--static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
++}
++
 +int32_t nvs_set_u8(uint32_t handle, const char *key, uint8_t value)
- {
--    return esp_log_writev((esp_log_level_t)level, tag, format, args);
++{
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
@@ -2207,9 +2206,10 @@
 +    return 0;
  }
  
--static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
+-static esp_err_t nvs_open_wrapper(const char *name, unsigned int open_mode, nvs_handle_t *out_handle)
 +int32_t nvs_get_u8(uint32_t handle, const char *key, uint8_t *out_value)
  {
+-    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(out_value);
@@ -2282,17 +2282,20 @@
 +    ARG_UNUSED(key);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
 +static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
-+{
+ {
+-    return esp_log_writev((esp_log_level_t)level, tag, format, args);
 +#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
 +    esp_log_writev((esp_log_level_t)level, tag, format, args);
 +#endif
-+}
-+
+ }
+ 
+-static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
 +static void esp_log_write_wrapper(uint32_t level, const char *tag, const char *format, ...)
-+{
+ {
 +#if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
      va_list list;
      va_start(list, format);
@@ -2311,7 +2314,7 @@
  }
  
  static int coex_init_wrapper(void)
-@@ -565,7 +758,7 @@
+@@ -565,7 +759,7 @@
  #endif
  }
  
@@ -2320,7 +2323,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_register_start_cb(cb);
-@@ -583,7 +776,7 @@
+@@ -583,7 +777,7 @@
  #endif
  }
  
@@ -2329,7 +2332,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_register_callback(type, cb);
-@@ -610,7 +803,7 @@
+@@ -610,7 +804,7 @@
  #endif
  }
  
@@ -2338,7 +2341,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_get_phase_by_idx(phase_idx);
-@@ -621,18 +814,12 @@
+@@ -621,18 +815,12 @@
  
  static void IRAM_ATTR esp_empty_wrapper(void)
  {
@@ -2357,7 +2360,7 @@
  }
  
  static void esp_phy_disable_wrapper(void)
-@@ -641,6 +828,18 @@
+@@ -641,6 +829,18 @@
      esp_phy_disable(PHY_MODEM_WIFI);
  }
  
@@ -2376,7 +2379,7 @@
  wifi_osi_funcs_t g_wifi_osi_funcs = {
      ._version = ESP_WIFI_OS_ADAPTER_VERSION,
      ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
-@@ -651,7 +850,7 @@
+@@ -651,7 +851,7 @@
      ._ints_off = disable_intr_wrapper,
      ._is_from_isr = is_from_isr_wrapper,
      ._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
@@ -2385,7 +2388,7 @@
      ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
      ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -672,24 +871,24 @@
+@@ -672,24 +872,24 @@
      ._queue_send_to_back = queue_send_to_back_wrapper,
      ._queue_send_to_front = queue_send_to_front_wrapper,
      ._queue_recv = queue_recv_wrapper,
@@ -2421,7 +2424,7 @@
      ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
      ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
      ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-@@ -697,7 +896,7 @@
+@@ -697,7 +897,7 @@
      ._phy_disable = esp_phy_disable_wrapper,
      ._phy_enable = esp_phy_enable_wrapper,
      ._phy_update_country_info = esp_phy_update_country_info,
@@ -2430,7 +2433,7 @@
      ._timer_arm = timer_arm_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
      ._timer_done = esp_coex_common_timer_done_wrapper,
-@@ -727,8 +926,8 @@
+@@ -727,8 +927,8 @@
      ._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
      ._log_write = esp_log_write_wrapper,
      ._log_writev = esp_log_writev_wrapper,
@@ -2441,7 +2444,7 @@
      ._realloc_internal = realloc_internal_wrapper,
      ._calloc_internal = calloc_internal_wrapper,
      ._zalloc_internal = zalloc_internal_wrapper,
-@@ -756,8 +955,8 @@
+@@ -756,8 +956,8 @@
      ._coex_schm_curr_phase_get = coex_schm_curr_phase_get_wrapper,
      ._coex_register_start_cb = coex_register_start_cb_wrapper,
  #if SOC_PM_MODEM_RETENTION_BY_REGDMA
@@ -2500,13 +2503,14 @@
  #include "esp_private/esp_modem_clock.h"
  #include "esp_private/wifi_os_adapter.h"
  #include "esp_private/wifi.h"
-@@ -40,15 +39,16 @@
+@@ -40,15 +39,17 @@
  #include "soc/rtc.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
 -#include "nvs.h"
  #include "os.h"
 -#include "esp_smartconfig.h"
++#include "esp_log.h"
  #ifdef CONFIG_ESP_COEX_ENABLED
  #include "private/esp_coexist_internal.h"
  #endif
@@ -2520,7 +2524,7 @@
  
  #if SOC_PM_MODEM_RETENTION_BY_REGDMA
  #include "esp_private/esp_regdma.h"
-@@ -57,50 +57,86 @@
+@@ -57,50 +58,86 @@
  
  #define TAG "esp_adapter"
  
@@ -2588,9 +2592,10 @@
 +    queue = (wifi_static_queue_t *)wifi_malloc(sizeof(wifi_static_queue_t));
      if (!queue) {
 +        LOG_ERR("msg buffer allocation failed");
-+        return NULL;
-+    }
-+
+         return NULL;
+     }
+ 
+-    queue->handle = xQueueCreate(queue_len, item_size);
 +    wifi_msgq_buffer = wifi_malloc(queue_len * item_size);
 +    if (wifi_msgq_buffer == NULL) {
 +        LOG_ERR("msg buffer allocation failed");
@@ -2601,10 +2606,9 @@
 +    if (queue->handle == NULL) {
 +        esp_wifi_free(wifi_msgq_buffer);
 +        LOG_ERR("queue handle allocation failed");
-         return NULL;
-     }
- 
--    queue->handle = xQueueCreate(queue_len, item_size);
++        return NULL;
++    }
++
 +    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
 +
      return queue;
@@ -2620,7 +2624,7 @@
      }
  }
  
-@@ -116,6 +152,8 @@
+@@ -116,6 +153,8 @@
  
  static void set_intr_wrapper(int32_t cpu_no, uint32_t intr_source, uint32_t intr_num, int32_t intr_prio)
  {
@@ -2629,7 +2633,7 @@
      esp_rom_route_intr_matrix(cpu_no, intr_source, intr_num);
      esprv_int_set_priority(intr_num, intr_prio);
      esprv_int_set_type(intr_num, INTR_TYPE_LEVEL);
-@@ -123,12 +161,15 @@
+@@ -123,12 +162,15 @@
  
  static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
  {
@@ -2647,7 +2651,7 @@
  }
  
  static void enable_intr_wrapper(uint32_t intr_mask)
-@@ -143,143 +184,218 @@
+@@ -143,143 +185,218 @@
  
  static bool IRAM_ATTR is_from_isr_wrapper(void)
  {
@@ -2669,15 +2673,15 @@
 -    static bool s_wifi_thread_sem_key_init = false;
 -    static pthread_key_t s_wifi_thread_sem_key;
 -    SemaphoreHandle_t sem = NULL;
-+    struct k_sem *sem = NULL;
- 
+-
 -    if (s_wifi_thread_sem_key_init == false) {
 -        if (0 != pthread_key_create(&s_wifi_thread_sem_key, wifi_thread_semphr_free)) {
 -            return NULL;
 -        }
 -        s_wifi_thread_sem_key_init = true;
 -    }
--
++    struct k_sem *sem = NULL;
+ 
 -    sem = pthread_getspecific(s_wifi_thread_sem_key);
 +    sem = k_thread_custom_data_get();
      if (!sem) {
@@ -2920,7 +2924,7 @@
  }
  
  static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
-@@ -323,41 +439,187 @@
+@@ -323,41 +440,187 @@
  
  static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
  {
@@ -3000,28 +3004,33 @@
 +    ARG_UNUSED(out_value);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static esp_err_t nvs_open_wrapper(const char *name, unsigned int open_mode, nvs_handle_t *out_handle)
 +int32_t nvs_set_u8(uint32_t handle, const char *key, uint8_t value)
-+{
+ {
+-    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
 +int32_t nvs_get_u8(uint32_t handle, const char *key, uint8_t *out_value)
-+{
+ {
+-    return esp_log_writev((esp_log_level_t)level, tag, format, args);
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(out_value);
 +
 +    return 0;
-+}
-+
+ }
+ 
+-static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
 +int32_t nvs_set_u16(uint32_t handle, const char *key, uint16_t value)
-+{
+ {
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
@@ -3045,27 +3054,22 @@
 +    ARG_UNUSED(out_handle);
 +
 +    return 0;
- }
- 
--static esp_err_t nvs_open_wrapper(const char *name, unsigned int open_mode, nvs_handle_t *out_handle)
++}
++
 +void nvs_close(uint32_t handle)
- {
--    return nvs_open(name, (nvs_open_mode_t)open_mode, out_handle);
++{
 +    ARG_UNUSED(handle);
- }
- 
--static void esp_log_writev_wrapper(unsigned int level, const char *tag, const char *format, va_list args)
++}
++
 +int32_t nvs_commit(uint32_t handle)
- {
--    return esp_log_writev((esp_log_level_t)level, tag, format, args);
++{
 +    ARG_UNUSED(handle);
 +
 +    return 0;
- }
- 
--static void esp_log_write_wrapper(unsigned int level, const char *tag, const char *format, ...)
++}
++
 +int32_t nvs_set_blob(uint32_t handle, const char *key, const void *value, size_t length)
- {
++{
 +    ARG_UNUSED(handle);
 +    ARG_UNUSED(key);
 +    ARG_UNUSED(value);
@@ -3119,7 +3123,7 @@
  }
  
  static int coex_init_wrapper(void)
-@@ -401,6 +663,13 @@
+@@ -401,6 +664,13 @@
  #endif
  }
  
@@ -3133,7 +3137,7 @@
  static int coex_wifi_request_wrapper(uint32_t event, uint32_t latency, uint32_t duration)
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
-@@ -496,7 +765,7 @@
+@@ -496,7 +766,7 @@
  #endif
  }
  
@@ -3142,7 +3146,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_register_start_cb(cb);
-@@ -514,7 +783,7 @@
+@@ -514,7 +784,7 @@
  #endif
  }
  
@@ -3151,7 +3155,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_register_callback(type, cb);
-@@ -541,7 +810,7 @@
+@@ -541,7 +811,7 @@
  #endif
  }
  
@@ -3160,7 +3164,7 @@
  {
  #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_get_phase_by_idx(phase_idx);
-@@ -552,7 +821,6 @@
+@@ -552,7 +822,6 @@
  
  static void IRAM_ATTR esp_empty_wrapper(void)
  {
@@ -3168,7 +3172,7 @@
  }
  
  static void esp_phy_enable_wrapper(void)
-@@ -589,7 +857,7 @@
+@@ -589,7 +858,7 @@
      ._ints_off = disable_intr_wrapper,
      ._is_from_isr = is_from_isr_wrapper,
      ._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
@@ -3177,7 +3181,7 @@
      ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
      ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -604,30 +872,30 @@
+@@ -604,30 +873,30 @@
      ._mutex_lock = mutex_lock_wrapper,
      ._mutex_unlock = mutex_unlock_wrapper,
      ._queue_create = queue_create_wrapper,
@@ -3220,7 +3224,7 @@
      ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
      ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
      ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-@@ -635,7 +903,7 @@
+@@ -635,7 +904,7 @@
      ._phy_disable = esp_phy_disable_wrapper,
      ._phy_enable = esp_phy_enable_wrapper,
      ._phy_update_country_info = esp_phy_update_country_info,
@@ -3229,7 +3233,7 @@
      ._timer_arm = timer_arm_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
      ._timer_done = esp_coex_common_timer_done_wrapper,
-@@ -665,8 +933,8 @@
+@@ -665,8 +934,8 @@
      ._slowclk_cal_get = esp_coex_common_clk_slowclk_cal_get_wrapper,
      ._log_write = esp_log_write_wrapper,
      ._log_writev = esp_log_writev_wrapper,
@@ -3240,7 +3244,7 @@
      ._realloc_internal = realloc_internal_wrapper,
      ._calloc_internal = calloc_internal_wrapper,
      ._zalloc_internal = zalloc_internal_wrapper,
-@@ -681,6 +949,7 @@
+@@ -681,6 +950,7 @@
      ._coex_enable = coex_enable_wrapper,
      ._coex_disable = coex_disable_wrapper,
      ._coex_status_get = coex_status_get_wrapper,
@@ -4076,7 +4080,7 @@
      ._coex_schm_get_phase_by_idx = coex_schm_get_phase_by_idx_wrapper,
 --- a/components/esp_wifi/esp32s2/esp_adapter.c
 +++ b/components/esp_wifi/esp32s2/esp_adapter.c
-@@ -4,165 +4,127 @@
+@@ -4,165 +4,128 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -4129,6 +4133,7 @@
  #include "os.h"
 -#include "esp_smartconfig.h"
 -#ifdef CONFIG_ESP_COEX_ENABLED
++#include "esp_log.h"
  #include "private/esp_coexist_internal.h"
 -#endif
 +#include "private/esp_modem_wrapper.h"
@@ -4300,7 +4305,7 @@
  {
      return wifi_create_queue(queue_len, item_size);
  }
-@@ -179,178 +141,245 @@
+@@ -179,178 +142,245 @@
  
  static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
  {
@@ -4466,18 +4471,18 @@
 -        }
 +    if (queue != NULL) {
 +        esp_wifi_free(queue);
-     }
- }
- 
++    }
++}
++
 +static void task_delete_wrapper(void *handle)
 +{
 +    if (handle != NULL) {
 +        k_thread_abort((k_tid_t)handle);
-+    }
+     }
 +
 +    k_object_release(&wifi_task_handle);
-+}
-+
+ }
+ 
  static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
  {
      if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
@@ -4620,7 +4625,7 @@
  }
  
  static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
-@@ -392,20 +421,31 @@
+@@ -392,20 +422,31 @@
      return os_get_time(t);
  }
  
@@ -4659,7 +4664,7 @@
  }
  
  static int coex_init_wrapper(void)
-@@ -535,7 +575,7 @@
+@@ -535,7 +576,7 @@
  #endif
  }
  
@@ -4668,7 +4673,7 @@
  {
  #if CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_curr_phase_get();
-@@ -544,7 +584,7 @@
+@@ -544,7 +585,7 @@
  #endif
  }
  
@@ -4677,7 +4682,7 @@
  {
  #if CONFIG_EXTERNAL_COEX_ENABLE
      return coex_register_start_cb(cb);
-@@ -589,7 +629,7 @@
+@@ -589,7 +630,7 @@
  #endif
  }
  
@@ -4686,7 +4691,7 @@
  {
  #if CONFIG_EXTERNAL_COEX_ENABLE
      return coex_schm_get_phase_by_idx(phase_idx);
-@@ -613,17 +653,94 @@
+@@ -613,17 +654,94 @@
      esp_phy_disable(PHY_MODEM_WIFI);
  }
  
@@ -4785,7 +4790,7 @@
      ._wifi_int_disable = esp_coex_common_int_disable_wrapper,
      ._wifi_int_restore = esp_coex_common_int_restore_wrapper,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -644,24 +761,24 @@
+@@ -644,24 +762,24 @@
      ._queue_send_to_back = queue_send_to_back_wrapper,
      ._queue_send_to_front = queue_send_to_front_wrapper,
      ._queue_recv = queue_recv_wrapper,
@@ -4822,7 +4827,7 @@
      ._dport_access_stall_other_cpu_start_wrap = esp_empty_wrapper,
      ._dport_access_stall_other_cpu_end_wrap = esp_empty_wrapper,
      ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-@@ -697,12 +814,12 @@
+@@ -697,12 +815,12 @@
      ._nvs_erase_key = nvs_erase_key,
      ._get_random = os_get_random,
      ._get_time = get_time_wrapper,
