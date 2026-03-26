@@ -15,8 +15,11 @@ static struct k_mutex _retention_mutex;
 static bool _retention_mutex_init = false;
 #define _lock_init_recursive(lock) do { \
     if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
+    *(lock) = &_retention_mutex; \
 } while(0)
-#define _lock_close_recursive(lock) do { } while(0)
+#define _lock_close_recursive(lock) do { \
+    *(lock) = NULL; \
+} while(0)
 #define _lock_acquire_recursive(lock) do { \
     if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
     k_mutex_lock(&_retention_mutex, K_FOREVER); \
@@ -806,7 +809,6 @@ esp_err_t sleep_retention_module_deinit(sleep_retention_module_t module)
 
     if (do_lock_release) {
         _lock_close_recursive(&s_retention.lock);
-        s_retention.lock = NULL;
     }
     return err;
 }

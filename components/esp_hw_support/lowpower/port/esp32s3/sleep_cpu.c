@@ -8,7 +8,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <sys/lock.h>
-#include <zephyr/sys/util.h>
+#include "esp_private/esp_cpu_internal.h"
 
 #include "esp_attr.h"
 #include "esp_check.h"
