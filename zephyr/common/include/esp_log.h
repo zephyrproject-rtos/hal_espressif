@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <zephyr/sys/printk.h>
@@ -168,6 +169,15 @@ static inline void esp_log_level_set(const char *tag, esp_log_level_t level)
 #define ESP_LOG_ATTR
 #define ESP_LOG_ATTR_STR(str)           (str)
 #define ESP_LOG_ATTR_DRAM_STR(str)      (str)
+
+static inline void esp_log_writev(esp_log_level_t level, const char *tag,
+                                  const char *format, va_list args)
+{
+    (void)level;
+    esp_rom_printf("%s: ", tag);
+    esp_rom_vprintf(format, args);
+    esp_rom_printf("\n");
+}
 
 static inline uint32_t esp_log_timestamp(void)
 {
