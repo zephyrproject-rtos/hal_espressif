@@ -11,17 +11,10 @@
 #include "esp_assert.h"
 #include <zephyr/devicetree.h>
 
-#define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
-
-#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
 #define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
 
-/* The last ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
-   The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
-   esp32ulp_mapgen.py, but this is not available when compiling the ULP library.
-
-   For those special cases, e.g. config settings. We can use this shared area.
-    */
+/* The ulp_shm DTS node reserves memory for a shared cfg struct
+   between the HP core and LP core. */
 
 #if IS_ULP_COCPU
 static ulp_lp_core_memory_shared_cfg_t __attribute__((section(".shared_mem"))) s_shared_mem = {};
@@ -33,15 +26,6 @@ ulp_lp_core_memory_shared_cfg_t* ulp_lp_core_memory_shared_cfg_get(void)
 #if IS_ULP_COCPU
     return &s_shared_mem;
 #else
-#if ESP_ROM_HAS_LP_ROM
-    extern uint32_t _rtc_ulp_memory_start;
-    uint32_t ulp_base_addr = (uint32_t)&_rtc_ulp_memory_start;
-#else
-    uint32_t ulp_base_addr = SOC_RTC_DRAM_LOW;
-#endif
-    /* Ensure the end where the shared memory starts is aligned to 8 bytes
-    if updating this also update the same in ulp_lp_core_riscv.ld
-    */
-    return (ulp_lp_core_memory_shared_cfg_t *)(ulp_base_addr + ALIGN_DOWN(ULP_COPROC_RESERVE_MEM, 0x8)  - ULP_SHARED_MEM);
+    return (ulp_lp_core_memory_shared_cfg_t *)DT_REG_ADDR(DT_NODELABEL(ulp_shm));
 #endif
 }
