@@ -31,6 +31,7 @@ LOG_MODULE_REGISTER(esp32c2_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
 #include "os.h"
+#include "esp_log.h"
 #include "private/esp_coexist_internal.h"
 #include "private/esp_modem_wrapper.h"
 #include "esp_rom_sys.h"
