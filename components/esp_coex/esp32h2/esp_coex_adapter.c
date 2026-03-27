@@ -13,9 +13,15 @@
 #include <zephyr/init.h>
 #include <zephyr/irq.h>
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
+
+#if CONFIG_BT_ESP32
+LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_BT_LOG_LEVEL);
+#else
+LOG_MODULE_REGISTER(esp32h2_coex_adapter);
+#endif
 
 #include "esp_heap_adapter.h"
+#include "esp_attr.h"
 #include "esp_timer.h"
 #include "soc/rtc.h"
 #include "esp_private/esp_clk.h"
@@ -198,7 +204,7 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._semphr_give = esp_coex_common_semphr_give_wrapper,
     ._is_in_isr = coex_is_in_isr_wrapper,
     ._malloc_internal = esp_coex_common_malloc_internal_wrapper,
-    ._free = esp_wifi_free_func,
+    ._free = k_free,
     ._esp_timer_get_time = esp_timer_get_time,
     ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
     ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
