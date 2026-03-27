@@ -63,6 +63,8 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_rmt/include
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
     ../../components/esp_hal_rtc_timer/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_sd/include
@@ -166,7 +168,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_fields.c
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_utility.c
     ../../components/efuse/src/efuse_controller/keys/without_key_purposes/three_key_blocks/esp_efuse_api_key.c
-    ../../components/esp_hw_support/esp_memory_utils.c
   )
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
@@ -258,6 +259,14 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_driver_dac/dac_common.c
     )
 
+  zephyr_sources_ifdef(CONFIG_ESPRESSIF_RMT
+    ../../components/esp_hal_rmt/rmt_hal.c
+    ../../components/esp_hal_gpio/gpio_hal.c
+    ../../components/esp_driver_gpio/src/gpio.c
+    ../../components/esp_driver_gpio/src/rtc_io.c
+    ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../../components/esp_hw_support/sleep_gpio.c
@@ -267,7 +276,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_hw_support/sleep_modem.c
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
-      ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
       ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       )
@@ -343,6 +351,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
+    ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/hw_random.c
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/periph_ctrl.c
