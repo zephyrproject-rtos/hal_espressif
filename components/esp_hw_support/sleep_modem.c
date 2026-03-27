@@ -1,12 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stddef.h>
 #include <string.h>
-#include <sys/lock.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 
 #include "esp_log.h"
@@ -35,7 +35,7 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 static bool s_modem_sleep = false;
 static uint8_t s_modem_prepare_ref = 0;
-static _lock_t s_modem_prepare_lock;
+static struct k_mutex s_modem_prepare_lock = Z_MUTEX_INITIALIZER(s_modem_prepare_lock);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 
 #if CONFIG_MAC_BB_PD
@@ -321,25 +321,24 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 void sleep_modem_register_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                          mac_bb_power_up_cb_t pu_cb)
 {
-    _lock_acquire(&s_modem_prepare_lock);
+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
     if (s_modem_prepare_ref++ == 0) {
         esp_register_mac_bb_pd_callback(pd_cb);
         esp_register_mac_bb_pu_callback(pu_cb);
     }
-    _lock_release(&s_modem_prepare_lock);
+    k_mutex_unlock(&s_modem_prepare_lock);
 }
 
 void sleep_modem_unregister_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                            mac_bb_power_up_cb_t pu_cb)
 {
-    _lock_acquire(&s_modem_prepare_lock);
+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
     assert(s_modem_prepare_ref);
     if (--s_modem_prepare_ref == 0) {
         esp_unregister_mac_bb_pd_callback(pd_cb);
         esp_unregister_mac_bb_pu_callback(pu_cb);
     }
-    _lock_release(&s_modem_prepare_lock);
-
+    k_mutex_unlock(&s_modem_prepare_lock);
 }
 
 /**

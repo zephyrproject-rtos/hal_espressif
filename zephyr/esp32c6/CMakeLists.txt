@@ -226,26 +226,30 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   endif()
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
-  zephyr_sources(
-    ../../components/esp_driver_gpio/src/gpio.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
-    ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
-    ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
-    ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
-    ../../components/esp_hw_support/sleep_gpio.c
-    ../../components/esp_hw_support/sleep_event.c
-    ../../components/esp_hw_support/sleep_console.c
-    ../../components/esp_hw_support/sleep_modem.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_hw_support/sleep_retention.c
-    ../../components/esp_hw_support/sleep_system_peripheral.c
-    ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
-    ../../components/esp_hw_support/sleep_uart.c
-    ../../components/esp_hw_support/clk_utils.c
-    ../../components/esp_hw_support/esp_memory_utils.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
-    ../common/pm_impl_zephyr.c
-    )
+    zephyr_sources(
+      ../../components/esp_driver_gpio/src/gpio.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
+      ../../components/esp_hw_support/port/pau_regdma.c
+      ../../components/esp_hw_support/port/regdma_link.c
+      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
+      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
+      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
+      ../../components/esp_hw_support/sleep_gpio.c
+      ../../components/esp_hw_support/sleep_event.c
+      ../../components/esp_hw_support/sleep_console.c
+      ../../components/esp_hw_support/sleep_modem.c
+      ../../components/esp_hw_support/sleep_modes.c
+      ../../components/esp_hw_support/sleep_retention.c
+      ../../components/esp_hw_support/sleep_system_peripheral.c
+      ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
+      ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
+      ../../components/esp_hw_support/sleep_uart.c
+      ../../components/esp_hw_support/clk_utils.c
+      ../../components/esp_hw_support/esp_memory_utils.c
+      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_modem_state.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
+      ../common/pm_impl_zephyr.c
+      )
   endif()
 
   zephyr_sources_ifdef(CONFIG_DMA_ESP32

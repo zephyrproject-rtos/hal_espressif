@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "zephyr_compat.h"
 #include "soc/rtc.h"
 #include "esp_err.h"
 #include "esp_phy_init.h"
