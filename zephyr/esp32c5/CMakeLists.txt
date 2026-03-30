@@ -198,12 +198,19 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
   )
 
-  zephyr_sources_ifdef(CONFIG_ESP32_SPIM
-    ../../components/esp_hal_gpspi/spi_hal.c
-    ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    )
+  if(CONFIG_ESP32_SPIM)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_hal.c
+      ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/soc/lldesc.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
+        )
+    endif()
+  endif()
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
@@ -285,11 +292,20 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     endif()
   endif()
 
-  zephyr_sources_ifdef(CONFIG_DMA_ESP32
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v2.c
-    )
+  if(CONFIG_DMA_ESP32)
+    zephyr_sources(
+      ../../components/soc/lldesc.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v2.c
+      )
+
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
+        ../../components/esp_hw_support/dma/gdma_sleep_retention.c
+        )
+    endif()
+  endif()
 
   if (CONFIG_ESP_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
@@ -411,9 +427,16 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/hal/hal_utils.c
     )
 
-  zephyr_sources_ifdef(CONFIG_COUNTER_TMR_ESP32
-    ../../components/esp_hal_timg/timer_hal.c
-    )
+  if(CONFIG_COUNTER_TMR_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_timg/timer_hal.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
+        )
+    endif()
+  endif()
 
   zephyr_sources_ifdef(CONFIG_UART_ESP32
     ../../components/esp_hal_uart/uart_hal.c
