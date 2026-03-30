@@ -125,8 +125,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/heap/include
     ../../components/ieee802154/include
     ../../components/ieee802154/private_include
-    ../../components/mbedtls/port/include
-    ../../components/mbedtls/port/psa_driver/include
     ../../components/riscv/${CONFIG_SOC_SERIES}/include
     ../../components/riscv/include
     ../../components/riscv/include/esp_private
@@ -141,16 +139,23 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/ulp/lp_core/lp_core/include
     ../../components/ulp/lp_core/shared/include
     ../../components/ulp/ulp_common/include
-    ../../components/wpa_supplicant/esp_supplicant/include
-    ../../components/wpa_supplicant/esp_supplicant/src
-    ../../components/wpa_supplicant/include
-    ../../components/wpa_supplicant/include/esp_supplicant
-    ../../components/wpa_supplicant/port/include
-    ../../components/wpa_supplicant/src
-    ../../components/wpa_supplicant/src/crypto
-    ../../components/wpa_supplicant/src/eap_peer
-    ../../components/wpa_supplicant/src/utils
   )
+
+  if(CONFIG_WIFI_ESP32)
+    zephyr_include_directories(
+      ../../components/mbedtls/port/include
+      ../../components/mbedtls/port/psa_driver/include
+      ../../components/wpa_supplicant/esp_supplicant/include
+      ../../components/wpa_supplicant/esp_supplicant/src
+      ../../components/wpa_supplicant/include
+      ../../components/wpa_supplicant/include/esp_supplicant
+      ../../components/wpa_supplicant/port/include
+      ../../components/wpa_supplicant/src
+      ../../components/wpa_supplicant/src/crypto
+      ../../components/wpa_supplicant/src/eap_peer
+      ../../components/wpa_supplicant/src/utils
+    )
+  endif()
 
   zephyr_link_libraries(
     gcc
