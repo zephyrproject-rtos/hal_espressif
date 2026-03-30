@@ -1,6 +1,3 @@
-#include "utils/includes.h"
-#include "utils/common.h"
-
 #include "esp_private/phy.h"
 #include "esp_phy_init.h"
 

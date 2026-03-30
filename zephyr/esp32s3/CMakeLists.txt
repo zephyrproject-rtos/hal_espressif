@@ -127,8 +127,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/hal/include/hal
     ../../components/hal/platform_port/include
     ../../components/heap/include
-    ../../components/mbedtls/port/include
-    ../../components/mbedtls/port/psa_driver/include
     ../../components/soc/${CONFIG_SOC_SERIES}/include
     ../../components/soc/include
     ../../components/soc/${CONFIG_SOC_SERIES}/ld
@@ -136,20 +134,27 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/spi_flash
     ../../components/spi_flash/include
     ../../components/spi_flash/include/esp_private
-    ../../components/wpa_supplicant/esp_supplicant/include
-    ../../components/wpa_supplicant/esp_supplicant/src
-    ../../components/wpa_supplicant/include
-    ../../components/wpa_supplicant/include/esp_supplicant
-    ../../components/wpa_supplicant/port/include
-    ../../components/wpa_supplicant/src
-    ../../components/wpa_supplicant/src/crypto
-    ../../components/wpa_supplicant/src/eap_peer
-    ../../components/wpa_supplicant/src/utils
     ../../components/xtensa/${CONFIG_SOC_SERIES}/include
     ../../components/xtensa/include
     ../../components/xtensa/include/esp_private
     ../../components/xtensa/include/xtensa
     )
+
+  if(CONFIG_WIFI_ESP32)
+    zephyr_include_directories(
+      ../../components/mbedtls/port/include
+      ../../components/mbedtls/port/psa_driver/include
+      ../../components/wpa_supplicant/esp_supplicant/include
+      ../../components/wpa_supplicant/esp_supplicant/src
+      ../../components/wpa_supplicant/include
+      ../../components/wpa_supplicant/include/esp_supplicant
+      ../../components/wpa_supplicant/port/include
+      ../../components/wpa_supplicant/src
+      ../../components/wpa_supplicant/src/crypto
+      ../../components/wpa_supplicant/src/eap_peer
+      ../../components/wpa_supplicant/src/utils
+    )
+  endif()
 
   zephyr_link_libraries(
     gcc

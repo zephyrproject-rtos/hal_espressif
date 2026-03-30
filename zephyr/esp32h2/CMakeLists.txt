@@ -133,9 +133,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/soc/${CONFIG_SOC_SERIES}/register
     ../../components/spi_flash/include
     ../../components/spi_flash/include/esp_private
-    ../../components/wpa_supplicant/include
-    ../../components/wpa_supplicant/port/include
-    ../../components/wpa_supplicant/src
   )
 
   zephyr_link_libraries(
