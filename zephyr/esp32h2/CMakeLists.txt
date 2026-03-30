@@ -304,9 +304,16 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_uart/${CONFIG_SOC_SERIES}/uart_periph.c
     )
 
-  zephyr_sources_ifdef(CONFIG_COUNTER_TMR_ESP32
-    ../../components/esp_hal_timg/timer_hal.c
-    )
+  if(CONFIG_COUNTER_TMR_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_timg/timer_hal.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
+        )
+    endif()
+  endif()
 
   if (CONFIG_ESP32_TEMP)
     zephyr_include_directories(
@@ -319,20 +326,33 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     )
   endif()
 
-  zephyr_sources_ifdef(CONFIG_ESP32_SPIM
-    ../../components/esp_hal_gpspi/spi_hal.c
-    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
-    ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
-    )
+  if(CONFIG_ESP32_SPIM)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_hal.c
+      ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
+        )
+    endif()
+  endif()
 
-  zephyr_sources_ifdef(CONFIG_DMA_ESP32
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
-    )
+  if(CONFIG_DMA_ESP32)
+    zephyr_sources(
+      ../../components/soc/lldesc.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
+      )
+
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
+        )
+    endif()
+  endif()
 
   if(CONFIG_WDT_ESP32 AND CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
     zephyr_sources(
