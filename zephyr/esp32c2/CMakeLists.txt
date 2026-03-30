@@ -167,7 +167,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hal_gpspi/spi_hal.c
     ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/soc/lldesc.c
     ../../components/esp_hal_dma/gdma_hal_top.c
     ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
     )
