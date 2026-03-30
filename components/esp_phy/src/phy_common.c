@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "sdkconfig.h"
+#include "zephyr_compat.h"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "esp_private/esp_gpio_reserve.h"

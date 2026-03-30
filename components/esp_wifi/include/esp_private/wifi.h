@@ -547,7 +547,7 @@ void esp_wifi_power_domain_on(void);
  */
 void esp_wifi_power_domain_off(void);
 
-#if (CONFIG_FREERTOS_USE_TICKLESS_IDLE && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
 /**
   * @brief     Get wifi mac sleep retention hardware context configuration and size
   *
