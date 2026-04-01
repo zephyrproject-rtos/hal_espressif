@@ -679,7 +679,8 @@ static void esp_phy_disable_wrapper(void)
 static void esp_log_writev_wrapper(uint32_t level, const char *tag, const char *format, va_list args)
 {
 #if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
-    esp_log_writev((esp_log_level_t)level, tag, format, args);
+    esp_rom_printf("%s: ", tag);
+    esp_rom_vprintf(format, args);
 #endif
 }
 
@@ -688,7 +689,8 @@ static void esp_log_write_wrapper(uint32_t level, const char *tag, const char *f
 #if CONFIG_WIFI_LOG_LEVEL >= LOG_LEVEL_DBG
     va_list list;
     va_start(list, format);
-    esp_log_writev((esp_log_level_t)level, tag, format, list);
+    esp_rom_printf("%s: ", tag);
+    esp_rom_vprintf(format, list);
     va_end(list);
 #endif
 }
