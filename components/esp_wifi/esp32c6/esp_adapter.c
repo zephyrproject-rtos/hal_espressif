@@ -40,7 +40,6 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
 #include "os.h"
-#include "esp_log.h"
 #ifdef CONFIG_ESP_COEX_ENABLED
 #include "private/esp_coexist_internal.h"
 #endif
@@ -63,6 +62,11 @@ static void esp_wifi_free(void *mem);
 static void *wifi_msgq_buffer;
 
 static struct k_thread wifi_task_handle;
+
+#ifdef CONFIG_PM
+extern void wifi_apb80m_request(void);
+extern void wifi_apb80m_release(void);
+#endif
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -401,14 +405,14 @@ static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, 
 
 static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_apb80m_request();
 #endif
 }
 
 static void IRAM_ATTR wifi_apb80m_release_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_apb80m_release();
 #endif
 }
