@@ -274,6 +274,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
       ../common/pm_impl_zephyr.c
       )
+
     if(CONFIG_ESP32_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
@@ -286,6 +287,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
         )
     endif()
+
+    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+      ../../components/spi_flash/spi_flash_dpd_enable.c
+    )
   endif()
 
   if(CONFIG_DMA_ESP32)

@@ -302,6 +302,32 @@ config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
 	  For chips after esp32, the delay will be executed only in light sleep flow, the delay
 	  controlled by the EFUSE_FLASH_TPUW in ROM will be executed in deepsleep wake up flow.)
 
+config ESP_SLEEP_FLASH_LEAKAGE_WORKAROUND
+	bool "Pull up flash CS pin in light sleep"
+	depends on SOC_FLASH_ESP32
+	default y
+	help
+	  During light sleep, GPIOs can float. If the flash CS pin is read low,
+	  the chip may leak current or see spurious bus activity. This option
+	  pulls CS high in sleep. On module designs without an external CS pull-up,
+	  keep this enabled.
+
+config ESP_SLEEP_PSRAM_LEAKAGE_WORKAROUND
+	bool "Pull up PSRAM CS pin in light sleep"
+	depends on ESP_SPIRAM
+	default y
+	help
+	  Same rationale as flash CS, for PSRAM. Enable when using SPIRAM and
+	  the CS line is not pulled up externally.
+
+config ESP_SLEEP_MSPI_NEED_ALL_IO_PU
+	bool "Pull up all MSPI pins in light sleep"
+	depends on ESP_SLEEP_FLASH_LEAKAGE_WORKAROUND || ESP_SLEEP_PSRAM_LEAKAGE_WORKAROUND
+	default y if SOC_SERIES_ESP32S3 || SOC_SERIES_ESP32C2
+	help
+	  Some flash/PSRAM parts need all MSPI lines held in a known state during
+	  sleep, not only CS. Enable if your part's datasheet recommends it.
+
 endmenu # Sleep config
 
 endif # SOC_FAMILY_ESPRESSIF_ESP32

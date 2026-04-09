@@ -293,6 +293,10 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_hw_support/clk_utils.c
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
       )
+
+    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+      ../../components/spi_flash/spi_flash_dpd_enable.c
+    )
   endif()
 
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR

@@ -357,6 +357,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
     )
+
+    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+      ../../components/spi_flash/spi_flash_dpd_enable.c
+    )
   endif()
 
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR
