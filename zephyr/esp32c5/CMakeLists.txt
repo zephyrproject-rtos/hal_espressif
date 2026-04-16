@@ -314,6 +314,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
   endif()
 
   zephyr_sources_ifdef(CONFIG_SOC_ESP32C5_HPCORE
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/esp_hal_ana_conv/temperature_sensor_hal.c

@@ -341,6 +341,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/esp_hw_support/esp_clk.c
     ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_hw_support/hw_random.c

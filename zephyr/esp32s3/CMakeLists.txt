@@ -376,7 +376,6 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/bootloader_support/src/bootloader_clock_init.c
       ../../components/esp_hal_security/mpu_hal.c
       ../../components/bootloader_support/bootloader_flash/src/flash_qio_mode.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       ../common/console_init.c
       ../common/soc_init.c
       )
@@ -387,6 +386,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
   endif()
 
   zephyr_sources(
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
     ../../components/esp_hal_ana_conv/temperature_sensor_hal.c
