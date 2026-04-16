@@ -237,7 +237,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cache_sram_mmu.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       )
   endif()
 
@@ -282,7 +281,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_hw_support/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
-      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
       )
   endif()
 
@@ -346,6 +344,7 @@ if(CONFIG_SOC_SERIES_ESP32)
   endif()
 
   zephyr_sources(
+    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/bootloader_support/src/bootloader_efuse.c
     ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
