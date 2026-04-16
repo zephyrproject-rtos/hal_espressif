@@ -21,9 +21,11 @@
 #include "esp_random.h"
 #include "esp_attr.h"
 #include "esp_phy_init.h"
+#include "esp_pm.h"
 #include "esp_bt.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/critical_section.h"
@@ -430,7 +432,7 @@ static DRAM_ATTR uint8_t btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL;
 #endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
 
 static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr;
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
 static bool s_pm_lock_acquired = true;
@@ -438,7 +440,7 @@ static DRAM_ATTR bool s_btdm_allow_light_sleep;
 // pm_lock to prevent light sleep when using main crystal as Bluetooth low power clock
 static DRAM_ATTR esp_pm_lock_handle_t s_light_sleep_pm_lock;
 static void btdm_slp_tmr_callback(void *arg);
-#endif /* #ifdef CONFIG_PM_ENABLE */
+#endif /* #ifdef CONFIG_PM */
 
 
 static inline void esp_bt_power_domain_on(void)
@@ -940,7 +942,7 @@ static bool IRAM_ATTR btdm_sleep_check_duration(uint32_t *slot_cnt)
 static void btdm_sleep_enter_phase1_wrapper(uint32_t lpcycles)
 {
     ARG_UNUSED(lpcycles);
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     // start a timer to wake up and acquire the pm_lock before modem_sleep awakes
     uint32_t us_to_sleep = btdm_lpcycles_2_us(lpcycles);
 
@@ -963,7 +965,7 @@ static void btdm_sleep_enter_phase2_wrapper(void)
 {
     if (btdm_controller_get_sleep_mode() == BTDM_MODEM_SLEEP_MODE_ORIG) {
         esp_phy_disable(PHY_MODEM_BT);
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_pm_lock_acquired) {
             esp_pm_lock_release(s_pm_lock);
             s_pm_lock_acquired = false;
@@ -978,7 +980,7 @@ static void btdm_sleep_enter_phase2_wrapper(void)
 
 static void btdm_sleep_exit_phase3_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (!s_pm_lock_acquired) {
         s_pm_lock_acquired = true;
         esp_pm_lock_acquire(s_pm_lock);
@@ -988,7 +990,7 @@ static void btdm_sleep_exit_phase3_wrapper(void)
     if (btdm_controller_get_sleep_mode() == BTDM_MODEM_SLEEP_MODE_ORIG) {
         esp_phy_enable(PHY_MODEM_BT);
         btdm_check_and_init_bb();
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         esp_timer_stop(s_btdm_slp_tmr);
 #endif
     } else if (btdm_controller_get_sleep_mode() == BTDM_MODEM_SLEEP_MODE_EVED) {
@@ -998,7 +1000,7 @@ static void btdm_sleep_exit_phase3_wrapper(void)
     }
 }
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
 static void btdm_slp_tmr_customer_callback(void * arg)
 {
     (void)(arg);
@@ -1025,7 +1027,7 @@ static void btdm_wakeup_request_callback(void * arg)
 {
     (void)(arg);
 
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
     if (!s_pm_lock_acquired) {
         s_pm_lock_acquired = true;
         esp_pm_lock_acquire(s_pm_lock);
@@ -1055,7 +1057,7 @@ static bool async_wakeup_request(int event)
         case BTDM_ASYNC_WAKEUP_REQ_COEX:
             if (!btdm_power_state_active()) {
                 do_wakeup_request = true;
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
                 if (!s_pm_lock_acquired) {
                     s_pm_lock_acquired = true;
                     esp_pm_lock_acquire(s_pm_lock);
@@ -1318,7 +1320,7 @@ static esp_err_t btdm_low_power_mode_init(void)
 {
     esp_err_t err = ESP_OK;
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     s_btdm_allow_light_sleep = false;
 #endif
 
@@ -1330,7 +1332,7 @@ static esp_err_t btdm_low_power_mode_init(void)
     if (btdm_lpclk_sel == ESP_BT_SLEEP_CLOCK_EXT_32K_XTAL) {
         // check whether or not EXT_CRYS is working
         if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
             s_btdm_allow_light_sleep = true;
 #endif
         } else {
@@ -1373,7 +1375,7 @@ static esp_err_t btdm_low_power_mode_init(void)
     btdm_controller_set_sleep_mode(BTDM_MODEM_SLEEP_MODE_NONE);
 #endif
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (!s_btdm_allow_light_sleep) {
         if ((err = esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "btLS", &s_light_sleep_pm_lock)) != ESP_OK) {
             return err;
@@ -1610,7 +1612,7 @@ esp_err_t esp_bt_controller_deinit(void)
 // deinit low power control resources
 static void btdm_low_power_mode_deinit(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (!s_btdm_allow_light_sleep) {
         esp_pm_lock_delete(s_light_sleep_pm_lock);
         s_light_sleep_pm_lock = NULL;
@@ -1707,7 +1709,7 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
         return ESP_ERR_INVALID_ARG;
     }
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (!s_btdm_allow_light_sleep) {
         esp_pm_lock_acquire(s_light_sleep_pm_lock);
     }
@@ -1736,7 +1738,7 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
         coex_disable();
 #endif
         esp_phy_disable(PHY_MODEM_BT);
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (!s_btdm_allow_light_sleep) {
             esp_pm_lock_release(s_light_sleep_pm_lock);
         }
@@ -1781,7 +1783,7 @@ esp_err_t esp_bt_controller_disable(void)
     btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
     esp_unregister_shutdown_handler(bt_shutdown);
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (!s_btdm_allow_light_sleep) {
         esp_pm_lock_release(s_light_sleep_pm_lock);
     }

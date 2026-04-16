@@ -42,18 +42,15 @@
 #include "esp_private/periph_ctrl.h"
 #include "bt_osi_mem.h"
 
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 #include "esp_private/sleep_modem.h"
 #include "esp_private/sleep_retention.h"
-#include "esp_private/pm_impl.h"
-#endif // CONFIG_TICKLESS_KERNEL
+#endif
 
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
 
-#include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk_tree_common.h"
-#include "esp_sleep.h"
 #include "soc/rtc.h"
 #include "modem/modem_syscon_struct.h"
 
@@ -167,14 +164,13 @@ extern void os_msys_deinit(void);
 #if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
 extern void esp_ble_controller_flash_only_param_config(void);
 #endif // CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 extern sleep_retention_entries_config_t *r_esp_ble_mac_retention_link_get(uint8_t *size, uint8_t extra);
-extern bool r_ble_lll_sleep_should_skip_light_sleep_check(void);
 extern void r_esp_ble_set_wakeup_overhead(uint32_t overhead);
-#endif /* CONFIG_TICKLESS_KERNEL */
-#if CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
+#if CONFIG_PM
 extern void r_esp_ble_stop_wakeup_timing(void);
-#endif // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
 #if CONFIG_ESP32_BT_LE_LL_PEER_SCA_SET_ENABLE
 extern void r_ble_ll_customize_peer_sca_set(uint16_t peer_sca);
 #endif  // CONFIG_ESP32_BT_LE_LL_PEER_SCA_SET_ENABLE
@@ -227,9 +223,9 @@ static void esp_bt_ctrl_log_partition_get_and_erase_first_block(void);
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
 #endif /* !CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2 */
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 static bool esp_bt_check_wakeup_by_bt(void);
-#endif // CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
 #if (CONFIG_BT_CONTROLLER_ONLY) && (CONFIG_ESP32_BT_LE_SM_SC) && (!CONFIG_ESP32_BT_LE_CRYPTO_STACK_MBEDTLS)
 #include "tinycrypt/ecc.h"
 static int ecc_rand_func(uint8_t *dst, unsigned int len);
@@ -495,9 +491,9 @@ void __wrap_esp_panic_handler (void *info)
 
 /* This variable tells if BLE is running */
 static bool s_ble_active = false;
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock = NULL;
-#endif // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
 #define MAIN_XTAL_FREQ_HZ                 (32000000)
 static DRAM_ATTR modem_clock_lpclk_src_t s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_INVALID;
 static DRAM_ATTR uint32_t s_bt_lpclk_freq = 100000;
@@ -747,13 +743,13 @@ IRAM_ATTR void controller_sleep_cb(uint32_t enable_tick, void *arg)
     if (!s_ble_active) {
         return;
     }
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     r_ble_rtc_wake_up_state_clr();
-#endif /* CONFIG_TICKLESS_KERNEL */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
     esp_phy_disable(PHY_MODEM_BT);
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
     esp_pm_lock_release(s_pm_lock);
-#endif // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
     s_ble_active = false;
 }
 
@@ -763,32 +759,32 @@ IRAM_ATTR void controller_wakeup_cb(void *arg)
     if (s_ble_active) {
         return;
     }
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
     esp_pm_config_t pm_config;
     esp_pm_lock_acquire(s_pm_lock);
     esp_pm_get_configuration(&pm_config);
     assert(esp_rom_get_cpu_ticks_per_us() == pm_config.max_freq_mhz);
+#endif /* CONFIG_PM */
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     r_ble_rtc_wake_up_state_clr();
-#endif //CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
     params = (bt_wakeup_params_t *)arg;
     esp_phy_enable(PHY_MODEM_BT);
     if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_RC_SLOW) {
         params->rtc_freq = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED) / 5;
     }
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     params->bt_wakeup = esp_bt_check_wakeup_by_bt();
-#endif // CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
     s_ble_active = true;
 }
 
-#ifdef CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 static bool esp_bt_check_wakeup_by_bt(void)
 {
    return (esp_sleep_get_wakeup_causes() & BIT(ESP_SLEEP_WAKEUP_BT));
 }
-#endif /* CONFIG_TICKLESS_KERNEL */
 
-#if defined(CONFIG_ESP32_BT_LE_SLEEP_ENABLE) && defined(CONFIG_TICKLESS_KERNEL)
 static esp_err_t sleep_modem_ble_mac_retention_init(void *arg)
 {
     uint8_t size;
@@ -853,25 +849,20 @@ void IRAM_ATTR sleep_modem_light_sleep_overhead_set(uint32_t overhead)
 {
     r_esp_ble_set_wakeup_overhead(overhead);
 }
-#endif /* CONFIG_TICKLESS_KERNEL */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
 
 
 esp_err_t controller_sleep_init(void)
 {
     esp_err_t rc = 0;
 
-#ifdef CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "BLE modem sleep is enabled");
-#if CONFIG_TICKLESS_KERNEL
     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
                                 BLE_RTC_DELAY_US_LIGHT_SLEEP);
-#else
-    r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
-                                BLE_RTC_DELAY_US_MODEM_SLEEP);
-#endif /* TICKLESS_KERNEL */
-#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
 
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
     rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
     if (rc != ESP_OK) {
         goto error;
@@ -880,8 +871,9 @@ esp_err_t controller_sleep_init(void)
     if (rc != ESP_OK) {
         goto error;
     }
-#endif //CONFIG_PM_ENABLE
-#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_PM */
+
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     /* Create a new regdma link for BLE related register restoration */
     rc = sleep_modem_ble_mac_modem_state_init(0);
     if (rc != ESP_OK) {
@@ -890,54 +882,45 @@ esp_err_t controller_sleep_init(void)
     esp_sleep_enable_bt_wakeup();
     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "Enable light sleep, the wake up source is BLE timer");
 
-    rc = esp_pm_register_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
-    if (rc != ESP_OK) {
-        ESP_LOGE(NIMBLE_PORT_LOG_TAG, "Should skip cb register error");
-        goto error;
-    }
-
     rc = esp_pm_register_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
     if (rc != ESP_OK) {
         goto error;
     }
-#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
+
     return rc;
 
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
 error:
-#endif // CONFIG_PM_ENABLE
-#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
-    esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+#endif /* CONFIG_PM */
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     esp_sleep_disable_bt_wakeup();
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
-#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
-#ifdef CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
+#if CONFIG_PM
     esp_deep_sleep_deregister_hook(&r_esp_ble_stop_wakeup_timing);
-    /*lock should release first and then delete*/
     if (s_pm_lock != NULL) {
         esp_pm_lock_delete(s_pm_lock);
         s_pm_lock = NULL;
     }
-#endif // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
 
     return rc;
 }
 
 void controller_sleep_deinit(void)
 {
-#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     r_ble_rtc_wake_up_state_clr();
-    esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
     esp_sleep_disable_bt_wakeup();
     sleep_modem_ble_mac_modem_state_deinit();
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
-#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
-#ifdef CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
+#if CONFIG_PM
     esp_deep_sleep_deregister_hook(&r_esp_ble_stop_wakeup_timing);
-    /* lock should be released first */
     esp_pm_lock_delete(s_pm_lock);
     s_pm_lock = NULL;
-#endif //CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
 }
 
 typedef enum {
@@ -1275,9 +1258,9 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
         return ESP_FAIL;
     }
     if (!s_ble_active) {
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
         esp_pm_lock_acquire(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
         esp_phy_enable(PHY_MODEM_BT);
         s_ble_active = true;
     }
@@ -1310,9 +1293,9 @@ error:
     esp_btbb_disable();
     if (s_ble_active) {
         esp_phy_disable(PHY_MODEM_BT);
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
         esp_pm_lock_release(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
         s_ble_active = false;
     }
     return ret;
@@ -1334,9 +1317,9 @@ esp_err_t esp_bt_controller_disable(void)
     esp_btbb_disable();
     if (s_ble_active) {
         esp_phy_disable(PHY_MODEM_BT);
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
         esp_pm_lock_release(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#endif /* CONFIG_PM */
         s_ble_active = false;
     }
     ble_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
