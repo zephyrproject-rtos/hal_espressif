@@ -29,6 +29,8 @@
 #include "soc/soc_memory_layout.h"
 #include "private/esp_coexist_internal.h"
 #include "esp_heap_adapter.h"
+#include "esp_pm.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_gpio.h"
@@ -504,7 +506,7 @@ static K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_
 // wakeup timer
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr = NULL;
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
 // pm_lock to prevent light sleep due to incompatibility currently
 static DRAM_ATTR esp_pm_lock_handle_t s_light_sleep_pm_lock;
@@ -1238,7 +1240,7 @@ static void btdm_sleep_enter_phase2_wrapper(void)
             assert(0);
         }
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_lp_stat.pm_lock_released == 0) {
             esp_pm_lock_release(s_pm_lock);
             s_lp_stat.pm_lock_released = 1;
@@ -1249,7 +1251,7 @@ static void btdm_sleep_enter_phase2_wrapper(void)
 
 static void btdm_sleep_exit_phase3_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     // If BT wakeup before esp timer coming due to timer task have no chance to run.
     // Then we will not run into `btdm_sleep_exit_phase0` and acquire PM lock,
     // Do it again here to fix this issue.
@@ -1285,7 +1287,7 @@ static void IRAM_ATTR btdm_sleep_exit_phase0(void *param)
 {
     assert(s_lp_cntl.enable == 1);
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (s_lp_stat.pm_lock_released) {
         esp_pm_lock_acquire(s_pm_lock);
         s_lp_stat.pm_lock_released = 0;
@@ -1309,7 +1311,7 @@ static void IRAM_ATTR btdm_sleep_exit_phase0(void *param)
 
 static void IRAM_ATTR btdm_slp_tmr_callback(void *arg)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     r_btdm_vnd_offload_post(BTDM_VND_OL_SIG_WAKEUP_TMR, (void *)BTDM_ASYNC_WAKEUP_SRC_TMR);
 #endif
 }
@@ -1335,7 +1337,7 @@ static bool async_wakeup_request(int event)
         case BTDM_ASYNC_WAKEUP_REQ_COEX:
             if (!btdm_power_state_active()) {
                 do_wakeup_request = true;
-#if CONFIG_PM_ENABLE
+#if CONFIG_PM
                 if (s_lp_stat.pm_lock_released) {
                     esp_pm_lock_acquire(s_pm_lock);
                     s_lp_stat.pm_lock_released = 0;
@@ -1725,7 +1727,7 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
             }
             s_lp_cntl.mac_bb_pd = 1;
 #endif
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
             s_lp_cntl.wakeup_timer_required = 1;
 #endif
             // async wakeup semaphore for VHCI
@@ -1810,7 +1812,7 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
         coex_update_lpclk_interval();
 #endif
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_lp_cntl.no_light_sleep) {
             if ((err = esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "btLS", &s_light_sleep_pm_lock)) != ESP_OK) {
                 break;
@@ -2025,7 +2027,7 @@ static void btdm_low_power_mode_deinit(void)
     }
 #endif
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     if (s_lp_cntl.no_light_sleep) {
         if (s_light_sleep_pm_lock != NULL) {
             esp_pm_lock_delete(s_light_sleep_pm_lock);
@@ -2124,7 +2126,7 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
 
     // enable low power mode
     do {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_lp_cntl.no_light_sleep) {
             esp_pm_lock_acquire(s_light_sleep_pm_lock);
         }
@@ -2172,7 +2174,7 @@ error:
 #endif
 
         btdm_controller_enable_sleep(false);
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_lp_cntl.no_light_sleep) {
             esp_pm_lock_release(s_light_sleep_pm_lock);
         }
@@ -2222,7 +2224,7 @@ esp_err_t esp_bt_controller_disable(void)
         esp_unregister_mac_bb_pu_callback(btdm_mac_bb_power_up_cb);
 #endif
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
         if (s_lp_cntl.no_light_sleep) {
             esp_pm_lock_release(s_light_sleep_pm_lock);
         }

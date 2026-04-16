@@ -536,6 +536,8 @@ static bool s_mac_bb_pu = true;
 void esp_mac_bb_pd_mem_init(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
+    extern void esp_apb_backup_dma_lock_init(void);
+    esp_apb_backup_dma_lock_init();
     k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     s_macbb_backup_mem_ref++;
     if (s_mac_bb_pd_mem == NULL) {
