@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
+#include <zephyr/pm/policy.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -29,6 +30,7 @@
 #include "soc/soc_memory_layout.h"
 #include "private/esp_coexist_internal.h"
 #include "esp_heap_adapter.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_gpio.h"
@@ -88,11 +90,10 @@ typedef union {
 // low power control status
 typedef union {
     struct {
-        uint32_t pm_lock_released        :  1; // whether power management lock is released
         uint32_t mac_bb_pd               :  1; // whether hardware(MAC, BB) is powered down
         uint32_t phy_enabled             :  1; // whether phy is switched on
         uint32_t wakeup_timer_started    :  1; // whether wakeup timer is started
-        uint32_t reserved                : 28; // reserved
+        uint32_t reserved                : 29; // reserved
     };
     uint32_t val;
 } btdm_lpstat_t;
@@ -504,11 +505,10 @@ static K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_
 // wakeup timer
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr = NULL;
 
-#ifdef CONFIG_PM_ENABLE
-static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
-// pm_lock to prevent light sleep due to incompatibility currently
-static DRAM_ATTR esp_pm_lock_handle_t s_light_sleep_pm_lock;
-#endif
+#if CONFIG_PM
+DEFINE_CRIT_SECTION_LOCK_STATIC(s_pm_lock);
+static bool pm_policy_state_on;
+#endif /* CONFIG_PM */
 
 #if CONFIG_BT_CTRL_LE_LOG_EN
 enum log_out_mode {
@@ -791,6 +791,32 @@ void esp_bt_read_ctrl_log_from_flash(bool output)
 }
 #endif // CONFIG_BT_CTRL_LE_LOG_STORAGE_EN
 #endif // CONFIG_BT_CTRL_LE_LOG_EN
+
+#if CONFIG_PM
+static void esp_bt_pm_policy_state_lock_get(void)
+{
+	esp_os_enter_critical(&s_pm_lock);
+
+	if (!pm_policy_state_on) {
+		pm_policy_state_on = true;
+		pm_policy_state_all_lock_get();
+	}
+
+	esp_os_exit_critical(&s_pm_lock);
+}
+
+static void esp_bt_pm_policy_state_lock_put(void)
+{
+	esp_os_enter_critical(&s_pm_lock);
+
+	if (pm_policy_state_on) {
+		pm_policy_state_on = false;
+		pm_policy_state_all_lock_put();
+	}
+
+	esp_os_exit_critical(&s_pm_lock);
+}
+#endif /* CONFIG_PM */
 
 void IRAM_ATTR btdm_hw_mac_power_down_wrapper(void)
 {
@@ -1238,26 +1264,24 @@ static void btdm_sleep_enter_phase2_wrapper(void)
             assert(0);
         }
 
-#ifdef CONFIG_PM_ENABLE
-        if (s_lp_stat.pm_lock_released == 0) {
-            esp_pm_lock_release(s_pm_lock);
-            s_lp_stat.pm_lock_released = 1;
+#if CONFIG_PM
+        if (!s_lp_cntl.no_light_sleep) {
+            esp_bt_pm_policy_state_lock_put();
         }
-#endif
+#endif /* CONFIG_PM */
     }
 }
 
 static void btdm_sleep_exit_phase3_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
     // If BT wakeup before esp timer coming due to timer task have no chance to run.
     // Then we will not run into `btdm_sleep_exit_phase0` and acquire PM lock,
     // Do it again here to fix this issue.
-    if (s_lp_stat.pm_lock_released) {
-        esp_pm_lock_acquire(s_pm_lock);
-        s_lp_stat.pm_lock_released = 0;
+    if (!s_lp_cntl.no_light_sleep) {
+        esp_bt_pm_policy_state_lock_get();
     }
-#endif
+#endif /* CONFIG_PM */
 
     if (btdm_controller_get_sleep_mode() == ESP_BT_SLEEP_MODE_1) {
         if (s_lp_stat.phy_enabled == 0) {
@@ -1285,12 +1309,11 @@ static void IRAM_ATTR btdm_sleep_exit_phase0(void *param)
 {
     assert(s_lp_cntl.enable == 1);
 
-#ifdef CONFIG_PM_ENABLE
-    if (s_lp_stat.pm_lock_released) {
-        esp_pm_lock_acquire(s_pm_lock);
-        s_lp_stat.pm_lock_released = 0;
+#if CONFIG_PM
+    if (!s_lp_cntl.no_light_sleep) {
+        esp_bt_pm_policy_state_lock_get();
     }
-#endif
+#endif /* CONFIG_PM */
 
     int event = (int) param;
     if (event == BTDM_ASYNC_WAKEUP_SRC_VHCI || event == BTDM_ASYNC_WAKEUP_SRC_DISA) {
@@ -1309,9 +1332,9 @@ static void IRAM_ATTR btdm_sleep_exit_phase0(void *param)
 
 static void IRAM_ATTR btdm_slp_tmr_callback(void *arg)
 {
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
     r_btdm_vnd_offload_post(BTDM_VND_OL_SIG_WAKEUP_TMR, (void *)BTDM_ASYNC_WAKEUP_SRC_TMR);
-#endif
+#endif /* CONFIG_PM */
 }
 
 
@@ -1335,12 +1358,11 @@ static bool async_wakeup_request(int event)
         case BTDM_ASYNC_WAKEUP_REQ_COEX:
             if (!btdm_power_state_active()) {
                 do_wakeup_request = true;
-#if CONFIG_PM_ENABLE
-                if (s_lp_stat.pm_lock_released) {
-                    esp_pm_lock_acquire(s_pm_lock);
-                    s_lp_stat.pm_lock_released = 0;
+#if CONFIG_PM
+                if (!s_lp_cntl.no_light_sleep) {
+                    esp_bt_pm_policy_state_lock_get();
                 }
-#endif
+#endif /* CONFIG_PM */
                 btdm_wakeup_request();
 
                 if (s_lp_cntl.wakeup_timer_required && s_lp_stat.wakeup_timer_started) {
@@ -1725,9 +1747,9 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
             }
             s_lp_cntl.mac_bb_pd = 1;
 #endif
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
             s_lp_cntl.wakeup_timer_required = 1;
-#endif
+#endif /* CONFIG_PM */
             // async wakeup semaphore for VHCI
             s_wakeup_req_sem = semphr_create_wrapper(1, 0);
             if (s_wakeup_req_sem == NULL) {
@@ -1810,19 +1832,11 @@ static esp_err_t btdm_low_power_mode_init(esp_bt_controller_config_t *cfg)
         coex_update_lpclk_interval();
 #endif
 
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_PM
         if (s_lp_cntl.no_light_sleep) {
-            if ((err = esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "btLS", &s_light_sleep_pm_lock)) != ESP_OK) {
-                break;
-            }
             ESP_LOGW(BT_LOG_TAG, "light sleep mode will not be able to apply when bluetooth is enabled.");
         }
-        if ((err = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock)) != ESP_OK) {
-            break;
-        } else {
-            s_lp_stat.pm_lock_released = 1;
-        }
-#endif
+#endif /* CONFIG_PM */
     } while (0);
 
     return err;
@@ -2025,21 +2039,6 @@ static void btdm_low_power_mode_deinit(void)
     }
 #endif
 
-#ifdef CONFIG_PM_ENABLE
-    if (s_lp_cntl.no_light_sleep) {
-        if (s_light_sleep_pm_lock != NULL) {
-            esp_pm_lock_delete(s_light_sleep_pm_lock);
-            s_light_sleep_pm_lock = NULL;
-        }
-    }
-
-    if (s_pm_lock != NULL) {
-        esp_pm_lock_delete(s_pm_lock);
-        s_pm_lock = NULL;
-        s_lp_stat.pm_lock_released = 0;
-    }
-#endif
-
     if (s_lp_cntl.wakeup_timer_required && s_btdm_slp_tmr != NULL) {
         if (s_lp_stat.wakeup_timer_started) {
             esp_timer_stop(s_btdm_slp_tmr);
@@ -2122,15 +2121,11 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
     coex_enable();
 #endif
 
-    // enable low power mode
+        // enable low power mode
     do {
-#ifdef CONFIG_PM_ENABLE
-        if (s_lp_cntl.no_light_sleep) {
-            esp_pm_lock_acquire(s_light_sleep_pm_lock);
-        }
-        esp_pm_lock_acquire(s_pm_lock);
-        s_lp_stat.pm_lock_released = 0;
-#endif
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_get();
+#endif /* CONFIG_PM */
 
 #if CONFIG_MAC_BB_PD
         if (esp_register_mac_bb_pd_callback(btdm_mac_bb_power_down_cb) != 0) {
@@ -2172,15 +2167,9 @@ error:
 #endif
 
         btdm_controller_enable_sleep(false);
-#ifdef CONFIG_PM_ENABLE
-        if (s_lp_cntl.no_light_sleep) {
-            esp_pm_lock_release(s_light_sleep_pm_lock);
-        }
-        if (s_lp_stat.pm_lock_released == 0) {
-            esp_pm_lock_release(s_pm_lock);
-            s_lp_stat.pm_lock_released = 1;
-        }
-#endif
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_put();
+#endif /* CONFIG_PM */
     } while (0);
 
 #if CONFIG_SW_COEXIST_ENABLE
@@ -2222,18 +2211,9 @@ esp_err_t esp_bt_controller_disable(void)
         esp_unregister_mac_bb_pu_callback(btdm_mac_bb_power_up_cb);
 #endif
 
-#ifdef CONFIG_PM_ENABLE
-        if (s_lp_cntl.no_light_sleep) {
-            esp_pm_lock_release(s_light_sleep_pm_lock);
-        }
-
-        if (s_lp_stat.pm_lock_released == 0) {
-            esp_pm_lock_release(s_pm_lock);
-            s_lp_stat.pm_lock_released = 1;
-        } else {
-            assert(0);
-        }
-#endif
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_put();
+#endif /* CONFIG_PM */
     } while (0);
 
     return ESP_OK;

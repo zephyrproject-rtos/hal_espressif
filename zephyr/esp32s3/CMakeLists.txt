@@ -481,6 +481,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     src/soc_random.c
   )
 
+  zephyr_sources_ifdef(CONFIG_MAC_BB_PD
+    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/apb_backup_dma.c
+  )
+
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)
     zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
