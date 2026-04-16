@@ -8,6 +8,9 @@
 
 #include <stdbool.h>
 #include <bootloader_flash_priv.h>
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT) || defined(CONFIG_MCUBOOT)
+#include <bootloader_flash_config.h>
+#endif
 #include <esp_flash_internal.h>
 #include <esp_private/mspi_timing_tuning.h>
 #include <esp_private/esp_mmu_map_private.h>
@@ -53,6 +56,16 @@ void esp_flash_config(void)
 	spi_flash_init_chip_state();
 
 	esp_mspi_pin_init();
+
+	/*
+	 * Re-apply CS timing after spi_flash_init_chip_state() may have
+	 * switched flash to OPI mode.  The simple bootloader sets CS timing
+	 * for non-octal; OPI flash needs larger hold/setup values.
+	 * With MCUboot, the bootloader already configures CS timing.
+	 */
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT) || defined(CONFIG_MCUBOOT)
+	bootloader_flash_cs_timing_config();
+#endif
 
 	/*
 	 * Flash timing tuning must run right after spi_flash_init_chip_state()

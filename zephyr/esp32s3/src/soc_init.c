@@ -152,6 +152,18 @@ void bootloader_clock_configure(void)
 	rtc_clk_xtal_freq_update(CONFIG_XTAL_FREQ);
 	rtc_clk_apb_freq_update(CONFIG_XTAL_FREQ * MHZ(1));
 
+	/*
+	 * Switch CPU to PLL so that flash and PSRAM MSPI timing
+	 * tuning works correctly. The MSPI core clock is derived
+	 * from PLL (480 MHz) and must be active before any timing
+	 * tuning runs.
+	 */
+	rtc_cpu_freq_config_t pll_cfg;
+
+	if (rtc_clk_cpu_freq_mhz_to_config(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, &pll_cfg)) {
+		rtc_clk_cpu_freq_set_config(&pll_cfg);
+	}
+
 	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
 	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
 }

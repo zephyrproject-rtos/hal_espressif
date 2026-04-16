@@ -405,6 +405,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hw_support/mac_addr.c
     ../../components/esp_hw_support/mspi/mspi_timing_tuning/mspi_timing_tuning.c
     ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
+    ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_by_mspi_delay.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
