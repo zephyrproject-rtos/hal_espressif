@@ -1314,7 +1314,7 @@
 +#endif
 --- a/components/esp_coex/esp32h2/esp_coex_adapter.c
 +++ b/components/esp_coex/esp32h2/esp_coex_adapter.c
-@@ -8,19 +8,19 @@
+@@ -8,19 +8,25 @@
  #include <stdlib.h>
  #include <stdio.h>
  #include <string.h>
@@ -1331,9 +1331,15 @@
 +#include <zephyr/init.h>
 +#include <zephyr/irq.h>
 +#include <zephyr/logging/log.h>
-+LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
++
++#if CONFIG_BT_ESP32
++LOG_MODULE_REGISTER(esp32h2_coex_adapter, CONFIG_BT_LOG_LEVEL);
++#else
++LOG_MODULE_REGISTER(esp32h2_coex_adapter);
++#endif
 +
 +#include "esp_heap_adapter.h"
++#include "esp_attr.h"
  #include "esp_timer.h"
  #include "soc/rtc.h"
  #include "esp_private/esp_clk.h"
@@ -1342,7 +1348,7 @@
  #include "esp32h2/rom/ets_sys.h"
  #include "private/esp_coexist_debug.h"
  
-@@ -39,63 +39,76 @@
+@@ -39,63 +45,76 @@
  
  void *esp_coex_common_spin_lock_create_wrapper(void)
  {
@@ -1442,7 +1448,7 @@
  }
  
  void IRAM_ATTR esp_coex_common_timer_disarm_wrapper(void *timer)
-@@ -120,19 +133,39 @@
+@@ -120,19 +139,39 @@
  
  void *IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
  {
@@ -1485,7 +1491,7 @@
  }
  
  static int esp_coexist_debug_matrix_init_wrapper(int evt, int sig, bool rev)
-@@ -149,6 +182,11 @@
+@@ -149,6 +188,11 @@
      return rtc_clk_xtal_freq_get();
  }
  
@@ -1497,7 +1503,7 @@
  coex_adapter_funcs_t g_coex_adapter_funcs = {
      ._version = COEX_ADAPTER_VERSION,
      ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -158,9 +196,9 @@
+@@ -158,9 +202,9 @@
      ._semphr_give_from_isr = esp_coex_semphr_give_from_isr_wrapper,
      ._semphr_take = esp_coex_common_semphr_take_wrapper,
      ._semphr_give = esp_coex_common_semphr_give_wrapper,
@@ -1506,11 +1512,11 @@
 -    ._free = free,
 +    ._is_in_isr = coex_is_in_isr_wrapper,
 +    ._malloc_internal = esp_coex_common_malloc_internal_wrapper,
-+    ._free = esp_wifi_free_func,
++    ._free = k_free,
      ._esp_timer_get_time = esp_timer_get_time,
      ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
-@@ -171,3 +209,14 @@
+@@ -171,3 +215,14 @@
      ._xtal_freq_get = esp_coex_common_xtal_freq_get_wrapper,
      ._magic = COEX_ADAPTER_MAGIC,
  };
