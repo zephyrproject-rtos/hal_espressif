@@ -24,6 +24,9 @@ endif()
 zephyr_compile_definitions(__DECLARE_RCC_ATOMIC_ENV)
 zephyr_compile_definitions(__DECLARE_RCC_RC_ATOMIC_ENV)
 
+# Include common Zephyr compatibility header
+zephyr_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/port/include/zephyr_compat.h)
+
 # ESP-IDF esp_perip_clk_init() disables USB Serial JTAG clock and PHY pad
 # unless CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED is set.
 if(CONFIG_ESP_USB_SERIAL_JTAG_ENABLED OR CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG)
