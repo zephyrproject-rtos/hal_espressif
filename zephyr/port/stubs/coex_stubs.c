@@ -234,6 +234,47 @@ void coex_bb_reset_unlock(uint32_t restore)
 }
 #endif /* CONFIG_IDF_TARGET_ESP32 */
 
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2)
+/**
+ * @brief Configure a coexistence hardware timer.
+ *
+ * @param idx      Timer index.
+ * @param src      Source identifier.
+ * @param pti      Priority.
+ * @param latency  Latency in microseconds.
+ * @param periodic Period in microseconds.
+ */
+void coex_hw_timer_set(uint8_t idx, uint8_t src, uint8_t pti, uint32_t latency,
+                       uint32_t periodic)
+{
+    (void)idx;
+    (void)src;
+    (void)pti;
+    (void)latency;
+    (void)periodic;
+}
+
+/**
+ * @brief Enable a coexistence hardware timer.
+ *
+ * @param idx Timer index.
+ */
+void coex_hw_timer_enable(uint8_t idx)
+{
+    (void)idx;
+}
+
+/**
+ * @brief Disable a coexistence hardware timer.
+ *
+ * @param idx Timer index.
+ */
+void coex_hw_timer_disable(uint8_t idx)
+{
+    (void)idx;
+}
+#endif /* CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 */
+
 /**
  * @brief Bluetooth registers callback for Wi-Fi channel change notification.
  *
