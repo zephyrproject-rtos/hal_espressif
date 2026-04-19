@@ -487,7 +487,7 @@ static xt_handler set_isr_hlevel_wrapper(int mask, xt_handler f, void *arg)
 
 static void IRAM_ATTR interrupt_hlevel_disable(void)
 {
-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
+    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
     assert(hli_cb.nested != UCHAR_MAX);
     uint32_t status = hli_intr_disable();
     if (hli_cb.nested++ == 0) {
@@ -497,7 +497,7 @@ static void IRAM_ATTR interrupt_hlevel_disable(void)
 
 static void IRAM_ATTR interrupt_hlevel_restore(void)
 {
-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
+    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
     assert(hli_cb.nested > 0);
     if (--hli_cb.nested == 0) {
         hli_intr_restore(hli_cb.status);
@@ -740,7 +740,7 @@ static int32_t queue_send_hlevel_wrapper(void *queue, void *item, uint32_t block
 static int32_t IRAM_ATTR queue_send_from_isr_hlevel_wrapper(void *queue, void *item, void *hptw)
 {
     UNUSED(hptw);
-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
+    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
     void *handle = ((btdm_queue_item_t *)queue)->handle;
     return hli_queue_put(handle, item);
 }
@@ -1261,7 +1261,7 @@ static uint32_t btdm_config_mask_load(void)
 #if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4
     mask |= BTDM_CFG_HCI_UART;
 #endif
-#if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
+#if CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 1
     mask |= BTDM_CFG_CONTROLLER_RUN_APP_CPU;
 #endif
 #if CONFIG_BTDM_CTRL_FULL_SCAN_SUPPORTED
@@ -1442,7 +1442,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     uint32_t btdm_cfg_mask = 0;
 
 #if CONFIG_BTDM_CTRL_HLI
-    hli_queue_setup_pinned_to_core(CONFIG_BTDM_CTRL_PINNED_TO_CORE);
+    hli_queue_setup_pinned_to_core(CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
 #endif /* CONFIG_BTDM_CTRL_HLI */
 
     //if all the bt available memory was already released, cannot initialize bluetooth controller
