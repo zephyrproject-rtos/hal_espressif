@@ -272,6 +272,24 @@
  #ifdef CONFIG_PM_ENABLE
  static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr;
  static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
+@@ -534,7 +487,7 @@
+ 
+ static void IRAM_ATTR interrupt_hlevel_disable(void)
+ {
+-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
++    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
+     assert(hli_cb.nested != UCHAR_MAX);
+     uint32_t status = hli_intr_disable();
+     if (hli_cb.nested++ == 0) {
+@@ -544,7 +497,7 @@
+ 
+ static void IRAM_ATTR interrupt_hlevel_restore(void)
+ {
+-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
++    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
+     assert(hli_cb.nested > 0);
+     if (--hli_cb.nested == 0) {
+         hli_intr_restore(hli_cb.status);
 @@ -554,177 +507,171 @@
  
  static void IRAM_ATTR interrupt_l3_disable(void)
@@ -515,13 +533,13 @@
 -    queue->handle = xQueueCreate( queue_len, item_size);
 -    assert(queue->handle);
 +    queue->pool = (uint8_t *)esp_bt_malloc_func(queue_len * item_size * sizeof(uint8_t));
- 
++
 +    if (queue->pool == NULL) {
 +        LOG_ERR("queue pool malloc failed");
 +        esp_bt_free(queue);
 +        return NULL;
 +    }
-+
+ 
 +    k_msgq_init(&queue->queue, queue->pool, item_size, queue_len);
      return queue;
  }
@@ -542,6 +560,15 @@
      }
  }
  
+@@ -793,7 +740,7 @@
+ static int32_t IRAM_ATTR queue_send_from_isr_hlevel_wrapper(void *queue, void *item, void *hptw)
+ {
+     UNUSED(hptw);
+-    assert(xPortGetCoreID() == CONFIG_BTDM_CTRL_PINNED_TO_CORE);
++    assert(xPortGetCoreID() == CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
+     void *handle = ((btdm_queue_item_t *)queue)->handle;
+     return hli_queue_put(handle, item);
+ }
 @@ -822,96 +769,116 @@
  
  static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms)
@@ -730,6 +757,15 @@
  #ifdef CONFIG_PM_ENABLE
      // start a timer to wake up and acquire the pm_lock before modem_sleep awakes
      uint32_t us_to_sleep = btdm_lpcycles_2_us(lpcycles);
+@@ -1291,7 +1261,7 @@
+ #if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4
+     mask |= BTDM_CFG_HCI_UART;
+ #endif
+-#if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
++#if CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 1
+     mask |= BTDM_CFG_CONTROLLER_RUN_APP_CPU;
+ #endif
+ #if CONFIG_BTDM_CTRL_FULL_SCAN_SUPPORTED
 @@ -1307,8 +1277,8 @@
  static void btdm_controller_mem_init(void)
  {
@@ -949,6 +985,15 @@
          assert(select_src_ret && set_div_ret);
          btdm_lpcycle_us_frac = RTC_CLK_CAL_FRACT;
          btdm_lpcycle_us = 2 << (btdm_lpcycle_us_frac);
+@@ -1646,7 +1442,7 @@
+     uint32_t btdm_cfg_mask = 0;
+ 
+ #if CONFIG_BTDM_CTRL_HLI
+-    hli_queue_setup_pinned_to_core(CONFIG_BTDM_CTRL_PINNED_TO_CORE);
++    hli_queue_setup_pinned_to_core(CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
+ #endif /* CONFIG_BTDM_CTRL_HLI */
+ 
+     //if all the bt available memory was already released, cannot initialize bluetooth controller
 @@ -1672,13 +1468,13 @@
          return ESP_ERR_INVALID_ARG;
      }
