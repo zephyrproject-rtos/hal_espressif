@@ -426,6 +426,11 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hal_pcnt/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(CONFIG_CAN_ESP32_TWAIFD
+    ../../components/esp_hal_twai/twai_hal_v2.c
+    ../../components/esp_hal_twai/${CONFIG_SOC_SERIES}/twai_periph.c
+    )
+
   if (CONFIG_ESP32_TEMP)
     zephyr_include_directories(
     ../../components/esp_driver_tsens/include
