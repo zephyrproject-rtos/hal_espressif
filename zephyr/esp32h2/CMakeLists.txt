@@ -227,6 +227,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_systimer/systimer_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c
+    ../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/mwdt_periph.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_hw_support/clk_ctrl_os.c
     ../../components/esp_hw_support/cpu.c
@@ -300,9 +301,16 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hal_uart/${CONFIG_SOC_SERIES}/uart_periph.c
     )
 
-  zephyr_sources_ifdef(CONFIG_COUNTER_TMR_ESP32
-    ../../components/esp_hal_timg/timer_hal.c
-    )
+  if(CONFIG_COUNTER_TMR_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_timg/timer_hal.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
+        )
+    endif()
+  endif()
 
   if (CONFIG_ESP32_TEMP)
     zephyr_include_directories(
@@ -315,19 +323,35 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     )
   endif()
 
-  zephyr_sources_ifdef(CONFIG_ESP32_SPIM
-    ../../components/esp_hal_gpspi/spi_hal.c
-    ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
-    )
+  if(CONFIG_ESP32_SPIM)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_hal.c
+      ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/soc/lldesc.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
+      )
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
+        )
+    endif()
+  endif()
 
-  zephyr_sources_ifdef(CONFIG_DMA_ESP32
-    ../../components/soc/lldesc.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
-    )
+  if(CONFIG_DMA_ESP32)
+    zephyr_sources(
+      ../../components/soc/lldesc.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
+      )
+
+    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
+        ../../components/esp_hw_support/dma/gdma_sleep_retention.c
+        )
+    endif()
+  endif()
 
   zephyr_sources_ifdef(CONFIG_I2C_ESP32
     ../../components/esp_hal_i2c/i2c_hal_iram.c
@@ -387,8 +411,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ../../components/esp_hw_support/port/pau_regdma.c
       ../../components/esp_hw_support/port/regdma_link.c
       ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
-      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
-      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_hw_support/sleep_console.c
@@ -396,6 +418,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ../../components/esp_hw_support/sleep_modes.c
       ../../components/esp_hw_support/sleep_retention.c
       ../../components/esp_hw_support/sleep_system_peripheral.c
+      ../../components/soc/${CONFIG_SOC_SERIES}/system_retention_periph.c
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
       ../../components/esp_hw_support/sleep_uart.c
@@ -403,6 +426,18 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
       ../common/pm_impl_zephyr.c
       )
+    if(CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
+        )
+      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_DYNAMIC
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
+        )
+      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_STATIC
+        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
+        )
+    endif()
   endif()
 
   ## IEEE 802.15.4 definitions
