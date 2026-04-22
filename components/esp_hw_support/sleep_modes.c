@@ -265,7 +265,7 @@ typedef struct {
 #if SOC_PM_SUPPORT_PMU_CLK_ICG
     int16_t clock_icg_refs[ESP_SLEEP_CLOCK_MAX];
 #endif
-    unsigned int lock;
+    esp_os_spinlock_t lock;
     uint64_t sleep_duration;
     uint32_t wakeup_triggers : 20;
 #if SOC_PM_SUPPORT_EXT1_WAKEUP
@@ -318,7 +318,7 @@ static sleep_config_t s_config = {
 #if SOC_PM_SUPPORT_PMU_CLK_ICG
     .clock_icg_refs[0 ... ESP_SLEEP_CLOCK_MAX - 1] = 0,
 #endif
-    .lock = 0,
+    .lock = ESP_OS_SPINLOCK_INIT,
     .ccount_ticks_record = 0,
     .sleep_time_overhead_out = DEFAULT_SLEEP_OUT_OVERHEAD_US,
     .wakeup_triggers = 0,
@@ -331,7 +331,7 @@ static bool s_light_sleep_wakeup = false;
 
 /* Updating RTC_MEMORY_CRC_REG register via set_rtc_memory_crc()
    is not thread-safe, so we need to disable interrupts before going to deep sleep. */
-static unsigned int __attribute__((unused)) spinlock_rtc_deep_sleep = 0;
+static esp_os_spinlock_t __attribute__((unused)) spinlock_rtc_deep_sleep = ESP_OS_SPINLOCK_INIT;
 
 ESP_LOG_ATTR_TAG(TAG, "sleep");
 

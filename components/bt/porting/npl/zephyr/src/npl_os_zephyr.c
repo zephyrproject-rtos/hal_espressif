@@ -17,8 +17,9 @@
 #include "os/os_mempool.h"
 #include "esp_bt.h"
 #include "bt_osi_mem.h"
+#include "esp_private/critical_section.h"
 
-static unsigned int ble_port_lock_key;
+static esp_os_spinlock_t ble_port_lock = ESP_OS_SPINLOCK_INIT;
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_ble_npl, CONFIG_LOG_DEFAULT_LEVEL);
@@ -584,35 +585,33 @@ void IRAM_ATTR npl_zephyr_time_delay(ble_npl_time_t ticks)
     k_sleep(K_TICKS(ticks));
 }
 
-uint8_t hw_critical_state_status = 0;
-
 uint32_t IRAM_ATTR npl_zephyr_hw_enter_critical(void)
 {
-    if (hw_critical_state_status == 0) {
-        ble_port_lock_key = irq_lock();
-    }
-
-    if (hw_critical_state_status < 0xFF) {
-        hw_critical_state_status++;
-    }
-
+    esp_os_enter_critical(&ble_port_lock);
     return 0;
 }
 
 uint8_t IRAM_ATTR npl_zephyr_hw_is_in_critical(void)
 {
-    return hw_critical_state_status;
+    /* NimBLE's OS_ASSERT_CRITICAL() needs a same-core answer: is this
+     * CPU inside the lock, not "any CPU". On SMP, use atomic_get on
+     * owner_cpu for a properly fenced read; on UP, count > 0 is
+     * sufficient. Clamp at 0xFF to preserve the old uint8_t semantics.
+     */
+#ifdef CONFIG_SMP
+    if (atomic_get(&ble_port_lock.owner_cpu) != (atomic_val_t)esp_cpu_get_core_id()) {
+        return 0;
+    }
+#endif
+    uint32_t depth = ble_port_lock.count;
+
+    return (depth >= 0xFF) ? 0xFF : (uint8_t)depth;
 }
 
 void IRAM_ATTR npl_zephyr_hw_exit_critical(uint32_t ctx)
 {
-    if (hw_critical_state_status > 0) {
-        hw_critical_state_status--;
-    }
-
-    if (hw_critical_state_status == 0) {
-        irq_unlock(ble_port_lock_key);
-    }
+    ARG_UNUSED(ctx);
+    esp_os_exit_critical(&ble_port_lock);
 }
 
 uint32_t IRAM_ATTR npl_zephyr_get_time_forever(void)

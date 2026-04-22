@@ -21,7 +21,7 @@
 ESP_LOG_ATTR_TAG(TAG, "clk_ctrl_os");
 #endif
 
-static unsigned int periph_spinlock;
+static esp_os_spinlock_t periph_spinlock = ESP_OS_SPINLOCK_INIT;
 
 static uint8_t s_periph_ref_counts = 0;
 static uint32_t s_rc_fast_freq_hz = 0; // Frequency of the RC_FAST clock in Hz

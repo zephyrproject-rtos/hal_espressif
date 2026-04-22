@@ -56,7 +56,7 @@ static intr_handler_t s_alarm_handler = NULL;
 static systimer_hal_context_t systimer_hal;
 
 /* Spinlock used to protect access to the hardware registers. */
-extern unsigned int s_time_update_lock;
+extern esp_os_spinlock_t s_time_update_lock;
 
 /* Alarm values to generate interrupt on match */
 extern uint64_t timestamp_id[2];

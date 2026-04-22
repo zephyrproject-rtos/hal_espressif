@@ -31,7 +31,7 @@
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
 
-static unsigned int s_esp_rtc_time_lock;
+static esp_os_spinlock_t s_esp_rtc_time_lock = ESP_OS_SPINLOCK_INIT;
 
 #if SOC_RTC_MEM_SUPPORTED
 typedef struct {

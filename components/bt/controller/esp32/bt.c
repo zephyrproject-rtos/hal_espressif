@@ -26,6 +26,7 @@
 #include "esp_log.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/critical_section.h"
 #include "soc/rtc.h"
 #include "soc/soc_memory_layout.h"
 #include "soc/dport_reg.h"
@@ -409,8 +410,7 @@ static DRAM_ATTR struct osi_funcs_t *osi_funcs_p;
 static DRAM_ATTR int64_t s_time_phy_rf_just_enabled = 0;
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
-static unsigned int global_int_lock;
-static unsigned int global_nested_counter = 0;
+static esp_os_spinlock_t global_int_lock = ESP_OS_SPINLOCK_INIT;
 
 // BT library uses a single task
 K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
@@ -507,18 +507,12 @@ static void IRAM_ATTR interrupt_hlevel_restore(void)
 
 static void IRAM_ATTR interrupt_l3_disable(void)
 {
-    if (global_nested_counter == 0) {
-        global_int_lock = irq_lock();
-    }
-    global_nested_counter++;
+    esp_os_enter_critical(&global_int_lock);
 }
 
 static void IRAM_ATTR interrupt_l3_restore(void)
 {
-    global_nested_counter--;
-    if (global_nested_counter == 0) {
-        irq_unlock(global_int_lock);
-    }
+    esp_os_exit_critical(&global_int_lock);
 }
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)

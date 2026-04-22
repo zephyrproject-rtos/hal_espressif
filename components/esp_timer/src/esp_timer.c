@@ -97,7 +97,9 @@ static struct k_sem s_timer_semaphore;
 static bool s_timer_task_created = false;
 
 /* lock key for critical sections */
-static unsigned int s_timer_lock_key[ESP_TIMER_MAX];
+static esp_os_spinlock_t s_timer_lock_key[ESP_TIMER_MAX] = {
+    [0 ... ESP_TIMER_MAX - 1] = ESP_OS_SPINLOCK_INIT,
+};
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 // For ISR dispatch method, a callback function of the timer may require a context switch

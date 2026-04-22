@@ -8,15 +8,14 @@
 #include "esp_attr.h"
 #include <stdint.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/__assert.h>
+#include "esp_private/critical_section.h"
 #include "hal/regi2c_ctrl.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_hw_log.h"
 #include "soc/soc_caps.h"
 
-static unsigned int regi2c_lock;
-static atomic_t regi2c_lock_counter;
+static esp_os_spinlock_t regi2c_lock = ESP_OS_SPINLOCK_INIT;
 
 ESP_HW_LOG_ATTR_TAG_DRAM(TAG, "REGI2C");
 
@@ -60,17 +59,12 @@ void regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add,
 
 void IRAM_ATTR regi2c_enter_critical(void)
 {
-    if (atomic_inc(&regi2c_lock_counter) == 0) {
-        regi2c_lock = irq_lock();
-    }
+    esp_os_enter_critical(&regi2c_lock);
 }
 
 void IRAM_ATTR regi2c_exit_critical(void)
 {
-    __ASSERT_NO_MSG(atomic_get(&regi2c_lock_counter) > 0);
-    if (atomic_dec(&regi2c_lock_counter) == 1) {
-        irq_unlock(regi2c_lock);
-    }
+    esp_os_exit_critical(&regi2c_lock);
 }
 
 /**

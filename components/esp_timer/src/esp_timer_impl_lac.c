@@ -85,7 +85,7 @@ static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
 static intr_handler_t s_alarm_handler = NULL;
 
 /* Spinlock used to protect access to the hardware registers. */
-extern unsigned int s_time_update_lock;
+extern esp_os_spinlock_t s_time_update_lock;
 
 /* Alarm values to generate interrupt on match */
 extern uint64_t timestamp_id[2];

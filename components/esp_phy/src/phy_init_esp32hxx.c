@@ -6,11 +6,11 @@
 
 #include "esp_attr.h"
 #include <zephyr/kernel.h>
-#include <zephyr/sys/atomic.h>
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
 #include "esp_timer.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/critical_section.h"
 
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
 #include "esp_private/esp_modem_clock.h"
@@ -24,9 +24,8 @@
 
 #define PHY_ENABLE_VERSION_PRINT 1
 
-/* PHY spinlock for libphy.a - Zephyr uses irq_lock/unlock */
-static DRAM_ATTR int s_phy_int_mux;
-static atomic_t s_phy_lock_nest;
+/* PHY spinlock for libphy.a */
+static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
 
 extern void phy_version_print(void);
 K_MUTEX_DEFINE(s_phy_access_lock);
@@ -89,19 +88,14 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
 
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    if (atomic_inc(&s_phy_lock_nest) == 0) {
-        s_phy_int_mux = irq_lock();
-    }
+    esp_os_enter_critical(&s_phy_int_mux);
     return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
     (void)level;
-    __ASSERT_NO_MSG(atomic_get(&s_phy_lock_nest) > 0);
-    if (atomic_dec(&s_phy_lock_nest) == 1) {
-        irq_unlock(s_phy_int_mux);
-    }
+    esp_os_exit_critical(&s_phy_int_mux);
 }
 
 void esp_phy_enable(esp_phy_modem_t modem)

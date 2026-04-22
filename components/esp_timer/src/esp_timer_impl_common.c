@@ -13,7 +13,7 @@
 #include "esp_private/critical_section.h"
 
 /* Spinlock used to protect access to the hardware registers. */
-unsigned int s_time_update_lock = 0;
+esp_os_spinlock_t s_time_update_lock = ESP_OS_SPINLOCK_INIT;
 
 /* Alarm values to generate interrupt on match
  * [0] - for ESP_TIMER_TASK alarms,

@@ -32,11 +32,12 @@
 #include "esp_private/esp_cache_private.h"
 #include "esp_private/cache_utils.h"
 #include "esp_private/spi_flash_os.h"
+#include "esp_private/critical_section.h"
 #include "esp_log.h"
 
 ESP_LOG_ATTR_TAG(TAG, "cache");
 
-static unsigned int s_intr_saved_state;
+static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
 
 // Used only on ROM impl. in idf, this param unused, cache status hold by hal
 static uint32_t s_flash_op_cache_state[2];
@@ -61,7 +62,7 @@ void spi_flash_op_unlock(void)
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
-    s_intr_saved_state = irq_lock();
+    esp_os_enter_critical(&s_intr_saved_state);
     esp_intr_noniram_disable();
     spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
 }
@@ -70,7 +71,7 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 {
     spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
     esp_intr_noniram_enable();
-    irq_unlock(s_intr_saved_state);
+    esp_os_exit_critical(&s_intr_saved_state);
 }
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)

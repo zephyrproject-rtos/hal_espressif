@@ -19,7 +19,7 @@
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/critical_section.h"
 
-extern __attribute__((unused)) unsigned int rtc_spinlock;
+extern __attribute__((unused)) esp_os_spinlock_t rtc_spinlock;
 
 
 /*------------------------------------------------------------------------------------------------------------

@@ -24,7 +24,7 @@
 #include "hal/adc_ll.h"
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
-extern unsigned int rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
 
 void sar_periph_ctrl_init(void)
