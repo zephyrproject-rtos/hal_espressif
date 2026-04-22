@@ -41,7 +41,7 @@
 
 
 ESP_LOG_ATTR_TAG(TAG, "adc_share_hw_ctrl");
-extern unsigned int rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
 
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
@@ -199,7 +199,7 @@ esp_err_t adc2_wifi_release(void)
     return ESP_OK;
 }
 
-static unsigned int __attribute__((unused)) s_spinlock = 0;
+static esp_os_spinlock_t __attribute__((unused)) s_spinlock = ESP_OS_SPINLOCK_INIT;
 
 /*------------------------------------------------------------------------------
 * For those who use APB_SARADC periph

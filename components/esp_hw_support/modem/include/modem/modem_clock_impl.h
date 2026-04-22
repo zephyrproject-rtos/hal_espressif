@@ -107,7 +107,7 @@ typedef struct {
 
 typedef struct modem_clock_context {
     modem_clock_hal_context_t     *hal;
-    unsigned int                  lock;
+    esp_os_spinlock_t             lock;
     modem_clock_device_context_t  *dev;
 #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
     uint8_t *icg_config;

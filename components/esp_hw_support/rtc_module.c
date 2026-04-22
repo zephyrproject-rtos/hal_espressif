@@ -31,7 +31,7 @@ ESP_LOG_ATTR_TAG(TAG, "rtc_module");
 #endif
 
 // rtc_spinlock is used by other peripheral drivers
-unsigned int rtc_spinlock;
+esp_os_spinlock_t rtc_spinlock = ESP_OS_SPINLOCK_INIT;
 
 #if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
 
@@ -59,7 +59,7 @@ typedef struct rtc_isr_handler_ {
 
 static DRAM_ATTR SLIST_HEAD(rtc_isr_handler_list_, rtc_isr_handler_) s_rtc_isr_handler_list =
         SLIST_HEAD_INITIALIZER(s_rtc_isr_handler_list);
-static DRAM_ATTR unsigned int s_rtc_isr_handler_list_lock;
+static DRAM_ATTR esp_os_spinlock_t s_rtc_isr_handler_list_lock = ESP_OS_SPINLOCK_INIT;
 static intr_handle_t s_rtc_isr_handle;
 
 IRAM_ATTR static void rtc_isr(void* arg)

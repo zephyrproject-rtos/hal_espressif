@@ -18,6 +18,7 @@
 #include "esp_check.h"
 #include "hal/gpio_hal.h"
 #include "esp_private/io_mux.h"
+#include "esp_private/critical_section.h"
 
 #if (SOC_RTCIO_PIN_COUNT > 0)
 #include "hal/rtc_io_hal.h"
@@ -30,8 +31,8 @@ static const char *GPIO_TAG = "gpio";
 
 extern uint32_t esp_core_id(void);
 #define ESP_CORE_ID() esp_core_id()
-#define GPIO_ENTER_CRITICAL()    do { gpio_context.gpio_spinlock = irq_lock(); } while(0)
-#define GPIO_EXIT_CRITICAL()     irq_unlock(gpio_context.gpio_spinlock)
+#define GPIO_ENTER_CRITICAL()    esp_os_enter_critical(&gpio_context.gpio_spinlock)
+#define GPIO_EXIT_CRITICAL()     esp_os_exit_critical(&gpio_context.gpio_spinlock)
 
 #define MALLOC_CAP_INTERNAL 0
 #define MALLOC_CAP_DEFAULT 0
@@ -65,7 +66,7 @@ typedef struct {
 
 typedef struct {
     gpio_hal_context_t *gpio_hal;
-    int gpio_spinlock;
+    esp_os_spinlock_t gpio_spinlock;
     uint32_t isr_core_id;
     gpio_isr_func_t *gpio_isr_func;
     gpio_isr_handle_t gpio_isr_handle;
@@ -78,7 +79,7 @@ static gpio_hal_context_t _gpio_hal = {
 
 static gpio_context_t gpio_context = {
     .gpio_hal = &_gpio_hal,
-    .gpio_spinlock = 0,
+    .gpio_spinlock = ESP_OS_SPINLOCK_INIT,
     .isr_core_id = GPIO_ISR_CORE_ID_UNINIT,
     .gpio_isr_func = NULL,
     .isr_clr_on_entry_mask = 0,

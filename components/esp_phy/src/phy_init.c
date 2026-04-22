@@ -87,8 +87,7 @@ static int64_t s_phy_rf_en_ts = 0;
 #endif
 
 /* PHY spinlock for libphy.a */
-static DRAM_ATTR int s_phy_int_mux;
-static atomic_t s_phy_lock_nest;
+static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
 
 /* Indicate PHY is calibrated or not */
 static bool s_is_phy_calibrated = false;
@@ -228,19 +227,14 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
 
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    if (atomic_inc(&s_phy_lock_nest) == 0) {
-        s_phy_int_mux = irq_lock();
-    }
+    esp_os_enter_critical(&s_phy_int_mux);
     return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
     (void)level;
-    __ASSERT_NO_MSG(atomic_get(&s_phy_lock_nest) > 0);
-    if (atomic_dec(&s_phy_lock_nest) == 1) {
-        irq_unlock(s_phy_int_mux);
-    }
+    esp_os_exit_critical(&s_phy_int_mux);
 }
 
 #if CONFIG_IDF_TARGET_ESP32

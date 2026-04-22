@@ -12,6 +12,7 @@
 #include "soc/soc.h"
 #include "hal/ieee802154_periph.h"
 #include "esp_private/esp_modem_clock.h"
+#include "esp_private/critical_section.h"
 #include "esp_check.h"
 #include "esp_coex_i154.h"
 #include "esp_err.h"
@@ -71,8 +72,7 @@ static bool s_needs_next_operation = false;
 static uint8_t s_rx_index = 0;
 static uint8_t s_enh_ack_frame[128];
 static uint8_t s_recent_rx_frame_info_index;
-static unsigned int s_ieee802154_spinlock;
-static volatile int s_ieee802154_critical_nesting;
+static esp_os_spinlock_t s_ieee802154_spinlock = ESP_OS_SPINLOCK_INIT;
 static intr_handle_t s_ieee802154_isr_handle = NULL;
 
 static esp_err_t ieee802154_sleep_init(void);
@@ -736,16 +736,12 @@ static IRAM_ATTR void isr_handle_ed_done(void)
 
 IRAM_ATTR void ieee802154_enter_critical(void)
 {
-    if (s_ieee802154_critical_nesting++ == 0) {
-        s_ieee802154_spinlock = irq_lock();
-    }
+    esp_os_enter_critical(&s_ieee802154_spinlock);
 }
 
 IRAM_ATTR void ieee802154_exit_critical(void)
 {
-    if (--s_ieee802154_critical_nesting == 0) {
-        irq_unlock(s_ieee802154_spinlock);
-    }
+    esp_os_exit_critical(&s_ieee802154_spinlock);
 }
 
 IEEE802154_NOINLINE static void ieee802154_isr(void *arg)

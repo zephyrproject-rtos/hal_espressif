@@ -13,19 +13,14 @@
  */
 #pragma once
 
-#if !NON_OS_BUILD
-#include <zephyr/kernel.h>
-#include <zephyr/irq.h>
-#endif
+#include "esp_critical_section.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * For Zephyr, we use irq_lock/irq_unlock instead of FreeRTOS spinlocks.
- */
-#define OS_SPINLOCK 0
+typedef esp_critical_section_t esp_os_spinlock_t;
+#define ESP_OS_SPINLOCK_INIT ESP_CRITICAL_SECTION_INIT
 
 /**
  * Define and initialize a static (internal linking) lock for entering critical sections.
@@ -52,12 +47,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#if OS_SPINLOCK == 1
-#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
-#else
-/* For Zephyr single-core, still define the lock variable to store irq_lock state */
-#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers unsigned int lock_name = 0
-#endif
+#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers esp_os_spinlock_t lock_name = ESP_OS_SPINLOCK_INIT
 
 /**
  * Define and initialize a non-static (external linking) lock for entering critical sections.
@@ -85,12 +75,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#if OS_SPINLOCK == 1
-#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
-#else
-/* For Zephyr single-core, still define the lock variable to store irq_lock state */
-#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers unsigned int lock_name = 0
-#endif
+#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers esp_os_spinlock_t lock_name = ESP_OS_SPINLOCK_INIT
 
 /**
  * @brief This macro initializes a critical section lock at runtime.
@@ -121,11 +106,7 @@ extern "C" {
  * };
  * @endcode
  */
-#if OS_SPINLOCK == 1
-#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name) spinlock_initialize(lock_name)
-#else
-#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name)
-#endif
+#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name) do { *(lock_name) = (esp_os_spinlock_t)ESP_OS_SPINLOCK_INIT; } while (0)
 
 /**
  * @brief This macro declares a critical section lock as a member of a struct.
@@ -151,11 +132,7 @@ extern "C" {
  * };
  * @endcode
  */
-#if OS_SPINLOCK == 1
 #define DECLARE_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) esp_os_spinlock_t lock_name;
-#else
-#define DECLARE_CRIT_SECTION_LOCK_IN_STRUCT(lock_name)
-#endif
 
 /**
  * @brief This macro initializes a critical section lock as a member of a struct when using an list initialization.
@@ -192,11 +169,7 @@ extern "C" {
  * };
  * @endcode
  */
-#if OS_SPINLOCK == 1
-#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) .lock_name = portMUX_INITIALIZER_UNLOCKED,
-#else
-#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name)
-#endif
+#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) .lock_name = ESP_OS_SPINLOCK_INIT,
 
 /**
  * @brief Enter a critical section, i.e., a section that will not be interrupted by any other task or interrupt.
@@ -221,7 +194,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical(lock)         do { unsigned int *_k = (unsigned int *)(lock); *_k = irq_lock(); } while(0)
+#define esp_os_enter_critical(lock)         esp_critical_section_enter(lock)
 
 /**
  * @brief Exit a critical section.
@@ -246,7 +219,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical(lock)          irq_unlock(*(unsigned int *)(lock))
+#define esp_os_exit_critical(lock)          esp_critical_section_exit(lock)
 
 /**
  * @brief Enter a critical section while from ISR.
@@ -271,7 +244,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical_isr(lock)     do { unsigned int *_k = (unsigned int *)(lock); *_k = irq_lock(); } while(0)
+#define esp_os_enter_critical_isr(lock)     esp_critical_section_enter(lock)
 
 /**
  * @brief Exit a critical section after entering from ISR.
@@ -296,7 +269,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical_isr(lock)      irq_unlock(*(unsigned int *)(lock))
+#define esp_os_exit_critical_isr(lock)      esp_critical_section_exit(lock)
 
 /**
  * @brief Enter a critical section from normal task or ISR. This macro will check if the current CPU is processing
@@ -322,7 +295,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical_safe(lock)    do { unsigned int *_k = (unsigned int *)(lock); *_k = irq_lock(); } while(0)
+#define esp_os_enter_critical_safe(lock)    esp_critical_section_enter(lock)
 
 /**
  * @brief Exit a critical section after entering via esp_os_enter_critical_safe.
@@ -347,7 +320,7 @@ extern "C" {
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical_safe(lock)     irq_unlock(*(unsigned int *)(lock))
+#define esp_os_exit_critical_safe(lock)     esp_critical_section_exit(lock)
 
 #ifdef __cplusplus
 }

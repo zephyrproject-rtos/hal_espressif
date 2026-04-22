@@ -14,7 +14,7 @@ Don't put any other code into this file. */
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/critical_section.h"
 
-extern unsigned int rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
 /**
  * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.

@@ -27,7 +27,7 @@
 #include "hal/temperature_sensor_ll.h"
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
-extern unsigned int rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 K_MUTEX_DEFINE(adc_reset_lock);
 
 

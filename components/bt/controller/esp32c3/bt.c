@@ -32,6 +32,7 @@
 #include "esp_timer.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_gpio.h"
+#include "esp_private/critical_section.h"
 
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
@@ -478,8 +479,7 @@ static DRAM_ATTR struct osi_funcs_t *osi_funcs_p;
 /* Static variable declare */
 static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
-static DRAM_ATTR unsigned int global_int_mux;
-static DRAM_ATTR unsigned int global_nested_counter = 0;
+static DRAM_ATTR esp_os_spinlock_t global_int_mux = ESP_OS_SPINLOCK_INIT;
 
 // low power control struct
 static DRAM_ATTR btdm_lpcntl_t s_lp_cntl;
@@ -880,18 +880,12 @@ static int interrupt_disable_wrapper(void *handle)
 
 static void IRAM_ATTR global_interrupt_disable(void)
 {
-    if (global_nested_counter == 0) {
-        global_int_mux = irq_lock();
-    }
-    global_nested_counter++;
+    esp_os_enter_critical(&global_int_mux);
 }
 
 static void IRAM_ATTR global_interrupt_restore(void)
 {
-    global_nested_counter--;
-    if (global_nested_counter == 0) {
-        irq_unlock(global_int_mux);
-    }
+    esp_os_exit_critical(&global_int_mux);
 }
 
 static void IRAM_ATTR task_yield_wrapper(void)
