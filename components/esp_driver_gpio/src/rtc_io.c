@@ -10,6 +10,7 @@
 #include "esp_check.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/io_mux.h"
+#include "esp_private/critical_section.h"
 #include <zephyr/kernel.h>
 #include "driver/rtc_io.h"
 #include "driver/lp_io.h"
@@ -26,9 +27,9 @@
 static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
 #if SOC_RTCIO_PIN_COUNT > 0
-static unsigned int rtc_spinlock;
-#define RTCIO_ENTER_CRITICAL()  do { rtc_spinlock = irq_lock(); } while(0)
-#define RTCIO_EXIT_CRITICAL()   irq_unlock(rtc_spinlock)
+static esp_os_spinlock_t s_rtcio_spinlock = ESP_OS_SPINLOCK_INIT;
+#define RTCIO_ENTER_CRITICAL()  esp_os_enter_critical(&s_rtcio_spinlock)
+#define RTCIO_EXIT_CRITICAL()   esp_os_exit_critical(&s_rtcio_spinlock)
 #endif
 
 bool rtc_gpio_is_valid_gpio(gpio_num_t gpio_num)

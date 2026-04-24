@@ -109,24 +109,18 @@
 
 /* For simplicity and backward compatible, we are using the same spin lock for both bus clock on/off and reset */
 /* We may want to split them into two spin locks in the future */
-static unsigned int __attribute__((unused)) periph_spinlock;
-static atomic_t rcc_lock_counter;
+static esp_os_spinlock_t periph_spinlock = ESP_OS_SPINLOCK_INIT;
 
 static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
 
 IRAM_ATTR void periph_rcc_enter(void)
 {
-    if (atomic_inc(&rcc_lock_counter) == 0) {
-        periph_spinlock = irq_lock();
-    }
+    esp_os_enter_critical(&periph_spinlock);
 }
 
 IRAM_ATTR void periph_rcc_exit(void)
 {
-    __ASSERT_NO_MSG(atomic_get(&rcc_lock_counter) > 0);
-    if (atomic_dec(&rcc_lock_counter) == 1) {
-        irq_unlock(periph_spinlock);
-    }
+    esp_os_exit_critical(&periph_spinlock);
 }
 
 uint8_t periph_rcc_acquire_enter(shared_periph_module_t periph)

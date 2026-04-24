@@ -10,18 +10,19 @@
 #include "hal/dac_types.h"
 #include "hal/dac_ll.h"
 #include "esp_err.h"
+#include "esp_private/critical_section.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern int rtc_spinlock;  /*!< Extern global rtc spinlock */
+extern esp_os_spinlock_t rtc_spinlock;  /*!< Extern global rtc spinlock */
 
-#define DAC_RTC_ENTER_CRITICAL()         do { rtc_spinlock = irq_lock(); } while(0)
-#define DAC_RTC_EXIT_CRITICAL()          irq_unlock(rtc_spinlock)
+#define DAC_RTC_ENTER_CRITICAL()         esp_os_enter_critical(&rtc_spinlock)
+#define DAC_RTC_EXIT_CRITICAL()          esp_os_exit_critical(&rtc_spinlock)
 
-#define DAC_RTC_ENTER_CRITICAL_SAFE()    DAC_RTC_ENTER_CRITICAL()
-#define DAC_RTC_EXIT_CRITICAL_SAFE()     DAC_RTC_EXIT_CRITICAL()
+#define DAC_RTC_ENTER_CRITICAL_SAFE()    esp_os_enter_critical_safe(&rtc_spinlock)
+#define DAC_RTC_EXIT_CRITICAL_SAFE()     esp_os_exit_critical_safe(&rtc_spinlock)
 
 #define DAC_NULL_POINTER_CHECK(p)     ESP_RETURN_ON_FALSE((p), ESP_ERR_INVALID_ARG, TAG, "input parameter '"#p"' is NULL")
 #define DAC_NULL_POINTER_CHECK_ISR(p) ESP_RETURN_ON_FALSE_ISR((p), ESP_ERR_INVALID_ARG, TAG, "input parameter '"#p"' is NULL")
