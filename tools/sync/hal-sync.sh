@@ -179,6 +179,13 @@ cleanup_components() {
         log_warn "Removed ${lib_count} .a file(s)"
     fi
 
+    # Remove all .bin files (unused on Zephyr; no partition/embed path wired up)
+    local bin_count=$(find components -type f -name "*.bin" 2>/dev/null | wc -l)
+    if [ "${bin_count}" -gt 0 ]; then
+        find components -type f -name "*.bin" -delete 2>/dev/null || true
+        log_warn "Removed ${bin_count} .bin file(s)"
+    fi
+
     # Remove excluded folders from config
     local excluded_count=0
     for exclude_path in "${EXCLUDES[@]}"; do
@@ -550,6 +557,14 @@ dry_run_cleanup_preview() {
         # Check for .a files
         local lib_files=$(find "${comp_dir}" -type f -name "*.a" 2>/dev/null)
         for f in ${lib_files}; do
+            local rel="${f#${esp_idf_components}/}"
+            found="${found}  ${YELLOW}${rel}${NC}\n"
+            found_count=$((found_count + 1))
+        done
+
+        # Check for .bin files
+        local bin_files=$(find "${comp_dir}" -type f -name "*.bin" 2>/dev/null)
+        for f in ${bin_files}; do
             local rel="${f#${esp_idf_components}/}"
             found="${found}  ${YELLOW}${rel}${NC}\n"
             found_count=$((found_count + 1))

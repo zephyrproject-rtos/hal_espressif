@@ -45,7 +45,7 @@ void soc_hw_init(void)
 	 * Use ROM function directly instead of REGI2C_WRITE_MASK macro
 	 * which requires kernel services (irq_lock) not available during early boot.
 	 */
-	esp_rom_regi2c_write_mask(I2C_BIAS, I2C_BIAS_HOSTID, I2C_BIAS_DREG_0P8,
+	_regi2c_impl_write_mask(I2C_BIAS, I2C_BIAS_HOSTID, I2C_BIAS_DREG_0P8,
 				  I2C_BIAS_DREG_0P8_MSB, I2C_BIAS_DREG_0P8_LSB, 8);
 }
 
@@ -105,8 +105,12 @@ void ana_clock_glitch_reset_config(bool enable)
 }
 
 #if defined(CONFIG_ESP_SIMPLE_BOOT)
+#include "soc/rtc.h"
+#include "soc/lp_clkrst_reg.h"
+#include "soc/regi2c_pmu.h"
 #include "esp_rom_serial_output.h"
 #include "modem/modem_lpcon_struct.h"
+#include "pmu_param.h"
 
 void bootloader_clock_configure(void)
 {
@@ -115,19 +119,42 @@ void bootloader_clock_configure(void)
 	MODEM_LPCON.rst_conf.rst_i2c_mst = 1;
 	MODEM_LPCON.rst_conf.rst_i2c_mst = 0;
 
+	/* Set tuning parameters for RC_FAST, RC_SLOW and RC32K clocks
+	 * (matches ESP-IDF rtc_clk_init).
+	 */
+	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ, 172);
+	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_OC_SCK_DCAP, 128);
+	REG_SET_FIELD(LP_CLKRST_RC32K_CNTL_REG, LP_CLKRST_RC32K_DFREQ, 700);
+	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_EN_I2C_RTC_DREG, 0);
+	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_EN_I2C_DIG_DREG, 0);
+
+	/* DIG regulator DBIAS handoff to PMU, using calibrated values from eFuse.
+	 * Without this, voltage regulation stays at ROM defaults which may be
+	 * insufficient at 96 MHz in worst-case conditions.
+	 */
+	uint32_t hp_cali_dbias = get_act_hp_dbias();
+	uint32_t lp_cali_dbias = get_act_lp_dbias();
+
+	SET_PERI_REG_BITS(PMU_HP_MODEM_HP_REGULATOR0_REG, PMU_HP_MODEM_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_MODEM_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_SLEEP_LP_REGULATOR0_REG, PMU_HP_SLEEP_LP_REGULATOR_DBIAS,
+			  lp_cali_dbias, PMU_HP_SLEEP_LP_REGULATOR_DBIAS_S);
+
 	clk_ll_bbpll_enable();
 
 	regi2c_ctrl_ll_master_force_enable_clock(true);
-	regi2c_ctrl_ll_bbpll_calibration_start();
+	clk_ll_bbpll_calibration_start();
 
 	clk_ll_bbpll_set_config(CLK_LL_PLL_96M_FREQ_MHZ, SOC_XTAL_FREQ_32M);
 
-	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+	while (!clk_ll_bbpll_calibration_is_done()) {
 		;
 	}
 	esp_rom_delay_us(10);
 
-	regi2c_ctrl_ll_bbpll_calibration_stop();
+	clk_ll_bbpll_calibration_stop();
 	regi2c_ctrl_ll_master_force_enable_clock(false);
 
 	clk_ll_cpu_set_divider(1);
@@ -138,6 +165,10 @@ void bootloader_clock_configure(void)
 	esp_rom_set_cpu_ticks_per_us(CLK_LL_PLL_96M_FREQ_MHZ);
 
 	clk_ll_xtal_store_freq_mhz(SOC_XTAL_FREQ_32M);
+
+	/* Keep RC_FAST running so RNG has an entropy source during boot */
+	rtc_clk_8m_enable(true);
+	rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
 
 	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);
 	CLEAR_PERI_REG_MASK(LP_ANALOG_PERI_LP_ANA_LP_INT_ENA_REG,
