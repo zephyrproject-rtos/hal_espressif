@@ -1,6 +1,6 @@
 --- a/components/esp_driver_gpio/src/gpio.c
 +++ b/components/esp_driver_gpio/src/gpio.c
-@@ -6,21 +6,17 @@
+@@ -6,22 +6,18 @@
  
  #include <esp_types.h>
  #include "esp_err.h"
@@ -20,11 +20,12 @@
  #include "esp_log.h"
  #include "esp_check.h"
  #include "hal/gpio_hal.h"
+ #include "hal/gpio_caps.h"
 -#include "esp_private/esp_gpio_reserve.h"
  #include "esp_private/io_mux.h"
+ #include "esp_private/periph_ctrl.h"
  
- #if (SOC_RTCIO_PIN_COUNT > 0)
-@@ -32,6 +28,18 @@
+@@ -34,6 +30,19 @@
  
  #define GPIO_ISR_CORE_ID_UNINIT    (3)
  
@@ -37,13 +38,14 @@
 +#define MALLOC_CAP_DEFAULT 0
 +#define heap_caps_calloc(n, size, caps) k_calloc(n, size)
 +
++static inline uint64_t esp_gpio_reserve(uint64_t mask) { (void)mask; return 0; }
 +static inline void esp_gpio_revoke(uint64_t mask) { (void)mask; }
 +static inline bool esp_gpio_is_reserved(uint64_t mask) { (void)mask; return false; }
 +
  // On ESP32, those PADs which have RTC functions must set pullup/down/drv capability via RTC register.
  // On other targets, digital IOs have their own registers to control pullup/down/drv capability, independent with RTC_IO (LP_IOMUX) registers.
  #if CONFIG_IDF_TARGET_ESP32
-@@ -57,7 +65,7 @@
+@@ -65,7 +74,7 @@
  
  typedef struct {
      gpio_hal_context_t *gpio_hal;
@@ -52,7 +54,7 @@
      uint32_t isr_core_id;
      gpio_isr_func_t *gpio_isr_func;
      gpio_isr_handle_t gpio_isr_handle;
-@@ -70,7 +78,7 @@
+@@ -78,7 +87,7 @@
  
  static gpio_context_t gpio_context = {
      .gpio_hal = &_gpio_hal,
@@ -61,7 +63,7 @@
      .isr_core_id = GPIO_ISR_CORE_ID_UNINIT,
      .gpio_isr_func = NULL,
      .isr_clr_on_entry_mask = 0,
-@@ -81,9 +89,9 @@
+@@ -89,9 +98,9 @@
      GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO number error (input-only pad has no internal PU)", ESP_ERR_INVALID_ARG);
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -73,7 +75,7 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          rtc_gpio_pullup_en(gpio_num);
-@@ -100,9 +108,9 @@
+@@ -108,9 +117,9 @@
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -85,7 +87,7 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          rtc_gpio_pullup_dis(gpio_num);
-@@ -119,9 +127,9 @@
+@@ -127,9 +136,9 @@
      GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO number error (input-only pad has no internal PD)", ESP_ERR_INVALID_ARG);
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -97,7 +99,7 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          rtc_gpio_pulldown_en(gpio_num);
-@@ -138,9 +146,9 @@
+@@ -146,9 +155,9 @@
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -109,7 +111,7 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          rtc_gpio_pulldown_dis(gpio_num);
-@@ -157,14 +165,14 @@
+@@ -165,14 +174,14 @@
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
      GPIO_CHECK(intr_type < GPIO_INTR_MAX, "GPIO interrupt type error", ESP_ERR_INVALID_ARG);
  
@@ -126,7 +128,7 @@
      return ESP_OK;
  }
  
-@@ -177,11 +185,11 @@
+@@ -185,11 +194,11 @@
  esp_err_t gpio_intr_enable(gpio_num_t gpio_num)
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
@@ -141,7 +143,7 @@
      return gpio_intr_enable_on_core(gpio_num, gpio_context.isr_core_id);
  }
  
-@@ -532,13 +540,13 @@
+@@ -567,13 +576,13 @@
  {
      GPIO_CHECK(gpio_context.gpio_isr_func == NULL, "GPIO isr service already installed", ESP_ERR_INVALID_STATE);
      esp_err_t ret = ESP_ERR_NO_MEM;
@@ -159,7 +161,7 @@
              ret = gpio_isr_register(gpio_intr_service, NULL, intr_alloc_flags, &gpio_context.gpio_isr_handle);
              if (ret != ESP_OK) {
                  // registering failed, uninstall isr service
-@@ -546,9 +554,9 @@
+@@ -581,9 +590,9 @@
              }
          } else {
              // isr service already installed, free allocated resource
@@ -171,7 +173,7 @@
          }
      }
  
-@@ -559,14 +567,14 @@
+@@ -594,14 +603,14 @@
  {
      GPIO_CHECK(gpio_context.gpio_isr_func != NULL, "GPIO isr service is not installed, call gpio_install_isr_service() first", ESP_ERR_INVALID_STATE);
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
@@ -188,7 +190,7 @@
      return ESP_OK;
  }
  
-@@ -574,13 +582,13 @@
+@@ -609,13 +618,13 @@
  {
      GPIO_CHECK(gpio_context.gpio_isr_func != NULL, "GPIO isr service is not installed, call gpio_install_isr_service() first", ESP_ERR_INVALID_STATE);
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
@@ -204,7 +206,7 @@
      return ESP_OK;
  }
  
-@@ -588,9 +596,9 @@
+@@ -623,9 +632,9 @@
  {
      gpio_isr_func_t *gpio_isr_func_free = NULL;
      gpio_isr_handle_t gpio_isr_handle_free = NULL;
@@ -216,7 +218,7 @@
          return ESP_OK;
      }
      gpio_isr_func_free = gpio_context.gpio_isr_func;
-@@ -598,9 +606,9 @@
+@@ -633,9 +642,9 @@
      gpio_isr_handle_free = gpio_context.gpio_isr_handle;
      gpio_context.gpio_isr_handle = NULL;
      gpio_context.isr_core_id = GPIO_ISR_CORE_ID_UNINIT;
@@ -228,7 +230,7 @@
      return ESP_OK;
  }
  
-@@ -623,22 +631,12 @@
+@@ -658,22 +667,12 @@
      p.fn = fn;
      p.arg = arg;
      p.handle = handle;
@@ -254,7 +256,7 @@
      if (p.ret != ESP_OK) {
          ESP_LOGE(GPIO_TAG, "esp_intr_alloc failed (0x%x)", p.ret);
          return ESP_ERR_NOT_FOUND;
-@@ -662,13 +660,13 @@
+@@ -697,13 +696,13 @@
              ret = rtc_gpio_wakeup_enable(gpio_num, intr_type);
          }
  #endif
@@ -270,7 +272,7 @@
      } else {
          ESP_LOGE(GPIO_TAG, "GPIO wakeup only supports level mode, but edge mode set. gpio_num:%u", gpio_num);
          ret = ESP_ERR_INVALID_ARG;
-@@ -689,12 +687,12 @@
+@@ -724,12 +723,12 @@
  #endif
      }
  #endif
@@ -285,7 +287,7 @@
      return ret;
  }
  
-@@ -705,9 +703,9 @@
+@@ -740,9 +739,9 @@
      esp_err_t ret = ESP_OK;
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -297,7 +299,7 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          ret = rtc_gpio_set_drive_capability(gpio_num, strength);
-@@ -726,9 +724,9 @@
+@@ -761,9 +760,9 @@
      esp_err_t ret = ESP_OK;
  
      if (!rtc_gpio_is_valid_gpio(gpio_num) || GPIO_RTCIO_ARE_INDEPENDENT) {
@@ -309,10 +311,10 @@
      } else {
  #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
          ret = rtc_gpio_get_drive_capability(gpio_num, strength);
-@@ -750,9 +748,9 @@
-         ret = rtc_gpio_hold_en(gpio_num);
+@@ -785,9 +784,9 @@
  #endif
      } else if (GPIO_HOLD_MASK[gpio_num]) {
+         GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
 -        portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +        GPIO_ENTER_CRITICAL();
          gpio_hal_hold_en(gpio_context.gpio_hal, gpio_num);
@@ -321,10 +323,10 @@
      } else {
          ret = ESP_ERR_NOT_SUPPORTED;
      }
-@@ -770,9 +768,9 @@
-         ret = rtc_gpio_hold_dis(gpio_num);
+@@ -805,9 +804,9 @@
  #endif
      } else if (GPIO_HOLD_MASK[gpio_num]) {
+         GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
 -        portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +        GPIO_ENTER_CRITICAL();
          gpio_hal_hold_dis(gpio_context.gpio_hal, gpio_num);
@@ -333,13 +335,15 @@
      } else {
          ret = ESP_ERR_NOT_SUPPORTED;
      }
-@@ -783,16 +781,16 @@
+@@ -818,20 +817,20 @@
  #if !SOC_GPIO_SUPPORT_HOLD_SINGLE_IO_IN_DSLP
  void gpio_deep_sleep_hold_en(void)
  {
 -    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_ENTER_CRITICAL();
-     gpio_hal_deep_sleep_hold_en(gpio_context.gpio_hal);
+     RTC_CNTL_ATOMIC() {
+         gpio_hal_deep_sleep_hold_en(gpio_context.gpio_hal);
+     }
 -    portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_EXIT_CRITICAL();
  }
@@ -348,19 +352,23 @@
  {
 -    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_ENTER_CRITICAL();
-     gpio_hal_deep_sleep_hold_dis(gpio_context.gpio_hal);
+     RTC_CNTL_ATOMIC() {
+         gpio_hal_deep_sleep_hold_dis(gpio_context.gpio_hal);
+     }
 -    portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_EXIT_CRITICAL();
  }
  #endif //!SOC_GPIO_SUPPORT_HOLD_SINGLE_IO_IN_DSLP
  
-@@ -802,17 +800,17 @@
+@@ -841,21 +840,21 @@
  #if SOC_RTCIO_HOLD_SUPPORTED
      rtc_gpio_force_hold_en_all();
  #endif
 -    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_ENTER_CRITICAL();
-     gpio_hal_force_hold_all();
+     RTC_CNTL_ATOMIC() {
+         gpio_hal_force_hold_all();
+     }
 -    portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_EXIT_CRITICAL();
      return ESP_OK;
@@ -370,13 +378,15 @@
  {
 -    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_ENTER_CRITICAL();
-     gpio_hal_force_unhold_all();
+     RTC_CNTL_ATOMIC() {
+         gpio_hal_force_unhold_all();
+     }
 -    portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_EXIT_CRITICAL();
  #if SOC_RTCIO_HOLD_SUPPORTED
      rtc_gpio_force_hold_dis_all();
  #endif
-@@ -824,9 +822,9 @@
+@@ -867,9 +866,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -388,7 +398,7 @@
  
      return ESP_OK;
  }
-@@ -835,9 +833,9 @@
+@@ -878,9 +877,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -400,7 +410,7 @@
  
      return ESP_OK;
  }
-@@ -865,9 +863,9 @@
+@@ -908,9 +907,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -412,7 +422,7 @@
  
      return ESP_OK;
  }
-@@ -876,9 +874,9 @@
+@@ -919,9 +918,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -424,7 +434,7 @@
  
      return ESP_OK;
  }
-@@ -887,9 +885,9 @@
+@@ -930,9 +929,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -436,7 +446,7 @@
  
      return ESP_OK;
  }
-@@ -898,9 +896,9 @@
+@@ -941,9 +940,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -448,7 +458,7 @@
  
      return ESP_OK;
  }
-@@ -999,9 +997,9 @@
+@@ -1042,9 +1041,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -460,7 +470,7 @@
  
      return ESP_OK;
  }
-@@ -1010,9 +1008,9 @@
+@@ -1053,9 +1052,9 @@
  {
      GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
  
@@ -472,7 +482,7 @@
  
      return ESP_OK;
  }
-@@ -1028,7 +1026,7 @@
+@@ -1071,7 +1070,7 @@
          ESP_LOGE(GPIO_TAG, "GPIO wakeup only supports level mode, but edge mode set. gpio_num:%u", gpio_num);
          return ESP_ERR_INVALID_ARG;
      }
@@ -481,7 +491,7 @@
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
      io_mux_enable_lp_io_clock(gpio_num, true);
  #endif
-@@ -1036,7 +1034,7 @@
+@@ -1079,7 +1078,7 @@
  #if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
      gpio_hal_sleep_sel_dis(gpio_context.gpio_hal, gpio_num);
  #endif
@@ -490,7 +500,7 @@
      return ESP_OK;
  }
  
-@@ -1046,7 +1044,7 @@
+@@ -1089,7 +1088,7 @@
          ESP_LOGE(GPIO_TAG, "GPIO %d does not support wakeup on peripheral powerdown sleep", gpio_num);
          return ESP_ERR_INVALID_ARG;
      }
@@ -499,7 +509,7 @@
      gpio_hal_wakeup_disable_on_hp_periph_powerdown_sleep(gpio_context.gpio_hal, gpio_num);
  #if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
      gpio_hal_sleep_sel_en(gpio_context.gpio_hal, gpio_num);
-@@ -1054,7 +1052,7 @@
+@@ -1097,7 +1096,7 @@
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
      io_mux_enable_lp_io_clock(gpio_num, false);
  #endif

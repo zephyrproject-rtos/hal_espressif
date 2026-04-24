@@ -32,7 +32,7 @@
      }
 --- a/components/esp_hal_clock/esp32c2/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32c2/include/hal/clk_tree_ll.h
-@@ -20,8 +20,6 @@
+@@ -21,8 +21,6 @@
  #include "hal/log.h"
  #include "esp32c2/rom/rtc.h"
  
@@ -41,7 +41,7 @@
  #define CLK_LL_PLL_40M_FREQ_MHZ    (40)
  #define CLK_LL_PLL_60M_FREQ_MHZ    (60)
  #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
-@@ -635,8 +633,8 @@
+@@ -664,8 +662,8 @@
      // Read from RTC storage register
      uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
      // Round to the nearest MHz
@@ -86,7 +86,7 @@
      }
 --- a/components/esp_hal_clock/esp32c3/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32c3/include/hal/clk_tree_ll.h
-@@ -20,8 +20,6 @@
+@@ -21,8 +21,6 @@
  #include "hal/log.h"
  #include "esp32c3/rom/rtc.h"
  
@@ -95,7 +95,7 @@
  #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
  #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
  
-@@ -744,8 +742,8 @@
+@@ -754,8 +752,8 @@
      // Read from RTC storage register
      uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
      // Round to the nearest MHz
@@ -108,16 +108,32 @@
  
 --- a/components/esp_hal_clock/esp32c5/clk_tree_hal.c
 +++ b/components/esp_hal_clock/esp32c5/clk_tree_hal.c
-@@ -8,6 +8,9 @@
- #include "hal/clk_tree_hal.h"
- #include "hal/clk_tree_ll.h"
- 
-+#undef MHZ
-+#define MHZ (1000000)
-+
- uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
+@@ -18,7 +18,7 @@
+     case SOC_CPU_CLK_SRC_PLL_F240M:
+         return CLK_LL_PLL_240M_FREQ_MHZ;
+     case SOC_CPU_CLK_SRC_RC_FAST:
+-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
++        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+     default:
+         // Unknown CPU_CLK mux input
+         HAL_ASSERT(false);
+@@ -30,14 +30,14 @@
  {
-     switch (cpu_clk_src) {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     uint32_t divider = clk_ll_cpu_get_divider();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
+ }
+ 
+ uint32_t clk_hal_ahb_get_freq_hz(void)
+ {
+     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
+     uint32_t divider = clk_ll_ahb_get_divider();
+-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
++    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
+ }
+ 
+ uint32_t clk_hal_apb_get_freq_hz(void)
 --- a/components/esp_hal_clock/esp32c5/include/hal/clk_gate_ll.h
 +++ b/components/esp_hal_clock/esp32c5/include/hal/clk_gate_ll.h
 @@ -9,7 +9,10 @@
@@ -230,17 +246,15 @@
   * @param  enable Enable / disable
 --- a/components/esp_hal_clock/esp32c5/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32c5/include/hal/clk_tree_ll.h
-@@ -25,7 +25,9 @@
+@@ -26,8 +26,6 @@
  #include "hal/misc.h"
  #include "hal/efuse_hal.h"
  
 -#define MHZ                 (1000000)
-+#ifndef MHZ
-+#define MHZ(x) ((x) * 1000000UL)
-+#endif
- 
+-
  #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
  #define CLK_LL_PLL_120M_FREQ_MHZ   (120)
+ #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
 --- a/components/esp_hal_clock/esp32c6/clk_tree_hal.c
 +++ b/components/esp_hal_clock/esp32c6/clk_tree_hal.c
 @@ -19,7 +19,7 @@
@@ -271,7 +285,7 @@
  uint32_t clk_hal_apb_get_freq_hz(void)
 --- a/components/esp_hal_clock/esp32c6/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32c6/include/hal/clk_tree_ll.h
-@@ -22,8 +22,6 @@
+@@ -23,8 +23,6 @@
  #include "esp32c6/rom/rtc.h"
  #include "hal/misc.h"
  
@@ -350,7 +364,7 @@
  uint32_t clk_hal_apb_get_freq_hz(void)
 --- a/components/esp_hal_clock/esp32h2/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32h2/include/hal/clk_tree_ll.h
-@@ -23,8 +23,6 @@
+@@ -24,8 +24,6 @@
  #include "esp32h2/rom/rtc.h"
  #include "hal/misc.h"
  
@@ -479,7 +493,7 @@
      }
 --- a/components/esp_hal_clock/esp32s3/include/hal/clk_tree_ll.h
 +++ b/components/esp_hal_clock/esp32s3/include/hal/clk_tree_ll.h
-@@ -20,8 +20,6 @@
+@@ -21,8 +21,6 @@
  #include "hal/log.h"
  #include "esp32s3/rom/rtc.h"
  

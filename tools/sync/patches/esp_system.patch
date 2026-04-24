@@ -11,7 +11,7 @@
  {
 --- a/components/esp_system/include/esp_private/critical_section.h
 +++ b/components/esp_system/include/esp_private/critical_section.h
-@@ -14,32 +14,18 @@
+@@ -14,32 +14,34 @@
  #pragma once
  
  #if !NON_OS_BUILD
@@ -29,13 +29,29 @@
 - * In theory, OS_SPINLOCK should only be defined in a multi-core environment, because critical-section-related
 - * functions there take a lock as a parameter. In practice, since the Xtensa FreeRTOS port layer is the same
 - * for the ESP32, S3, and S2, the latter also requires a parameter in its critical-section-related functions.
-+ * For Zephyr, we use irq_lock/irq_unlock instead of FreeRTOS spinlocks.
-  */
+- */
 -#if (!CONFIG_FREERTOS_UNICORE || CONFIG_IDF_TARGET_ARCH_XTENSA) && !NON_OS_BUILD
 -/**
 - * This macro also helps users switching between spinlock declarations/definitions for multi-/single core environments
 - * if the macros below aren't sufficient.
-- */
++ * For Zephyr, we use irq_lock/irq_unlock instead of FreeRTOS spinlocks.
++ *
++ * NOTE: All six enter/exit variants (normal, _isr, _safe) map to the same
++ * irq_lock/irq_unlock pair. On single-core Zephyr this collapses correctly —
++ * once irq_lock() disables interrupts globally, no ISR can preempt before
++ * irq_unlock(), so the ISR/task distinction is not needed.
++ *
++ * The `lock` parameter points to an unsigned int (defined by
++ * DEFINE_CRIT_SECTION_LOCK_STATIC/LOCK) that stores the IRQ key between
++ * enter and exit. This storage is SHARED across all callers of the same lock.
++ * This is safe on single-core because the key-writing enter() cannot be
++ * preempted by another enter() on the same lock (interrupts are disabled
++ * during the critical section). Nested critical sections on the same lock
++ * within a single call path MUST NOT be used — the inner enter() would
++ * overwrite the outer's saved key and the outer exit() would restore the
++ * wrong IRQ state. If nesting is required, use a stack-local key pattern
++ * instead (see components/esp_driver_dac/dac_priv_common.h for an example).
+  */
 -#define OS_SPINLOCK 1
 -#else
  #define OS_SPINLOCK 0
@@ -47,7 +63,7 @@
  
  /**
   * Define and initialize a static (internal linking) lock for entering critical sections.
-@@ -69,7 +55,8 @@
+@@ -69,7 +71,8 @@
  #if OS_SPINLOCK == 1
  #define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
  #else
@@ -57,7 +73,7 @@
  #endif
  
  /**
-@@ -101,7 +88,8 @@
+@@ -101,7 +104,8 @@
  #if OS_SPINLOCK == 1
  #define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
  #else
@@ -67,7 +83,7 @@
  #endif
  
  /**
-@@ -233,11 +221,7 @@
+@@ -233,11 +237,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -80,7 +96,7 @@
  
  /**
   * @brief Exit a critical section.
-@@ -262,11 +246,7 @@
+@@ -262,11 +262,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -93,7 +109,7 @@
  
  /**
   * @brief Enter a critical section while from ISR.
-@@ -291,11 +271,7 @@
+@@ -291,11 +287,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -106,7 +122,7 @@
  
  /**
   * @brief Exit a critical section after entering from ISR.
-@@ -320,11 +296,7 @@
+@@ -320,11 +312,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -119,7 +135,7 @@
  
  /**
   * @brief Enter a critical section from normal task or ISR. This macro will check if the current CPU is processing
-@@ -350,11 +322,7 @@
+@@ -350,11 +338,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -132,7 +148,7 @@
  
  /**
   * @brief Exit a critical section after entering via esp_os_enter_critical_safe.
-@@ -379,11 +347,7 @@
+@@ -379,11 +363,7 @@
   * esp_os_exit_critical(&my_lock);
   * @endcode
   */
@@ -183,15 +199,15 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -23,7 +21,6 @@
- #include "soc/rtc_periph.h"
+@@ -25,7 +23,6 @@
  #include "hal/wdt_hal.h"
+ #endif
  #include "esp_private/periph_ctrl.h"
 -#include "bootloader_clock.h"
  #include "soc/syscon_reg.h"
  #include "esp_rom_serial_output.h"
  
-@@ -31,9 +28,7 @@
+@@ -33,9 +30,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -202,7 +218,7 @@
  
  /* Indicates that this 32k oscillator gets input from external oscillator, rather
   * than a crystal.
-@@ -106,9 +101,9 @@
+@@ -108,9 +103,9 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -238,7 +254,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,9 +30,7 @@
+@@ -34,9 +32,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -249,7 +265,7 @@
  
  /* Indicates that this 32k oscillator gets input from external oscillator, rather
   * than a crystal.
-@@ -96,11 +92,11 @@
+@@ -98,11 +94,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -264,7 +280,7 @@
      select_rtc_slow_clk(SLOW_CLK_8MD256);
  #else
      select_rtc_slow_clk(SLOW_CLK_RTC);
-@@ -258,9 +254,6 @@
+@@ -260,9 +256,6 @@
                             SYSTEM_WIFI_CLK_UNUSED_BIT12;
  
  #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
@@ -287,7 +303,7 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32c3/system_internal.c
 +++ b/components/esp_system/port/soc/esp32c3/system_internal.c
-@@ -13,6 +13,7 @@
+@@ -14,6 +14,7 @@
  #include "esp_log.h"
  #include "riscv/rv_utils.h"
  #include "esp_rom_serial_output.h"
@@ -308,18 +324,18 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -41,8 +39,9 @@
+@@ -43,9 +41,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
 -#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+-
+-#define MHZ (1000000)
 +#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
  
-+#undef MHZ
- #define MHZ (1000000)
- 
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
-@@ -51,7 +50,7 @@
+ 
+@@ -53,7 +49,7 @@
  
  void esp_rtc_init(void)
  {
@@ -328,7 +344,7 @@
      pmu_init();
  #endif
  }
-@@ -62,16 +61,7 @@
+@@ -64,16 +60,7 @@
      assert((rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_48M) || (rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M));
  
      rtc_clk_8m_enable(true);
@@ -344,8 +360,8 @@
 -#endif
  #endif //!CONFIG_IDF_ENV_FPGA
  
- #ifdef CONFIG_BOOTLOADER_WDT_ENABLE
-@@ -90,9 +80,9 @@
+ #if defined(CONFIG_BOOTLOADER_WDT_ENABLE) && SOC_RTC_WDT_SUPPORTED
+@@ -92,9 +79,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -379,7 +395,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -30,7 +30,7 @@
+@@ -32,7 +32,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -388,7 +404,7 @@
  
  #define MHZ (1000000)
  
-@@ -70,9 +70,9 @@
+@@ -72,9 +72,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -424,7 +440,7 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "soc/soc.h"
-@@ -25,9 +23,7 @@
+@@ -27,9 +25,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -435,7 +451,7 @@
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  static __attribute__((unused)) void recalib_bbpll(void);
-@@ -42,7 +38,7 @@
+@@ -44,7 +40,7 @@
      recalib_bbpll();
  #endif
  
@@ -444,7 +460,7 @@
      pmu_init();
  #endif
  }
-@@ -72,9 +68,9 @@
+@@ -74,9 +70,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -469,19 +485,21 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32/clk.c
 +++ b/components/esp_system/port/soc/esp32/clk.c
-@@ -9,11 +9,8 @@
+@@ -9,13 +9,10 @@
  #include "soc/i2s_reg.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
 -#include "bootloader_clock.h"
+ #if SOC_WDT_SUPPORTED || SOC_RTC_WDT_SUPPORTED
  #include "hal/wdt_hal.h"
+ #endif
  
 -#include "esp_private/spi_share_hw_ctrl.h"
 -
  #include "esp_log.h"
  #include "esp_cpu.h"
  
-@@ -28,10 +25,10 @@
+@@ -30,10 +27,10 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -495,7 +513,7 @@
  #else
  #define RTC_XTAL_CAL_RETRY 1
  #endif
-@@ -155,11 +152,11 @@
+@@ -157,11 +154,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -521,7 +539,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -30,7 +30,7 @@
+@@ -33,7 +33,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -530,7 +548,7 @@
  
  #define MHZ (1000000)
  
-@@ -72,9 +72,9 @@
+@@ -75,9 +75,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -566,7 +584,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,9 +30,7 @@
+@@ -34,9 +32,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -577,7 +595,7 @@
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  static __attribute__((unused)) void recalib_bbpll(void);
-@@ -49,7 +45,7 @@
+@@ -51,7 +47,7 @@
      recalib_bbpll();
  #endif
  
@@ -586,7 +604,7 @@
      pmu_init();
  #endif
  }
-@@ -81,9 +77,9 @@
+@@ -83,9 +79,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -620,7 +638,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -30,7 +30,7 @@
+@@ -32,7 +32,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -629,7 +647,7 @@
  
  #define MHZ (1000000)
  
-@@ -70,9 +70,9 @@
+@@ -71,9 +71,9 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -663,7 +681,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,7 +32,7 @@
+@@ -34,7 +34,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -672,7 +690,7 @@
  
  #define MHZ (1000000)
  
-@@ -79,7 +79,7 @@
+@@ -81,7 +81,7 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -716,15 +734,15 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -24,7 +22,6 @@
- #include "hal/wdt_hal.h"
+@@ -26,7 +24,6 @@
+ #endif
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
 -#include "bootloader_clock.h"
  #include "soc/syscon_reg.h"
  
  ESP_LOG_ATTR_TAG(TAG, "clk");
-@@ -33,10 +30,10 @@
+@@ -35,10 +32,10 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -738,7 +756,7 @@
  #else
  #define RTC_XTAL_CAL_RETRY 1
  #endif
-@@ -96,11 +93,11 @@
+@@ -98,11 +95,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -764,45 +782,6 @@
  {
      esp_reset_reason_t hint = esp_reset_reason_get_hint();
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
---- a/components/esp_system/port/soc/esp32s31/clk.c
-+++ b/components/esp_system/port/soc/esp32s31/clk.c
-@@ -7,7 +7,7 @@
- #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_log.h"
-@@ -33,7 +33,6 @@
- #include "esp_private/esp_sleep_internal.h"
- #include "esp_private/periph_ctrl.h"
- #include "esp_private/esp_clk.h"
--#include "esp_private/esp_pmu.h"
- #include "esp_rom_serial_output.h"
- #include "esp_rom_sys.h"
- 
-@@ -78,7 +77,7 @@
-     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
- #endif
- 
--#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
-+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
-     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_XTAL32K);
- #else
-     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_RC_SLOW);
---- a/components/esp_system/port/soc/esp32s31/reset_reason.c
-+++ b/components/esp_system/port/soc/esp32s31/reset_reason.c
-@@ -73,7 +73,7 @@
-     }
- }
- 
--static void __attribute__((constructor)) esp_reset_reason_init(void)
-+static void esp_reset_reason_init(void)
- {
-     esp_reset_reason_t hint = esp_reset_reason_get_hint();
-     s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32s3/clk.c
 +++ b/components/esp_system/port/soc/esp32s3/clk.c
 @@ -5,9 +5,7 @@
@@ -816,7 +795,7 @@
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -24,7 +22,6 @@
+@@ -26,7 +24,6 @@
  #include "hal/usb_serial_jtag_ll.h"
  #include "esp_private/periph_ctrl.h"
  #include "esp_private/esp_clk.h"
@@ -824,7 +803,7 @@
  #include "soc/syscon_reg.h"
  #include "hal/gpio_ll.h"
  
-@@ -34,7 +31,7 @@
+@@ -36,7 +33,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
@@ -833,7 +812,7 @@
  
  #define RTC_XTAL_CAL_RETRY 1
  
-@@ -98,11 +95,11 @@
+@@ -100,11 +97,11 @@
      wdt_hal_write_protect_enable(&rtc_wdt_ctx);
  #endif
  
@@ -848,7 +827,7 @@
      select_rtc_slow_clk(SLOW_CLK_8MD256);
  #else
      select_rtc_slow_clk(SLOW_CLK_RTC);
-@@ -288,9 +285,6 @@
+@@ -290,9 +287,6 @@
              SYSTEM_WIFI_CLK_SDIO_HOST_EN;
  
  #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
@@ -880,28 +859,3 @@
  __esp_stack_guard_setup(void)
  {
      ESP_LOGD(TAG, "Initialize random stack guard");
---- a/components/esp_system/task_wdt/task_wdt.c
-+++ b/components/esp_system/task_wdt/task_wdt.c
-@@ -596,9 +596,9 @@
-         esp_task_wdt_impl_timer_restart(p_twdt_obj->impl_ctx);
-     }
- 
--err:
-     portEXIT_CRITICAL(&spinlock);
--    return ret;
-+err:
-+    return ESP_OK;
- }
- 
- esp_err_t esp_task_wdt_stop(void)
---- a/components/esp_system/task_wdt/task_wdt_impl_esp_timer.c
-+++ b/components/esp_system/task_wdt/task_wdt_impl_esp_timer.c
-@@ -126,7 +126,7 @@
-         ret = ESP_ERR_INVALID_STATE;
-     }
- 
--    if (ret == ESP_OK && esp_timer_is_active(ctx->sw_timer)) {
-+    if (ret == ESP_OK) {
-         ret = esp_timer_stop(ctx->sw_timer);
-     }
- 

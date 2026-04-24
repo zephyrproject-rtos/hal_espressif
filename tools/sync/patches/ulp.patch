@@ -31,15 +31,6 @@
  
      /* Set wake-up sources */
      lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
-@@ -127,7 +133,7 @@
-     }
- #endif
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
-     ulp_lp_core_memory_shared_cfg_t* shared_mem = ulp_lp_core_memory_shared_cfg_get();
- 
-     if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER) {
 @@ -150,7 +156,7 @@
      if (program_binary == NULL) {
          return ESP_ERR_INVALID_ARG;
@@ -109,13 +100,6 @@
   * @brief Print a single character from the LP core
 --- a/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
 +++ b/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -53,26 +53,6 @@
  }
  
@@ -140,26 +124,12 @@
 -}
 -
 -/**
-  * @brief Makes the co-processor busy wait for a certain number of microseconds
+  * @brief Makes the co-processor busy-wait for a certain number of microseconds.
   *
-  * @param us Number of microseconds to busy-wait for
-@@ -161,7 +141,7 @@
-     return ulp_lp_core_sw_intr_from_hp_clear();
- }
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
- /**
-  * @brief Enable the LP Timer interrupt
-  *
+  * @note The maximum supported delay depends on the LP core clock source and frequency.
 --- a/components/ulp/lp_core/lp_core/lp_core_i2c.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_i2c.c
-@@ -1,11 +1,11 @@
- /*
-- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
+@@ -5,7 +5,7 @@
   */
  
  #include "sdkconfig.h"
@@ -259,13 +229,6 @@
  {
 --- a/components/ulp/lp_core/lp_core/lp_core_spi.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_spi.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -12,7 +12,6 @@
  #include <string.h>
  #include "esp_err.h"
@@ -309,31 +272,8 @@
      ets_install_putc1(lp_core_print_char);
  #endif
  
-@@ -28,13 +28,13 @@
- 
-     ulp_lp_core_memory_shared_cfg_t* shared_mem = ulp_lp_core_memory_shared_cfg_get();
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
-     uint64_t sleep_duration_ticks = shared_mem->sleep_duration_ticks;
- 
-     if (sleep_duration_ticks) {
-         ulp_lp_core_lp_timer_set_wakeup_ticks(sleep_duration_ticks);
-     }
--#endif // SOC_RTC_TIMER_SUPPORTED
-+#endif // SOC_RTC_TIMER_V2_SUPPORTED
- 
-     ulp_lp_core_halt();
- }
 --- a/components/ulp/lp_core/lp_core/lp_core_uart.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_uart.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -22,14 +22,19 @@
      .dev = (uart_dev_t *)UART_LL_GET_HW(LP_UART_NUM_0),
  };
@@ -432,39 +372,7 @@
  #endif
 --- a/components/ulp/lp_core/lp_core/lp_core_utils.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_utils.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
-@@ -19,7 +19,7 @@
- #include "hal/lp_i2s_ll.h"
- #endif
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
- #include "hal/rtc_timer_ll.h"
- #endif
- 
-@@ -82,13 +82,13 @@
-     }
- #endif /* SOC_ETM_SUPPORTED */
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
-     if ((lp_core_ll_get_wakeup_source() & LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER) \
-             && (rtc_timer_ll_get_intr_raw(&LP_TIMER, 1) & LP_TIMER_MAIN_TIMER_LP_INT_RAW)) {
-         lp_wakeup_cause |= LP_CORE_LL_WAKEUP_SOURCE_LP_TIMER;
-         rtc_timer_ll_clear_alarm_intr_status(&LP_TIMER, 1);
-     }
--#endif /* SOC_RTC_TIMER_SUPPORTED */
-+#endif /* SOC_RTC_TIMER_V2_SUPPORTED */
- 
- }
- 
-@@ -163,15 +163,14 @@
+@@ -156,15 +156,14 @@
      lp_core_ll_request_sleep();
  }
  
@@ -488,15 +396,6 @@
  
  void __attribute__((noreturn)) ulp_lp_core_abort(void)
  {
-@@ -196,7 +195,7 @@
-     pmu_ll_lp_clear_sw_intr_status(&PMU);
- }
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
- void ulp_lp_core_lp_timer_intr_enable(bool enable)
- {
-     rtc_timer_ll_alarm_intr_enable(&LP_TIMER, 1, enable);
 --- a/components/ulp/lp_core/lp_core_uart.c
 +++ b/components/ulp/lp_core/lp_core_uart.c
 @@ -65,6 +65,7 @@
@@ -507,23 +406,6 @@
      uart_hal_set_parity(&hal, cfg->uart_proto_cfg.parity);
      uart_hal_set_data_bit_num(&hal, cfg->uart_proto_cfg.data_bits);
      uart_hal_set_stop_bits(&hal, cfg->uart_proto_cfg.stop_bits);
---- a/components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
-+++ b/components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
-@@ -6,7 +6,7 @@
- #include "ulp_lp_core_lp_timer_shared.h"
- #include "soc/soc_caps.h"
- 
--#if SOC_RTC_TIMER_SUPPORTED
-+#if SOC_RTC_TIMER_V2_SUPPORTED
- #include "hal/rtc_timer_ll.h"
- #include "hal/clk_tree_ll.h"
- #include "soc/rtc.h"
-@@ -45,4 +45,4 @@
-     return (sleep_duration_us * (1 << RTC_CLK_CAL_FRACT) / clk_ll_rtc_slow_load_cal());
- }
- 
--#endif // SOC_RTC_TIMER_SUPPORTED
-+#endif // SOC_RTC_TIMER_V2_SUPPORTED
 --- a/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
 +++ b/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
 @@ -9,19 +9,16 @@
@@ -570,7 +452,7 @@
  }
 --- a/components/ulp/ulp_fsm/ulp.c
 +++ b/components/ulp/ulp_fsm/ulp.c
-@@ -114,10 +114,10 @@
+@@ -127,10 +127,10 @@
      if (program_size_bytes < sizeof(ulp_binary_header_t)) {
          return ESP_ERR_INVALID_SIZE;
      }
@@ -636,13 +518,6 @@
  }
 --- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
 +++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -12,7 +12,6 @@
  
  #include "sdkconfig.h"
@@ -650,8 +525,8 @@
 -#include <stdbool.h>
  #include "ulp_riscv_register_ops.h"
  #include "ulp_riscv_interrupt.h"
- 
-@@ -101,26 +100,6 @@
+ #include "ulp_riscv_cpu_freq_shared.h"
+@@ -95,26 +94,6 @@
  }
  
  /**
@@ -675,10 +550,10 @@
 -}
 -
 -/**
-  * @brief Makes the co-processor busy wait for a certain number of cycles
+  * @brief Makes the co-processor busy-wait for a certain number of CPU cycles.
   *
-  * @note This function is not accurate for delays shorter than 20 cycles,
-@@ -146,7 +125,7 @@
+  * @note This function is not accurate for delays shorter than 20 cycles because the
+@@ -165,7 +144,7 @@
   */
  void ulp_riscv_gpio_wakeup_clear(void);
  
@@ -687,7 +562,7 @@
  /**
   * @brief Enable ULP RISC-V SW Interrupt
   *
-@@ -188,12 +167,12 @@
+@@ -207,12 +186,12 @@
   */
  #define ULP_RISCV_EXIT_CRITICAL()   asm volatile (".word 0x0600600b");
  
@@ -721,13 +596,6 @@
 +#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
 --- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
 +++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -32,7 +32,7 @@
  #endif // CONFIG_IDF_TARGET_ESP32S3
  
@@ -787,14 +655,14 @@
  #include "ulp_riscv_uart_ulp_core.h"
  
  /* We calculate the bit duration at compile time to speed up and avoid pulling in soft-float libs */
--#define BIT_DURATION_CYCLES ( ULP_RISCV_CYCLES_PER_US * ((1000*1000) / CONFIG_ULP_RISCV_UART_BAUDRATE) )
-+#define BIT_DURATION_CYCLES ( ULP_RISCV_CYCLES_PER_US * ((1000*1000) / CONFIG_ESP32_ULP_RISCV_UART_BAUDRATE) )
+-#define BIT_DURATION_CYCLES ( (ULP_RISCV_CYCLES_PER_US_NUM * 1000000) / (ULP_RISCV_CYCLES_PER_US_DENOM * CONFIG_ULP_RISCV_UART_BAUDRATE) )
++#define BIT_DURATION_CYCLES ( (ULP_RISCV_CYCLES_PER_US_NUM * 1000000) / (ULP_RISCV_CYCLES_PER_US_DENOM * CONFIG_ESP32_ULP_RISCV_UART_BAUDRATE) )
  
  void ulp_riscv_uart_init(ulp_riscv_uart_t *uart, const ulp_riscv_uart_cfg_t *cfg)
  {
 --- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
 +++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
-@@ -49,7 +49,7 @@
+@@ -50,7 +50,7 @@
      SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_GPIO_WAKEUP_CLR);
  }
  
@@ -803,15 +671,18 @@
  
  void ulp_riscv_enable_sw_intr(intr_handler_t handler, void *arg)
  {
-@@ -76,4 +76,4 @@
+@@ -77,7 +77,7 @@
      SET_PERI_REG_MASK(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SW_INT_TRIGGER);
  }
  
 -#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
 +#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
+ 
+ void ulp_riscv_delay_us(uint32_t delay_us)
+ {
 --- a/components/ulp/ulp_riscv/ulp_riscv.c
 +++ b/components/ulp/ulp_riscv/ulp_riscv.c
-@@ -196,14 +196,14 @@
+@@ -207,14 +207,14 @@
      if (program_binary == NULL) {
          return ESP_ERR_INVALID_ARG;
      }

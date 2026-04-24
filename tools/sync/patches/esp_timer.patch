@@ -186,12 +186,13 @@
          // all deferred events are processed at a time
          timer_process_alarm(ESP_TIMER_TASK);
      }
-@@ -558,35 +575,30 @@
+@@ -558,35 +575,31 @@
  #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
  ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
  {
 -    assert(xPortInIsrContext());
 -    s_isr_dispatch_need_yield = pdTRUE;
++    __ASSERT(k_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
 +    s_isr_dispatch_need_yield = true;
  }
  #endif
@@ -229,7 +230,7 @@
  }
  
  static esp_err_t init_timer_task(void)
-@@ -596,40 +608,31 @@
+@@ -596,40 +609,31 @@
          ESP_EARLY_LOGE(TAG, "Task is already initialized");
          err = ESP_ERR_INVALID_STATE;
      } else {
@@ -246,7 +247,7 @@
 +        k_thread_create(&s_timer_task, timer_task_stack,
 +                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
 +                        timer_task, NULL, NULL, NULL,
-+                        K_PRIO_COOP(2), 0, K_NO_WAIT);
++                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
 +        k_thread_name_set(&s_timer_task, "esp_timer");
 +        s_timer_task_created = true;
      }
@@ -282,7 +283,7 @@
      if (err == ESP_OK) {
          err = esp_timer_impl_init(&timer_alarm_handler);
          if (err != ESP_OK) {
-@@ -640,31 +643,9 @@
+@@ -640,31 +644,9 @@
      return err;
  }
  
@@ -317,7 +318,7 @@
  
  esp_err_t esp_timer_deinit(void)
  {
-@@ -750,7 +731,7 @@
+@@ -750,7 +732,7 @@
       * slightly more and the output will be truncated if that is not enough.
       */
      size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
@@ -326,7 +327,7 @@
      if (print_buf == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -783,7 +764,7 @@
+@@ -783,7 +765,7 @@
          fputs(print_buf, stream);
      }
  
@@ -335,7 +336,7 @@
      return ESP_OK;
  }
  
-@@ -866,8 +847,8 @@
+@@ -866,8 +848,8 @@
      esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
  
      timer_list_lock(dispatch_method);
@@ -698,7 +699,7 @@
  }
  
  esp_err_t esp_timer_impl_early_init(void)
-@@ -174,7 +175,7 @@
+@@ -175,7 +176,7 @@
      systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
  
      for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
@@ -707,7 +708,7 @@
          systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, can_stall);
      }
  
-@@ -183,7 +184,7 @@
+@@ -184,7 +185,7 @@
  
  esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
  {
@@ -716,7 +717,7 @@
          ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
          return ESP_ERR_INVALID_STATE;
      }
-@@ -200,7 +201,7 @@
+@@ -201,7 +202,7 @@
  
      esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
                                     &timer_alarm_isr, NULL,
@@ -725,7 +726,7 @@
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
          return err;
-@@ -208,14 +209,10 @@
+@@ -209,14 +210,10 @@
  
      if (s_alarm_handler == NULL) {
          s_alarm_handler = alarm_handler;
@@ -741,7 +742,7 @@
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
      }
-@@ -240,9 +237,9 @@
+@@ -241,9 +238,9 @@
  
  uint64_t esp_timer_impl_get_alarm_reg(void)
  {

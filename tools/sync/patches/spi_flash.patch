@@ -314,7 +314,7 @@
  
  void IRAM_ATTR spi_flash_enable_cache(uint32_t cpuid)
  {
-@@ -660,7 +433,6 @@
+@@ -662,7 +435,6 @@
  #else
      cache_line_size = CACHE_LINE_SIZE_64B;
  #endif
@@ -380,7 +380,7 @@
  #include "esp_private/startup_internal.h"
  #include "esp_spi_flash_counters.h"
  #include "esp_rom_spiflash.h"
-@@ -501,7 +500,6 @@
+@@ -502,7 +501,6 @@
      // Only these chips have efuses for spi pin configuration.
      cfg.iomux = esp_rom_efuse_get_flash_gpio_info() == 0 ?  true : false;
      #endif
@@ -388,7 +388,7 @@
      #if CONFIG_ESPTOOLPY_OCT_FLASH
      // Default value. When `CONFIG_ESPTOOLPY_FLASH_MODE_AUTO_DETECT` selected, if the selected mode not consistent with
      // hardware, will be overwritten in s_esp_flash_choose_correct_mode.
-@@ -527,7 +525,6 @@
+@@ -528,7 +526,6 @@
      #endif // SOC_SPI_MEM_SUPPORT_TIMING_TUNING
  
      cfg.clock_src_freq = spi_flash_ll_get_source_clock_freq_mhz(cfg.host_id);
@@ -396,35 +396,15 @@
      #if CONFIG_SPI_FLASH_AUTO_SUSPEND
      if (TSUS_VAL_SUSPEND > 400 || TSUS_VAL_SUSPEND < 20) {
          // Assume that the tsus value cannot larger than 400 (because the performance might be really bad)
-@@ -580,20 +577,19 @@
-         return err;
+@@ -582,7 +579,6 @@
      }
      if (default_chip.size < legacy_chip->chip_size) {
--        ESP_EARLY_LOGE(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Probe failed.", default_chip.size/1024, legacy_chip->chip_size/1024);
+         ESP_EARLY_LOGE(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Probe failed.", default_chip.size/1024, legacy_chip->chip_size/1024);
 -        return ESP_ERR_FLASH_SIZE_NOT_MATCH;
--    }
--
--    if (default_chip.size > legacy_chip->chip_size) {
-+        ESP_EARLY_LOGW(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Using detected size.", default_chip.size/1024, legacy_chip->chip_size/1024);
-+        /* Use detected size instead of header size */
-+    } else if (default_chip.size > legacy_chip->chip_size) {
-         ESP_EARLY_LOGW(TAG, "Detected size(%dk) larger than the size in the binary image header(%dk). Using the size in the binary image header.", default_chip.size/1024, legacy_chip->chip_size/1024);
-+        default_chip.size = legacy_chip->chip_size;
-+    } else {
-+        default_chip.size = legacy_chip->chip_size;
      }
- #if !CONFIG_IDF_TARGET_ESP32P4 || !CONFIG_APP_BUILD_TYPE_RAM // IDF-10019
--    if (legacy_chip->chip_size > 16 * 1024 * 1024) {
-+    if (default_chip.size > 16 * 1024 * 1024) {
-         ESP_RETURN_ON_ERROR_ISR(esp_mspi_32bit_address_flash_feature_check(), TAG, "32bit address feature check failed");
-     }
- #endif // !CONFIG_IDF_TARGET_ESP32P4 || !CONFIG_APP_BUILD_TYPE_RAM
--    // Set chip->size equal to ROM flash size(also equal to the size in binary image header), which means the available size that can be used
--    default_chip.size = legacy_chip->chip_size;
  
-     esp_flash_default_chip = &default_chip;
- #ifdef CONFIG_SPI_FLASH_AUTO_SUSPEND
-@@ -645,7 +641,7 @@
+     if (default_chip.size > legacy_chip->chip_size) {
+@@ -646,7 +642,7 @@
      return err;
  }
  
@@ -442,9 +422,9 @@
 -#include <freertos/FreeRTOS.h>
 +#include <zephyr/kernel.h>
  #include "sdkconfig.h"
+ #include "esp_bit_defs.h"
  #include "esp_attr.h"
- #include "esp_log.h"
-@@ -110,10 +110,10 @@
+@@ -119,10 +119,10 @@
  
  err:
      if (vaddr_list) {
@@ -457,7 +437,7 @@
      }
      return ret;
  }
-@@ -173,7 +173,10 @@
+@@ -191,7 +191,10 @@
      int successful_cnt = 0;
  
      int block_num = s_find_non_contiguous_block_nums(pages, page_count);
@@ -469,7 +449,7 @@
      s_merge_contiguous_pages(pages, page_count, block_num, paddr_blocks);
      s_pages_to_bytes(paddr_blocks, block_num);
  
-@@ -221,6 +224,7 @@
+@@ -239,6 +242,7 @@
      *out_ptr = (void *)vaddr_list[0];
      *out_handle = (uint32_t)block;
  
@@ -477,7 +457,7 @@
      return ESP_OK;
  
  err:
-@@ -228,11 +232,12 @@
+@@ -246,11 +250,12 @@
          esp_mmu_unmap((void *)vaddr_list[i]);
      }
      if (vaddr_list) {
@@ -492,7 +472,7 @@
      return ret;
  }
  
-@@ -249,8 +254,8 @@
+@@ -267,8 +272,8 @@
          }
      }
  
@@ -519,11 +499,16 @@
  #include <soc/soc.h>
  #include <soc/soc_memory_layout.h>
  #include "soc/io_mux_reg.h"
-@@ -111,6 +109,13 @@
+@@ -111,6 +109,18 @@
  #endif
  
  
 +#ifdef __ZEPHYR__
++/* Zephyr doesn't sync the esp_partition component, so
++ * esp_partition_main_flash_region_safe() is unavailable. Zephyr apps should
++ * use flash_area_* APIs (flash_map) which have their own partition-safety
++ * checks. Writes via raw esp_flash_* are unchecked on Zephyr.
++ */
 +static __attribute__((unused)) bool is_safe_write_address(size_t addr, size_t size)
 +{
 +    (void)addr; (void)size;
@@ -533,7 +518,7 @@
  static __attribute__((unused)) bool is_safe_write_address(size_t addr, size_t size)
  {
      if (!esp_partition_main_flash_region_safe(addr, size)) {
-@@ -118,6 +123,7 @@
+@@ -118,6 +128,7 @@
      }
      return true;
  }
@@ -712,23 +697,25 @@
      on_spi_released(ctx);
      return ret;
  }
-@@ -216,13 +190,11 @@
+@@ -216,11 +190,14 @@
  
  static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
  {
 -    if (likely(xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)) {
++    /* k_sleep requires an active thread context. Skip the yield if the
++     * kernel is not yet running (e.g. early boot flash erase recovery).
++     */
++    if (!k_is_pre_kernel()) {
  #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
 -        vTaskDelay(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS);
-+    k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
++        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
  #else
 -        vTaskDelay(1);
-+    k_sleep(K_MSEC(1));
++        k_sleep(K_MSEC(1));
  #endif
--    }
+     }
      on_spi_yielded((app_func_arg_t*)arg);
-     return ESP_OK;
- }
-@@ -235,21 +207,12 @@
+@@ -235,31 +212,33 @@
  
  static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
  {
@@ -738,23 +725,34 @@
 -        (May need to shrink read_chunk_size and retry due to race conditions with other tasks
 -        also allocating from the heap.)
 -    */
++    /* Allocate temporary internal buffer for the actual read. If the preferred
++     * size doesn't fit in free memory, halve the request and retry so we
++     * degrade gracefully under memory pressure instead of failing outright.
++     * Zephyr's libc heap doesn't expose a "largest free block" query, so we
++     * use exponential backoff down to a minimum of 64 bytes.
++     */
      void* ret = NULL;
 -    unsigned retries = 5;
-     size_t read_chunk_size = reqest_size;
+-    size_t read_chunk_size = reqest_size;
 -    while(ret == NULL && retries--) {
 -        size_t largest_free = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 -        read_chunk_size = MIN(read_chunk_size, largest_free);
 -        read_chunk_size = (read_chunk_size + 3) & ~3;
 -        ret = heap_caps_malloc(read_chunk_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
--    }
++    size_t read_chunk_size = (reqest_size + 3) & ~3;
 +
-+    read_chunk_size = (read_chunk_size + 3) & ~3;
-+    ret = k_malloc(read_chunk_size);
++    while (ret == NULL && read_chunk_size >= 64) {
++        ret = k_malloc(read_chunk_size);
++        if (ret == NULL) {
++            read_chunk_size = (read_chunk_size / 2) & ~3;
++        }
+     }
 +
      ESP_LOGV(TAG, "allocate temp buffer: %p (%d)", ret, read_chunk_size);
-     *out_size = (ret != NULL? read_chunk_size: 0);
+-    *out_size = (ret != NULL? read_chunk_size: 0);
++    *out_size = (ret != NULL ? read_chunk_size : 0);
      return ret;
-@@ -257,9 +220,10 @@
+ }
  
  static void release_buffer_malloc(void* arg, void *temp_buf)
  {
@@ -766,11 +764,18 @@
  static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
  {
      if (!esp_partition_is_flash_region_writable(start_addr, size)) {
-@@ -275,8 +239,15 @@
+@@ -275,8 +254,22 @@
  #endif // !CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
      return ESP_OK;
  }
 +#else
++/* Zephyr doesn't sync the esp_partition component, so
++ * esp_partition_is_flash_region_writable() / _main_flash_region_safe() are
++ * unavailable. Zephyr apps should use flash_area_* APIs (flash_map) which
++ * have their own partition-safety checks. Writes via raw esp_flash_* are
++ * unchecked on Zephyr — CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED has no
++ * effect on this path.
++ */
 +static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
 +{
 +    (void)arg; (void)start_addr; (void)size;
@@ -783,7 +788,7 @@
  {
      bool is_erasing = op_status & SPI_FLASH_OS_IS_ERASING_STATUS_FLAG;
      spi_flash_set_erasing_flag(is_erasing);
-@@ -333,8 +304,7 @@
+@@ -333,8 +326,7 @@
          return ESP_ERR_INVALID_ARG;
      }
  
@@ -793,7 +798,7 @@
      if (chip->os_func_data == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -369,7 +339,7 @@
+@@ -369,7 +361,7 @@
      if (chip->os_func_data) {
          // SPI bus lock is possibly not used on SPI1 bus
          *out_dev_handle = ((app_func_arg_t*)chip->os_func_data)->dev_lock;
@@ -802,7 +807,7 @@
      }
      chip->os_func = NULL;
      chip->os_func_data = NULL;
-@@ -398,7 +368,11 @@
+@@ -398,7 +390,11 @@
  esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip)
  {
      main_flash_arg = (app_func_arg_t) {
@@ -814,7 +819,7 @@
          .no_protect = false, // Required for the main flash chip
      };
      chip->os_func = &esp_flash_spi1_default_os_functions;
-@@ -430,7 +404,10 @@
+@@ -430,7 +426,10 @@
  // not treated as valid interval.
  static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
  {
@@ -826,7 +831,7 @@
      uint32_t time = esp_system_get_time();
      // We handle the reset here instead of in `on_spi_acquired()`, when acquire() and release() is
      // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
-@@ -440,26 +417,42 @@
+@@ -440,26 +439,42 @@
      } else if ((time - ctx->acquired_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_DURATION_MS * 1000) {
          return true;
      }
