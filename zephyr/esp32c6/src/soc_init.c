@@ -119,12 +119,16 @@ void ana_clock_glitch_reset_config(bool enable)
 
 #if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/pmu_reg.h"
+#include "soc/lp_clkrst_reg.h"
+#include "soc/regi2c_dig_reg.h"
+#include "soc/rtc.h"
 #include "esp_rom_serial_output.h"
 #include "modem/modem_lpcon_struct.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_private/regi2c_ctrl.h"
 #include "esp_private/esp_pmu.h"
+#include "pmu_param.h"
 
 /*
  * Custom bootloader_clock_configure() for ESP32-C6 simple boot mode.
@@ -145,6 +149,30 @@ void bootloader_clock_configure(void)
 	/* Set MSPI divider for 80MHz flash (PLL 480MHz / 6 = 80MHz) */
 	clk_ll_mspi_fast_set_hs_divider(6);
 
+	/* Set tuning parameters for RC_FAST, RC_SLOW and RC32K clocks
+	 * (matches ESP-IDF rtc_clk_init).
+	 */
+	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ, 172);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_SCK_DCAP, 128);
+	REG_SET_FIELD(LP_CLKRST_RC32K_CNTL_REG, LP_CLKRST_RC32K_DFREQ, 700);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_RTC_DREG, 1);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_DIG_DREG, 1);
+
+	/* DIG regulator DBIAS handoff to PMU, using calibrated values from eFuse.
+	 * Without this, voltage regulation stays at ROM defaults which may be
+	 * insufficient at 160 MHz in worst-case temperature/voltage conditions.
+	 */
+	uint32_t hp_cali_dbias = get_act_hp_dbias();
+	uint32_t lp_cali_dbias = get_act_lp_dbias();
+
+	SET_PERI_REG_MASK(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_DIG_REGULATOR0_DBIAS_SEL);
+	SET_PERI_REG_BITS(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_MODEM_HP_REGULATOR0_REG, PMU_HP_MODEM_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_MODEM_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_SLEEP_LP_REGULATOR0_REG, PMU_HP_SLEEP_LP_REGULATOR_DBIAS,
+			  lp_cali_dbias, PMU_HP_SLEEP_LP_REGULATOR_DBIAS_S);
+
 	/* Enable BBPLL */
 	clk_ll_bbpll_enable();
 
@@ -154,13 +182,13 @@ void bootloader_clock_configure(void)
 	 * which requires kernel services (irq_lock) not available during early boot.
 	 */
 	regi2c_ctrl_ll_master_force_enable_clock(true);
-	regi2c_ctrl_ll_bbpll_calibration_start();
+	clk_ll_bbpll_calibration_start();
 	clk_ll_bbpll_set_config(CLK_LL_PLL_480M_FREQ_MHZ, SOC_XTAL_FREQ_40M);
-	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+	while (!clk_ll_bbpll_calibration_is_done()) {
 		;
 	}
 	esp_rom_delay_us(10);
-	regi2c_ctrl_ll_bbpll_calibration_stop();
+	clk_ll_bbpll_calibration_stop();
 	regi2c_ctrl_ll_master_force_enable_clock(false);
 
 	/* Switch CPU to PLL at 160MHz (480MHz / 3) */
@@ -170,6 +198,10 @@ void bootloader_clock_configure(void)
 
 	/* Store XTAL frequency for later use */
 	clk_ll_xtal_store_freq_mhz(SOC_XTAL_FREQ_40M);
+
+	/* Keep RC_FAST running so RNG has an entropy source during boot */
+	rtc_clk_8m_enable(true);
+	rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
 
 	/* Clear any pending LP/RTC interrupts */
 	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);

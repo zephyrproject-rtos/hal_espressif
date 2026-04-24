@@ -125,9 +125,13 @@ void ana_clock_glitch_reset_config(bool enable)
 
 #if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/pmu_reg.h"
+#include "soc/rtc.h"
+#include "soc/lp_clkrst_reg.h"
+#include "soc/regi2c_dig_reg.h"
 #include "esp_rom_serial_output.h"
 #include "esp_rom_regi2c.h"
 #include "soc/regi2c_bbpll.h"
+#include "pmu_param.h"
 
 /*
  * Custom bootloader_clock_configure() for ESP32-C5 simple boot mode.
@@ -140,7 +144,7 @@ void ana_clock_glitch_reset_config(bool enable)
  * ANALOG_CLOCK_ENABLE() -> PERIPH_RCC_ACQUIRE_ATOMIC -> irq_lock
  * which requires kernel infrastructure not available during early boot.
  *
- * Instead, use esp_rom_regi2c_write/write_mask directly for BBPLL
+ * Instead, use _regi2c_impl_write/write_mask directly for BBPLL
  * register configuration, and LL functions for calibration control
  * and clock source switching.
  */
@@ -160,11 +164,36 @@ void bootloader_clock_configure(void)
 	/* Force-enable I2C master clock for REGI2C operations */
 	regi2c_ctrl_ll_master_force_enable_clock(true);
 
+	/* Set tuning parameters for RC_FAST and RC_SLOW clocks
+	 * (matches ESP-IDF rtc_clk_init).
+	 */
+	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ, 172);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_SCK_DCAP, 128);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_RTC_DREG, 1);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_DIG_DREG, 1);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_RTC_REG, 0);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_DIG_REG, 0);
+
+	/* DIG regulator DBIAS handoff to PMU, using calibrated values from eFuse.
+	 * Without this, voltage regulation stays at ROM defaults which may be
+	 * insufficient at 160 MHz in worst-case conditions.
+	 */
+	uint32_t hp_cali_dbias = get_act_hp_dbias();
+	uint32_t lp_cali_dbias = get_act_lp_dbias();
+
+	SET_PERI_REG_MASK(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_DIG_REGULATOR0_DBIAS_SEL);
+	SET_PERI_REG_BITS(PMU_HP_ACTIVE_HP_REGULATOR0_REG, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_ACTIVE_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_MODEM_HP_REGULATOR0_REG, PMU_HP_MODEM_HP_REGULATOR_DBIAS,
+			  hp_cali_dbias, PMU_HP_MODEM_HP_REGULATOR_DBIAS_S);
+	SET_PERI_REG_BITS(PMU_HP_SLEEP_LP_REGULATOR0_REG, PMU_HP_SLEEP_LP_REGULATOR_DBIAS,
+			  lp_cali_dbias, PMU_HP_SLEEP_LP_REGULATOR_DBIAS_S);
+
 	/* Enable BBPLL power */
 	clk_ll_bbpll_enable();
 
 	/* Start BBPLL self-calibration */
-	regi2c_ctrl_ll_bbpll_calibration_start();
+	clk_ll_bbpll_calibration_start();
 
 	/*
 	 * Configure BBPLL for 480MHz using direct ROM regi2c calls.
@@ -188,37 +217,37 @@ void bootloader_clock_configure(void)
 	}
 
 	uint8_t i2c_bbpll_lref = (dchgp << I2C_BBPLL_OC_DCHGP_LSB) | div_ref;
-	esp_rom_regi2c_write(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write(I2C_BBPLL, I2C_BBPLL_HOSTID,
 			     I2C_BBPLL_OC_REF_DIV, i2c_bbpll_lref);
-	esp_rom_regi2c_write(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write(I2C_BBPLL, I2C_BBPLL_HOSTID,
 			     I2C_BBPLL_OC_DIV_7_0, div7_0);
-	esp_rom_regi2c_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
 				  I2C_BBPLL_OC_DR1,
 				  I2C_BBPLL_OC_DR1_MSB,
 				  I2C_BBPLL_OC_DR1_LSB, dr1);
-	esp_rom_regi2c_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
 				  I2C_BBPLL_OC_DR3,
 				  I2C_BBPLL_OC_DR3_MSB,
 				  I2C_BBPLL_OC_DR3_LSB, dr3);
-	esp_rom_regi2c_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
 				  I2C_BBPLL_OC_DLREF_SEL,
 				  I2C_BBPLL_OC_DLREF_SEL_MSB,
 				  I2C_BBPLL_OC_DLREF_SEL_LSB, lref);
-	esp_rom_regi2c_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
 				  I2C_BBPLL_OC_DHREF_SEL,
 				  I2C_BBPLL_OC_DHREF_SEL_MSB,
 				  I2C_BBPLL_OC_DHREF_SEL_LSB, href);
-	esp_rom_regi2c_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
+	_regi2c_impl_write_mask(I2C_BBPLL, I2C_BBPLL_HOSTID,
 				  I2C_BBPLL_OC_VCO_DBIAS,
 				  I2C_BBPLL_OC_VCO_DBIAS_MSB,
 				  I2C_BBPLL_OC_VCO_DBIAS_LSB, dbias);
 
 	/* Wait for calibration to complete */
-	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+	while (!clk_ll_bbpll_calibration_is_done()) {
 		;
 	}
 	esp_rom_delay_us(10);
-	regi2c_ctrl_ll_bbpll_calibration_stop();
+	clk_ll_bbpll_calibration_stop();
 	regi2c_ctrl_ll_master_force_enable_clock(false);
 
 	/* Switch CPU to PLL_F160M at 160MHz */
@@ -227,6 +256,10 @@ void bootloader_clock_configure(void)
 	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL_F160M);
 	clk_ll_bus_update();
 	esp_rom_set_cpu_ticks_per_us(160);
+
+	/* Keep RC_FAST running so RNG has an entropy source during boot */
+	rtc_clk_8m_enable(true);
+	rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
 
 	/* Clear any pending LP/RTC interrupts */
 	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);

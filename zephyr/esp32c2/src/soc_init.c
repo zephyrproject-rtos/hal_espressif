@@ -87,6 +87,7 @@ void ana_clock_glitch_reset_config(bool enable)
 #if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/soc.h"
 #include "soc/rtc.h"
+#include "soc/rtc_cntl_reg.h"
 #include "esp_rom_serial_output.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
@@ -106,6 +107,10 @@ void bootloader_clock_configure(void)
 		clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
 	}
 
+	/* Set tuning parameters for RC_SLOW and RC_FAST clocks (matches ESP-IDF rtc_clk_init) */
+	REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_SCK_DCAP, RTC_CNTL_SCK_DCAP_DEFAULT);
+	REG_SET_FIELD(RTC_CNTL_CLK_CONF_REG, RTC_CNTL_CK8M_DFREQ, RTC_CNTL_CK8M_DFREQ_DEFAULT);
+
 	/* Reset I2C master for BBPLL configuration */
 	regi2c_ctrl_ll_i2c_reset();
 	regi2c_ctrl_ll_i2c_bbpll_enable();
@@ -120,20 +125,24 @@ void bootloader_clock_configure(void)
 	clk_ll_bbpll_set_freq_mhz(CLK_LL_PLL_480M_FREQ_MHZ);
 
 	/* Start PLL calibration */
-	regi2c_ctrl_ll_bbpll_calibration_start();
+	clk_ll_bbpll_calibration_start();
 	clk_ll_bbpll_set_config(CLK_LL_PLL_480M_FREQ_MHZ, xtal_freq);
 
 	/* Wait for calibration to complete */
-	while (!regi2c_ctrl_ll_bbpll_calibration_is_done()) {
+	while (!clk_ll_bbpll_calibration_is_done()) {
 		;
 	}
 	esp_rom_delay_us(10);
-	regi2c_ctrl_ll_bbpll_calibration_stop();
+	clk_ll_bbpll_calibration_stop();
 
 	/* Set CPU frequency to 120MHz (480MHz / 4) */
 	clk_ll_cpu_set_freq_mhz_from_pll(CLK_LL_PLL_120M_FREQ_MHZ);
 	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
 	esp_rom_set_cpu_ticks_per_us(CLK_LL_PLL_120M_FREQ_MHZ);
+
+	/* Keep RC_FAST running so RNG has an entropy source during boot */
+	rtc_clk_8m_enable(true, false);
+	rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
 
 	/* Clear pending RTC/WDT interrupts */
 	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
