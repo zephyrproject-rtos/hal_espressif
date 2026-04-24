@@ -1,6 +1,6 @@
 
 /*
- * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -770,6 +770,15 @@ static void wps_sm_notify_deauth(void)
         return;
     }
     if (sm && sm->wps && sm->wps->state != WPS_FINISHED) {
+        /* wifi_station_wps_start() calls esp_wifi_disconnect() to leave the
+         * previously connected AP before scanning.  That synchronous disconnect
+         * callback must not be treated as a WPS handshake failure.  Only act
+         * on deauths received while actually negotiating (STATUS_PENDING). */
+        if (wps_get_status() != WPS_STATUS_PENDING) {
+            wpa_printf(MSG_DEBUG, "WPS: Ignoring disconnect, not in WPS-handshake phase (status=%d)",
+                       wps_get_status());
+            return;
+        }
         wpa_printf(MSG_ERROR, "WPS: Deauthenticated during handshake");
         wps_handle_failure(WPS_FAIL_REASON_RECV_DEAUTH);
     }
@@ -1439,6 +1448,7 @@ static int wps_rf_band_cb(void *ctx)
 
     if (ret != ESP_OK) {
         wpa_printf(MSG_ERROR, "WPS: failed to get band mode");
+        return WPS_RF_24GHZ;
     }
 
     switch (band_mode) {
@@ -1636,6 +1646,7 @@ static int wifi_wps_disable_internal(void *ctx, void *data)
     if (wps_get_status() == WPS_STATUS_PENDING) {
         esp_wifi_disconnect();
     }
+    esp_wifi_scan_stop();
     wps_set_status(WPS_STATUS_DISABLE);
 
     /* Call wps_delete_timer to delete all WPS timer, no timer will call wps_post()

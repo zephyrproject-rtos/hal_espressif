@@ -15,10 +15,10 @@
 extern "C" {
 #endif
 
-extern int rtc_spinlock;  /*!< Extern global rtc spinlock */
-
-#define DAC_RTC_ENTER_CRITICAL()         do { rtc_spinlock = irq_lock(); } while(0)
-#define DAC_RTC_EXIT_CRITICAL()          irq_unlock(rtc_spinlock)
+/* Use a stack-local key to keep the macros re-entrant. ENTER and EXIT must
+ * appear in the same block scope. */
+#define DAC_RTC_ENTER_CRITICAL()         unsigned int _dac_rtc_key = irq_lock()
+#define DAC_RTC_EXIT_CRITICAL()          irq_unlock(_dac_rtc_key)
 
 #define DAC_RTC_ENTER_CRITICAL_SAFE()    DAC_RTC_ENTER_CRITICAL()
 #define DAC_RTC_EXIT_CRITICAL_SAFE()     DAC_RTC_EXIT_CRITICAL()

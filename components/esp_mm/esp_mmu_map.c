@@ -150,7 +150,7 @@ static void s_reserve_irom_region(mem_region_t *hw_mem_regions, int region_nums)
     cache_bus_mask_t bus_mask = s_get_bus_mask((uint32_t)&_instruction_reserved_start, irom_len_to_reserve);
 
     for (int i = 0; i < SOC_MMU_LINEAR_ADDRESS_REGION_NUM; i++) {
-        if (bus_mask & hw_mem_regions[i].bus_id) {
+        if ((bus_mask & hw_mem_regions[i].bus_id) == bus_mask) {
             if (hw_mem_regions[i].region_size <= irom_len_to_reserve) {
                 hw_mem_regions[i].free_head = hw_mem_regions[i].end;
                 hw_mem_regions[i].max_slot_size = 0;
@@ -178,7 +178,7 @@ static void s_reserve_drom_region(mem_region_t *hw_mem_regions, int region_nums)
     cache_bus_mask_t bus_mask = s_get_bus_mask((uint32_t)&_rodata_reserved_start, drom_len_to_reserve);
 
     for (int i = 0; i < SOC_MMU_LINEAR_ADDRESS_REGION_NUM; i++) {
-        if (bus_mask & hw_mem_regions[i].bus_id) {
+        if ((bus_mask & hw_mem_regions[i].bus_id) == bus_mask) {
             if (hw_mem_regions[i].region_size <= drom_len_to_reserve) {
                 hw_mem_regions[i].free_head = hw_mem_regions[i].end;
                 hw_mem_regions[i].max_slot_size = 0;
@@ -281,6 +281,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
     *out_len = 0;
 
+    unsigned int key = irq_lock();
     size_t max = 0;
 
     for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
@@ -292,6 +293,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     }
 
     *out_len = max;
+    irq_unlock(key);
 
     return ESP_OK;
 }

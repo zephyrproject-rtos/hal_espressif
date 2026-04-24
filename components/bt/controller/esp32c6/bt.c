@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -61,10 +61,6 @@
 #if CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
 #include "ble_log/ble_log_spi_out.h"
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
-
-#if CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-#include "ble_log/ble_log_uhci_out.h"
-#endif // CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
 #endif /* CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2 */
 
 /* Macro definition
@@ -171,6 +167,7 @@ extern void esp_ble_controller_flash_only_param_config(void);
 #endif // CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
 extern sleep_retention_entries_config_t *r_esp_ble_mac_retention_link_get(uint8_t *size, uint8_t extra);
+extern bool r_ble_lll_sleep_should_skip_light_sleep_check(void);
 extern void r_esp_ble_set_wakeup_overhead(uint32_t overhead);
 #endif /* CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 #if CONFIG_ESP32_BT_LE_LL_PEER_SCA_SET_ENABLE
@@ -217,9 +214,9 @@ static int esp_ecc_gen_dh_key(const uint8_t *peer_pub_key_x, const uint8_t *peer
                               const uint8_t *our_priv_key, uint8_t *out_dhkey);
 #if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
 #if !CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2
-#if !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED && !CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
+#if !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
 static void esp_bt_controller_log_interface(uint32_t len, const uint8_t *addr, uint32_t len_append, const uint8_t *addr_append, uint32_t flag);
-#endif // !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED && !CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
+#endif // !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
 #if CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
 static void esp_bt_ctrl_log_partition_get_and_erase_first_block(void);
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
@@ -293,18 +290,8 @@ esp_err_t esp_bt_controller_log_init(void)
     }
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
 
-#if CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-    if (ble_log_uhci_out_init() != 0) {
-        goto uhci_out_init_failed;
-    }
-#endif // CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-
 #if CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
     if (r_ble_log_init_simple(ble_log_spi_out_ll_write, ble_log_spi_out_ll_log_ev_proc) != 0) {
-        goto log_init_failed;
-    }
-#elif CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
-    if (r_ble_log_init_simple(ble_log_uhci_out_ll_write, ble_log_uhci_out_ll_log_ev_proc) != 0) {
         goto log_init_failed;
     }
 #else
@@ -337,8 +324,6 @@ esp_err_t esp_bt_controller_log_init(void)
 ctrl_level_init_failed:
 #if CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
     r_ble_log_deinit_simple();
-#elif CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
-    r_ble_log_deinit_simple();
 #else
     r_ble_log_deinit_async();
 #endif
@@ -347,10 +332,6 @@ log_init_failed:
     ble_log_spi_out_deinit();
 spi_out_init_failed:
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
-#if CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-    ble_log_uhci_out_deinit();
-uhci_out_init_failed:
-#endif // CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
     return ESP_FAIL;
 }
 
@@ -360,13 +341,7 @@ void esp_bt_controller_log_deinit(void)
     ble_log_spi_out_deinit();
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
 
-#if CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-    ble_log_uhci_out_deinit();
-#endif // CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-
 #if CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
-    r_ble_log_deinit_simple();
-#elif CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
     r_ble_log_deinit_simple();
 #else
     r_ble_log_deinit_async();
@@ -869,7 +844,7 @@ esp_err_t controller_sleep_init(void)
 #endif // CONFIG_BT_LE_SLEEP_ENABLE
 
 #ifdef CONFIG_PM_ENABLE
-    rc = esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "bt", &s_pm_lock);
+    rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
     if (rc != ESP_OK) {
         goto error;
     }
@@ -890,6 +865,12 @@ esp_err_t controller_sleep_init(void)
     esp_sleep_enable_bt_wakeup();
     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "Enable light sleep, the wake up source is BLE timer");
 
+    rc = esp_pm_register_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+    if (rc != ESP_OK) {
+        ESP_LOGE(NIMBLE_PORT_LOG_TAG, "Should skip cb register error");
+        goto error;
+    }
+
     rc = esp_pm_register_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
     if (rc != ESP_OK) {
         goto error;
@@ -906,6 +887,7 @@ esp_err_t controller_sleep_init(void)
 error:
 #endif // CONFIG_PM_ENABLE
 #if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+    esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                      sleep_modem_mac_bb_power_up_prepare);
@@ -927,6 +909,7 @@ error:
 void controller_sleep_deinit(void)
 {
 #if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+    esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                      sleep_modem_mac_bb_power_up_prepare);
@@ -1610,7 +1593,7 @@ void esp_ble_controller_log_dump_all(bool output)
     ble_log_dump_to_console();
 }
 #else /* !CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2 */
-#if !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED && !CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
+#if !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
 static void esp_bt_controller_log_interface(uint32_t len, const uint8_t *addr, uint32_t len_append, const uint8_t *addr_append, uint32_t flag)
 {
     bool end = (flag & BIT(BLE_LOG_INTERFACE_FLAG_END));
@@ -1631,7 +1614,7 @@ static void esp_bt_controller_log_interface(uint32_t len, const uint8_t *addr, u
     irq_unlock(key);
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
 }
-#endif // !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED && !CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
+#endif // !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
 
 void esp_ble_controller_log_dump_all(bool output)
 {
@@ -1639,13 +1622,9 @@ void esp_ble_controller_log_dump_all(bool output)
     ble_log_spi_out_dump_all();
 #endif // CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED
 
-#if CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-    ble_log_uhci_out_dump_all();
-#endif // CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED
-
 #if CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
     esp_bt_read_ctrl_log_from_flash(output);
-#elif !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED && !CONFIG_BT_LE_CONTROLLER_LOG_UHCI_OUT_ENABLED
+#elif !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
     unsigned int key = irq_lock();
     esp_panic_handler_feed_wdts();
     BT_ASSERT_PRINT("\r\n[DUMP_START:");

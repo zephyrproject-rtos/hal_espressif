@@ -110,6 +110,11 @@ const spi_flash_guard_funcs_t *IRAM_ATTR spi_flash_guard_get(void)
 
 
 #ifdef __ZEPHYR__
+/* Zephyr doesn't sync the esp_partition component, so
+ * esp_partition_main_flash_region_safe() is unavailable. Zephyr apps should
+ * use flash_area_* APIs (flash_map) which have their own partition-safety
+ * checks. Writes via raw esp_flash_* are unchecked on Zephyr.
+ */
 static __attribute__((unused)) bool is_safe_write_address(size_t addr, size_t size)
 {
     (void)addr; (void)size;
@@ -211,7 +216,7 @@ void IRAM_ATTR spi_flash_set_rom_required_regs(void)
 #endif
 }
 
-#if CONFIG_SPIRAM_MODE_OCT
+#if CONFIG_IDF_TARGET_ESP32S3 && CONFIG_SPIRAM_MODE_OCT
 // This function will only be called when Octal PSRAM enabled.
 void IRAM_ATTR spi_flash_set_vendor_required_regs(void)
 {

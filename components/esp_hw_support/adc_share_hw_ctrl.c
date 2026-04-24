@@ -132,7 +132,7 @@ K_MUTEX_DEFINE(adc2_lock);
 
 #define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
 #define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
-#define ADC_LOCK_TRY_ACQUIRE(lock) k_mutex_lock(lock, K_NO_WAIT)
+#define ADC_LOCK_TRY_ACQUIRE(lock) ((k_mutex_lock(lock, K_NO_WAIT) == 0) ? 0 : -1)
 
 esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 {

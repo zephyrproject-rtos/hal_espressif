@@ -17,7 +17,7 @@
 #include "soc/spi_struct.h"
 #include "hal/spi_types.h"
 #include "hal/spi_flash_types.h"
-#include <zephyr/sys/util.h>
+#include <sys/param.h> // For MIN/MAX
 #include <stdbool.h>
 #include <string.h>
 #include "hal/misc.h"

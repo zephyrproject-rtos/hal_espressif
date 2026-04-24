@@ -311,11 +311,15 @@ struct dpp_authentication {
 	int send_conn_status;
 	int conn_status_requested;
 	int akm_use_selector;
+
 #ifdef CONFIG_TESTING_OPTIONS
 	char *config_obj_override;
 	char *discovery_override;
 	char *groups_override;
 	unsigned int ignore_netaccesskey_mismatch:1;
+	u64 auth_req_parse_us;
+	u64 auth_resp_form_us;
+	u64 auth_req_total_us;
 #endif /* CONFIG_TESTING_OPTIONS */
 };
 

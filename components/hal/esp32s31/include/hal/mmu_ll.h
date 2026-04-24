@@ -20,8 +20,6 @@
 extern "C" {
 #endif
 
-// TODO: [ESP32S31] IDF-14669
-
 #define MMU_LL_FLASH_MMU_ID      0
 #define MMU_LL_PSRAM_MMU_ID      1
 #define MMU_LL_FLASH_VADDR_TO_PSRAM_VADDR(flash_vaddr)  ((flash_vaddr) + SOC_IRAM_FLASH_PSRAM_OFFSET)

@@ -575,6 +575,7 @@ static void timer_task(void *p1, void *p2, void *p3)
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
 {
+    __ASSERT(k_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
     s_isr_dispatch_need_yield = true;
 }
 #endif
@@ -613,7 +614,7 @@ static esp_err_t init_timer_task(void)
         k_thread_create(&s_timer_task, timer_task_stack,
                         CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
                         timer_task, NULL, NULL, NULL,
-                        K_PRIO_COOP(2), 0, K_NO_WAIT);
+                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
         k_thread_name_set(&s_timer_task, "esp_timer");
         s_timer_task_created = true;
     }

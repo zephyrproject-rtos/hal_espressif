@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "assert.h"
@@ -70,12 +70,6 @@ void esp_efuse_utility_clear_program_registers(void)
 esp_err_t esp_efuse_utility_check_errors(void)
 {
     return ESP_OK;
-}
-
-// Burn values written to the efuse write registers
-esp_err_t esp_efuse_utility_burn_chip(void)
-{
-    return esp_efuse_utility_burn_chip_opt(false, true);
 }
 
 esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)

@@ -24,6 +24,22 @@ extern "C" {
 
 /**
  * For Zephyr, we use irq_lock/irq_unlock instead of FreeRTOS spinlocks.
+ *
+ * NOTE: All six enter/exit variants (normal, _isr, _safe) map to the same
+ * irq_lock/irq_unlock pair. On single-core Zephyr this collapses correctly —
+ * once irq_lock() disables interrupts globally, no ISR can preempt before
+ * irq_unlock(), so the ISR/task distinction is not needed.
+ *
+ * The `lock` parameter points to an unsigned int (defined by
+ * DEFINE_CRIT_SECTION_LOCK_STATIC/LOCK) that stores the IRQ key between
+ * enter and exit. This storage is SHARED across all callers of the same lock.
+ * This is safe on single-core because the key-writing enter() cannot be
+ * preempted by another enter() on the same lock (interrupts are disabled
+ * during the critical section). Nested critical sections on the same lock
+ * within a single call path MUST NOT be used — the inner enter() would
+ * overwrite the outer's saved key and the outer exit() would restore the
+ * wrong IRQ state. If nesting is required, use a stack-local key pattern
+ * instead (see components/esp_driver_dac/dac_priv_common.h for an example).
  */
 #define OS_SPINLOCK 0
 

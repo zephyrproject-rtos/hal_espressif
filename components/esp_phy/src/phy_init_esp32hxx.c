@@ -22,8 +22,6 @@
 #define PHY_INIT_MODEM_CLOCK_REQUIRED_BITS 0
 #endif
 
-#define PHY_ENABLE_VERSION_PRINT 1
-
 /* PHY spinlock for libphy.a - Zephyr uses irq_lock/unlock */
 static DRAM_ATTR int s_phy_int_mux;
 static atomic_t s_phy_lock_nest;
@@ -115,7 +113,9 @@ void esp_phy_enable(esp_phy_modem_t modem)
         assert(phy_module_has_clock_bits(PHY_INIT_MODEM_CLOCK_REQUIRED_BITS));
         if (!s_phy_is_enabled) {
             register_chipv7_phy(NULL, NULL, PHY_RF_CAL_FULL);
+#if CONFIG_ESP_PHY_ENABLE_VERSION_PRINT
             phy_version_print();
+#endif
             s_phy_is_enabled = true;
         } else {
             phy_wakeup_init();

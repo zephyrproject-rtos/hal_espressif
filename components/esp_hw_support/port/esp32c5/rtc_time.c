@@ -17,9 +17,6 @@
 #include "assert.h"
 #include "esp_private/periph_ctrl.h"
 
-#undef MHZ
-#define MHZ (1000000)
-
 ESP_LOG_ATTR_TAG(TAG, "rtc_time");
 
 #define CLK_CAL_TIMEOUT_THRES(cal_clk_sel, cycles) ((cal_clk_sel == CLK_CAL_32K_XTAL || cal_clk_sel == CLK_CAL_32K_OSC_SLOW) ? (cycles << 12) : (cycles << 10))
@@ -102,7 +99,7 @@ static uint32_t rtc_clk_cal_internal(soc_clk_freq_calculation_src_t cal_clk_sel,
     } else {
         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX;
     }
-    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ / expected_freq);
+    uint32_t us_time_estimate = (uint32_t)(((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
     /* Start calibration */
     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);

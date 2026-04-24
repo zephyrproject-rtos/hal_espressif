@@ -9,10 +9,6 @@
  *
  * Some chips have systimer HAL implementations in ROM that require patches.
  * This file provides the necessary patches when ROM implementation is used.
- *
- * For chips with ESP_ROM_SYSTIMER_INIT_PATCH defined (e.g., ESP32-C5, ESP32-C6,
- * ESP32-H2, ESP32-P4), the ROM systimer_hal_init/deinit functions do not
- * enable ETM, so we need to patch them here.
  */
 
 #include <stddef.h>
@@ -20,18 +16,23 @@
 #include "hal/systimer_hal.h"
 #include "hal/systimer_ll.h"
 
-#if ESP_ROM_SYSTIMER_INIT_PATCH
+#if !CONFIG_IDF_TARGET_ESP32C2 // esp32c2 has dedicated ROM patch
+
+extern void rom_systimer_hal_init(systimer_hal_context_t *hal);
+extern void rom_systimer_hal_deinit(systimer_hal_context_t *hal);
+
 void systimer_hal_init(systimer_hal_context_t *hal)
 {
-    hal->dev = &SYSTIMER;
-    systimer_ll_enable_clock(hal->dev, true);
+    // For chips with ROM systimer that does not enable ETM, the ROM functions are
+    // exposed with "rom_" prefix in rom.systimer.ld. We wrap them here to add
+    // the missing systimer_ll_enable_etm() call.
+    rom_systimer_hal_init(hal);
     systimer_ll_enable_etm(&SYSTIMER, true);
 }
 
 void systimer_hal_deinit(systimer_hal_context_t *hal)
 {
     systimer_ll_enable_etm(&SYSTIMER, false);
-    systimer_ll_enable_clock(hal->dev, false);
-    hal->dev = NULL;
+    rom_systimer_hal_deinit(hal);
 }
-#endif // ESP_ROM_SYSTIMER_INIT_PATCH
+#endif // !CONFIG_IDF_TARGET_ESP32C2

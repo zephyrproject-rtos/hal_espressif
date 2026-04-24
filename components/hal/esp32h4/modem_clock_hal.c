@@ -30,10 +30,9 @@ void IRAM_ATTR modem_clock_hal_set_clock_domain_icg_bitmap(modem_clock_hal_conte
     case MODEM_CLOCK_DOMAIN_MODEM_PERIPH:
         modem_syscon_ll_set_modem_periph_icg_bitmap(hal->syscon_dev, bitmap);
         break;
-    // TODO: PM-636
-    // case MODEM_CLOCK_DOMAIN_BT:
-    //     modem_syscon_ll_set_bt_icg_bitmap(hal->syscon_dev, bitmap);
-    //     break;
+    case MODEM_CLOCK_DOMAIN_BT:
+        modem_syscon_ll_set_bt_icg_bitmap(hal->syscon_dev, bitmap);
+        break;
     case MODEM_CLOCK_DOMAIN_MODEM_FE:
         modem_syscon_ll_set_fe_icg_bitmap(hal->syscon_dev, bitmap);
         break;
@@ -58,6 +57,7 @@ uint32_t IRAM_ATTR modem_clock_hal_get_clock_domain_icg_bitmap(modem_clock_hal_c
 {
     HAL_ASSERT(domain < MODEM_CLOCK_DOMAIN_MAX);
     uint32_t bitmap = 0;
+
     switch (domain)
     {
     case MODEM_CLOCK_DOMAIN_MODEM_APB:
@@ -66,10 +66,9 @@ uint32_t IRAM_ATTR modem_clock_hal_get_clock_domain_icg_bitmap(modem_clock_hal_c
     case MODEM_CLOCK_DOMAIN_MODEM_PERIPH:
         bitmap = modem_syscon_ll_get_modem_periph_icg_bitmap(hal->syscon_dev);
         break;
-    // TODO: PM-636
-    // case MODEM_CLOCK_DOMAIN_BT:
-    //     bitmap = modem_syscon_ll_get_bt_icg_bitmap(hal->syscon_dev);
-    //     break;
+    case MODEM_CLOCK_DOMAIN_BT:
+        bitmap = modem_syscon_ll_get_bt_icg_bitmap(hal->syscon_dev);
+        break;
     case MODEM_CLOCK_DOMAIN_MODEM_FE:
         bitmap = modem_syscon_ll_get_fe_icg_bitmap(hal->syscon_dev);
         break;
