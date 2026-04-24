@@ -55,6 +55,8 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hal_mspi/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_regi2c/include
+    ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
     ../../components/esp_hal_rtc_timer/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_security/include
@@ -149,6 +151,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libc.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libc-suboptimal_for_misaligned_mem.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.version.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/rom.regi2c.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/rom.wdt.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/riscv/ld/rom.api.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.peripherals.ld
@@ -162,6 +165,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   zephyr_sources_ifdef(CONFIG_ESP32_SPIM
     ../../components/esp_hal_gpspi/spi_hal.c
+    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/esp_hal_gpspi/spi_hal_iram.c
     ../../components/soc/lldesc.c
     ../../components/esp_hal_dma/gdma_hal_top.c
@@ -263,6 +267,8 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hal_ana_conv/adc_hal_common.c
+    ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
@@ -350,7 +356,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     )
 
     zephyr_sources(
-    ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_adc/adc_cali.c
@@ -405,6 +410,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     zephyr_sources(
       ../../components/esp_phy/src/btbb_init.c
       ../../components/bt/porting/mem/bt_osi_mem.c
+      ../../components/bt/porting/mem/os_mempool.c
       ../../components/bt/porting/mem/os_msys_init.c
       ../../components/bt/porting/npl/zephyr/src/npl_os_zephyr.c
       ../../components/bt/porting/transport/driver/vhci/hci_driver_standard.c

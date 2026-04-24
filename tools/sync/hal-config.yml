@@ -4,7 +4,7 @@
 # to synchronize ESP-IDF components into hal_espressif.
 
 # ESP-IDF revision that components were last synced from
-esp_idf_sha: 490691bc61802e28ddfc1997edc8df6c203c1537
+esp_idf_sha: 338f3411101a8820e12ed824c5a9815ac787ae47
 
 # ESP-IDF components to sync
 components:
@@ -23,8 +23,10 @@ components:
   - esp_event
   - esp_hal_ana_cmpr
   - esp_hal_ana_conv
+  - esp_hal_asrc
   - esp_hal_cam
   - esp_hal_clock
+  - esp_hal_cordic
   - esp_hal_dma
   - esp_hal_emac
   - esp_hal_gpio
@@ -42,6 +44,7 @@ components:
   - esp_hal_pcnt
   - esp_hal_pmu
   - esp_hal_ppa
+  - esp_hal_regi2c
   - esp_hal_rmt
   - esp_hal_rtc_timer
   - esp_hal_sd
@@ -83,8 +86,11 @@ exclude:
   - efuse/linux
   - esp_hal_mspi/linux
   - esp_hal_uart/linux
+  - esp_hw_support/include/linux
   - esp_hw_support/port/linux
   - esp_rom/linux
+  - esp_stdio/linux
+  - esp_system/ld/linux
   - esp_system/port/soc/linux
   - hal/linux
   - soc/linux
@@ -100,6 +106,7 @@ exclude:
   - esp_driver_tsens/test_apps
   - esp_event/host_test
   - esp_event/test_apps
+  - esp_hal_regi2c/test_apps
   - esp_hw_support/test_apps
   - esp_mm/test_apps
   - esp_phy/test_apps
