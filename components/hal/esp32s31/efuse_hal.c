@@ -5,7 +5,7 @@
  */
 
 #include "esp_attr.h"
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "hal/assert.h"
 #include "hal/efuse_hal.h"
 #include "hal/efuse_ll.h"

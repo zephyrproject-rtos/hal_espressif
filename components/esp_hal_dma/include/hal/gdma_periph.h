@@ -32,12 +32,15 @@ extern "C" {
 
 #if SOC_HAS(GDMA)
 typedef struct {
+    const int rx_irq_id;
+    const int tx_irq_id;
+    const char *name; // pair name, format: "gdma_gXpY"
+} gdma_pair_signal_conn_t;
+
+typedef struct {
     struct {
         const shared_periph_module_t module;
-        struct {
-            const int rx_irq_id;
-            const int tx_irq_id;
-        } pairs[GDMA_LL_GET(PAIRS_PER_INST)];
+        gdma_pair_signal_conn_t pairs[GDMA_LL_GET(PAIRS_PER_INST)];
     } groups[GDMA_LL_GET(INST_NUM)];
 } gdma_signal_conn_t;
 

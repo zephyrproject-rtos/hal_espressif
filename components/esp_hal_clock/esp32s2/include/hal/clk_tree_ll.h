@@ -80,7 +80,7 @@ typedef enum {
  * @brief XTAL32K_CLK configuration structure
  */
 typedef struct {
-    uint32_t dac : 6;
+    uint32_t dac : 3;
     uint32_t dres : 3;
     uint32_t dgm : 3;
     uint32_t dbuf: 1;

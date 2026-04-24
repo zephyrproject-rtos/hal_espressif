@@ -18,8 +18,8 @@
  ***************************************/
 
 /* Functions */
-systimer_hal_init = 0x2f800394;
-systimer_hal_deinit = 0x2f800398;
+rom_systimer_hal_init = 0x2f800394;
+rom_systimer_hal_deinit = 0x2f800398;
 systimer_hal_set_tick_rate_ops = 0x2f80039c;
 systimer_hal_get_counter_value = 0x2f8003a0;
 systimer_hal_get_time = 0x2f8003a4;

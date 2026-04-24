@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -52,6 +52,7 @@ typedef enum {
     PMU_HP_PD_CPU = 2,      /*!< Power domain of HP CPU */
     PMU_HP_PD_RESERVED = 3, /*!< Reserved power domain */
     PMU_HP_PD_WIFI = 4,     /*!< Power domain of WIFI */
+    PMU_HP_PD_BT_154 = PMU_HP_PD_WIFI,   /*!< Power domain of BT 154 */
 } pmu_hp_power_domain_t;
 #endif
 

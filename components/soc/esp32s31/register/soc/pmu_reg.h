@@ -1,11 +1,10 @@
 /**
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
  *
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 #pragma once
 
-#include <stdint.h>
 #include "soc/soc.h"
 #ifdef __cplusplus
 extern "C" {
@@ -225,20 +224,62 @@ extern "C" {
 #define PMU_HP_ACTIVE_XPD_BB_I2C_M  (PMU_HP_ACTIVE_XPD_BB_I2C_V << PMU_HP_ACTIVE_XPD_BB_I2C_S)
 #define PMU_HP_ACTIVE_XPD_BB_I2C_V  0x00000001U
 #define PMU_HP_ACTIVE_XPD_BB_I2C_S  22
-/** PMU_HP_ACTIVE_XPD_PLL_I2C : R/W; bitpos: [26:23]; default: 0;
+/** PMU_HP_ACTIVE_XPD_CPLL_I2C : R/W; bitpos: [23]; default: 0;
  *  need_des
  */
-#define PMU_HP_ACTIVE_XPD_PLL_I2C    0x0000000FU
-#define PMU_HP_ACTIVE_XPD_PLL_I2C_M  (PMU_HP_ACTIVE_XPD_PLL_I2C_V << PMU_HP_ACTIVE_XPD_PLL_I2C_S)
-#define PMU_HP_ACTIVE_XPD_PLL_I2C_V  0x0000000FU
-#define PMU_HP_ACTIVE_XPD_PLL_I2C_S  23
-/** PMU_HP_ACTIVE_XPD_PLL : R/W; bitpos: [30:27]; default: 0;
+#define PMU_HP_ACTIVE_XPD_CPLL_I2C    0x00000001U
+#define PMU_HP_ACTIVE_XPD_CPLL_I2C_M  (PMU_HP_ACTIVE_XPD_CPLL_I2C_V << PMU_HP_ACTIVE_XPD_CPLL_I2C_S)
+#define PMU_HP_ACTIVE_XPD_CPLL_I2C_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_CPLL_I2C_S  23
+/** PMU_HP_ACTIVE_XPD_BBPLL_I2C : R/W; bitpos: [24]; default: 0;
  *  need_des
  */
-#define PMU_HP_ACTIVE_XPD_PLL    0x0000000FU
-#define PMU_HP_ACTIVE_XPD_PLL_M  (PMU_HP_ACTIVE_XPD_PLL_V << PMU_HP_ACTIVE_XPD_PLL_S)
-#define PMU_HP_ACTIVE_XPD_PLL_V  0x0000000FU
-#define PMU_HP_ACTIVE_XPD_PLL_S  27
+#define PMU_HP_ACTIVE_XPD_BBPLL_I2C    0x00000001U
+#define PMU_HP_ACTIVE_XPD_BBPLL_I2C_M  (PMU_HP_ACTIVE_XPD_BBPLL_I2C_V << PMU_HP_ACTIVE_XPD_BBPLL_I2C_S)
+#define PMU_HP_ACTIVE_XPD_BBPLL_I2C_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_BBPLL_I2C_S  24
+/** PMU_HP_ACTIVE_XPD_APLL_I2C : R/W; bitpos: [25]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_APLL_I2C    0x00000001U
+#define PMU_HP_ACTIVE_XPD_APLL_I2C_M  (PMU_HP_ACTIVE_XPD_APLL_I2C_V << PMU_HP_ACTIVE_XPD_ACPLL_I2C_S)
+#define PMU_HP_ACTIVE_XPD_APLL_I2C_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_APLL_I2C_S  25
+/** PMU_HP_ACTIVE_XPD_MPLL_I2C : R/W; bitpos: [26]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_MLL_I2C    0x00000001U
+#define PMU_HP_ACTIVE_XPD_MPLL_I2C_M  (PMU_HP_ACTIVE_XPD_MPLL_I2C_V << PMU_HP_ACTIVE_XPD_MPLL_I2C_S)
+#define PMU_HP_ACTIVE_XPD_MPLL_I2C_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_MPLL_I2C_S  26
+/** PMU_HP_ACTIVE_XPD_CPLL : R/W; bitpos: [27]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_CPLL    0x00000001U
+#define PMU_HP_ACTIVE_XPD_CPLL_M  (PMU_HP_ACTIVE_XPD_CPLL_V << PMU_HP_ACTIVE_XPD_CPLL_S)
+#define PMU_HP_ACTIVE_XPD_CPLL_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_CPLL_S  27
+/** PMU_HP_ACTIVE_XPD_BBPLL : R/W; bitpos: [28]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_BBPLL    0x00000001U
+#define PMU_HP_ACTIVE_XPD_BBPLL_M  (PMU_HP_ACTIVE_XPD_BBPLL_V << PMU_HP_ACTIVE_XPD_BBPLL_S)
+#define PMU_HP_ACTIVE_XPD_BBPLL_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_BBPLL_S  28
+/** PMU_HP_ACTIVE_XPD_APLL : R/W; bitpos: [29]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_APLL    0x00000001U
+#define PMU_HP_ACTIVE_XPD_APLL_M  (PMU_HP_ACTIVE_XPD_APLL_V << PMU_HP_ACTIVE_XPD_APLL_S)
+#define PMU_HP_ACTIVE_XPD_APLL_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_APLL_S  29
+/** PMU_HP_ACTIVE_XPD_MPLL : R/W; bitpos: [30]; default: 0;
+ *  need_des
+ */
+#define PMU_HP_ACTIVE_XPD_MPLL    0x00000001U
+#define PMU_HP_ACTIVE_XPD_MPLL_M  (PMU_HP_ACTIVE_XPD_MPLL_V << PMU_HP_ACTIVE_XPD_MPLL_S)
+#define PMU_HP_ACTIVE_XPD_MPLL_V  0x00000001U
+#define PMU_HP_ACTIVE_XPD_MPLL_S  30
 
 /** PMU_HP_ACTIVE_BIAS_REG register
  *  need_des
@@ -3955,7 +3996,7 @@ extern "C" {
  *  used for future potential eco, others don't care
  */
 #define PMU_PUF_MEM_CTRL_REG (DR_REG_PMU_BASE + 0x210)
-/** PMU_PUF_MEM_PSW : R/W; bitpos: [0]; default: 1;
+/** PMU_PUF_MEM_PSW : R/W; bitpos: [0]; default: 0;
  *  need_des
  */
 #define PMU_PUF_MEM_PSW    (BIT(0))

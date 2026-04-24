@@ -16,13 +16,6 @@
 
 ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
 
-/* TODO: [ESP32S31] IDF-14733 */
-
-void esp_clk_tree_initialize(void)
-{
-    /* TODO: [ESP32S31] IDF-14733 */
-}
-
 esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_src_freq_precision_t precision,
                                        uint32_t *freq_value)
 {
@@ -32,11 +25,9 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
 
     uint32_t clk_src_freq = 0;
     switch (clk_src) {
-#if SOC_CLK_TREE_SUPPORTED
     case SOC_MOD_CLK_CPU:
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
-#endif // SOC_CLK_TREE_SUPPORTED
     case SOC_MOD_CLK_XTAL:
         clk_src_freq = SOC_XTAL_FREQ_40M * MHZ;
         break;
@@ -52,18 +43,14 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
     case SOC_MOD_CLK_PLL_F240M:
         clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
         break;
-#if SOC_CLK_TREE_SUPPORTED
     case SOC_MOD_CLK_CPLL:
         clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
         break;
-    case SOC_MOD_CLK_SPLL:
+    case SOC_MOD_CLK_BBPLL:
         clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_MPLL:
         clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
-        break;
-    case SOC_MOD_CLK_SDIO_PLL:
-        clk_src_freq = CLK_LL_PLL_SDIO_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -82,10 +69,6 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
     case SOC_MOD_CLK_XTAL_D2:
         clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
         break;
-    case SOC_MOD_CLK_LP_PLL:
-        clk_src_freq = clk_ll_lp_pll_get_freq_mhz() * MHZ;
-        break;
-#endif // SOC_CLK_TREE_SUPPORTED
     default:
         break;
     }
@@ -97,8 +80,52 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
     return ESP_OK;
 }
 
+static int16_t s_cpll_ref_cnt = 0;
+
+void esp_clk_tree_initialize(void)
+{
+    // Power
+    soc_cpu_clk_src_t cpu_clk_src_btld = clk_ll_cpu_get_src();
+    if (cpu_clk_src_btld == SOC_CPU_CLK_SRC_CPLL) {
+        s_cpll_ref_cnt++;
+    } else if (cpu_clk_src_btld == SOC_CPU_CLK_SRC_PLL_F240M) {
+        // TODO: IDF-15502
+        // pll_f240m clock gating ref count ++
+    }
+
+    // Gating
+}
+
+bool esp_clk_tree_enable_power(soc_root_clk_circuit_t clk_circuit, bool enable)
+{
+    bool toggled = false;
+    switch (clk_circuit) {
+    case SOC_ROOT_CIRCUIT_CLK_CPLL:
+        if (enable) {
+            s_cpll_ref_cnt++;
+        } else {
+            s_cpll_ref_cnt--;
+        }
+
+        // Note that a calibration is usually needed after enabling CPLL
+        if (s_cpll_ref_cnt == 1) {
+            clk_ll_cpll_enable();
+            toggled = true;
+        } else if (s_cpll_ref_cnt == 0) {
+            clk_ll_cpll_disable();
+            toggled = true;
+        }
+
+        assert(s_cpll_ref_cnt >= 0);
+        break;
+    default:
+        break;
+    }
+    return toggled;
+}
+
 esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
 {
-    /* TODO: [ESP32S31] IDF-14733 */
+    // TODO: IDF-15502
     return ESP_OK;
 }

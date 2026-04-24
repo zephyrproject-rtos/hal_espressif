@@ -343,7 +343,14 @@ endif()
 if(NOT ${IDF_TARGET} STREQUAL "linux")
     target_sources(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/esp_hardware.c")
 endif()
-target_sources(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/esp_mem.c")
+# esp_mem.c defines esp_mbedtls_mem_calloc/free, which platform.c (inside the
+# 'builtin' archive) calls via MBEDTLS_PLATFORM_STD_CALLOC/FREE. Compiling
+# esp_mem.c directly into 'builtin' ensures the symbols are in the same archive
+# as their caller, avoiding any link-order dependency on a separate archive.
+# port/include (for esp_mem.h) and the IDF global includes (sdkconfig.h,
+# esp_attr.h, esp_heap_caps.h) are both available here via directory-level
+# include_directories set up by idf_component_register before add_subdirectory.
+target_sources(builtin PRIVATE "${COMPONENT_DIR}/port/esp_mem.c")
 
 if(CONFIG_SOC_AES_SUPPORTED)
     target_include_directories(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/aes/include")

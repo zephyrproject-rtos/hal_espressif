@@ -13,12 +13,13 @@
 #include "soc/lldesc.h"
 #include "soc/soc_caps.h"
 #include "soc/soc.h"   //for SOC_NON_CACHEABLE_OFFSET_SRAM
+#include "soc/spi_periph.h"
 #include "hal/spi_slave_hd_hal.h"
 #include "hal/assert.h"
 
 void spi_slave_hd_hal_init(spi_slave_hd_hal_context_t *hal, const spi_slave_hd_hal_config_t *hal_config)
 {
-    spi_dev_t *hw = SPI_LL_GET_HW(hal_config->host_id);
+    spi_dev_t *hw = spi_periph_signal[hal_config->host_id].hw;
     hal->dev = hw;
     hal->dma_enabled = hal_config->dma_enabled;
     hal->append_mode = hal_config->append_mode;

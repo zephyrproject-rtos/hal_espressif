@@ -12,6 +12,7 @@
 #include "esp_private/critical_section.h"
 #include "esp_intr_alloc.h"
 #include "soc/soc_caps.h"
+#include "hal/spi_ll.h"
 #include "stdatomic.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -864,7 +865,7 @@ static spi_bus_lock_t main_spi_bus_lock = {
     .acquiring_dev = NULL,
     .dev = {ATOMIC_VAR_INIT((intptr_t)&lock_main_flash_dev)},
     .new_req = 0,
-    .periph_cs_num = SOC_SPI_PERIPH_CS_NUM(0),
+    .periph_cs_num = SPI_LL_PERIPH_CS_NUM(0),
 };
 const spi_bus_lock_handle_t g_main_spi_bus_lock = &main_spi_bus_lock;
 
