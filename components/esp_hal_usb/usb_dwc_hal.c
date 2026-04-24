@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -109,9 +109,9 @@ static void set_defaults(usb_dwc_hal_context_t *hal)
         hbstlen = 1;    //Set AHB burst to INCR to workaround hardware errata
     }
 #endif // SOC_IS(ESP32S2)
-#if SOC_IS(ESP32P4)
+#if SOC_IS(ESP32P4) || SOC_IS(ESP32S31)
     /*
-     * ESP32P4-specific initialization: Clear USB PHY suspend state set during system boot.
+     * ESP32P4/ESP32S31-specific initialization: Clear USB PHY suspend state set during system boot.
      *
      * During system initialization (see clk_gate_ll.h:periph_ll_clk_gate_set_default), the USB PHY
      * is forced into suspend mode before disabling clocks to prevent USB leakage current and ensure
@@ -123,7 +123,7 @@ static void set_defaults(usb_dwc_hal_context_t *hal)
      */
     usb_dwc_ll_enable_bvalid_override(hal->dev, false);
     usb_dwc_ll_set_stoppclk(hal->dev, false);
-#endif // SOC_IS(ESP32P4)
+#endif // SOC_IS(ESP32P4) || SOC_IS(ESP32S31)
     usb_dwc_ll_gahbcfg_set_hbstlen(hal->dev, hbstlen);  //Set AHB burst mode
     //GUSBCFG register
     usb_dwc_ll_gusbcfg_dis_hnp_cap(hal->dev);       //Disable HNP
@@ -165,6 +165,8 @@ void usb_dwc_hal_init(usb_dwc_hal_context_t *hal, int port_id)
     hal->constant_config.fifo_size = usb_dwc_ll_ghwcfg_get_fifo_depth(dev);
     hal->constant_config.hsphy_type = usb_dwc_ll_ghwcfg_get_hsphy_type(dev);
     hal->constant_config.chan_num_total = usb_dwc_ll_ghwcfg_get_channel_num(dev);
+    hal->constant_config.max_size_byte_limit = (1U << usb_dwc_ll_ghwcfg_get_xfer_size_width(dev)) - 1;
+    hal->constant_config.max_size_packet_limit = (1U << usb_dwc_ll_ghwcfg_get_packet_size_width(dev)) - 1;
 
     set_defaults(hal);
 }
@@ -258,6 +260,23 @@ void usb_dwc_hal_get_mps_limits(usb_dwc_hal_context_t *hal, usb_hal_fifo_mps_lim
     mps_limits->in_mps = (fifo_config->rx_fifo_lines - 2) * 4; // Two lines are reserved for status quadlets internally by USB_DWC
     mps_limits->non_periodic_out_mps = fifo_config->nptx_fifo_lines * 4;
     mps_limits->periodic_out_mps = fifo_config->ptx_fifo_lines * 4;
+}
+
+size_t usb_dwc_hal_get_xfer_size_limit(usb_dwc_hal_context_t *hal, uint16_t mps)
+{
+    HAL_ASSERT(hal);
+    HAL_ASSERT(mps > 0);
+    size_t max_xfer_size;
+
+    // Minimum of the two limits
+    if (mps * hal->constant_config.max_size_packet_limit > hal->constant_config.max_size_byte_limit) {
+        // We hit the overall byte limit
+        max_xfer_size = hal->constant_config.max_size_byte_limit;
+    } else {
+        // We hit the overall packet limit
+        max_xfer_size = mps * hal->constant_config.max_size_packet_limit;
+    }
+    return max_xfer_size;
 }
 
 // ---------------------------------------------------- Host Port ------------------------------------------------------

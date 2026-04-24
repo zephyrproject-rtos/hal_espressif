@@ -27,6 +27,7 @@
 #include "soc/soc_caps.h"
 #include "hal/spi_flash_hal.h"
 #include "hal/mspi_ll.h"
+#include "hal/spi_ll.h"
 
 #include "esp_flash.h"
 #include "esp_flash_spi_init.h"
@@ -239,7 +240,7 @@ static esp_err_t acquire_spi_device(const esp_flash_spi_device_config_t *config,
         }
     } else {
         const bool is_main_flash = (config->host_id == SPI1_HOST && config->cs_id == 0);
-        if (config->cs_id >= SOC_SPI_PERIPH_CS_NUM(config->host_id) || config->cs_id < 0 || is_main_flash) {
+        if (config->cs_id >= SPI_LL_PERIPH_CS_NUM(config->host_id) || config->cs_id < 0 || is_main_flash) {
             ESP_LOGE(TAG, "Not valid CS.");
             ret = ESP_ERR_INVALID_ARG;
         } else {
@@ -577,19 +578,19 @@ esp_err_t esp_flash_init_default_chip(void)
         return err;
     }
     if (default_chip.size < legacy_chip->chip_size) {
-        ESP_EARLY_LOGW(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Using detected size.", default_chip.size/1024, legacy_chip->chip_size/1024);
-        /* Use detected size instead of header size */
-    } else if (default_chip.size > legacy_chip->chip_size) {
+        ESP_EARLY_LOGE(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Probe failed.", default_chip.size/1024, legacy_chip->chip_size/1024);
+    }
+
+    if (default_chip.size > legacy_chip->chip_size) {
         ESP_EARLY_LOGW(TAG, "Detected size(%dk) larger than the size in the binary image header(%dk). Using the size in the binary image header.", default_chip.size/1024, legacy_chip->chip_size/1024);
-        default_chip.size = legacy_chip->chip_size;
-    } else {
-        default_chip.size = legacy_chip->chip_size;
     }
 #if !CONFIG_IDF_TARGET_ESP32P4 || !CONFIG_APP_BUILD_TYPE_RAM // IDF-10019
-    if (default_chip.size > 16 * 1024 * 1024) {
+    if (legacy_chip->chip_size > 16 * 1024 * 1024) {
         ESP_RETURN_ON_ERROR_ISR(esp_mspi_32bit_address_flash_feature_check(), TAG, "32bit address feature check failed");
     }
 #endif // !CONFIG_IDF_TARGET_ESP32P4 || !CONFIG_APP_BUILD_TYPE_RAM
+    // Set chip->size equal to ROM flash size(also equal to the size in binary image header), which means the available size that can be used
+    default_chip.size = legacy_chip->chip_size;
 
     esp_flash_default_chip = &default_chip;
 #ifdef CONFIG_SPI_FLASH_AUTO_SUSPEND

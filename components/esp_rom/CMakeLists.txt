@@ -24,24 +24,16 @@ else()
                         "patches/esp_rom_efuse.c"
                         "patches/esp_rom_gpio.c")
 
-
-    # Override regi2c implementation in ROM
-    if(CONFIG_ESP_ROM_HAS_REGI2C_BUG OR CONFIG_ESP_ROM_WITHOUT_REGI2C)
-        if(target STREQUAL "esp32c6" OR target STREQUAL "esp32c5")
-            list(APPEND sources "patches/esp_rom_hp_regi2c_${target}.c")
-        else()
-            list(APPEND sources "patches/esp_rom_regi2c_${target}.c")
+    if(NOT BOOTLOADER_BUILD)
+        if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_TLSF_CHECK_PATCH)
+            # This file shall be included in the build if TLSF in ROM is activated
+            list(APPEND sources "patches/esp_rom_tlsf.c")
         endif()
-    endif()
 
-    if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_TLSF_CHECK_PATCH)
-        # This file shall be included in the build if TLSF in ROM is activated
-        list(APPEND sources "patches/esp_rom_tlsf.c")
-    endif()
-
-    if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_MULTI_HEAP_WALK_PATCH)
-        # This file shall be included in the build if TLSF in ROM is activated
-        list(APPEND sources "patches/esp_rom_multi_heap.c")
+        if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_MULTI_HEAP_WALK_PATCH)
+            # This file shall be included in the build if TLSF in ROM is activated
+            list(APPEND sources "patches/esp_rom_multi_heap.c")
+        endif()
     endif()
 
     list(APPEND private_required_comp soc hal esp_hal_uart)
@@ -314,6 +306,13 @@ else() # Regular app build
         if(CONFIG_ESP32C61_REV_MIN_FULL GREATER_EQUAL 101)
             rom_linker_script("eco4")
         endif()
+    elseif(target STREQUAL "esp32s31")
+        # esp32s31.rom.api.ld has been split to several lds by components.
+        # esp32s31.rom.api.ld is still reserved to map the APIs
+        rom_linker_script("phy")
+        rom_linker_script("coexist")
+        rom_linker_script("net80211")
+        rom_linker_script("pp")
     endif()
 
 

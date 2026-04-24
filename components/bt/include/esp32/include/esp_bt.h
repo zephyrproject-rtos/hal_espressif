@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -47,7 +47,7 @@ extern "C" {
 
 #define SOC_MEM_BT_EM_PER_SYNC_SIZE         0x870
 
-#define SOC_MEM_BT_EM_BREDR_REAL_END        (SOC_MEM_BT_EM_BREDR_NO_SYNC_END + UT_BR_EDR_CTRL_MAX_SYNC_CONN_EFF * SOC_MEM_BT_EM_PER_SYNC_SIZE)
+#define SOC_MEM_BT_EM_BREDR_REAL_END        (SOC_MEM_BT_EM_BREDR_NO_SYNC_END + UC_BR_EDR_CTRL_MAX_SYNC_CONN_EFF * SOC_MEM_BT_EM_PER_SYNC_SIZE)
 
 #endif //CONFIG_BT_ENABLED
 
@@ -680,6 +680,7 @@ esp_err_t esp_ble_scan_dupilcate_list_flush(void);
  *          such as performing discovery, profile initialization, and so on.
  *      2. For BR/EDR to use the new TX power for inquiry, call this function before starting an inquiry.
  *          If BR/EDR is already inquiring, restart the inquiry after calling this function.
+ *      3. If `BT_CLASSIC_ENABLE_POWER_CTRL_VSC` is enabled, this function will be not supported.
  *
  * @param[in]  min_power_level The minimum power level. The default value is `ESP_PWR_LVL_N0`.
  * @param[in]  max_power_level The maximum power level. The default value is `ESP_PWR_LVL_P3`.
@@ -695,6 +696,9 @@ esp_err_t esp_bredr_tx_power_set(esp_power_level_t min_power_level, esp_power_le
  * @brief  Get BR/EDR TX power
  *
  * The corresponding power levels will be stored into the arguments.
+ *
+ * @note
+ *      1. If `BT_CLASSIC_ENABLE_POWER_CTRL_VSC` is enabled, this function will be not supported.
  *
  * @param[out]  min_power_level Pointer to store the minimum power level
  * @param[out]  max_power_level The maximum power level

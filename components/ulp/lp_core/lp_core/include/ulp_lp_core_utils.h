@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -53,14 +53,30 @@ static inline uint32_t ulp_lp_core_get_cpu_cycles(void)
 }
 
 /**
- * @brief Makes the co-processor busy wait for a certain number of microseconds
+ * @brief Makes the co-processor busy-wait for a certain number of microseconds.
+ *
+ * @note The maximum supported delay depends on the LP core clock source and frequency.
+ *       For values above the limits below, the computed delay may overflow and the result
+ *       is undefined.
+ *       - LP core @ 16 MHz (RC_FAST / default): us must be <= 134217727 (about 134.2 s)
+ *       - LP core @ 40 MHz (XTAL 40 MHz):       us must be <= 53687091  (about  53.7 s)
+ *       - LP core @ 48 MHz (XTAL 48 MHz):       us must be <= 44739242  (about  44.7 s)
  *
  * @param us Number of microseconds to busy-wait for
  */
 void ulp_lp_core_delay_us(uint32_t us);
 
 /**
- * @brief Makes the co-processor busy wait for a certain number of cycles
+ * @brief Makes the co-processor busy-wait for a certain number of cycles.
+ *
+ * @note The maximum supported delay is 0x7FFFFFFF cycles.
+ *       For larger values, the behavior is undefined. Split longer delays into smaller
+ *       chunks if needed.
+ *
+ * For reference, this corresponds approximately to:
+ *       - LP core @ 16 MHz (RC_FAST / default): 0x7FFFFFFF cycles ≈ 134.2 s
+ *       - LP core @ 40 MHz (XTAL 40 MHz):       0x7FFFFFFF cycles ≈  53.7 s
+ *       - LP core @ 48 MHz (XTAL 48 MHz):       0x7FFFFFFF cycles ≈  44.7 s
  *
  * @param cycles Number of cycles to busy-wait for
  */
@@ -141,7 +157,7 @@ static inline void ulp_lp_core_sw_intr_clear(void)
     return ulp_lp_core_sw_intr_from_hp_clear();
 }
 
-#if SOC_RTC_TIMER_V2_SUPPORTED
+#if SOC_RTC_TIMER_SUPPORTED
 /**
  * @brief Enable the LP Timer interrupt
  *

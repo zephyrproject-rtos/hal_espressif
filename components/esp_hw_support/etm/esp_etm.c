@@ -112,6 +112,7 @@ static etm_group_t *etm_acquire_group_handle(int group_id)
             PERIPH_RCC_ATOMIC() {
                 etm_ll_enable_bus_clock(group_id, true);
                 etm_ll_reset_register(group_id);
+                etm_ll_enable_function_clock(group_id, true);
             }
 
 #if ETM_USE_RETENTION_LINK
@@ -255,6 +256,15 @@ esp_err_t esp_etm_new_channel(const esp_etm_channel_config_t *config, esp_etm_ch
     etm_group_t *group = chan->group;
     int group_id = group->group_id;
     int chan_id = chan->chan_id;
+
+#if ETM_LL_SUPPORT(CLOCK_SRC)
+    // set the clock source for the ETM group
+    etm_clock_source_t clk_src = config->clk_src;
+    if (clk_src == 0) {
+        clk_src = ETM_CLK_SRC_DEFAULT;
+    }
+    etm_ll_set_clock_source(group_id, clk_src);
+#endif
 
     // set the initial state to INIT
     atomic_init(&chan->fsm, ETM_CHAN_FSM_INIT);

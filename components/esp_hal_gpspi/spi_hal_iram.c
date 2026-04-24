@@ -264,7 +264,7 @@ void spi_hal_fetch_result(const spi_hal_context_t *hal)
     }
 }
 
-#ifdef SOC_SPI_SCT_SUPPORTED
+#ifdef SPI_LL_PERIPH_HAS_SCT
 /*------------------------------------------------------------------------------
  * Segmented-Configure-Transfer
 *----------------------------------------------------------------------------*/
@@ -294,4 +294,4 @@ void spi_hal_sct_format_conf_buffer(spi_hal_context_t *hal, const spi_hal_seg_co
 #endif
 }
 
-#endif  //#ifdef SOC_SPI_SCT_SUPPORTED
+#endif  //#ifdef SPI_LL_PERIPH_HAS_SCT

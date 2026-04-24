@@ -12,6 +12,8 @@ SECTIONS
   /**
    * RTC memory should be implemented here TODO: [ESP32S31] IDF-14640
    */
+#include "ld.rtc.sections"
+
 #include "ld.iram.sections"
 
 #include "ld.dram.sections"

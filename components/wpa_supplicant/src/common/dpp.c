@@ -44,6 +44,35 @@ struct dpp_global {
 
 extern struct dpp_curve_params dpp_curves[];
 
+#ifdef CONFIG_TESTING_OPTIONS
+static u64 dpp_time_us(void)
+{
+	struct os_reltime now;
+
+	if (os_get_reltime(&now) < 0)
+		return 0;
+
+	return ((u64) now.sec * 1000000) + now.usec;
+}
+
+static void dpp_auth_req_set_timing(struct dpp_authentication *auth,
+				    u64 start_us, u64 parse_done_us)
+{
+	u64 end_us;
+
+	if (!auth || !start_us || !parse_done_us || parse_done_us < start_us)
+		return;
+
+	end_us = dpp_time_us();
+	if (!end_us || end_us < parse_done_us)
+		return;
+
+	auth->auth_req_parse_us = parse_done_us - start_us;
+	auth->auth_resp_form_us = end_us - parse_done_us;
+	auth->auth_req_total_us = end_us - start_us;
+}
+#endif /* CONFIG_TESTING_OPTIONS */
+
 #define TRANSACTION_ID_ATTR_SET_LEN 5
 #define CONNECTOR_ATTR_SET_LEN 4
 
@@ -1707,6 +1736,10 @@ dpp_auth_req_rx(void *msg_ctx, u8 dpp_allowed_roles, int qr_mutual,
 	u16 i_capab_len;
 	u16 i_bootstrap_len;
 	struct dpp_authentication *auth = NULL;
+#ifdef CONFIG_TESTING_OPTIONS
+	u64 start_us = dpp_time_us();
+	u64 parse_done_us = 0;
+#endif /* CONFIG_TESTING_OPTIONS */
 
 #ifdef CONFIG_TESTING_OPTIONS
 	if (dpp_test == DPP_TEST_STOP_AT_AUTH_REQ) {
@@ -1892,9 +1925,15 @@ dpp_auth_req_rx(void *msg_ctx, u8 dpp_allowed_roles, int qr_mutual,
 
 		wpa_printf(MSG_DEBUG,
 			   "DPP: Mutual authentication required with QR Codes, but peer info is not yet available - request more time");
+#ifdef CONFIG_TESTING_OPTIONS
+		parse_done_us = dpp_time_us();
+#endif /* CONFIG_TESTING_OPTIONS */
 		if (dpp_auth_build_resp_status(auth,
 					       DPP_STATUS_RESPONSE_PENDING) < 0)
 			goto fail;
+#ifdef CONFIG_TESTING_OPTIONS
+		dpp_auth_req_set_timing(auth, start_us, parse_done_us);
+#endif /* CONFIG_TESTING_OPTIONS */
 		i_bootstrap = dpp_get_attr(attr_start, attr_len,
 					   DPP_ATTR_I_BOOTSTRAP_KEY_HASH,
 					   &i_bootstrap_len);
@@ -1912,8 +1951,14 @@ dpp_auth_req_rx(void *msg_ctx, u8 dpp_allowed_roles, int qr_mutual,
 			"%s", hex);
 		return auth;
 	}
+#ifdef CONFIG_TESTING_OPTIONS
+	parse_done_us = dpp_time_us();
+#endif /* CONFIG_TESTING_OPTIONS */
 	if (dpp_auth_build_resp_ok(auth) < 0)
 		goto fail;
+#ifdef CONFIG_TESTING_OPTIONS
+	dpp_auth_req_set_timing(auth, start_us, parse_done_us);
+#endif /* CONFIG_TESTING_OPTIONS */
 
 	return auth;
 
@@ -1926,8 +1971,14 @@ not_compatible:
 		auth->configurator = 0;
 	auth->peer_protocol_key = pi;
 	pi = NULL;
+#ifdef CONFIG_TESTING_OPTIONS
+	parse_done_us = dpp_time_us();
+#endif /* CONFIG_TESTING_OPTIONS */
 	if (dpp_auth_build_resp_status(auth, DPP_STATUS_NOT_COMPATIBLE) < 0)
 		goto fail;
+#ifdef CONFIG_TESTING_OPTIONS
+	dpp_auth_req_set_timing(auth, start_us, parse_done_us);
+#endif /* CONFIG_TESTING_OPTIONS */
 
 	auth->remove_on_tx_status = 1;
 	return auth;
