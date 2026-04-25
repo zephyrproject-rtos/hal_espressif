@@ -186,11 +186,17 @@ static int32_t get_reading_error(uint64_t v_cali_1, const cali_chars_second_step
         return 0;
     }
 
+    /* Zephyr disables VLAs. The max term_num across all supported SoCs is 5
+     * (ESP32-C3/S3 atten=3); other SoCs use 2 or 3. Use a fixed-size buffer
+     * and assert at runtime in case a future SoC exceeds this.
+     */
+    #define ADC_CAL_MAX_TERM_NUM 5
     uint8_t term_num = param->term_num;
+    assert(term_num <= ADC_CAL_MAX_TERM_NUM);
     int32_t error = 0;
     uint64_t coeff = 0;
-    uint64_t variable[5];
-    uint64_t term[5];
+    uint64_t variable[ADC_CAL_MAX_TERM_NUM];
+    uint64_t term[ADC_CAL_MAX_TERM_NUM];
     memset(variable, 0, term_num * sizeof(uint64_t));
     memset(term, 0, term_num * sizeof(uint64_t));
 

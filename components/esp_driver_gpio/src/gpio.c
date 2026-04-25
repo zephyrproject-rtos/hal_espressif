@@ -17,7 +17,9 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "hal/gpio_hal.h"
+#include "hal/gpio_caps.h"
 #include "esp_private/io_mux.h"
+#include "esp_private/periph_ctrl.h"
 
 #if (SOC_RTCIO_PIN_COUNT > 0)
 #include "hal/rtc_io_hal.h"
@@ -37,6 +39,7 @@ extern uint32_t esp_core_id(void);
 #define MALLOC_CAP_DEFAULT 0
 #define heap_caps_calloc(n, size, caps) k_calloc(n, size)
 
+static inline uint64_t esp_gpio_reserve(uint64_t mask) { (void)mask; return 0; }
 static inline void esp_gpio_revoke(uint64_t mask) { (void)mask; }
 static inline bool esp_gpio_is_reserved(uint64_t mask) { (void)mask; return false; }
 
@@ -46,6 +49,12 @@ static inline bool esp_gpio_is_reserved(uint64_t mask) { (void)mask; return fals
 #define GPIO_RTCIO_ARE_INDEPENDENT 0
 #else // for any other target has RTC_IO (LP_IOMUX) registers
 #define GPIO_RTCIO_ARE_INDEPENDENT 1
+#endif
+
+#if SOC_RTC_CNTL_NEEDS_ATOMIC_ACCESS
+#define RTC_CNTL_ATOMIC() PERIPH_RCC_ATOMIC()
+#else
+#define RTC_CNTL_ATOMIC()
 #endif
 
 typedef struct {
@@ -372,6 +381,36 @@ esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
 
     do {
         if (((gpio_pin_mask >> io_num) & BIT(0))) {
+            // This function will set the pin to a certain mode, instead of adding new modes to current status
+            // If GPIO_MODE_DEF_OUTPUT flag is not set, output will be disabled; Same for GPIO_MODE_DEF_INPUT flag
+            // Also the func sel will always be set to GPIO function in this function
+            // so IO conflict check is tight here
+            uint64_t bit_mask = BIT64(io_num);
+            bool conflict = false;
+            // No need to reserve any pin for reading pad level (and do input check first, since output needs reserve IO which will make esp_gpio_is_reserved return true)
+            // but if the pin has been used as an IOMUX input, neither it can be configured to GPIO function, nor input can be disabled
+            if (esp_gpio_is_reserved(bit_mask) && gpio_hal_input_is_enabled(gpio_context.gpio_hal, io_num)) {
+                conflict = true;
+            }
+            // Currently, we have no way to know if an IO has been used as a GPIO matrix input (no reserve for this case),
+            // so we cannot check such case and skip if input will be disabled
+            if ((pGPIOConfig->mode) & GPIO_MODE_DEF_OUTPUT) {
+                // need to reserve the pin if it is used as an output
+                uint64_t old_busy_mask = esp_gpio_reserve(bit_mask);
+                if (old_busy_mask & bit_mask) {
+                    conflict = true;
+                }
+            } else {
+                // gpio output will be disabled, so should skip for any reserved output pins
+                if (esp_gpio_is_reserved(bit_mask) && !gpio_hal_input_is_enabled(gpio_context.gpio_hal, io_num)) {
+                    conflict = true;
+                }
+            }
+            if (conflict) {
+                ESP_LOGW(GPIO_TAG, "conflict found for GPIO[%"PRIu32"]", io_num);
+                // Right now, we just give a warning
+                // Later, we should skip the pin and continue with the next one
+            }
 
 #if SOC_RTCIO_PIN_COUNT > 0
             if (rtc_gpio_is_valid_gpio(io_num)) {
@@ -458,9 +497,6 @@ esp_err_t gpio_config_as_analog(gpio_num_t gpio_num)
 #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
     if (rtc_gpio_is_valid_gpio(gpio_num)) {
         rtc_gpio_deinit(gpio_num);
-        rtc_gpio_set_direction(gpio_num, RTC_GPIO_MODE_DISABLED);
-        rtc_gpio_pullup_dis(gpio_num);
-        rtc_gpio_pulldown_dis(gpio_num);
     }
 #endif
     return ESP_OK;
@@ -625,7 +661,7 @@ esp_err_t gpio_isr_register(void (*fn)(void *), void *arg, int intr_alloc_flags,
     gpio_isr_alloc_t p;
     p.source = GPIO_LL_INTR_SOURCE0;
     p.intr_alloc_flags = intr_alloc_flags;
-#if SOC_ANA_CMPR_INTR_SHARE_WITH_GPIO
+#if GPIO_CAPS_GET(INTR_SHARED)
     p.intr_alloc_flags |= ESP_INTR_FLAG_SHARED;
 #endif
     p.fn = fn;
@@ -740,7 +776,6 @@ esp_err_t gpio_get_drive_capability(gpio_num_t gpio_num, gpio_drive_cap_t *stren
 
 esp_err_t gpio_hold_en(gpio_num_t gpio_num)
 {
-    GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
     int ret = ESP_OK;
 
     if (rtc_gpio_is_valid_gpio(gpio_num)) {
@@ -748,6 +783,7 @@ esp_err_t gpio_hold_en(gpio_num_t gpio_num)
         ret = rtc_gpio_hold_en(gpio_num);
 #endif
     } else if (GPIO_HOLD_MASK[gpio_num]) {
+        GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
         GPIO_ENTER_CRITICAL();
         gpio_hal_hold_en(gpio_context.gpio_hal, gpio_num);
         GPIO_EXIT_CRITICAL();
@@ -760,7 +796,6 @@ esp_err_t gpio_hold_en(gpio_num_t gpio_num)
 
 esp_err_t gpio_hold_dis(gpio_num_t gpio_num)
 {
-    GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
     int ret = ESP_OK;
 
     if (rtc_gpio_is_valid_gpio(gpio_num)) {
@@ -768,6 +803,7 @@ esp_err_t gpio_hold_dis(gpio_num_t gpio_num)
         ret = rtc_gpio_hold_dis(gpio_num);
 #endif
     } else if (GPIO_HOLD_MASK[gpio_num]) {
+        GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "Only output-capable GPIO support this function", ESP_ERR_NOT_SUPPORTED);
         GPIO_ENTER_CRITICAL();
         gpio_hal_hold_dis(gpio_context.gpio_hal, gpio_num);
         GPIO_EXIT_CRITICAL();
@@ -782,14 +818,18 @@ esp_err_t gpio_hold_dis(gpio_num_t gpio_num)
 void gpio_deep_sleep_hold_en(void)
 {
     GPIO_ENTER_CRITICAL();
-    gpio_hal_deep_sleep_hold_en(gpio_context.gpio_hal);
+    RTC_CNTL_ATOMIC() {
+        gpio_hal_deep_sleep_hold_en(gpio_context.gpio_hal);
+    }
     GPIO_EXIT_CRITICAL();
 }
 
 void gpio_deep_sleep_hold_dis(void)
 {
     GPIO_ENTER_CRITICAL();
-    gpio_hal_deep_sleep_hold_dis(gpio_context.gpio_hal);
+    RTC_CNTL_ATOMIC() {
+        gpio_hal_deep_sleep_hold_dis(gpio_context.gpio_hal);
+    }
     GPIO_EXIT_CRITICAL();
 }
 #endif //!SOC_GPIO_SUPPORT_HOLD_SINGLE_IO_IN_DSLP
@@ -801,7 +841,9 @@ esp_err_t IRAM_ATTR gpio_force_hold_all()
     rtc_gpio_force_hold_en_all();
 #endif
     GPIO_ENTER_CRITICAL();
-    gpio_hal_force_hold_all();
+    RTC_CNTL_ATOMIC() {
+        gpio_hal_force_hold_all();
+    }
     GPIO_EXIT_CRITICAL();
     return ESP_OK;
 }
@@ -809,7 +851,9 @@ esp_err_t IRAM_ATTR gpio_force_hold_all()
 esp_err_t IRAM_ATTR gpio_force_unhold_all()
 {
     GPIO_ENTER_CRITICAL();
-    gpio_hal_force_unhold_all();
+    RTC_CNTL_ATOMIC() {
+        gpio_hal_force_unhold_all();
+    }
     GPIO_EXIT_CRITICAL();
 #if SOC_RTCIO_HOLD_SUPPORTED
     rtc_gpio_force_hold_dis_all();

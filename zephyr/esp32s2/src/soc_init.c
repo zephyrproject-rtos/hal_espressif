@@ -129,9 +129,17 @@ void bootloader_clock_configure(void)
 		clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
 	}
 
+	/* Set tuning parameters for RC_SLOW and RC_FAST clocks (matches ESP-IDF rtc_clk_init) */
+	REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_SCK_DCAP, RTC_CNTL_SCK_DCAP_DEFAULT);
+	REG_SET_FIELD(RTC_CNTL_CLK_CONF_REG, RTC_CNTL_CK8M_DFREQ, RTC_CNTL_CK8M_DFREQ_DEFAULT);
+
 	regi2c_ctrl_ll_i2c_reset();
 	regi2c_ctrl_ll_i2c_bbpll_enable();
 	regi2c_ctrl_ll_i2c_apll_enable();
+
+	/* Keep RC_FAST running so RNG has an entropy source during boot */
+	rtc_clk_8m_enable(true, false);
+	rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
 
 	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
 	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);

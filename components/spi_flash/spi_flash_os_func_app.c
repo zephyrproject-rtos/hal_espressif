@@ -190,11 +190,16 @@ static esp_err_t spi_flash_os_check_yield(void *arg, uint32_t chip_status, uint3
 
 static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
 {
+    /* k_sleep requires an active thread context. Skip the yield if the
+     * kernel is not yet running (e.g. early boot flash erase recovery).
+     */
+    if (!k_is_pre_kernel()) {
 #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
-    k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
+        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
 #else
-    k_sleep(K_MSEC(1));
+        k_sleep(K_MSEC(1));
 #endif
+    }
     on_spi_yielded((app_func_arg_t*)arg);
     return ESP_OK;
 }
@@ -207,14 +212,24 @@ static esp_err_t delay_us(void *arg, uint32_t us)
 
 static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
 {
+    /* Allocate temporary internal buffer for the actual read. If the preferred
+     * size doesn't fit in free memory, halve the request and retry so we
+     * degrade gracefully under memory pressure instead of failing outright.
+     * Zephyr's libc heap doesn't expose a "largest free block" query, so we
+     * use exponential backoff down to a minimum of 64 bytes.
+     */
     void* ret = NULL;
-    size_t read_chunk_size = reqest_size;
+    size_t read_chunk_size = (reqest_size + 3) & ~3;
 
-    read_chunk_size = (read_chunk_size + 3) & ~3;
-    ret = k_malloc(read_chunk_size);
+    while (ret == NULL && read_chunk_size >= 64) {
+        ret = k_malloc(read_chunk_size);
+        if (ret == NULL) {
+            read_chunk_size = (read_chunk_size / 2) & ~3;
+        }
+    }
 
     ESP_LOGV(TAG, "allocate temp buffer: %p (%d)", ret, read_chunk_size);
-    *out_size = (ret != NULL? read_chunk_size: 0);
+    *out_size = (ret != NULL ? read_chunk_size : 0);
     return ret;
 }
 
@@ -240,6 +255,13 @@ static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_
     return ESP_OK;
 }
 #else
+/* Zephyr doesn't sync the esp_partition component, so
+ * esp_partition_is_flash_region_writable() / _main_flash_region_safe() are
+ * unavailable. Zephyr apps should use flash_area_* APIs (flash_map) which
+ * have their own partition-safety checks. Writes via raw esp_flash_* are
+ * unchecked on Zephyr — CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED has no
+ * effect on this path.
+ */
 static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
 {
     (void)arg; (void)start_addr; (void)size;

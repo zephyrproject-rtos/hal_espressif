@@ -57,6 +57,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_regi2c/include
+    ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rmt/include
     ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
@@ -200,6 +202,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_sources_ifdef(CONFIG_ESP32_SPIM
     ../../components/esp_hal_gpspi/spi_hal.c
+    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/esp_hal_gpspi/spi_hal_iram.c
     ../../components/soc/lldesc.c
     )
@@ -252,7 +255,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     )
 
     zephyr_sources(
-    ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
     ../../components/esp_hw_support/adc_share_hw_ctrl.c
     ../../components/esp_adc/adc_cali.c
@@ -361,6 +363,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/power_supply/brownout.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hal_ana_conv/adc_hal_common.c
+    ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
@@ -374,7 +378,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_rom/patches/esp_rom_gpio.c
     ../../components/esp_rom/patches/esp_rom_longjmp.S
     ../../components/esp_rom/patches/esp_rom_print.c
-    ../../components/esp_rom/patches/esp_rom_regi2c_esp32s2.c
+    ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/regi2c_impl.c
     ../../components/esp_rom/patches/esp_rom_serial_output.c
     ../../components/esp_rom/patches/esp_rom_spiflash.c
     ../../components/esp_rom/patches/esp_rom_sys.c
@@ -408,7 +412,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
     zephyr_sources(
       ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_table.c
-      ../../components/esp_hal_ana_conv/adc_hal_common.c
       ../../components/esp_hw_support/adc_share_hw_ctrl.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/adc2_init_cal.c
       )

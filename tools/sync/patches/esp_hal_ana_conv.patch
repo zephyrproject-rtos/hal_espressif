@@ -17,9 +17,9 @@
  
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
- #include "soc/soc_caps.h"
  #include "hal/adc_hal_common.h"
- #include "hal/adc_ll.h"
+ #include "hal/assert.h"
+ #include "hal/regi2c_ctrl.h"
 --- a/components/esp_hal_ana_conv/adc_oneshot_hal.c
 +++ b/components/esp_hal_ana_conv/adc_oneshot_hal.c
 @@ -4,7 +4,7 @@

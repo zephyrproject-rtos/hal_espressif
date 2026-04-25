@@ -1,7 +1,7 @@
 --- a/components/esp_hal_ledc/ledc_hal.c
 +++ b/components/esp_hal_ledc/ledc_hal.c
 @@ -43,7 +43,7 @@
-         if (hal->speed_mode == LEDC_LOW_SPEED_MODE) {
+         if (speed_mode == LEDC_LOW_SPEED_MODE) {
              /* If the source clock used by LEDC hardware is not REF_TICK, it is
              * necessary to retrieve the global clock source used. */
 -            ledc_slow_clk_sel_t slow_clk;

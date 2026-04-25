@@ -30,7 +30,7 @@ static const char *TAG = "cache";
 
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_spinlock);
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-static _lock_t s_mutex;
+K_MUTEX_DEFINE(s_mutex);
 #endif
 
 void esp_cache_sync_ops_enter_critical_section(void)
@@ -71,23 +71,23 @@ static void s_c2m_ops(uint32_t vaddr, size_t size)
 }
 #endif
 
-//no ops if ISR context or critical section context
+//no ops if ISR context, pre-kernel, or critical section context
 static void s_acquire_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr()) {
-        _lock_acquire(&s_mutex);
+    if (!k_is_in_isr() && !k_is_pre_kernel()) {
+        k_mutex_lock(&s_mutex, K_FOREVER);
         ESP_LOGD(TAG, "mutex is taken");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
 }
 
-//no ops if ISR context or critical section context
+//no ops if ISR context, pre-kernel, or critical section context
 static void s_release_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr()) {
-        _lock_release(&s_mutex);
+    if (!k_is_in_isr() && !k_is_pre_kernel()) {
+        k_mutex_unlock(&s_mutex);
         ESP_LOGD(TAG, "mutex is free");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS

@@ -10,7 +10,7 @@
  #include "soc/periph_defs.h"
  #include "soc/soc.h"
  #include "hal/ieee802154_periph.h"
-@@ -70,7 +71,8 @@
+@@ -76,7 +77,8 @@
  static uint8_t s_rx_index = 0;
  static uint8_t s_enh_ack_frame[128];
  static uint8_t s_recent_rx_frame_info_index;
@@ -20,7 +20,7 @@
  static intr_handle_t s_ieee802154_isr_handle = NULL;
  
  static esp_err_t ieee802154_sleep_init(void);
-@@ -734,12 +736,16 @@
+@@ -756,12 +758,16 @@
  
  IRAM_ATTR void ieee802154_enter_critical(void)
  {

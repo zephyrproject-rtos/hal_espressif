@@ -12,8 +12,6 @@
  * Restrict to simple macros with numeric values, and/or #if/#endif blocks.
  */
 
-/* This file might not accurate, please check [ESP32S31] IDF-14669 */
-
 #include "sdkconfig.h"
 #include "ld.common"
 
@@ -66,6 +64,7 @@ MEMORY
    * lp ram memory (RWX). Persists over deep sleep. // TODO: IDF-5667
    */
    /* TODO: ["ESP32S31"] IDF-14640 */
+   lp_ram_seg(RW)  :                  org = 0x2E000000, len = 0x8000 - RESERVE_RTC_MEM
 
   /* We reduced the size of lp_ram_seg by RESERVE_RTC_MEM value.
      It reserves the amount of LP memory that we use for this memory segment.
@@ -76,6 +75,7 @@ MEMORY
      This segment is placed at the beginning of LP RAM, as the end of LP RAM is occupied by LP ROM stack/data
   */
   /* TODO: ["ESP32S31"] IDF-14640 */
+  lp_reserved_seg(RW) :              org = 0x2E000000 + 0x8000 - RESERVE_RTC_MEM, len = RESERVE_RTC_MEM
 
   /* PSRAM seg */
   extern_ram_seg(RWX) :        org = 0x50000000, len = IDROM_SEG_SIZE
@@ -94,6 +94,12 @@ REGION_ALIAS("dram_seg", sram_seg);
  */
 
   /* TODO: ["ESP32S31"] IDF-14640 */
+REGION_ALIAS("rtc_text_seg", lp_ram_seg);
+REGION_ALIAS("rtc_data_seg", lp_ram_seg);
+REGION_ALIAS("rtc_slow_seg", lp_ram_seg);
+REGION_ALIAS("rtc_force_fast_seg", lp_ram_seg);
+REGION_ALIAS("rtc_force_slow_seg", lp_ram_seg);
+REGION_ALIAS("rtc_reserved_seg", lp_reserved_seg );
 
 #if CONFIG_APP_BUILD_USE_FLASH_SECTIONS
   REGION_ALIAS("flash_text_seg", irom_seg);

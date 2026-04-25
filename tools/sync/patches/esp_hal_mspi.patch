@@ -273,39 +273,6 @@
  #include <stdbool.h>
  #include <string.h>
  #include "soc/spi_mem_reg.h"
---- a/components/esp_hal_mspi/esp32s31/include/hal/gpspi_flash_ll.h
-+++ b/components/esp_hal_mspi/esp32s31/include/hal/gpspi_flash_ll.h
-@@ -17,7 +17,7 @@
- #include "soc/spi_struct.h"
- #include "hal/spi_types.h"
- #include "hal/spi_flash_types.h"
--#include <sys/param.h> // For MIN/MAX
-+#include <zephyr/sys/util.h>
- #include <stdbool.h>
- #include <string.h>
- #include "hal/misc.h"
---- a/components/esp_hal_mspi/esp32s31/include/hal/mspi_ll.h
-+++ b/components/esp_hal_mspi/esp32s31/include/hal/mspi_ll.h
-@@ -24,7 +24,7 @@
- 
- #pragma once
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <stdbool.h>
- #include "esp_bit_defs.h"
- #include "hal/assert.h"
---- a/components/esp_hal_mspi/esp32s31/include/hal/spimem_flash_ll.h
-+++ b/components/esp_hal_mspi/esp32s31/include/hal/spimem_flash_ll.h
-@@ -15,7 +15,7 @@
- #pragma once
- 
- #include <stdlib.h>
--#include <sys/param.h> // For MIN/MAX
-+#include <zephyr/sys/util.h>
- #include <stdbool.h>
- #include <string.h>
- 
 --- a/components/esp_hal_mspi/esp32s3/include/hal/gpspi_flash_ll.h
 +++ b/components/esp_hal_mspi/esp32s3/include/hal/gpspi_flash_ll.h
 @@ -17,7 +17,7 @@
@@ -376,7 +343,7 @@
      bool auto_waiti_pes;  ///< True for auto-wait idle after suspend command. False for using time delay.
 --- a/components/esp_hal_mspi/spi_flash_hal.c
 +++ b/components/esp_hal_mspi/spi_flash_hal.c
-@@ -44,10 +44,11 @@
+@@ -45,10 +45,11 @@
          /* Do not use float/double as the FPU may not have been initialized yet on startup.
           * The values are in MHz, so for sure we won't have an overflow by adding them. */
          best_div = (src_freq_mhz + cfg_freq_mhz - 1) / cfg_freq_mhz;

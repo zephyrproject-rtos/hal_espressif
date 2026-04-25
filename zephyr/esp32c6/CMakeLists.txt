@@ -65,6 +65,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hal_pcnt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_regi2c/include
+    ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rmt/include
     ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rtc_timer/include
@@ -195,6 +197,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
   zephyr_sources_ifdef(CONFIG_ESP32_SPIM
     ../../components/esp_hal_gpspi/spi_hal.c
+    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
     ../../components/esp_hal_gpspi/spi_hal_iram.c
     ../../components/soc/lldesc.c
     ../../components/esp_hal_dma/gdma_hal_top.c
@@ -325,6 +328,8 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/regdma_link.c
     ../../components/esp_hw_support/regi2c_ctrl.c
+    ../../components/esp_hal_ana_conv/adc_hal_common.c
+    ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
@@ -333,7 +338,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/esp_rom/patches/esp_rom_crc.c
     ../../components/esp_rom/patches/esp_rom_efuse.c
     ../../components/esp_rom/patches/esp_rom_gpio.c
-    ../../components/esp_rom/patches/esp_rom_hp_regi2c_esp32c6.c
+    ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/regi2c_impl.c
     ../../components/esp_rom/patches/esp_rom_print.c
     ../../components/esp_rom/patches/esp_rom_serial_output.c
     ../../components/esp_rom/patches/esp_rom_spiflash.c
@@ -366,6 +371,10 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     src/soc_init.c
     src/soc_random.c
   )
+
+  zephyr_sources_ifdef(CONFIG_ESP_ENABLE_PVT
+    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_pvt.c
+    )
 
   zephyr_sources_ifdef(CONFIG_I2C_ESP32
     ../../components/esp_hal_i2c/i2c_hal_iram.c
@@ -421,7 +430,6 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_sources(
     ../../components/esp_hal_ana_conv/adc_hal.c
-    ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hal_ana_conv/adc_oneshot_hal.c
     ../../components/esp_adc/adc_cali.c
     ../../components/esp_adc/adc_cali_curve_fitting.c
@@ -504,6 +512,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     zephyr_sources(
       ../../components/esp_phy/src/btbb_init.c
       ../../components/bt/porting/mem/bt_osi_mem.c
+      ../../components/bt/porting/mem/os_mempool.c
       ../../components/bt/porting/mem/os_msys_init.c
       ../../components/bt/porting/npl/zephyr/src/npl_os_zephyr.c
       ../../components/bt/porting/transport/driver/vhci/hci_driver_standard.c

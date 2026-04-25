@@ -15,14 +15,17 @@ const gdma_signal_conn_t gdma_periph_signals = {
                 [0] = {
                     .rx_irq_id = ETS_AHB_PDMA_IN_CH0_INTR_SOURCE,
                     .tx_irq_id = ETS_AHB_PDMA_OUT_CH0_INTR_SOURCE,
+                    .name = "gdma_g0p0",
                 },
                 [1] = {
                     .rx_irq_id = ETS_AHB_PDMA_IN_CH1_INTR_SOURCE,
                     .tx_irq_id = ETS_AHB_PDMA_OUT_CH1_INTR_SOURCE,
+                    .name = "gdma_g0p1",
                 },
                 [2] = {
                     .rx_irq_id = ETS_AHB_PDMA_IN_CH2_INTR_SOURCE,
                     .tx_irq_id = ETS_AHB_PDMA_OUT_CH2_INTR_SOURCE,
+                    .name = "gdma_g0p2",
                 }
             }
         },
@@ -31,14 +34,17 @@ const gdma_signal_conn_t gdma_periph_signals = {
                 [0] = {
                     .rx_irq_id = ETS_AXI_PDMA_IN_CH0_INTR_SOURCE,
                     .tx_irq_id = ETS_AXI_PDMA_OUT_CH0_INTR_SOURCE,
+                    .name = "gdma_g1p0",
                 },
                 [1] = {
                     .rx_irq_id = ETS_AXI_PDMA_IN_CH1_INTR_SOURCE,
                     .tx_irq_id = ETS_AXI_PDMA_OUT_CH1_INTR_SOURCE,
+                    .name = "gdma_g1p1",
                 },
                 [2] = {
                     .rx_irq_id = ETS_AXI_PDMA_IN_CH2_INTR_SOURCE,
                     .tx_irq_id = ETS_AXI_PDMA_OUT_CH2_INTR_SOURCE,
+                    .name = "gdma_g1p2",
                 }
             }
         }

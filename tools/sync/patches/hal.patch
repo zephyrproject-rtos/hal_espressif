@@ -90,7 +90,7 @@
  #include "hal/efuse_hal.h"
 --- a/components/hal/esp32/cache_hal_esp32.c
 +++ b/components/hal/esp32/cache_hal_esp32.c
-@@ -73,6 +73,7 @@
+@@ -73,8 +73,9 @@
  
  bool cache_hal_invalidate_addr(uint32_t vaddr, uint32_t size)
  {
@@ -99,6 +99,8 @@
      abort();
 +    return false; /* unreachable, silence compiler warning */
  }
+ 
+ void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, bool ascending)
 --- a/components/hal/esp32/efuse_hal.c
 +++ b/components/hal/esp32/efuse_hal.c
 @@ -4,7 +4,7 @@
@@ -165,17 +167,6 @@
  #include "soc/soc_caps.h"
  #include "hal/assert.h"
  #include "hal/efuse_hal.h"
---- a/components/hal/esp32s31/efuse_hal.c
-+++ b/components/hal/esp32s31/efuse_hal.c
-@@ -5,7 +5,7 @@
-  */
- 
- #include "esp_attr.h"
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "hal/assert.h"
- #include "hal/efuse_hal.h"
- #include "hal/efuse_ll.h"
 --- a/components/hal/esp32s3/efuse_hal.c
 +++ b/components/hal/esp32s3/efuse_hal.c
 @@ -4,7 +4,7 @@

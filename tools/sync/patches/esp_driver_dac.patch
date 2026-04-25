@@ -34,13 +34,14 @@
  #endif
  
 -extern portMUX_TYPE rtc_spinlock;  /*!< Extern global rtc spinlock */
-+extern int rtc_spinlock;  /*!< Extern global rtc spinlock */
++/* Use a stack-local key to keep the macros re-entrant. ENTER and EXIT must
++ * appear in the same block scope. */
++#define DAC_RTC_ENTER_CRITICAL()         unsigned int _dac_rtc_key = irq_lock()
++#define DAC_RTC_EXIT_CRITICAL()          irq_unlock(_dac_rtc_key)
  
 -#define DAC_RTC_ENTER_CRITICAL()    portENTER_CRITICAL(&rtc_spinlock)
 -#define DAC_RTC_EXIT_CRITICAL()     portEXIT_CRITICAL(&rtc_spinlock)
-+#define DAC_RTC_ENTER_CRITICAL()         do { rtc_spinlock = irq_lock(); } while(0)
-+#define DAC_RTC_EXIT_CRITICAL()          irq_unlock(rtc_spinlock)
- 
+-
 -#define DAC_RTC_ENTER_CRITICAL_SAFE()    portENTER_CRITICAL_SAFE(&rtc_spinlock)
 -#define DAC_RTC_EXIT_CRITICAL_SAFE()     portEXIT_CRITICAL_SAFE(&rtc_spinlock)
 +#define DAC_RTC_ENTER_CRITICAL_SAFE()    DAC_RTC_ENTER_CRITICAL()

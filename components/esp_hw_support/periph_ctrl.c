@@ -197,8 +197,8 @@ void non_shared_periph_module_enable(int periph)
     periph_rcc_enter();
     switch (periph) {
     case ESP32_LEDC_MODULE:
-        ledc_ll_enable_bus_clock(true);
-        ledc_ll_enable_reset_reg(false);
+        ledc_ll_enable_bus_clock(0, true);
+        ledc_ll_reset_register(0);
         break;
     case ESP32_UART0_MODULE:
         uart_ll_enable_bus_clock(0, true);
@@ -506,7 +506,7 @@ void non_shared_periph_module_disable(int periph)
     periph_rcc_enter();
     switch (periph) {
     case ESP32_LEDC_MODULE:
-        ledc_ll_enable_bus_clock(false);
+        ledc_ll_enable_bus_clock(0, false);
         break;
     case ESP32_UART0_MODULE:
         uart_ll_enable_bus_clock(0, false);

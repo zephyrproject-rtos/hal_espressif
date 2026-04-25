@@ -103,8 +103,6 @@ SOC_RESERVE_MEMORY_REGION( SOC_EXTRAM_LOW, SOC_EXTRAM_HIGH, extram_region);
 
 
 #ifdef CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
+SOC_RESERVE_MEMORY_REGION(SOC_RTC_DRAM_LOW, (intptr_t)&_rtc_force_slow_end, rtcram_data);
 SOC_RESERVE_MEMORY_REGION((intptr_t)&_rtc_reserved_start, (intptr_t)&_rtc_reserved_end, rtc_reserved_data);
-/* This includes any memory reserved for ULP RAM */
-SOC_RESERVE_MEMORY_REGION((intptr_t)&_rtc_reserved_end, (intptr_t)&_rtc_force_slow_end, rtcram_data);
-
 #endif

@@ -79,7 +79,7 @@
  #define PSRAM_QUAD_ID_KGD_S               8
 --- a/components/esp_psram/device/include/esp_private/esp_psram_impl.h
 +++ b/components/esp_psram/device/include/esp_private/esp_psram_impl.h
-@@ -13,6 +13,7 @@
+@@ -14,6 +14,7 @@
  extern "C" {
  #endif
  
