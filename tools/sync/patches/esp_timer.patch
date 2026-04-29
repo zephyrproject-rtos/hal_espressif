@@ -32,25 +32,27 @@
  #ifdef CONFIG_ESP_TIMER_PROFILING
  #define WITH_PROFILING 1
  #endif
-@@ -86,17 +88,20 @@
+@@ -86,17 +88,22 @@
      [0 ...(ESP_TIMER_MAX - 1)] = LIST_HEAD_INITIALIZER(s_timers)
  };
  #endif
-+
-+K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
- // task used to dispatch timer callbacks
+-// task used to dispatch timer callbacks
 -static TaskHandle_t s_timer_task;
-+static struct k_thread s_timer_task;
-+/* counting semaphore used to notify the timer task from ISR */
-+static struct k_sem s_timer_semaphore;
-+static bool s_timer_task_created = false;
  
 -// lock protecting s_timers, s_inactive_timers
 -static portMUX_TYPE s_timer_lock[ESP_TIMER_MAX] = {
 -    [0 ...(ESP_TIMER_MAX - 1)] = portMUX_INITIALIZER_UNLOCKED
--};
++K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
++// task used to dispatch timer callbacks
++static struct k_thread s_timer_task;
++/* counting semaphore used to notify the timer task from ISR */
++static struct k_sem s_timer_semaphore;
++static bool s_timer_task_created = false;
++
 +/* lock key for critical sections */
-+static unsigned int s_timer_lock_key[ESP_TIMER_MAX];
++static esp_os_spinlock_t s_timer_lock_key[ESP_TIMER_MAX] = {
++    [0 ... ESP_TIMER_MAX - 1] = ESP_OS_SPINLOCK_INIT,
+ };
  
  #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
  // For ISR dispatch method, a callback function of the timer may require a context switch
@@ -59,7 +61,7 @@
  #endif // CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
  
  esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
-@@ -109,7 +114,7 @@
+@@ -109,7 +116,7 @@
              args->dispatch_method < 0 || args->dispatch_method >= ESP_TIMER_MAX) {
          return ESP_ERR_INVALID_ARG;
      }
@@ -68,7 +70,7 @@
      if (result == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -311,45 +316,53 @@
+@@ -311,45 +318,53 @@
      timer_list_unlock(dispatch_method);
  
      if (callback_running) {
@@ -145,7 +147,7 @@
          }
      }
  
-@@ -466,12 +479,12 @@
+@@ -466,12 +481,12 @@
  
  static ESP_TIMER_IRAM_ATTR void timer_list_lock(esp_timer_dispatch_t timer_type)
  {
@@ -160,7 +162,7 @@
  }
  
  #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
-@@ -497,7 +510,7 @@
+@@ -497,7 +512,7 @@
              // It is handled only by ESP_TIMER_TASK (see esp_timer_delete()).
              // All the ESP_TIMER_ISR timers which should be deleted are moved by esp_timer_delete() to the ESP_TIMER_TASK list.
              // We want to free memory of the timer in a task context instead of an isr context.
@@ -169,7 +171,7 @@
              it = NULL;
          } else {
              it->flags |= FL_CALLBACK_IS_RUNNING;
-@@ -546,10 +559,14 @@
+@@ -546,10 +561,14 @@
      return processed;
  }
  
@@ -186,12 +188,13 @@
          // all deferred events are processed at a time
          timer_process_alarm(ESP_TIMER_TASK);
      }
-@@ -558,35 +575,30 @@
+@@ -558,35 +577,31 @@
  #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
  ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
  {
 -    assert(xPortInIsrContext());
 -    s_isr_dispatch_need_yield = pdTRUE;
++    __ASSERT(k_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
 +    s_isr_dispatch_need_yield = true;
  }
  #endif
@@ -229,7 +232,7 @@
  }
  
  static esp_err_t init_timer_task(void)
-@@ -596,40 +608,31 @@
+@@ -596,40 +611,31 @@
          ESP_EARLY_LOGE(TAG, "Task is already initialized");
          err = ESP_ERR_INVALID_STATE;
      } else {
@@ -246,7 +249,7 @@
 +        k_thread_create(&s_timer_task, timer_task_stack,
 +                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
 +                        timer_task, NULL, NULL, NULL,
-+                        K_PRIO_COOP(2), 0, K_NO_WAIT);
++                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
 +        k_thread_name_set(&s_timer_task, "esp_timer");
 +        s_timer_task_created = true;
      }
@@ -282,7 +285,7 @@
      if (err == ESP_OK) {
          err = esp_timer_impl_init(&timer_alarm_handler);
          if (err != ESP_OK) {
-@@ -640,31 +643,9 @@
+@@ -640,31 +646,9 @@
      return err;
  }
  
@@ -317,7 +320,7 @@
  
  esp_err_t esp_timer_deinit(void)
  {
-@@ -750,7 +731,7 @@
+@@ -750,7 +734,7 @@
       * slightly more and the output will be truncated if that is not enough.
       */
      size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
@@ -326,7 +329,7 @@
      if (print_buf == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -783,7 +764,7 @@
+@@ -783,7 +767,7 @@
          fputs(print_buf, stream);
      }
  
@@ -335,7 +338,7 @@
      return ESP_OK;
  }
  
-@@ -866,8 +847,8 @@
+@@ -866,8 +850,8 @@
      esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
  
      timer_list_lock(dispatch_method);
@@ -357,7 +360,7 @@
  
  /* Spinlock used to protect access to the hardware registers. */
 -portMUX_TYPE s_time_update_lock = portMUX_INITIALIZER_UNLOCKED;
-+unsigned int s_time_update_lock = 0;
++esp_os_spinlock_t s_time_update_lock = ESP_OS_SPINLOCK_INIT;
  
  /* Alarm values to generate interrupt on match
   * [0] - for ESP_TIMER_TASK alarms,
@@ -425,7 +428,7 @@
  
  /* Spinlock used to protect access to the hardware registers. */
 -extern portMUX_TYPE s_time_update_lock;
-+extern unsigned int s_time_update_lock;
++extern esp_os_spinlock_t s_time_update_lock;
  
  /* Alarm values to generate interrupt on match */
  extern uint64_t timestamp_id[2];
@@ -595,7 +598,7 @@
  
  /* Spinlock used to protect access to the hardware registers. */
 -extern portMUX_TYPE s_time_update_lock;
-+extern unsigned int s_time_update_lock;
++extern esp_os_spinlock_t s_time_update_lock;
  
  /* Alarm values to generate interrupt on match */
  extern uint64_t timestamp_id[2];
@@ -698,7 +701,7 @@
  }
  
  esp_err_t esp_timer_impl_early_init(void)
-@@ -174,7 +175,7 @@
+@@ -175,7 +176,7 @@
      systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
  
      for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
@@ -707,7 +710,7 @@
          systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, can_stall);
      }
  
-@@ -183,7 +184,7 @@
+@@ -184,7 +185,7 @@
  
  esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
  {
@@ -716,7 +719,7 @@
          ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
          return ESP_ERR_INVALID_STATE;
      }
-@@ -200,7 +201,7 @@
+@@ -201,7 +202,7 @@
  
      esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
                                     &timer_alarm_isr, NULL,
@@ -725,7 +728,7 @@
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
          return err;
-@@ -208,14 +209,10 @@
+@@ -209,14 +210,10 @@
  
      if (s_alarm_handler == NULL) {
          s_alarm_handler = alarm_handler;
@@ -741,7 +744,7 @@
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
      }
-@@ -240,9 +237,9 @@
+@@ -241,9 +238,9 @@
  
  uint64_t esp_timer_impl_get_alarm_reg(void)
  {

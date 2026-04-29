@@ -11,9 +11,9 @@
  
 --- a/components/esp_hal_dma/esp32c5/include/hal/gdma_ll.h
 +++ b/components/esp_hal_dma/esp32c5/include/hal/gdma_ll.h
-@@ -19,6 +19,44 @@
+@@ -18,6 +18,44 @@
+ #define GDMA_LL_AHB_BURST_SIZE_ADJUSTABLE 1  // AHB GDMA supports adjustable burst size
  #define GDMA_LL_MAX_BURST_SIZE_PSRAM      32 // PSRAM controller doesn't support burst access with size > 32 bytes
- #define GDMA_LL_ACCESS_ENCRYPTION_MEM_ALIGNMENT 16 // The alignment of the memory and size when DMA accesses encrypted memory
  
 +/*
 + * Compatibility aliases: map gdma_ll_* names to the ahb_dma_ll_* API
@@ -67,17 +67,6 @@
  #include "soc/hp_sys_clkrst_struct.h"
  #include "soc/soc_etm_source.h"
  #include "hal/config.h"
---- a/components/esp_hal_dma/esp32s31/include/hal/gdma_ll.h
-+++ b/components/esp_hal_dma/esp32s31/include/hal/gdma_ll.h
-@@ -7,7 +7,7 @@
- 
- #include <stdint.h>
- #include <stdbool.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "soc/hp_sys_clkrst_struct.h"
- #include "soc/lp_peri_clkrst_struct.h"
- #include "soc/soc_etm_source.h"
 --- a/components/esp_hal_dma/include/hal/gdma_hal.h
 +++ b/components/esp_hal_dma/include/hal/gdma_hal.h
 @@ -68,6 +68,7 @@

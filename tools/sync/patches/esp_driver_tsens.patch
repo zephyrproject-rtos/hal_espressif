@@ -29,7 +29,7 @@
      return result;
  }
  
-@@ -355,8 +353,8 @@
+@@ -356,8 +354,8 @@
  
      temperature_sensor_ll_set_sample_rate(0xffff);
      temperature_sensor_ll_wakeup_mode(TEMPERATURE_SENSOR_LL_WAKE_DELTA);

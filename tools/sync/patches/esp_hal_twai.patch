@@ -11,34 +11,6 @@
  }
  
  /* ------------------------------- TX and RX -------------------------------- */
---- a/components/esp_hal_twai/twai_hal_v1.c
-+++ b/components/esp_hal_twai/twai_hal_v1.c
-@@ -276,10 +276,13 @@
-         twai_ll_err_dir_t dir;
-         twai_ll_err_seg_t seg;
-         twai_ll_parse_err_code_cap(hal_ctx->dev, &type, &dir, &seg);    //Decode error interrupt
--        hal_ctx->errors.bit_err = (type == TWAI_LL_ERR_BIT);
--        hal_ctx->errors.form_err = (type == TWAI_LL_ERR_FORM);
--        hal_ctx->errors.stuff_err = (type == TWAI_LL_ERR_STUFF);
--        hal_ctx->errors.ack_err = (type == TWAI_LL_ERR_OTHER) && (seg == TWAI_LL_ERR_SEG_ACK_SLOT);
-+        twai_error_flags_t errors = {
-+            .bit_err = (type == TWAI_LL_ERR_BIT),
-+            .form_err = (type == TWAI_LL_ERR_FORM),
-+            .stuff_err = (type == TWAI_LL_ERR_STUFF),
-+            .ack_err = (type == TWAI_LL_ERR_OTHER) && (seg == TWAI_LL_ERR_SEG_ACK_SLOT),
-+        };
-+        hal_ctx->errors = errors;
- #if TWAI_LL_HAS_RX_FRAME_ISSUE
-         //Check for errata condition (RX message has bus error at particular segments)
-         if (dir == TWAI_LL_ERR_DIR_RX &&
-@@ -290,7 +293,6 @@
-         }
- #endif
-     }
--    hal_ctx->errors.arb_lost = !!(events & TWAI_HAL_EVENT_ARB_LOST);
-     if (events & TWAI_HAL_EVENT_ARB_LOST) {
-         twai_ll_clear_arb_lost_cap(hal_ctx->dev);
-     }
 --- a/components/esp_hal_twai/twai_hal_v2.c
 +++ b/components/esp_hal_twai/twai_hal_v2.c
 @@ -4,7 +4,7 @@
@@ -50,11 +22,3 @@
  #include "hal/twai_hal.h"
  #include "hal/twaifd_ll.h"
  
-@@ -218,7 +218,6 @@
-         hal_ctx->errors = twaifd_ll_get_err_reason(hal_ctx->dev);
-         hal_events |= TWAI_HAL_EVENT_BUS_ERR;
-     }
--    hal_ctx->errors.arb_lost = !!(int_stat & TWAIFD_LL_INTR_ARBIT_LOST);
-     if (int_stat & TWAIFD_LL_INTR_ARBIT_LOST) {
-         hal_events |= TWAI_HAL_EVENT_ARB_LOST;
-     }
