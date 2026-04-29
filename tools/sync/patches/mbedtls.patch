@@ -66,31 +66,43 @@
  
 --- a/components/mbedtls/port/include/mbedtls/bignum.h
 +++ b/components/mbedtls/port/include/mbedtls/bignum.h
-@@ -5,8 +5,7 @@
+@@ -5,8 +5,13 @@
   */
  #pragma once
  
 -#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
 -#include_next "mbedtls/private/bignum.h"
++/* Zephyr ships mbedtls 3.6.5, which does not expose mbedtls/private/bignum.h.
++ * Upstream ESP-IDF uses #include_next "mbedtls/private/bignum.h" with
++ * MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS. When Zephyr upgrades to a mbedtls
++ * version that provides the private/ namespace, revert this to the upstream
++ * form.
++ */
 +#include_next "mbedtls/bignum.h"
  #include "sdkconfig.h"
  
  /**
 --- a/components/mbedtls/port/include/mbedtls/ecp.h
 +++ b/components/mbedtls/port/include/mbedtls/ecp.h
-@@ -5,8 +5,7 @@
+@@ -5,8 +5,13 @@
   */
  #pragma once
  
 -#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
 -#include_next "mbedtls/private/ecp.h"
++/* Zephyr ships mbedtls 3.6.5, which does not expose mbedtls/private/ecp.h.
++ * Upstream ESP-IDF uses #include_next "mbedtls/private/ecp.h" with
++ * MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS. When Zephyr upgrades to a mbedtls
++ * version that provides the private/ namespace, revert this to the upstream
++ * form.
++ */
 +#include_next "mbedtls/ecp.h"
  #include "sdkconfig.h"
  
  #ifdef __cplusplus
 --- a/components/mbedtls/port/include/mbedtls/esp_config.h
 +++ b/components/mbedtls/port/include/mbedtls/esp_config.h
-@@ -596,6 +596,7 @@
+@@ -606,6 +606,7 @@
   *
   * Comment this macro to disable FIXED POINT curves optimisation.
   */
@@ -98,7 +110,7 @@
  #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
  #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
  #else
-@@ -2008,6 +2009,7 @@
+@@ -2018,6 +2019,7 @@
  #ifdef CONFIG_MBEDTLS_CHACHA20_C
  #define PSA_WANT_KEY_TYPE_CHACHA20 1
  #else
@@ -106,7 +118,7 @@
  #undef PSA_WANT_KEY_TYPE_CHACHA20
  #endif
  
-@@ -2018,11 +2020,12 @@
+@@ -2028,11 +2030,12 @@
   *
   * Module:  library/chachapoly.c
   *
@@ -120,7 +132,7 @@
  #undef PSA_WANT_ALG_CHACHA20_POLY1305
  #endif
  
-@@ -2519,6 +2522,20 @@
+@@ -2529,6 +2532,20 @@
  #define MBEDTLS_PLATFORM_C
  
  /**

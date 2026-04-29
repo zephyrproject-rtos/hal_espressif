@@ -1,10 +1,6 @@
 --- a/components/efuse/esp32c2/esp_efuse_utility.c
 +++ b/components/efuse/esp32c2/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -13,26 +9,9 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -58,6 +58,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32c3/esp_efuse_utility.c
 +++ b/components/efuse/esp32c3/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -41,26 +20,9 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -88,6 +88,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32c5/esp_efuse_utility.c
 +++ b/components/efuse/esp32c5/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -69,26 +31,9 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32c61/esp_efuse_utility.c
 +++ b/components/efuse/esp32c61/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -97,26 +42,9 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32c6/esp_efuse_utility.c
 +++ b/components/efuse/esp32c6/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -125,19 +53,6 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32/esp_efuse_table.c
 +++ b/components/efuse/esp32/esp_efuse_table.c
 @@ -15,7 +15,7 @@
@@ -151,13 +66,6 @@
  #define LAST_FREE_BIT_BLK1 MAX_BLK_LEN
 --- a/components/efuse/esp32/esp_efuse_utility.c
 +++ b/components/efuse/esp32/esp_efuse_utility.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -11,7 +11,7 @@
  #include "esp_log.h"
  #include "assert.h"
@@ -167,26 +75,9 @@
  
  ESP_LOG_ATTR_TAG(TAG, "efuse");
  
-@@ -68,6 +68,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32h21/esp_efuse_utility.c
 +++ b/components/efuse/esp32h21/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -195,26 +86,9 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32h2/esp_efuse_utility.c
 +++ b/components/efuse/esp32h2/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
-  *
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
  
@@ -223,19 +97,6 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32h4/esp_efuse_utility.c
 +++ b/components/efuse/esp32h4/esp_efuse_utility.c
 @@ -4,7 +4,7 @@
@@ -247,77 +108,8 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
 --- a/components/efuse/esp32p4/esp_efuse_utility.c
 +++ b/components/efuse/esp32p4/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_log.h"
- #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
---- a/components/efuse/esp32s2/esp_efuse_utility.c
-+++ b/components/efuse/esp32s2/esp_efuse_utility.c
-@@ -1,10 +1,10 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_log.h"
- #include "assert.h"
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
---- a/components/efuse/esp32s31/esp_efuse_utility.c
-+++ b/components/efuse/esp32s31/esp_efuse_utility.c
 @@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
@@ -327,28 +119,19 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "assert.h"
-@@ -72,6 +72,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
---- a/components/efuse/esp32s3/esp_efuse_utility.c
-+++ b/components/efuse/esp32s3/esp_efuse_utility.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
+--- a/components/efuse/esp32s2/esp_efuse_utility.c
++++ b/components/efuse/esp32s2/esp_efuse_utility.c
+@@ -4,7 +4,7 @@
   * SPDX-License-Identifier: Apache-2.0
   */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_log.h"
+ #include "assert.h"
+--- a/components/efuse/esp32s3/esp_efuse_utility.c
++++ b/components/efuse/esp32s3/esp_efuse_utility.c
 @@ -10,7 +10,7 @@
  #include "esp_log.h"
  #include "assert.h"
@@ -357,86 +140,6 @@
 +#include <zephyr/sys/util.h>
  
  ESP_LOG_ATTR_TAG(TAG, "efuse");
- 
-@@ -73,6 +73,12 @@
-     return ESP_OK;
- }
- 
-+// Burn values written to the efuse write registers
-+esp_err_t esp_efuse_utility_burn_chip(void)
-+{
-+    return esp_efuse_utility_burn_chip_opt(false, true);
-+}
-+
- esp_err_t esp_efuse_utility_burn_chip_opt(bool ignore_coding_errors, bool verify_written_data)
- {
-     esp_err_t error = ESP_OK;
---- a/components/efuse/include/esp_efuse.h
-+++ b/components/efuse/include/esp_efuse.h
-@@ -26,7 +26,6 @@
- #define ESP_ERR_CODING                            (ESP_ERR_EFUSE + 0x04)      /*!< Error while a encoding operation. */
- #define ESP_ERR_NOT_ENOUGH_UNUSED_KEY_BLOCKS      (ESP_ERR_EFUSE + 0x05)      /*!< Error not enough unused key blocks available */
- #define ESP_ERR_DAMAGED_READING                   (ESP_ERR_EFUSE + 0x06)      /*!< Error. Burn or reset was done during a reading operation leads to damage read data. This error is internal to the efuse component and not returned by any public API. */
--#define ESP_ERR_BURN_WR_DIS                       (ESP_ERR_EFUSE + 0x07)      /*!< Error to burn WR_DIS field. */
- 
- /**
-  * @brief Type definition for an eFuse field
-@@ -176,7 +175,6 @@
-  *    - ESP_ERR_INVALID_ARG: Error in the passed arguments.
-  *    - ESP_ERR_EFUSE_CNT_IS_FULL: Not all requested cnt bits is set.
-  *    - ESP_ERR_NOT_SUPPORTED: The block does not support this command.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_set_write_protect(esp_efuse_block_t blk);
- 
-@@ -500,8 +498,6 @@
-  * @return
-  *          - ESP_OK: Successful.
-  *          - ESP_ERR_INVALID_STATE: The deferred writing mode was not set.
-- *          - ESP_FAIL: Failed to write efuse fields.
-- *          - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_batch_write_commit(void);
- 
-@@ -557,7 +553,6 @@
-  *    - ESP_ERR_INVALID_ARG: Error in the passed arguments.
-  *    - ESP_ERR_EFUSE_REPEATED_PROG: Error repeated programming of programmed bits is strictly forbidden.
-  *    - ESP_ERR_CODING: Error range of data does not match the coding scheme.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_set_key_dis_write(esp_efuse_block_t block);
- 
-@@ -656,7 +651,6 @@
-  *    - ESP_ERR_INVALID_ARG: Error in the passed arguments.
-  *    - ESP_ERR_EFUSE_REPEATED_PROG: Error repeated programming of programmed bits is strictly forbidden.
-  *    - ESP_ERR_CODING: Error range of data does not match the coding scheme.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_set_keypurpose_dis_write(esp_efuse_block_t block);
- 
-@@ -721,7 +715,6 @@
-  *    - ESP_ERR_INVALID_ARG: Error in the passed arguments.
-  *    - ESP_ERR_EFUSE_REPEATED_PROG: Error repeated programming of programmed bits is strictly forbidden.
-  *    - ESP_ERR_CODING: Error range of data does not match the coding scheme.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_set_write_protect_of_digest_revoke(unsigned num_digest);
- 
-@@ -749,7 +742,6 @@
-  *    - ESP_ERR_INVALID_STATE: Error in efuses state, unused block not found.
-  *    - ESP_ERR_EFUSE_REPEATED_PROG: Error repeated programming of programmed bits is strictly forbidden.
-  *    - ESP_ERR_CODING: Error range of data does not match the coding scheme.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_write_key(esp_efuse_block_t block, esp_efuse_purpose_t purpose, const void *key, size_t key_size_bytes);
- 
-@@ -775,7 +767,6 @@
-  *    - ESP_ERR_NOT_ENOUGH_UNUSED_KEY_BLOCKS: Error not enough unused key blocks available
-  *    - ESP_ERR_EFUSE_REPEATED_PROG: Error repeated programming of programmed bits is strictly forbidden.
-  *    - ESP_ERR_CODING: Error range of data does not match the coding scheme.
-- *    - ESP_ERR_BURN_WR_DIS: Failed to burn WR_DIS field.
-  */
- esp_err_t esp_efuse_write_keys(const esp_efuse_purpose_t purposes[], uint8_t keys[][32], unsigned number_of_keys);
  
 --- a/components/efuse/src/esp_efuse_api.c
 +++ b/components/efuse/src/esp_efuse_api.c
@@ -496,24 +199,16 @@
  #include "esp_efuse_table.h"
 --- a/components/efuse/src/esp_efuse_utility.c
 +++ b/components/efuse/src/esp_efuse_utility.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
-@@ -11,8 +11,7 @@
+@@ -11,7 +11,7 @@
  #include "esp_rom_sys.h"
  #include "assert.h"
  #include "sdkconfig.h"
 -#include <sys/param.h>
--#include "esp_efuse_table.h"
 +#include <zephyr/sys/util.h>
+ #include "esp_efuse_table.h"
  
  ESP_LOG_ATTR_TAG(TAG, "efuse");
- 
-@@ -65,7 +64,7 @@
+@@ -65,7 +65,7 @@
              if ((bits_counter + use_bit_in_reg) > req_size) { // Limits the length of the field.
                  use_bit_in_reg = req_size - bits_counter;
              }
@@ -522,58 +217,3 @@
              ESP_EARLY_LOGD(TAG, "BLK%d REG%d [%d-%d], len=%d bits", (int)f->efuse_block, num_reg, start_bit_in_reg, end_bit_in_reg, use_bit_in_reg);
  
              err = func_proc(num_reg, f->efuse_block, start_bit_in_reg, use_bit_in_reg, ptr, &bits_counter);
-@@ -494,54 +493,3 @@
-     }
-     return correct_written_data;
- }
--
--// This function defers the programming of ESP_EFUSE_WR_DIS efuse field.
--// This field is very critical, because it disables any further programming of some efuses.
--// We want to defer its programming until all other efuses are programmed successfully.
--// Returns the staged WR_DIS data, so that it can be restored later for programming.
--static uint32_t defer_wr_dis(void)
--{
--    // ESP_EFUSE_WR_DIS is always in reg 0 of block 0, the only length is varied from chip to chip.
--    uint32_t staged_reg = REG_READ(range_write_addr_blocks[0].start); // array of staged write registers
--    uint32_t wr_dis_reg_mask = get_mask(ESP_EFUSE_WR_DIS[0]->bit_count, ESP_EFUSE_WR_DIS[0]->bit_start);
--
--    // Clear WR_DIS field and keep other bits in the staged register unchanged
--    REG_WRITE(range_write_addr_blocks[0].start, staged_reg & ~wr_dis_reg_mask);
--
--    // return WR_DIS value, excluding other bits in the staged register.
--    return staged_reg & wr_dis_reg_mask;
--}
--
--static inline void restore_deferred_wr_dis(uint32_t staged_wr_dis_data)
--{
--    REG_WRITE(range_write_addr_blocks[0].start, staged_wr_dis_data);
--}
--
--esp_err_t esp_efuse_utility_burn_chip(void)
--{
--    // Always defer the WR_DIS field burning to ensure that if any error occurs during the burn process of BLOCK0,
--    // the chip will have a chance to be recovered by the repeating burning mechanism in esp_efuse_utility_burn_chip_opt.
--    // This is critical because WR_DIS permanently disables further eFuse programming of some efuse fields.
--
--    uint32_t staged_wr_dis_data = defer_wr_dis();
--
--    esp_err_t err = esp_efuse_utility_burn_chip_opt(false, true);
--
--    if (err == ESP_OK) {
--        if (staged_wr_dis_data != 0) {
--            restore_deferred_wr_dis(staged_wr_dis_data);
--            err = esp_efuse_utility_burn_chip_opt(false, true);
--            if (err != ESP_OK) {
--                err = ESP_ERR_BURN_WR_DIS;
--                ESP_LOGE(TAG, "Failed to burn WR_DIS = 0x%08" PRIx32, staged_wr_dis_data);
--            }
--        }
--    } else {
--        ESP_LOGE(TAG, "Failed to burn eFuses");
--        if (staged_wr_dis_data != 0) {
--            ESP_LOGW(TAG, "WR_DIS efuse was not burned (deferred): 0x%08" PRIx32, staged_wr_dis_data);
--        }
--    }
--
--    return err;
--}

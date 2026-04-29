@@ -22,13 +22,6 @@
  #endif
 --- a/components/bootloader_support/src/bootloader_clock_init.c
 +++ b/components/bootloader_support/src/bootloader_clock_init.c
-@@ -1,5 +1,5 @@
- /*
-- * SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
 @@ -9,7 +9,14 @@
  #include "soc/chip_revision.h"
  #include "hal/efuse_hal.h"
@@ -45,24 +38,6 @@
  
  #if CONFIG_IDF_TARGET_ESP32
  #include "hal/clk_tree_ll.h"
-@@ -156,16 +163,7 @@
-     SET_PERI_REG_MASK(LP_ANALOG_PERI_LP_INT_CLR_REG, LP_ANALOG_PERI_LP_INT_CLR_REG);                        /* BROWN_OUT */
-     SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);                                           /* WDT */
- #elif CONFIG_IDF_TARGET_ESP32S31
--    // CLR ENA
--    CLEAR_PERI_REG_MASK(RTC_WDT_INT_ENA_REG, RTC_WDT_SUPER_WDT_INT_ENA);                                    /* SWD */
--    CLEAR_PERI_REG_MASK(LP_ANA_LP_INT_ENA_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                /* BROWN_OUT */
--    CLEAR_PERI_REG_MASK(RTC_WDT_INT_ENA_REG, RTC_WDT_LP_WDT_INT_ENA);                                       /* WDT */
--    CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_WAKEUP_INT_ENA);                                        /* SLP_REJECT */
--    CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_SLEEP_REJECT_INT_ENA);                                  /* SLP_WAKEUP */
--    // SET CLR
--    SET_PERI_REG_MASK(RTC_WDT_INT_CLR_REG, RTC_WDT_SUPER_WDT_INT_CLR);                                      /* SWD */
--    SET_PERI_REG_MASK(LP_ANA_LP_INT_CLR_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                  /* BROWN_OUT */
--    SET_PERI_REG_MASK(RTC_WDT_INT_CLR_REG, RTC_WDT_LP_WDT_INT_CLR);                                         /* WDT */
-+    //ESP32S31-TODO  IDF-14696
- #else
-     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
-     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
 --- a/components/bootloader_support/src/bootloader_console.c
 +++ b/components/bootloader_support/src/bootloader_console.c
 @@ -50,8 +50,6 @@
@@ -83,17 +58,6 @@
  #endif
      _uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
  }
---- a/components/bootloader_support/src/bootloader_random.c
-+++ b/components/bootloader_support/src/bootloader_random.c
-@@ -45,7 +45,7 @@
-     assert(buffer != NULL);
- 
-     for (size_t i = 0; i < length; i++) {
--#if !SOC_RTC_TIMER_V1
-+#if SOC_RTC_TIMER_V2_SUPPORTED
-         random = REG_READ(WDEV_RND_REG);
-         start = esp_cpu_get_cycle_count();
-         do {
 --- a/components/bootloader_support/src/bootloader_sha.c
 +++ b/components/bootloader_support/src/bootloader_sha.c
 @@ -7,7 +7,7 @@
