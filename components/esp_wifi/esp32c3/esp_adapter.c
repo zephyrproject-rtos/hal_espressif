@@ -47,6 +47,7 @@ LOG_MODULE_REGISTER(esp32c3_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_heap_adapter.h"
 #include "wifi/wifi_event.h"
 #include "zephyr_compat.h"
+#include "esp_wifi_zephyr_task.h"
 #include "riscv/interrupt.h"
 
 #define TAG "esp_adapter"
@@ -58,7 +59,6 @@ struct wifi_adapter_msgq {
     void *buffer;
 };
 
-static struct k_thread wifi_task_handle;
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -388,41 +388,19 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 {
     ARG_UNUSED(core_id);
 
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
-
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      prio, K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
-
-    *(int32_t *)task_handle = (int32_t)tid;
-    return 1;
+    return esp_wifi_zephyr_task_create(task_func, name, stack_depth, param,
+                                       prio, task_handle);
 }
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
-
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      prio, K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
-
-    *(int32_t *)task_handle = (int32_t)tid;
-    return 1;
+    return esp_wifi_zephyr_task_create(task_func, name, stack_depth, param,
+                                       prio, task_handle);
 }
 
 static void task_delete_wrapper(void *handle)
 {
-    if (handle != NULL) {
-        k_thread_abort((k_tid_t)handle);
-    }
-
-    k_object_release(&wifi_task_handle);
+    esp_wifi_zephyr_task_delete(handle);
 }
 
 static void task_delay_wrapper(uint32_t ticks)

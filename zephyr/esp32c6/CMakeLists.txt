@@ -724,6 +724,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
 
     zephyr_sources(
       ../../components/esp_wifi/esp32c6/esp_adapter.c
+      ../../components/esp_wifi/src/esp_wifi_zephyr_task.c
       ../../components/esp_wifi/src/wifi_init.c
       ../../components/esp_wifi/src/lib_printf.c
       ../port/stubs/wifi_compat_stubs.c
