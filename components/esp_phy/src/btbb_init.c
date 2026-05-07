@@ -18,7 +18,7 @@ K_MUTEX_DEFINE(s_btbb_access_lock);
 static uint8_t s_btbb_access_ref = 0;
 
 
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
 #include "esp_private/sleep_retention.h"
 #include "btbb_retention_reg.h"
 static const char* TAG = "btbb_init";
@@ -89,21 +89,21 @@ static esp_err_t btbb_sleep_retention_enable(void)
     }
     return err;
 }
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
 
 void esp_btbb_enable(void)
 {
     k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
     if (s_btbb_access_ref == 0) {
         bt_bb_v2_init_cmplx(BTBB_ENABLE_VERSION_PRINT);
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
         esp_err_t err = btbb_sleep_retention_enable();
         if (err != ESP_OK) {
             btbb_sleep_retention_disable();
             k_mutex_unlock(&s_btbb_access_lock);
             return;
         }
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
     }
     s_btbb_access_ref++;
     k_mutex_unlock(&s_btbb_access_lock);
@@ -113,9 +113,9 @@ void esp_btbb_disable(void)
 {
     k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
     if (s_btbb_access_ref && (--s_btbb_access_ref == 0)) {
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
         btbb_sleep_retention_disable();
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_PM
     }
     k_mutex_unlock(&s_btbb_access_lock);
 }
