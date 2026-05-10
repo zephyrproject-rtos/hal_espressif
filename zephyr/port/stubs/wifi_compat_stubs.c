@@ -10,9 +10,6 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 
-/* ESP-NOW OUI - required by blob */
-const uint8_t g_espnow_user_oui[3] = {0x18, 0xFE, 0x34};
-
 /* Regulatory domain data - required by blob */
 const void *regdomain_table = NULL;
 const void *regulatory_data = NULL;

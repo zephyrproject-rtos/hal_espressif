@@ -147,6 +147,7 @@ blob_filters:
     - btdm_app
     - coexist
     - core
+    - espnow
     - net80211
     - phy
     - pp
@@ -156,6 +157,7 @@ blob_filters:
     - btbb
     - coexist
     - core
+    - espnow
     - net80211
     - phy
     - pp
@@ -164,6 +166,7 @@ blob_filters:
     - btdm_app
     - coexist
     - core
+    - espnow
     - mesh
     - net80211
     - phy
@@ -173,6 +176,7 @@ blob_filters:
     - btbb
     - coexist
     - core
+    - espnow
     - mesh
     - net80211
     - phy
@@ -182,6 +186,7 @@ blob_filters:
     - btbb
     - coexist
     - core
+    - espnow
     - mesh
     - net80211
     - phy
@@ -194,6 +199,7 @@ blob_filters:
   esp32s2:
     - coexist
     - core
+    - espnow
     - net80211
     - phy
     - pp
@@ -202,6 +208,7 @@ blob_filters:
     - btdm_app
     - coexist
     - core
+    - espnow
     - net80211
     - phy
     - pp

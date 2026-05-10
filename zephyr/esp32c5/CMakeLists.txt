@@ -523,6 +523,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
 
     zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
       net80211
+      espnow
       core
       pp
       phy
