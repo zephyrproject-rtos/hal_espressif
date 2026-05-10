@@ -47,7 +47,7 @@ lib_category() {
     case "$1" in
         ble_app|btdm_app) echo "bt" ;;
         btbb|phy|rtc)     echo "phy" ;;
-        core|mesh|net80211|pp) echo "wifi" ;;
+        core|espnow|mesh|net80211|pp) echo "wifi" ;;
         coexist)          echo "coex" ;;
         *)                echo "" ;;
     esac
