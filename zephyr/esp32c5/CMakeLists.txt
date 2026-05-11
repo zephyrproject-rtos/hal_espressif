@@ -471,9 +471,16 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hal_ledc/ledc_hal.c
     )
 
-  zephyr_sources_ifdef(CONFIG_MCPWM_ESP32
-    ../../components/esp_hal_mcpwm/mcpwm_hal.c
-    )
+  if(CONFIG_MCPWM_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_mcpwm/mcpwm_hal.c
+      )
+    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_mcpwm/${CONFIG_SOC_SERIES}/mcpwm_periph.c
+        )
+    endif()
+  endif()
 
   zephyr_sources_ifdef(CONFIG_PCNT_ESP32
     ../../components/esp_hal_pcnt/pcnt_hal.c
