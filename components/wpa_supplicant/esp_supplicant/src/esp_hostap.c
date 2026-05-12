@@ -31,7 +31,7 @@
 struct hostapd_data *global_hapd;
 
 #ifdef CONFIG_SAE
-extern SemaphoreHandle_t g_wpa3_hostap_auth_api_lock;
+extern void *g_wpa3_hostap_auth_api_lock;
 #endif /* CONFIG_SAE */
 
 struct hostapd_data *hostapd_get_hapd_data(void)
@@ -319,7 +319,7 @@ bool hostap_deinit(void *data)
     wpa3_hostap_auth_deinit();
     /* Wait till lock is released by wpa3 task */
     if (g_wpa3_hostap_auth_api_lock &&
-            WPA3_HOSTAP_AUTH_API_LOCK() == pdTRUE) {
+            WPA3_HOSTAP_AUTH_API_LOCK() == 1) {
         WPA3_HOSTAP_AUTH_API_UNLOCK();
     }
 #endif /* CONFIG_SAE */
