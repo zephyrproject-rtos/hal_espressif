@@ -439,6 +439,26 @@
          wpa_printf(MSG_ERROR, "DPP: failed to init as not in station mode.");
          return ESP_FAIL;
      }
+--- a/components/wpa_supplicant/esp_supplicant/src/esp_hostap.c
++++ b/components/wpa_supplicant/esp_supplicant/src/esp_hostap.c
+@@ -31,7 +31,7 @@
+ struct hostapd_data *global_hapd;
+ 
+ #ifdef CONFIG_SAE
+-extern SemaphoreHandle_t g_wpa3_hostap_auth_api_lock;
++extern void *g_wpa3_hostap_auth_api_lock;
+ #endif /* CONFIG_SAE */
+ 
+ struct hostapd_data *hostapd_get_hapd_data(void)
+@@ -319,7 +319,7 @@
+     wpa3_hostap_auth_deinit();
+     /* Wait till lock is released by wpa3 task */
+     if (g_wpa3_hostap_auth_api_lock &&
+-            WPA3_HOSTAP_AUTH_API_LOCK() == pdTRUE) {
++            WPA3_HOSTAP_AUTH_API_LOCK() == 1) {
+         WPA3_HOSTAP_AUTH_API_UNLOCK();
+     }
+ #endif /* CONFIG_SAE */
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
 @@ -144,7 +144,7 @@
@@ -486,6 +506,64 @@
              }
  
          if (scan_params->bssid) {
+--- a/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
++++ b/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
+@@ -438,9 +438,9 @@
+ 
+ #ifdef CONFIG_SAE
+ 
+-static TaskHandle_t g_wpa3_hostap_task_hdl = NULL;
+-static QueueHandle_t g_wpa3_hostap_evt_queue = NULL;
+-SemaphoreHandle_t g_wpa3_hostap_auth_api_lock = NULL;
++static void *g_wpa3_hostap_task_hdl = NULL;
++static void *g_wpa3_hostap_evt_queue = NULL;
++void *g_wpa3_hostap_auth_api_lock = NULL;
+ 
+ int wpa3_hostap_post_evt(uint32_t evt_id, uint32_t data)
+ {
+@@ -462,13 +462,13 @@
+     }
+     if (evt.id == SIG_WPA3_RX_CONFIRM || evt.id == SIG_TASK_DEL) {
+         /* prioritising confirm for completing handshake for committed sta */
+-        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, 0) != pdPASS) {
++        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, 0) != 1) {
+             WPA3_HOSTAP_AUTH_API_UNLOCK();
+             wpa_printf(MSG_DEBUG, "failed to add msg to queue front");
+             return ESP_FAIL;
+         }
+     } else {
+-        if (os_queue_send(g_wpa3_hostap_evt_queue, &evt, 0) != pdPASS) {
++        if (os_queue_send(g_wpa3_hostap_evt_queue, &evt, 0) != 1) {
+             WPA3_HOSTAP_AUTH_API_UNLOCK();
+             wpa_printf(MSG_DEBUG, "failed to send msg to queue");
+             return ESP_FAIL;
+@@ -592,7 +592,7 @@
+     bool task_del = false;
+ 
+     while (1) {
+-        if (os_queue_recv(g_wpa3_hostap_evt_queue, &evt, portMAX_DELAY) == pdTRUE) {
++        if (os_queue_recv(g_wpa3_hostap_evt_queue, &evt, OS_BLOCK) == 1) {
+             switch (evt.id) {
+             case SIG_WPA3_RX_COMMIT: {
+                 wpa3_process_rx_commit(&evt);
+@@ -617,7 +617,7 @@
+     uint32_t items_in_queue = os_queue_msg_waiting(g_wpa3_hostap_evt_queue);
+     while (items_in_queue--) {
+         /* Free events posted to queue */
+-        os_queue_recv(g_wpa3_hostap_evt_queue, &evt, portMAX_DELAY);
++        os_queue_recv(g_wpa3_hostap_evt_queue, &evt, OS_BLOCK);
+         if (evt.id == SIG_WPA3_RX_CONFIRM) {
+             os_free((void *)evt.data);
+         }
+@@ -656,7 +656,7 @@
+     if (os_task_create(esp_wpa3_hostap_task, "esp_wpa3_hostap_task",
+                        WPA3_HOSTAP_HANDLE_AUTH_TASK_STACK_SIZE, NULL,
+                        WPA3_HOSTAP_HANDLE_AUTH_TASK_PRIORITY,
+-                       &g_wpa3_hostap_task_hdl) != pdPASS) {
++                       &g_wpa3_hostap_task_hdl) != 1) {
+         wpa_printf(MSG_ERROR, "wpa3_hostap_auth_init: failed to create task");
+         os_queue_delete(g_wpa3_hostap_evt_queue);
+         g_wpa3_hostap_evt_queue = NULL;
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_wpa_main.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_wpa_main.c
 @@ -31,7 +31,9 @@
