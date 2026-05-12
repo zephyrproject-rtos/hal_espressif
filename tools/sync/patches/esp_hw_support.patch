@@ -500,6 +500,57 @@
   * @brief Enable Wi-Fi and BT common module
   *
   * @note If @c wifi_bt_common_module_enable() is called a number of times,
+--- a/components/esp_hw_support/include/esp_private/sleep_clock.h
++++ b/components/esp_hw_support/include/esp_private/sleep_clock.h
+@@ -63,6 +63,16 @@
+ esp_err_t sleep_clock_modem_retention_init(void *arg);
+ #endif
+ 
++/**
++ * @brief Initialize sleep retention modules for clock domains.
++ *
++ * Sets up retention for clock-related state used during sleep,
++ * covering system and modem clock domains.
++ *
++ * @return ESP_OK on success
++ */
++esp_err_t sleep_clock_startup_init(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
+--- a/components/esp_hw_support/include/esp_private/sleep_sys_periph.h
++++ b/components/esp_hw_support/include/esp_private/sleep_sys_periph.h
+@@ -8,6 +8,7 @@
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include "sdkconfig.h"
++#include "esp_err.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -29,6 +30,21 @@
+  */
+ bool peripheral_domain_pd_allowed(void);
+ 
++/**
++ * @brief Initialize sleep retention for system peripherals.
++ *
++ * Registers and allocates REGDMA retention entries for system
++ * peripherals (Interrupt Matrix, HP System, IO MUX, SPI MEM,
++ * SysTimer, etc.) to allow the TOP power domain to be powered
++ * off during light sleep.
++ *
++ * @return
++ *      - ESP_OK on success
++ *      - ESP_ERR_NO_MEM not enough memory for peripheral retention
++ *      - ESP_ERR_INVALID_ARG if either of the arguments is out of range
++ */
++esp_err_t sleep_sys_periph_startup_init(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
 @@ -8,15 +8,13 @@
@@ -552,6 +603,17 @@
          } else {
              return ESP_ERR_NO_MEM;
          }
+--- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_clock.c
+@@ -152,7 +152,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
 @@ -8,15 +8,14 @@
@@ -572,6 +634,45 @@
  #include "riscv/csr.h"
  #include "soc/soc_caps.h"
  #include "soc/rtc_periph.h"
+--- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_dynamic.c
+@@ -27,9 +27,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_static.c
+@@ -48,9 +48,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_clock.c
+@@ -112,7 +112,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -583,6 +684,53 @@
  
  #include "esp_attr.h"
  #include "esp_check.h"
+--- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_dynamic.c
+@@ -29,9 +29,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ 
+ #include "soc/intpri_reg.h"
+@@ -50,9 +51,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_clock.c
+@@ -103,7 +103,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
 @@ -9,15 +9,14 @@
@@ -603,6 +751,53 @@
  #include "riscv/csr.h"
  #include "soc/soc_caps.h"
  #include "soc/rtc_periph.h"
+--- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_dynamic.c
+@@ -27,9 +27,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ #include "soc/intpri_reg.h"
+ #include "soc/extmem_reg.h"
+@@ -49,9 +50,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_clock.c
+@@ -111,7 +111,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -614,6 +809,53 @@
  
  #include "sdkconfig.h"
  #include "esp_attr.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_dynamic.c
+@@ -28,9 +28,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ 
+ #include "soc/intpri_reg.h"
+@@ -49,9 +50,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_clock.c
+@@ -106,7 +106,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -635,6 +877,53 @@
  #include "riscv/csr.h"
  #include "soc/soc_caps.h"
  #include "soc/rtc_periph.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_dynamic.c
+@@ -29,9 +29,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ 
+ #include "soc/intpri_reg.h"
+@@ -51,9 +52,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_clock.c
+@@ -112,7 +112,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -646,6 +935,53 @@
  
  #include "sdkconfig.h"
  #include "esp_attr.h"
+--- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_dynamic.c
+@@ -26,9 +26,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ #include "esp_heap_caps.h"
+ #include "soc/cache_reg.h"
+@@ -50,9 +51,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_clock.c
++++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_clock.c
+@@ -60,7 +60,7 @@
+     return sleep_retention_module_bitmap_eq(clock_domain_inited_modules, clock_domain_created_modules);
+ }
+ 
+-ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
++esp_err_t sleep_clock_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
 --- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
 @@ -8,7 +8,7 @@
@@ -657,6 +993,42 @@
  
  #include "esp_attr.h"
  #include "esp_check.h"
+--- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_dynamic.c
++++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_dynamic.c
+@@ -26,9 +26,9 @@
+     }
+     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
+--- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_static.c
++++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_static.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <string.h>
++#include "esp_attr.h"
+ #include "esp_check.h"
+ #include "soc/clic_reg.h"
+ 
+@@ -47,9 +48,9 @@
+         regs_frame_sz += regions[num].end - regions[num].start;
+     }
+     if (frame) {
+-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
++        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
+         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
+-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
++        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+         memset(regs_frame, 0, regs_frame_sz);
+         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
+             .region = region,
 --- a/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
 +++ b/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
 @@ -8,16 +8,14 @@
@@ -664,7 +1036,7 @@
  #include <inttypes.h>
  #include <sys/lock.h>
 -#include <sys/param.h>
-+#include <zephyr/sys/util.h>
++#include "esp_private/esp_cpu_internal.h"
  
  #include "esp_attr.h"
  #include "esp_check.h"
@@ -4465,6 +4837,15 @@
      s_config.rtc_clk_cal_period = rtc_clk_cal_cycling(CLK_CAL_RTC_SLOW, RTC_CLK_SRC_CAL_CYCLES);
      esp_clk_slowclk_cal_set(s_config.rtc_clk_cal_period);
  #else
+@@ -966,7 +965,7 @@
+         } else
+ #endif
+         {
+-#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
++#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+             // Skip smp retention if CPU power domain power-down is not allowed
+             esp_sleep_cpu_skip_retention();
+ #endif
 @@ -1079,9 +1078,9 @@
      rtc_clk_cpu_freq_get_config(&cpu_freq_config);
      rtc_clk_cpu_freq_set_xtal_for_sleep();
@@ -4498,6 +4879,15 @@
  
      misc_modules_sleep_prepare(sleep_flags, deep_sleep);
  
+@@ -1185,7 +1184,7 @@
+ 
+     if (should_skip_sleep) {
+         result = ESP_ERR_SLEEP_REJECT;
+-#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE && SOC_PM_CPU_RETENTION_BY_SW
++#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP && SOC_PM_CPU_RETENTION_BY_SW
+         esp_sleep_cpu_skip_retention();
+ #endif
+     } else {
 @@ -1300,11 +1299,10 @@
  #if SOC_RTC_WDT_SUPPORTED
      wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
@@ -4522,6 +4912,15 @@
              uint32_t flash_ready_waited_time_us = flash_ready_hw_waited_time_us + flash_ready_sw_waited_time_us;
              if (flash_enable_time_us > flash_ready_waited_time_us){
                  flash_enable_time_us -= flash_ready_waited_time_us;
+@@ -1500,7 +1498,7 @@
+     }
+ #endif
+ 
+-#if !CONFIG_FREERTOS_UNICORE
++#if CONFIG_SMP
+ #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+     sleep_smp_cpu_sleep_prepare();
+ #else
 @@ -1543,7 +1541,7 @@
      // Re-calibrate the RTC clock
      sleep_low_power_clock_calibration(false);
@@ -4565,6 +4964,24 @@
  
      // reset light sleep wakeup flag before a new light sleep
      s_light_sleep_wakeup = false;
+@@ -1703,7 +1696,7 @@
+         }
+         esp_set_time_from_rtc();
+     } else {
+-#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
++#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+         esp_sleep_cpu_skip_retention();
+ #endif
+     }
+@@ -1726,7 +1719,7 @@
+     esp_psram_impl_resume_from_halfsleep_mode(s_config.rtc_clk_cal_period);
+ #endif
+ 
+-#if !CONFIG_FREERTOS_UNICORE
++#if CONFIG_SMP
+     esp_ipc_isr_stall_resume();
+ #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
+     sleep_smp_cpu_wakeup_prepare();
 @@ -1818,7 +1811,7 @@
      } else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_UART4, RTC_UART4_TRIG_EN)) {
          s_config.wakeup_triggers &= ~RTC_UART4_TRIG_EN;
@@ -4733,7 +5150,7 @@
      esp_sleep_sub_mode_config(ESP_SLEEP_ANALOG_LOW_POWER_MODE, enable);
 --- a/components/esp_hw_support/sleep_retention.c
 +++ b/components/esp_hw_support/sleep_retention.c
-@@ -5,9 +5,23 @@
+@@ -5,9 +5,26 @@
   */
  
  #include <stddef.h>
@@ -4749,8 +5166,11 @@
 +static bool _retention_mutex_init = false;
 +#define _lock_init_recursive(lock) do { \
 +    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
++    *(lock) = &_retention_mutex; \
 +} while(0)
-+#define _lock_close_recursive(lock) do { } while(0)
++#define _lock_close_recursive(lock) do { \
++    *(lock) = NULL; \
++} while(0)
 +#define _lock_acquire_recursive(lock) do { \
 +    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
 +    k_mutex_lock(&_retention_mutex, K_FOREVER); \
@@ -4759,7 +5179,7 @@
  
  #include "esp_err.h"
  #include "esp_attr.h"
-@@ -347,7 +361,9 @@
+@@ -347,7 +364,9 @@
              regdma_link_dump(out, s_retention.lists[s_retention.highpri].entries[entry], entry);
          }
      }
@@ -4769,6 +5189,37 @@
      _lock_release_recursive(&s_retention.lock);
  }
  
+@@ -790,7 +809,6 @@
+ 
+     if (do_lock_release) {
+         _lock_close_recursive(&s_retention.lock);
+-        s_retention.lock = NULL;
+     }
+     return err;
+ }
+--- a/components/esp_hw_support/sleep_system_peripheral.c
++++ b/components/esp_hw_support/sleep_system_peripheral.c
+@@ -166,8 +166,7 @@
+     return err;
+ }
+ 
+-#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
+-ESP_SYSTEM_INIT_FN(sleep_sys_periph_startup_init, SECONDARY, BIT(0), 107)
++esp_err_t sleep_sys_periph_startup_init(void)
+ {
+     sleep_retention_module_init_param_t init_param = {
+         .cbs = { .create = { .handle = sleep_sys_periph_retention_init, .arg = NULL } },
+@@ -180,9 +179,8 @@
+             ESP_LOGW(TAG, "failed to allocate sleep retention linked list for system peripherals retention");
+         }
+     }
+-    return ESP_OK;
++    return err;
+ }
+-#endif
+ 
+ /**
+  * @brief Dummy function used to force linking this file.
 --- a/components/esp_hw_support/sleep_wake_stub.c
 +++ b/components/esp_hw_support/sleep_wake_stub.c
 @@ -7,7 +7,7 @@
