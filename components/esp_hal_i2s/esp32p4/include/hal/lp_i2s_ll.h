@@ -658,7 +658,7 @@ static inline void lp_i2s_ll_rx_enable_msb_shift(lp_i2s_dev_t *hw, bool msb_shif
 static inline void lp_i2s_ll_read_buffer(lp_i2s_dev_t *hw, void *buffer_to_rcv, size_t byte_len)
 {
     for (int i = 0; i < byte_len; i += 4) {
-        *(uint32_t *)(buffer_to_rcv + i) = *((uint32_t *)LP_I2S_RAM_BASE);
+        *(uint32_t *)((uint8_t *)buffer_to_rcv + i) = *((uint32_t *)LP_I2S_RAM_BASE);
     }
 }
 
@@ -673,7 +673,7 @@ static inline void lp_i2s_ll_write_buffer(lp_i2s_dev_t *hw, const void *buffer_t
 {
     for (int i = 0; i < byte_len; i += 4) {
         //Use memcpy to get around alignment issues for txdata
-        *((uint32_t *)LP_I2S_RAM_BASE) = *(uint32_t *)(buffer_to_send + i);
+        *((uint32_t *)LP_I2S_RAM_BASE) = *(const uint32_t *)((const uint8_t *)buffer_to_send + i);
     }
 }
 

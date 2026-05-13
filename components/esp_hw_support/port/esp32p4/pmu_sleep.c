@@ -216,7 +216,7 @@ const pmu_sleep_config_t* pmu_sleep_config_default(
             analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
         }
         power_default.hp_sys.dig_power.dcdc_switch_pd_en = 0;
-        analog_default.hp_sys.analog.dcm_vset = CONFIG_ESP_SLEEP_DCM_VSET_VAL_IN_SLEEP;
+        analog_default.hp_sys.analog.dcm_vset = CONFIG_ESP32_SLEEP_DCM_VSET_VAL_IN_SLEEP;
         if (sleep_flags & PMU_SLEEP_PD_VDDSDIO) {
             analog_default.hp_sys.analog.xpd_0p1a = 0;
         } else {
@@ -449,10 +449,10 @@ SPM_IRAM_ATTR uint32_t pmu_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt,
     }
 
 
-#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
     // Disable PSRAM chip power supply
     if (dslp) {
-        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), false);
+        ldo_ll_enable(LDO_ID2UNIT(2), false);
     }
 #endif
 
@@ -470,9 +470,9 @@ SPM_IRAM_ATTR uint32_t pmu_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt,
     }
 
     if (dslp) {
-#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
         // Enable PSRAM chip power supply after deepsleep request rejected
-        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), true);
+        ldo_ll_enable(LDO_ID2UNIT(2), true);
 #endif
 #if CONFIG_P4_REV3_MSPI_CRASH_AFTER_POWER_UP_WORKAROUND
         if (efuse_hal_chip_revision() == 300) {

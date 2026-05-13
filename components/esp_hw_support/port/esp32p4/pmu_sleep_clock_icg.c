@@ -144,7 +144,7 @@ static esp_err_t sleep_clock_icg_init(void *arg)
     return ESP_OK;
 }
 
-ESP_SYSTEM_INIT_FN(sleep_clock_icg_startup_init, SECONDARY, BIT(0), 106)
+esp_err_t sleep_clock_icg_startup_init(void)
 {
     sleep_clock_icg_init_args_t init_args = { .config = clock_icg_config, .size = ARRAY_SIZE(clock_icg_config) };
     sleep_retention_module_init_param_t clock_icg_init_param = {

@@ -6,7 +6,6 @@
 
 #include "soc/soc.h"
 #include "rvsleep-frames.h"
-#include "freertos/FreeRTOSConfig.h"
 #include "sdkconfig.h"
 
 #include "soc/cache_reg.h"
@@ -19,7 +18,7 @@
     .type       rv_core_critical_regs_frame,@object
     .align      4
 rv_core_critical_regs_frame:
-    .rept (portNUM_PROCESSORS)
+    .rept (CONFIG_MP_MAX_NUM_CPUS)
     .word       0
     .endr
 

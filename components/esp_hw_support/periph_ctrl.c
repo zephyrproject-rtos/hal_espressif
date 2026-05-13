@@ -31,6 +31,8 @@
 #include <zephyr/dt-bindings/clock/esp32c6_clock.h>
 #elif defined(CONFIG_SOC_SERIES_ESP32H2)
 #include <zephyr/dt-bindings/clock/esp32h2_clock.h>
+#elif defined(CONFIG_SOC_SERIES_ESP32P4)
+#include <zephyr/dt-bindings/clock/esp32p4_clock.h>
 #endif
 
 #include <hal/uart_ll.h>
@@ -57,14 +59,21 @@
 #if SOC_MCPWM_SUPPORTED
 #include <hal/mcpwm_ll.h>
 #endif
+#if SOC_RMT_SUPPORTED
+#include <hal/rmt_ll.h>
+#endif
 #if SOC_I2S_SUPPORTED
 #include <hal/i2s_ll.h>
 #endif
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
 #include <hal/usb_serial_jtag_ll.h>
 #endif
+#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
+#include <hal/usb_utmi_ll.h>
+#endif
 #if SOC_SDMMC_HOST_SUPPORTED
 #include <hal/sdmmc_ll.h>
+#include <hal/clk_gate_ll.h>
 #endif
 #if SOC_EMAC_SUPPORTED
 #include <hal/emac_ll.h>
@@ -204,6 +213,24 @@ void non_shared_periph_module_enable(int periph)
         uart_ll_reset_register(1);
         break;
 #endif
+#if defined(ESP32_UART2_MODULE) && ESP32_UART2_MODULE >= 100
+    case ESP32_UART2_MODULE:
+        uart_ll_enable_bus_clock(2, true);
+        uart_ll_reset_register(2);
+        break;
+#endif
+#if defined(ESP32_UART3_MODULE) && ESP32_UART3_MODULE >= 100
+    case ESP32_UART3_MODULE:
+        uart_ll_enable_bus_clock(3, true);
+        uart_ll_reset_register(3);
+        break;
+#endif
+#if defined(ESP32_UART4_MODULE) && ESP32_UART4_MODULE >= 100
+    case ESP32_UART4_MODULE:
+        uart_ll_enable_bus_clock(4, true);
+        uart_ll_reset_register(4);
+        break;
+#endif
     case ESP32_I2C0_MODULE:
         i2c_ll_enable_bus_clock(0, true);
         i2c_ll_reset_register(0);
@@ -271,6 +298,14 @@ void non_shared_periph_module_enable(int periph)
         twai_ll_enable_clock(1, true);
         break;
 #endif
+#ifdef ESP32_TWAI2_MODULE
+    case ESP32_TWAI2_MODULE:
+        twai_ll_enable_bus_clock(2, true);
+        twai_ll_reset_register(2);
+        twai_ll_set_clock_source(2, TWAI_CLK_SRC_DEFAULT);
+        twai_ll_enable_clock(2, true);
+        break;
+#endif
 #endif /* SOC_TWAI_SUPPORTED */
 #ifdef ESP32_SPI_DMA_MODULE
     case ESP32_SPI_DMA_MODULE:
@@ -294,6 +329,12 @@ void non_shared_periph_module_enable(int periph)
     case ESP32_MCPWM0_MODULE:
         mcpwm_ll_enable_bus_clock(0, true);
         mcpwm_ll_reset_register(0);
+        break;
+#endif
+#ifdef ESP32_MCPWM1_MODULE
+    case ESP32_MCPWM1_MODULE:
+        mcpwm_ll_enable_bus_clock(1, true);
+        mcpwm_ll_reset_register(1);
         break;
 #endif
 #ifdef ESP32_PWM0_MODULE
@@ -333,7 +374,21 @@ void non_shared_periph_module_enable(int periph)
         i2s_ll_reset_register(1);
         break;
 #endif
+#ifdef ESP32_I2S2_MODULE
+    case ESP32_I2S2_MODULE:
+        i2s_ll_enable_bus_clock(2, true);
+        i2s_ll_reset_register(2);
+        break;
+#endif
 #endif /* SOC_I2S_SUPPORTED */
+#if SOC_RMT_SUPPORTED
+#ifdef ESP32_RMT_MODULE
+    case ESP32_RMT_MODULE:
+        rmt_ll_enable_bus_clock(0, true);
+        rmt_ll_reset_register(0);
+        break;
+#endif
+#endif
 #if SOC_AES_SUPPORTED
 #ifdef ESP32_AES_MODULE
 #if ESP32_AES_MODULE >= 100
@@ -364,11 +419,22 @@ void non_shared_periph_module_enable(int periph)
         break;
 #endif
 #endif
+#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
+#ifdef ESP32_USB_OTG_MODULE
+    case ESP32_USB_OTG_MODULE:
+        _usb_utmi_ll_enable_bus_clock(true);
+        _usb_utmi_ll_reset_register();
+        break;
+#endif
+#endif
 #if SOC_SDMMC_HOST_SUPPORTED
 #ifdef ESP32_SDMMC_MODULE
     case ESP32_SDMMC_MODULE:
         sdmmc_ll_enable_bus_clock(0, true);
         sdmmc_ll_reset_register(0);
+#if defined(CONFIG_SOC_SERIES_ESP32P4)
+        _clk_gate_ll_ref_160m_clk_en(true);
+#endif
         break;
 #endif
 #endif
@@ -510,6 +576,21 @@ void non_shared_periph_module_disable(int periph)
         uart_ll_enable_bus_clock(1, false);
         break;
 #endif
+#if defined(ESP32_UART2_MODULE) && ESP32_UART2_MODULE >= 100
+    case ESP32_UART2_MODULE:
+        uart_ll_enable_bus_clock(2, false);
+        break;
+#endif
+#if defined(ESP32_UART3_MODULE) && ESP32_UART3_MODULE >= 100
+    case ESP32_UART3_MODULE:
+        uart_ll_enable_bus_clock(3, false);
+        break;
+#endif
+#if defined(ESP32_UART4_MODULE) && ESP32_UART4_MODULE >= 100
+    case ESP32_UART4_MODULE:
+        uart_ll_enable_bus_clock(4, false);
+        break;
+#endif
     case ESP32_I2C0_MODULE:
         i2c_ll_enable_bus_clock(0, false);
         break;
@@ -561,6 +642,11 @@ void non_shared_periph_module_disable(int periph)
         twai_ll_enable_bus_clock(1, false);
         break;
 #endif
+#ifdef ESP32_TWAI2_MODULE
+    case ESP32_TWAI2_MODULE:
+        twai_ll_enable_bus_clock(2, false);
+        break;
+#endif
 #endif /* SOC_TWAI_SUPPORTED */
 #ifdef ESP32_SPI_DMA_MODULE
     case ESP32_SPI_DMA_MODULE:
@@ -580,6 +666,11 @@ void non_shared_periph_module_disable(int periph)
 #ifdef ESP32_MCPWM0_MODULE
     case ESP32_MCPWM0_MODULE:
         mcpwm_ll_enable_bus_clock(0, false);
+        break;
+#endif
+#ifdef ESP32_MCPWM1_MODULE
+    case ESP32_MCPWM1_MODULE:
+        mcpwm_ll_enable_bus_clock(1, false);
         break;
 #endif
 #ifdef ESP32_PWM0_MODULE
@@ -613,7 +704,19 @@ void non_shared_periph_module_disable(int periph)
         i2s_ll_enable_bus_clock(1, false);
         break;
 #endif
+#ifdef ESP32_I2S2_MODULE
+    case ESP32_I2S2_MODULE:
+        i2s_ll_enable_bus_clock(2, false);
+        break;
+#endif
 #endif /* SOC_I2S_SUPPORTED */
+#if SOC_RMT_SUPPORTED
+#ifdef ESP32_RMT_MODULE
+    case ESP32_RMT_MODULE:
+        rmt_ll_enable_bus_clock(0, false);
+        break;
+#endif
+#endif
 #if SOC_AES_SUPPORTED
 #ifdef ESP32_AES_MODULE
 #if ESP32_AES_MODULE >= 100
@@ -642,10 +745,20 @@ void non_shared_periph_module_disable(int periph)
         break;
 #endif
 #endif
+#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
+#ifdef ESP32_USB_OTG_MODULE
+    case ESP32_USB_OTG_MODULE:
+        _usb_utmi_ll_enable_bus_clock(false);
+        break;
+#endif
+#endif
 #if SOC_SDMMC_HOST_SUPPORTED
 #ifdef ESP32_SDMMC_MODULE
     case ESP32_SDMMC_MODULE:
         sdmmc_ll_enable_bus_clock(0, false);
+#if defined(CONFIG_SOC_SERIES_ESP32P4)
+        _clk_gate_ll_ref_160m_clk_en(false);
+#endif
         break;
 #endif
 #endif

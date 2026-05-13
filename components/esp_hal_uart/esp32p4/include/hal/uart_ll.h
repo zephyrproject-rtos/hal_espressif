@@ -1704,6 +1704,11 @@ FORCE_INLINE_ATTR void uart_ll_discard_error_data(uart_dev_t *hw, bool discard)
     uart_ll_update(hw);
 }
 
+FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
+}
+
 #ifdef __cplusplus
 }
 #endif
