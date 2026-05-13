@@ -3,6 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+/* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( longjmp = 0x4fc00330 );
+PROVIDE ( setjmp = 0x4fc00334 );
+/*******************************************/
+
+/* Functions */
 esp_rom_newlib_init_common_mutexes = 0x4fc00264;
 memset = 0x4fc00268;
 strlen = 0x4fc00288;
@@ -44,8 +50,6 @@ strsep = 0x4fc00320;
 strspn = 0x4fc00324;
 strtok_r = 0x4fc00328;
 strupr = 0x4fc0032c;
-longjmp = 0x4fc00330;
-setjmp = 0x4fc00334;
 abs = 0x4fc00338;
 div = 0x4fc0033c;
 labs = 0x4fc00340;

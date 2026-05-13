@@ -534,7 +534,7 @@ uint32_t rtc_clk_apb_freq_get(void)
         denominator = 1;
         numerator = 0;
     }
-    uint32_t cpu_freq_hz = source_freq_mhz * MHZ * denominator / (integer * denominator + numerator);
+    uint32_t cpu_freq_hz = source_freq_mhz * MHZ(1) * denominator / (integer * denominator + numerator);
     uint32_t mem_freq_hz = cpu_freq_hz / clk_ll_mem_get_divider();
     uint32_t sys_freq_hz = mem_freq_hz / clk_ll_sys_get_divider();
     return sys_freq_hz / clk_ll_apb_get_divider();
@@ -586,21 +586,18 @@ uint32_t rtc_clk_apll_coeff_calc(uint32_t freq, uint32_t *_o_div, uint32_t *_sdm
         }
     }
     // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
-    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ)) - 4;
+    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ(1))) - 4;
     // numrator = (((o_div + 2) * 2) * apll_freq / xtal_freq) - 4 - sdm2
-    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ)) - 4 - sdm2;
+    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ(1))) - 4 - sdm2;
     // If numrator is bigger than 255/256 + 255/65536 + (1/65536)/2 = 1 - (1 / 65536)/2, carry bit to sdm2
-    if (numrator > 1.0 - (1.0 / 65536.0) / 2.0) {
+    if (numrator > 1.0f - (1.0f / 65536.0f) / 2.0f) {
         sdm2++;
     }
-    // If numrator is smaller than (1/65536)/2, keep sdm0 = sdm1 = 0, otherwise calculate sdm0 and sdm1
-    else if (numrator > (1.0 / 65536.0) / 2.0) {
-        // Get the closest sdm1
-        sdm1 = (int)(numrator * 65536.0 + 0.5) / 256;
-        // Get the closest sdm0
-        sdm0 = (int)(numrator * 65536.0 + 0.5) % 256;
+    else if (numrator > (1.0f / 65536.0f) / 2.0f) {
+        sdm1 = (int)(numrator * 65536.0f + 0.5f) / 256;
+        sdm0 = (int)(numrator * 65536.0f + 0.5f) % 256;
     }
-    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) / (((float)o_div + 2) * 2));
+    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ(1) * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) / (((float)o_div + 2) * 2));
     *_o_div = o_div;
     *_sdm0 = sdm0;
     *_sdm1 = sdm1;
