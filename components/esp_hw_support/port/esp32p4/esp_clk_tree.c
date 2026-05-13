@@ -35,7 +35,7 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
         break;
     case SOC_MOD_CLK_SYS:
         clk_src_freq = clk_hal_sys_get_freq_hz();
@@ -44,34 +44,34 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_apb_get_freq_hz();
         break;
     case SOC_MOD_CLK_PLL_F20M:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F120M:
-        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_CPLL:
-        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_SPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_MPLL:
-        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_APLL:
         clk_src_freq = clk_hal_apll_get_freq_hz();
         break;
     case SOC_MOD_CLK_SDIO_PLL:
-        clk_src_freq = CLK_LL_PLL_SDIO_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_SDIO_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -88,10 +88,10 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
         break;
     case SOC_MOD_CLK_LP_PLL:
-        clk_src_freq = clk_ll_lp_pll_get_freq_mhz() * MHZ;
+        clk_src_freq = clk_ll_lp_pll_get_freq_mhz() * MHZ(1);
         break;
     default:
         break;

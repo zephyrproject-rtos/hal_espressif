@@ -396,7 +396,7 @@ esp_err_t emac_hal_ptp_start(emac_hal_context_t *hal, const emac_hal_ptp_config_
          * ———————————— = ————————————— ==> Increment = ————————————— ≈ —————————
          *   Increment        2^31                           10^9         0.465
          */
-        base_increment = config->ptp_req_accuracy_ns / 0.465;
+        base_increment = config->ptp_req_accuracy_ns / 0.465f;
     }
     emac_ll_set_ts_sub_second_incre_val(hal->ptp_regs, base_increment);
     /* Set Update Mode */
