@@ -15,11 +15,11 @@
 #include "random.h"
 #include "sha256.h"
 
-#include "mbedtls/ecp.h"
+#include "mbedtls/private/ecp.h"
 #include "mbedtls/md.h"
-#include "mbedtls/bignum.h"
+#include "mbedtls/private/bignum.h"
 #include "mbedtls/nist_kw.h"
-#include "mbedtls/pkcs5.h"
+#include "mbedtls/private/pkcs5.h"
 
 #include "common.h"
 #include "utils/wpabuf.h"

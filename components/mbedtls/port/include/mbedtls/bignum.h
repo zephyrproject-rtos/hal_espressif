@@ -5,13 +5,8 @@
  */
 #pragma once
 
-/* Zephyr ships mbedtls 3.6.5, which does not expose mbedtls/private/bignum.h.
- * Upstream ESP-IDF uses #include_next "mbedtls/private/bignum.h" with
- * MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS. When Zephyr upgrades to a mbedtls
- * version that provides the private/ namespace, revert this to the upstream
- * form.
- */
-#include_next "mbedtls/bignum.h"
+/* TF-PSA-Crypto exposes legacy MPI declarations under mbedtls/private/. */
+#include_next "mbedtls/private/bignum.h"
 #include "sdkconfig.h"
 
 /**

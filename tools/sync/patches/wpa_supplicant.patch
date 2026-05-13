@@ -1,15 +1,50 @@
+--- a/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c
++++ b/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c
+@@ -5,7 +5,7 @@
+  */
+ #define MBEDTLS_ALLOW_PRIVATE_ACCESS
+ #include "esp_system.h"
+-#include "mbedtls/bignum.h"
++#include "mbedtls/private/bignum.h"
+ #include "mbedtls/esp_mbedtls_random.h"
+ #include "soc/soc_caps.h"
+ 
 --- a/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls.c
-@@ -19,6 +19,7 @@
+@@ -15,10 +15,11 @@
+ #include "random.h"
+ #include "sha256.h"
+ 
+-#include "mbedtls/ecp.h"
++#include "mbedtls/private/ecp.h"
  #include "mbedtls/md.h"
- #include "mbedtls/bignum.h"
+-#include "mbedtls/bignum.h"
++#include "mbedtls/private/bignum.h"
  #include "mbedtls/nist_kw.h"
-+#include "mbedtls/pkcs5.h"
++#include "mbedtls/private/pkcs5.h"
  
  #include "common.h"
  #include "utils/wpabuf.h"
 --- a/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-ec.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-ec.c
+@@ -8,7 +8,7 @@
+ 
+ #include "esp_system.h"
+ #include "esp_random.h"
+-#include "mbedtls/bignum.h"
++#include "mbedtls/private/bignum.h"
+ #include "mbedtls/esp_mbedtls_random.h"
+ #if CONFIG_MBEDTLS_HARDWARE_ECC
+ #include "ecc_impl.h"
+@@ -20,7 +20,7 @@
+ #include "sha256.h"
+ #include "random.h"
+ 
+-#include "mbedtls/ecp.h"
++#include "mbedtls/private/ecp.h"
+ #include "mbedtls/pk.h"
+ #include "mbedtls/asn1write.h"
+ #include "mbedtls/error.h"
 @@ -1542,11 +1542,13 @@
  static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bits)
  {
@@ -274,6 +309,15 @@
  
 --- a/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include "mbedtls/bignum.h"
++#include "mbedtls/private/bignum.h"
+ #include "mbedtls/esp_mbedtls_random.h"
+ 
+ #include "utils/includes.h"
 @@ -20,7 +20,10 @@
  // #include "mbedtls/ctr_drbg.h"
  
