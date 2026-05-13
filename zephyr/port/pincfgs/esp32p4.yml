@@ -1,0 +1,341 @@
+# Copyright (c) 2026 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+# Notes:
+# - ESP32-P4 has 55 GPIO pads (0-54)
+# - Some pads may be reserved for flash/PSRAM depending on package
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 54]]
+  rts:
+    sigo: u0rts_out
+    gpio: [[0, 54]]
+  cts:
+    sigi: u0cts_in
+    gpio: [[0, 54]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 54]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 54]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 54]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 54]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 54]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 54]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 54]]
+
+uart2:
+  tx:
+    sigo: u2txd_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: u2rxd_in
+    gpio: [[0, 54]]
+  rts:
+    sigo: u2rts_out
+    gpio: [[0, 54]]
+  cts:
+    sigi: u2cts_in
+    gpio: [[0, 54]]
+  dtr:
+    sigo: u2dtr_out
+    gpio: [[0, 54]]
+  dsr:
+    sigi: u2dsr_in
+    gpio: [[0, 54]]
+
+uart3:
+  tx:
+    sigo: u3txd_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: u3rxd_in
+    gpio: [[0, 54]]
+  rts:
+    sigo: u3rts_out
+    gpio: [[0, 54]]
+  cts:
+    sigi: u3cts_in
+    gpio: [[0, 54]]
+  dtr:
+    sigo: u3dtr_out
+    gpio: [[0, 54]]
+  dsr:
+    sigi: u3dsr_in
+    gpio: [[0, 54]]
+
+uart4:
+  tx:
+    sigo: u4txd_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: u4rxd_in
+    gpio: [[0, 54]]
+  rts:
+    sigo: u4rts_out
+    gpio: [[0, 54]]
+  cts:
+    sigi: u4cts_in
+    gpio: [[0, 54]]
+  dtr:
+    sigo: u4dtr_out
+    gpio: [[0, 54]]
+  dsr:
+    sigi: u4dsr_in
+    gpio: [[0, 54]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 54]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 54]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 54]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 54]]
+
+spim3:
+  miso:
+    sigi: spi3_q_in
+    gpio: [[0, 54]]
+  mosi:
+    sigo: spi3_d_out
+    gpio: [[0, 54]]
+  sclk:
+    sigo: spi3_ck_out
+    gpio: [[0, 54]]
+  csel:
+    sigo: spi3_cs_out
+    gpio: [[0, 54]]
+
+i2c0:
+  sda:
+    sigo: i2cext0_sda_out
+    sigi: i2cext0_sda_in
+    gpio: [[0, 54]]
+  scl:
+    sigo: i2cext0_scl_out
+    sigi: i2cext0_scl_in
+    gpio: [[0, 54]]
+
+i2c1:
+  sda:
+    sigo: i2cext1_sda_out
+    sigi: i2cext1_sda_in
+    gpio: [[0, 54]]
+  scl:
+    sigo: i2cext1_scl_out
+    sigi: i2cext1_scl_in
+    gpio: [[0, 54]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 54]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 54]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 54]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 54]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 54]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 54]]
+  ch6:
+    sigo: ledc_ls_sig_out6
+    gpio: [[0, 54]]
+  ch7:
+    sigo: ledc_ls_sig_out7
+    gpio: [[0, 54]]
+
+mcpwm0:
+  out0a:
+    sigo: pwm0_ch0_a_out
+    gpio: [[0, 54]]
+  out0b:
+    sigo: pwm0_ch0_b_out
+    gpio: [[0, 54]]
+  out1a:
+    sigo: pwm0_ch1_a_out
+    gpio: [[0, 54]]
+  out1b:
+    sigo: pwm0_ch1_b_out
+    gpio: [[0, 54]]
+  out2a:
+    sigo: pwm0_ch2_a_out
+    gpio: [[0, 54]]
+  out2b:
+    sigo: pwm0_ch2_b_out
+    gpio: [[0, 54]]
+  sync0:
+    sigi: pwm0_sync0_in
+    gpio: [[0, 54]]
+  sync1:
+    sigi: pwm0_sync1_in
+    gpio: [[0, 54]]
+  sync2:
+    sigi: pwm0_sync2_in
+    gpio: [[0, 54]]
+  fault0:
+    sigi: pwm0_f0_in
+    gpio: [[0, 54]]
+  fault1:
+    sigi: pwm0_f1_in
+    gpio: [[0, 54]]
+  fault2:
+    sigi: pwm0_f2_in
+    gpio: [[0, 54]]
+  cap0:
+    sigi: pwm0_cap0_in
+    gpio: [[0, 54]]
+  cap1:
+    sigi: pwm0_cap1_in
+    gpio: [[0, 54]]
+  cap2:
+    sigi: pwm0_cap2_in
+    gpio: [[0, 54]]
+
+i2s0:
+  o_bck:
+    sigo: i2s0_o_bck_out
+    sigi: i2s0_o_bck_in
+    gpio: [[0, 54]]
+  o_ws:
+    sigo: i2s0_o_ws_out
+    sigi: i2s0_o_ws_in
+    gpio: [[0, 54]]
+  o_sd:
+    sigo: i2s0_o_sd_out
+    gpio: [[0, 54]]
+  i_sd:
+    sigi: i2s0_i_sd_in
+    gpio: [[0, 54]]
+  i_bck:
+    sigo: i2s0_i_bck_out
+    sigi: i2s0_i_bck_in
+    gpio: [[0, 54]]
+  i_ws:
+    sigo: i2s0_i_ws_out
+    sigi: i2s0_i_ws_in
+    gpio: [[0, 54]]
+  mclk:
+    sigo: i2s0_mclk_out
+    sigi: i2s0_mclk_in
+    gpio: [[0, 54]]
+
+i2s1:
+  o_bck:
+    sigo: i2s1_o_bck_out
+    sigi: i2s1_o_bck_in
+    gpio: [[0, 54]]
+  o_ws:
+    sigo: i2s1_o_ws_out
+    sigi: i2s1_o_ws_in
+    gpio: [[0, 54]]
+  o_sd:
+    sigo: i2s1_o_sd_out
+    gpio: [[0, 54]]
+  i_sd:
+    sigi: i2s1_i_sd_in
+    gpio: [[0, 54]]
+  i_bck:
+    sigo: i2s1_i_bck_out
+    sigi: i2s1_i_bck_in
+    gpio: [[0, 54]]
+  i_ws:
+    sigo: i2s1_i_ws_out
+    sigi: i2s1_i_ws_in
+    gpio: [[0, 54]]
+  mclk:
+    sigo: i2s1_mclk_out
+    sigi: i2s1_mclk_in
+    gpio: [[0, 54]]
+
+twai0:
+  tx:
+    sigo: twai0_tx_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: twai0_rx_in
+    gpio: [[0, 54]]
+
+twai1:
+  tx:
+    sigo: twai1_tx_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: twai1_rx_in
+    gpio: [[0, 54]]
+
+twai2:
+  tx:
+    sigo: twai2_tx_out
+    gpio: [[0, 54]]
+  rx:
+    sigi: twai2_rx_in
+    gpio: [[0, 54]]
+
+smi:
+  mdc:
+    sigo: emac_mdc_o
+    gpio: [[0, 54]]
+  mdio:
+    sigi: emac_mdi_i
+    sigo: emac_mdo_o
+    gpio: [[0, 54]]
+
+sdhc1:
+  clkout:
+    sigo: sd_card_cclk_2_out
+    gpio: [[0, 54]]
+  cmd:
+    sigi: sd_card_ccmd_2_in
+    sigo: sd_card_ccmd_2_out
+    gpio: [[0, 54]]
+  data0:
+    sigi: sd_card_cdata0_2_in
+    sigo: sd_card_cdata0_2_out
+    gpio: [[0, 54]]
+  data1:
+    sigi: sd_card_cdata1_2_in
+    sigo: sd_card_cdata1_2_out
+    gpio: [[0, 54]]
+  data2:
+    sigi: sd_card_cdata2_2_in
+    sigo: sd_card_cdata2_2_out
+    gpio: [[0, 54]]
+  data3:
+    sigi: sd_card_cdata3_2_in
+    sigo: sd_card_cdata3_2_out
+    gpio: [[0, 54]]
