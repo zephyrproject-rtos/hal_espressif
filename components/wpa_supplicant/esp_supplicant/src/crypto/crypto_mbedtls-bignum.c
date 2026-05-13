@@ -5,7 +5,7 @@
  */
 #define MBEDTLS_ALLOW_PRIVATE_ACCESS
 #include "esp_system.h"
-#include "mbedtls/bignum.h"
+#include "mbedtls/private/bignum.h"
 #include "mbedtls/esp_mbedtls_random.h"
 #include "soc/soc_caps.h"
 

@@ -8,7 +8,7 @@
 
 #include "esp_system.h"
 #include "esp_random.h"
-#include "mbedtls/bignum.h"
+#include "mbedtls/private/bignum.h"
 #include "mbedtls/esp_mbedtls_random.h"
 #if CONFIG_MBEDTLS_HARDWARE_ECC
 #include "ecc_impl.h"
@@ -20,7 +20,7 @@
 #include "sha256.h"
 #include "random.h"
 
-#include "mbedtls/ecp.h"
+#include "mbedtls/private/ecp.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/asn1write.h"
 #include "mbedtls/error.h"
