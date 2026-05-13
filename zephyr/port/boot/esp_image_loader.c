@@ -18,15 +18,21 @@
 	!defined(CONFIG_SOC_SERIES_ESP32C3) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32C5) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32C6) &&	\
-	!defined(CONFIG_SOC_SERIES_ESP32H2)
+	!defined(CONFIG_SOC_SERIES_ESP32H2) &&	\
+	!defined(CONFIG_SOC_SERIES_ESP32P4)
 #include "soc/dport_reg.h"
 #endif
 
 #include "esp_rom_sys.h"
+#include "soc/soc_caps.h"
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
+#include "hal/cache_ll.h"
+#include "hal/cache_types.h"
+#endif
 #include "soc/gpio_periph.h"
 #include "soc/rtc_periph.h"
 #if !defined(CONFIG_SOC_SERIES_ESP32C5) && !defined(CONFIG_SOC_SERIES_ESP32C6) && \
-	!defined(CONFIG_SOC_SERIES_ESP32H2)
+	!defined(CONFIG_SOC_SERIES_ESP32H2) && !defined(CONFIG_SOC_SERIES_ESP32P4)
 #include "soc/rtc_cntl_reg.h"
 #endif
 #include "esp_cpu.h"
@@ -55,6 +61,9 @@
 #define LP_RTC_PREFIX "LP"
 #elif CONFIG_SOC_SERIES_ESP32H2
 #include "esp32h2/rom/uart.h"
+#define LP_RTC_PREFIX "LP"
+#elif CONFIG_SOC_SERIES_ESP32P4
+#include "esp32p4/rom/uart.h"
 #define LP_RTC_PREFIX "LP"
 #endif
 
@@ -194,6 +203,18 @@ void esp_app_image_load(int image_index, int slot,
                  load_header.iram_size, load_header.iram_size);
     load_segment(fap, load_header.iram_flash_offset,
                  load_header.iram_size, load_header.iram_dest_addr);
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
+    /*
+     * On SoCs where internal SRAM is accessed via L1 cache (e.g. ESP32-P4),
+     * the memcpy above writes through the D-cache so the freshly loaded
+     * segments may live in dirty D-cache lines that have not yet been
+     * pushed to physical SRAM. The CPU will fetch the app's instructions
+     * via the I-cache, which reads physical SRAM and would see stale data.
+     * Writeback the D-cache so the I-cache fetch sees the loaded image.
+     */
+    cache_ll_writeback_all(CACHE_LL_LEVEL_INT_MEM, CACHE_TYPE_DATA, CACHE_LL_ID_ALL);
+#endif
 
     uart_tx_wait_idle(0);
 
