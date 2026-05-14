@@ -322,6 +322,21 @@ apply_patches() {
     fi
 }
 
+gen_kconfig_stubs() {
+    log_info "Generating Kconfig SOC caps stubs..."
+
+    cd "${HAL_ESPRESSIF_DIR}"
+
+    python3 "${HAL_ESPRESSIF_DIR}/zephyr/scripts/kconfig/gen_kconfig_soc_caps_stubs.py"
+
+    if ! git diff --quiet -- zephyr/Kconfig.soc_caps_stubs 2>/dev/null; then
+        git add zephyr/Kconfig.soc_caps_stubs
+        log_info "Kconfig stubs updated and staged"
+    else
+        log_info "Kconfig stubs unchanged"
+    fi
+}
+
 update_blobs() {
     log_info "Updating blob references..."
 
@@ -1021,6 +1036,7 @@ main() {
             ;;
         --continue)
             apply_renames
+            gen_kconfig_stubs
             commit_renames
             log_info "Sync complete! Review with: git status && git diff --staged"
             ;;
@@ -1046,12 +1062,14 @@ main() {
             apply_patches
             update_blobs
             apply_renames
+            gen_kconfig_stubs
             commit_renames
             log_info "Sync complete! Review with: git status && git diff --staged"
             ;;
         --patches-only)
             apply_patches
             apply_renames
+            gen_kconfig_stubs
             commit_renames
             log_info "Sync complete! Review with: git status && git diff --staged"
             ;;
@@ -1065,6 +1083,7 @@ main() {
             apply_patches
             update_blobs
             apply_renames
+            gen_kconfig_stubs
             commit_renames
             log_info "Sync complete! Review with: git status && git diff --staged"
             ;;
