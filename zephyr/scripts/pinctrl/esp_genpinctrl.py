@@ -31,6 +31,9 @@ file_out_head = (
 #ifndef ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
 #define ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
 
+#include "esp-pinctrl-common.h"
+#include "{soc}-gpio-sigmap.h"
+
 /**
  * @addtogroup espressif_pinctrl Espressif pin control helpers
  * @ingroup devicetree-pinctrl
@@ -46,9 +49,7 @@ file_out_head = (
  * mapped to `GPIO1`.
  *
  * @code{.dts}
- * #include <zephyr/dt-bindings/pinctrl/esp-pinctrl-common.h>
  * #include <zephyr/dt-bindings/pinctrl/{soc}-pinctrl.h>
- * #include <zephyr/dt-bindings/pinctrl/{soc}-gpio-sigmap.h>
  *
  * &pinctrl {
  *     uart0_default: uart0_default {
