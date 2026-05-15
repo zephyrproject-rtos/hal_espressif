@@ -150,6 +150,13 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/wpa_supplicant/src/eap_peer
       ../../components/wpa_supplicant/src/utils
     )
+    zephyr_include_directories_ifdef(
+      CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT
+      ${ZEPHYR_MBEDTLS_MODULE_DIR}/library
+      ${ZEPHYR_TF_PSA_CRYPTO_MODULE_DIR}/core
+      ${ZEPHYR_TF_PSA_CRYPTO_MODULE_DIR}/drivers/builtin/src
+      ${ZEPHYR_TF_PSA_CRYPTO_MODULE_DIR}/extras
+    )
   endif()
 
   zephyr_link_libraries(
@@ -485,7 +492,6 @@ if(CONFIG_SOC_SERIES_ESP32)
       )
 
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
-    #TODO: Additional WPA supplicant feature like Enterprise mode etc. are yet to be supported.
     set(WPA_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/port/os_xtensa.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/port/eloop.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/src/ap/ap_config.c"
@@ -570,23 +576,29 @@ if(CONFIG_SOC_SERIES_ESP32)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
     endif()
 
-    set(TLS_SRCS
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/bignum.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs1.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs5.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs8.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/rsa.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/tls_internal.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_read.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_write.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_common.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_cred.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_record.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_ocsp.c"
-      "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/x509v3.c"
-      )
+    if(CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT)
+      set(TLS_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/tls_mbedtls.c"
+        )
+    else()
+      set(TLS_SRCS
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/asn1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/bignum.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs1.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs5.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/pkcs8.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/rsa.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/tls_internal.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_read.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_write.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_common.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_cred.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_record.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/tlsv1_client_ocsp.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/tls/x509v3.c"
+        )
+    endif()
 
     if(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO)
       set(CRYPTO_SRCS
@@ -594,6 +606,7 @@ if(CONFIG_SOC_SERIES_ESP32)
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-bignum.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/crypto_mbedtls-ec.c"
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/crypto/fastpbkdf2.c"
          # Add internal RC4 as RC4 has been removed from mbedtls
          "${WPA_SUPPLICANT_COMPONENT_DIR}/src/crypto/rc4.c"
         )
@@ -649,6 +662,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
     zephyr_sources(
       ../../components/esp_wifi/esp32/esp_adapter.c
+      ../../components/esp_wifi/src/esp_wifi_zephyr_task.c
       ../../components/esp_coex/esp32/esp_coex_adapter.c
       ../../components/esp_wifi/src/wifi_init.c
       ../port/stubs/wifi_compat_stubs.c
@@ -682,6 +696,21 @@ if(CONFIG_SOC_SERIES_ESP32)
     zephyr_compile_definitions(CONFIG_ESP_WIFI_ENABLED)
     zephyr_compile_definitions(CONFIG_SOC_WIFI_SUPPORTED)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBEDTLS_CRYPTO CONFIG_CRYPTO_MBEDTLS)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENTERPRISE CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT CONFIG_ESP_WIFI_MBEDTLS_TLS_CLIENT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT CONFIG_MBEDTLS_TLS_ENABLED)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT CONFIG_MBEDTLS_TLS_CLIENT)
+    zephyr_compile_definitions_ifdef(CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_RSA)
+    zephyr_compile_definitions_ifdef(CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA)
+    zephyr_compile_definitions_ifdef(CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_PSK)
+    zephyr_compile_definitions_ifndef(CONFIG_ESP32_WIFI_ENTERPRISE_MBEDTLS_TLS_CLIENT CONFIG_TLS_INTERNAL_CLIENT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_GCMP_SUPPORT CONFIG_GCMP)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_GCMP_SUPPORT CONFIG_ESP_WIFI_GCMP_SUPPORT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_GMAC_SUPPORT CONFIG_GMAC)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_GMAC_SUPPORT CONFIG_ESP_WIFI_GMAC_SUPPORT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SUITE_B CONFIG_SUITEB)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SUITE_B_192 CONFIG_SUITEB192)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_BSS_MAX_IDLE_SUPPORT CONFIG_ESP_WIFI_BSS_MAX_IDLE_SUPPORT)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE CONFIG_WPA3_SAE)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_WPA3_OWE_STA CONFIG_OWE_STA)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_H2E CONFIG_SAE_H2E)

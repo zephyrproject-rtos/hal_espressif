@@ -50,6 +50,7 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 #include "esp_heap_adapter.h"
 #include "wifi/wifi_event.h"
 #include "zephyr_compat.h"
+#include "esp_wifi_zephyr_task.h"
 
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA
 #include "esp_private/esp_regdma.h"
@@ -60,9 +61,11 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 
 static void esp_wifi_free(void *mem);
 
-static void *wifi_msgq_buffer;
+struct wifi_adapter_msgq {
+    struct k_msgq msgq;
+    void *buffer;
+};
 
-static struct k_thread wifi_task_handle;
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -115,20 +118,22 @@ wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
         return NULL;
     }
 
-    wifi_msgq_buffer = wifi_malloc(queue_len * item_size);
-    if (wifi_msgq_buffer == NULL) {
+    queue->storage = wifi_malloc(queue_len * item_size);
+    if (queue->storage == NULL) {
         LOG_ERR("msg buffer allocation failed");
+        esp_wifi_free(queue);
         return NULL;
     }
 
     queue->handle = wifi_malloc(sizeof(struct k_msgq));
     if (queue->handle == NULL) {
-        esp_wifi_free(wifi_msgq_buffer);
+        esp_wifi_free(queue->storage);
+        esp_wifi_free(queue);
         LOG_ERR("queue handle allocation failed");
         return NULL;
     }
 
-    k_msgq_init((struct k_msgq *)queue->handle, wifi_msgq_buffer, item_size, queue_len);
+    k_msgq_init((struct k_msgq *)queue->handle, queue->storage, item_size, queue_len);
 
     return queue;
 }
@@ -137,6 +142,7 @@ void wifi_delete_queue(wifi_static_queue_t *queue)
 {
     if (queue) {
         esp_wifi_free(queue->handle);
+        esp_wifi_free(queue->storage);
         esp_wifi_free(queue);
     }
 }
@@ -256,14 +262,21 @@ static int32_t IRAM_ATTR mutex_unlock_wrapper(void *mutex)
 
 static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 {
-    struct k_queue *queue = (struct k_queue *)wifi_malloc(sizeof(struct k_queue));
+    struct wifi_adapter_msgq *queue = wifi_malloc(sizeof(*queue));
 
     if (queue == NULL) {
         LOG_ERR("queue malloc failed");
         return NULL;
     }
 
-    k_msgq_init((struct k_msgq *)queue, wifi_msgq_buffer, item_size, queue_len);
+    queue->buffer = wifi_malloc(queue_len * item_size);
+    if (queue->buffer == NULL) {
+        LOG_ERR("queue buffer malloc failed");
+        esp_wifi_free(queue);
+        return NULL;
+    }
+
+    k_msgq_init(&queue->msgq, queue->buffer, item_size, queue_len);
 
     return (void *)queue;
 }
@@ -271,57 +284,100 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 static void queue_delete_wrapper(void *handle)
 {
     if (handle != NULL) {
-        esp_wifi_free(handle);
+        struct wifi_adapter_msgq *queue = handle;
+
+        esp_wifi_free(queue->buffer);
+        esp_wifi_free(queue);
     }
 }
 
-static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
+static int32_t queue_send_wrapper(void *handle, void *item, uint32_t block_time_tick)
 {
-    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        k_msgq_put((struct k_msgq *)queue, item, K_FOREVER);
-    } else {
-        k_msgq_put((struct k_msgq *)queue, item, K_TICKS(block_time_tick));
+    int ret;
+
+    if (!handle) {
+        LOG_ERR("Received NULL queue handle");
+        return 0;
     }
-    return 1;
+
+    struct wifi_adapter_msgq *queue = handle;
+    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
+        ret = k_msgq_put(&queue->msgq, item, K_FOREVER);
+    } else {
+        ret = k_msgq_put(&queue->msgq, item, K_TICKS(block_time_tick));
+    }
+
+    return ret == 0 ? 1 : 0;
 }
 
-static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw)
+static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *handle, void *item, void *hptw)
 {
     int *hpt = (int *)hptw;
+    int ret;
 
-    k_msgq_put((struct k_msgq *)queue, item, K_NO_WAIT);
+    if (!handle) {
+        LOG_ERR("Received NULL queue handle");
+        return 0;
+    }
+
+    struct wifi_adapter_msgq *queue = handle;
+    ret = k_msgq_put(&queue->msgq, item, K_NO_WAIT);
     if (hpt) {
         *hpt = 0;
     }
-    return 1;
+    return ret == 0 ? 1 : 0;
 }
 
-static int32_t queue_send_to_back_wrapper(void *queue, void *item, uint32_t block_time_tick)
+static int32_t queue_send_to_back_wrapper(void *handle, void *item, uint32_t block_time_tick)
 {
-    ARG_UNUSED(queue);
-    ARG_UNUSED(item);
+    return queue_send_wrapper(handle, item, block_time_tick);
+}
+
+static int32_t queue_send_to_front_wrapper(void *handle, void *item, uint32_t block_time_tick)
+{
     ARG_UNUSED(block_time_tick);
 
-    return 0;
-}
+    int ret;
 
-static int32_t queue_send_to_front_wrapper(void *queue, void *item, uint32_t block_time_tick)
-{
-    ARG_UNUSED(queue);
-    ARG_UNUSED(item);
-    ARG_UNUSED(block_time_tick);
-
-    return 0;
-}
-
-static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_tick)
-{
-    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        k_msgq_get((struct k_msgq *)queue, item, K_FOREVER);
-    } else {
-        k_msgq_get((struct k_msgq *)queue, item, K_MSEC(block_time_tick));
+    if (!handle) {
+        LOG_ERR("Received NULL queue handle");
+        return 0;
     }
-    return 1;
+
+    struct wifi_adapter_msgq *queue = handle;
+    ret = k_msgq_put_front(&queue->msgq, item);
+
+    return ret == 0 ? 1 : 0;
+}
+
+static int32_t queue_recv_wrapper(void *handle, void *item, uint32_t block_time_tick)
+{
+    int ret;
+
+    if (!handle) {
+        LOG_ERR("Received NULL queue handle");
+        return 0;
+    }
+
+    struct wifi_adapter_msgq *queue = handle;
+    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
+        ret = k_msgq_get(&queue->msgq, item, K_FOREVER);
+    } else {
+        ret = k_msgq_get(&queue->msgq, item, K_TICKS(block_time_tick));
+    }
+
+    return ret == 0 ? 1 : 0;
+}
+
+static uint32_t queue_msg_waiting_wrapper(void *handle)
+{
+    if (!handle) {
+        LOG_ERR("Received NULL queue handle");
+        return 0;
+    }
+
+    struct wifi_adapter_msgq *queue = handle;
+    return k_msgq_num_used_get(&queue->msgq);
 }
 
 static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait_for, int clear_on_exit, int wait_for_all_bits, uint32_t block_time_tick)
@@ -339,41 +395,19 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 {
     ARG_UNUSED(core_id);
 
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
-
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      prio, K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
-
-    *(int32_t *)task_handle = (int32_t)tid;
-    return 1;
+    return esp_wifi_zephyr_task_create(task_func, name, stack_depth, param,
+                                       prio, task_handle);
 }
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
-
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      prio, K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
-
-    *(int32_t *)task_handle = (int32_t)tid;
-    return 1;
+    return esp_wifi_zephyr_task_create(task_func, name, stack_depth, param,
+                                       prio, task_handle);
 }
 
 static void task_delete_wrapper(void *handle)
 {
-    if (handle != NULL) {
-        k_thread_abort((k_tid_t)handle);
-    }
-
-    k_object_release(&wifi_task_handle);
+    esp_wifi_zephyr_task_delete(handle);
 }
 
 static void task_delay_wrapper(uint32_t ticks)
@@ -455,13 +489,6 @@ static void *IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
 static void *IRAM_ATTR zalloc_internal_wrapper(size_t size)
 {
     return k_calloc(1, size);
-}
-
-uint32_t uxQueueMessagesWaiting(void *queue)
-{
-    ARG_UNUSED(queue);
-
-    return 0;
 }
 
 void *xEventGroupCreate(void)
@@ -872,7 +899,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._queue_send_to_back = queue_send_to_back_wrapper,
     ._queue_send_to_front = queue_send_to_front_wrapper,
     ._queue_recv = queue_recv_wrapper,
-    ._queue_msg_waiting = (uint32_t (*)(void *))uxQueueMessagesWaiting,
+    ._queue_msg_waiting = queue_msg_waiting_wrapper,
     ._event_group_create = (void *(*)(void))xEventGroupCreate,
     ._event_group_delete = (void (*)(void *))vEventGroupDelete,
     ._event_group_set_bits = (uint32_t (*)(void *, uint32_t))xEventGroupSetBits,
