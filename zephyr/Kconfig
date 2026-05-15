@@ -305,3 +305,9 @@ config ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY
 endmenu # Sleep config
 
 endif # SOC_FAMILY_ESPRESSIF_ESP32
+
+# Stub definitions for all SOC_* capability symbols (auto-generated).
+# Must be outside the SOC_FAMILY guard so kconfiglib sees these symbols
+# even when no SoC is selected (e.g. during Zephyr compliance checks).
+# Real defaults come from the SOC_SERIES-guarded rsource blocks above.
+rsource "scripts/kconfig/Kconfig.soc_caps_stubs"
