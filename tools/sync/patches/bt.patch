@@ -2684,6 +2684,53 @@
  }
  
  static int IRAM_ATTR read_mac_wrapper(uint8_t mac[6])
+@@ -1356,36 +1397,36 @@
+                         BT_BLE_CCA_MODE, BLE_SECURITY_ENABLE, BT_CTRL_BLE_MASTER);
+ 
+     ble_base_funcs_reset();
+-#if CONFIG_BT_CTRL_BLE_ADV
++#if CONFIG_ESP32_BT_CTLR_LE_ADV
+     ble_42_adv_funcs_reset();
+ #if (BT_CTRL_50_FEATURE_SUPPORT == 1)
+     ble_ext_adv_funcs_reset();
+ #endif //
+-#endif // CONFIG_BT_CTRL_BLE_ADV
++#endif // CONFIG_ESP32_BT_CTLR_LE_ADV
+ 
+-#if CONFIG_BT_CTRL_DTM_ENABLE
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     ble_dtm_funcs_reset();
+-#endif // CONFIG_BT_CTRL_DTM_ENABLE
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+-#if CONFIG_BT_CTRL_BLE_SCAN
++#if CONFIG_ESP32_BT_CTLR_LE_SCAN
+     ble_scan_funcs_reset();
+ #if (BT_CTRL_50_FEATURE_SUPPORT == 1)
+     ble_ext_scan_funcs_reset();
+ #endif // (BT_CTRL_50_FEATURE_SUPPORT == 1)
+-#endif // CONFIG_BT_CTRL_BLE_SCAN
++#endif // CONFIG_ESP32_BT_CTLR_LE_SCAN
+ 
+ #if (BT_BLE_CCA_MODE != 0)
+     ble_cca_funcs_reset();
+ #endif // (BT_BLE_CCA_MODE != 0)
+ 
+-#if CONFIG_BT_CTRL_BLE_SECURITY_ENABLE
++#if CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
+     ble_enc_funcs_reset();
+-#endif // CONFIG_BT_CTRL_BLE_SECURITY_ENABLE
++#endif // CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
+ 
+-#if CONFIG_BT_CTRL_BLE_MASTER
++#if CONFIG_ESP32_BT_CTLR_LE_MASTER
+     ble_init_funcs_reset();
+     ble_con_funcs_reset();
+-#endif // CONFIG_BT_CTRL_BLE_MASTER
++#endif // CONFIG_ESP32_BT_CTLR_LE_MASTER
+ 
+ #endif // CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+ }
 @@ -1630,16 +1671,10 @@
  
  static esp_err_t try_heap_caps_add_region(intptr_t start, intptr_t end)
@@ -2735,6 +2782,113 @@
 +}
 +
  #endif /*  CONFIG_BT_ENABLED */
+--- a/components/bt/controller/esp32c5/ble.c
++++ b/components/bt/controller/esp32c5/ble.c
+@@ -37,12 +37,12 @@
+ int sync_stack_enable(void);
+ void sync_stack_disable(void);
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ int dtm_stack_initEnv(void);
+ void dtm_stack_deinitEnv(void);
+ int dtm_stack_enable(void);
+ void dtm_stack_disable(void);
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ int conn_stack_initEnv(void);
+ void conn_stack_deinitEnv(void);
+@@ -103,9 +103,9 @@
+ void extAdv_stack_setExtAdvConstantDidVsCmd(bool en);
+ #endif // DEFAULT_BT_ADV_SEND_CONSTANT_DID
+ #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
+-#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
++#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+ extern void mmgmt_enableRxbufOptFeature(void);
+-#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
++#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+ 
+ /* Local functions definition
+  ***************************************************************************
+@@ -135,9 +135,9 @@
+     adv_stack_enableScanReqRxdVsEvent(en);
+     conn_stack_enableChanMapUpdCompVsEvent(en);
+ 
+-#if CONFIG_BT_LE_SLEEP_ENABLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+     sleep_stack_enableWakeupVsEvent(en);
+-#endif // CONFIG_BT_LE_SLEEP_ENABLE
++#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+ }
+ #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
+ 
+@@ -170,12 +170,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_initEnv();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_initEnv();
+@@ -242,9 +242,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_deinitEnv();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_deinitEnv();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+     sync_stack_deinitEnv();
+     scan_stack_deinitEnv();
+@@ -282,12 +282,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_enable();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_enable();
+@@ -323,9 +323,9 @@
+     ble_stack_enableVsEvents(true);
+ #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
+ 
+-#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
++#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+     mmgmt_enableRxbufOptFeature();
+-#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
++#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+ 
+     return 0;
+ }
+@@ -350,9 +350,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_disable();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_disable();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     sync_stack_disable();
+     scan_stack_disable();
+     extAdv_stack_disable();
 --- a/components/bt/controller/esp32c5/bt.c
 +++ b/components/bt/controller/esp32c5/bt.c
 @@ -18,16 +18,16 @@
@@ -2898,6 +3052,63 @@
      return rc;
  }
  
+@@ -766,7 +775,7 @@
+ {
+     esp_err_t rc = 0;
+ 
+-#ifdef CONFIG_BT_LE_SLEEP_ENABLE
++#ifdef CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "BLE modem sleep is enabled");
+ #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
+@@ -775,7 +784,7 @@
+     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
+                                 BLE_RTC_DELAY_US_MODEM_SLEEP);
+ #endif /* FREERTOS_USE_TICKLESS_IDLE */
+-#endif // CONFIG_BT_LE_SLEEP_ENABLE
++#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+ 
+ #ifdef CONFIG_PM_ENABLE
+     rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
+@@ -783,7 +792,7 @@
+         goto error;
+     }
+ #endif // CONFIG_PM_ENABLE
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     /* Create a new regdma link for BLE related register restoration */
+     rc = sleep_modem_ble_mac_modem_state_init(0);
+     if (rc != ESP_OK) {
+@@ -803,17 +812,17 @@
+         goto error;
+     }
+ 
+-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
++#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+     return rc;
+ 
+ #ifdef CONFIG_PM_ENABLE
+ error:
+ #endif // CONFIG_PM_ENABLE
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
+     esp_sleep_disable_bt_wakeup();
+-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
++#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+ #ifdef CONFIG_PM_ENABLE
+     /*lock should release first and then delete*/
+     if (s_pm_lock != NULL) {
+@@ -827,7 +836,7 @@
+ 
+ void controller_sleep_deinit(void)
+ {
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     r_ble_rtc_wake_up_state_clr();
+     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
 @@ -893,18 +902,18 @@
  {
      uint32_t duplicate_mode = FILTER_DUPLICATE_DEFAULT;
@@ -3347,15 +3558,75 @@
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (1)
      #else
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (0)
-@@ -177,7 +177,7 @@
+@@ -177,27 +177,27 @@
      #define DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER (0)
  #endif
  
 -#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
 +#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_ESP32_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
  
- #ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
- #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
+-#ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+-#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
++#ifdef CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
++#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CONN_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CONN_UPDATE
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (1<<0)
+ #else
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (0<<0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CHAN_MAP_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CHAN_MAP_UPDATE
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
+ #else
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_PHY_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_PHY_UPDATE
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (1<<2)
+ #else
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (0<<2)
+@@ -205,26 +205,26 @@
+ 
+ #define BT_LE_CTRL_LLCP_DISC_FLAG (BT_CTRL_BLE_LLCP_CONN_UPDATE | BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE | BT_CTRL_BLE_LLCP_PHY_UPDATE)
+ 
+-#ifdef CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+-#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX)
++#ifdef CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX
++#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX)
+ #else
+ #define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (256)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
+-#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
++#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
+-#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
++#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
+ #else
+ #define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
+-#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
++#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (0)
+ #endif
 @@ -248,8 +248,8 @@
  #define HCI_UART_EN 0 // hci ram mode
  #endif
@@ -3430,6 +3701,21 @@
  #endif
 --- a/components/bt/controller/esp32c6/ble.c
 +++ b/components/bt/controller/esp32c6/ble.c
+@@ -42,12 +42,12 @@
+ int sync_stack_enable(void);
+ void sync_stack_disable(void);
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ int dtm_stack_initEnv(void);
+ void dtm_stack_deinitEnv(void);
+ int dtm_stack_enable(void);
+ void dtm_stack_disable(void);
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ int conn_stack_initEnv(void);
+ void conn_stack_deinitEnv(void);
 @@ -108,9 +108,9 @@
  void extAdv_stack_setExtAdvConstantDidVsCmd(bool en);
  #endif // DEFAULT_BT_ADV_SEND_CONSTANT_DID
@@ -3457,6 +3743,48 @@
  
  int ble_stack_initEnv(void)
  {
+@@ -175,12 +175,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_initEnv();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_initEnv();
+@@ -247,9 +247,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_deinitEnv();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_deinitEnv();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+     sync_stack_deinitEnv();
+     scan_stack_deinitEnv();
+@@ -287,12 +287,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_enable();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_enable();
 @@ -328,9 +328,9 @@
      ble_stack_enableVsEvents(true);
  #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
@@ -3469,6 +3797,18 @@
  
      return 0;
  }
+@@ -354,9 +354,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_disable();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_disable();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     sync_stack_disable();
+     scan_stack_disable();
+     extAdv_stack_disable();
 --- a/components/bt/controller/esp32c6/bt.c
 +++ b/components/bt/controller/esp32c6/bt.c
 @@ -18,7 +18,7 @@
@@ -3605,6 +3945,76 @@
      return rc;
  }
  
+@@ -826,7 +832,7 @@
+ {
+     esp_err_t rc = 0;
+ 
+-#ifdef CONFIG_BT_LE_SLEEP_ENABLE
++#ifdef CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "BLE modem sleep is enabled");
+ #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
+@@ -835,7 +841,7 @@
+     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
+                                 BLE_RTC_DELAY_US_MODEM_SLEEP);
+ #endif /* FREERTOS_USE_TICKLESS_IDLE */
+-#endif // CONFIG_BT_LE_SLEEP_ENABLE
++#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+ 
+ #ifdef CONFIG_PM_ENABLE
+     rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
+@@ -843,7 +849,7 @@
+         goto error;
+     }
+ #endif // CONFIG_PM_ENABLE
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+ #if SOC_PM_RETENTION_HAS_CLOCK_BUG && !CONFIG_MAC_BB_PD
+ #error "CONFIG_MAC_BB_PD required for BLE light sleep to run properly"
+ #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && !CONFIG_MAC_BB_PD
+@@ -874,13 +880,13 @@
+     sleep_modem_register_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
+                                                    sleep_modem_mac_bb_power_up_prepare);
+ #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
+-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
++#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+     return rc;
+ 
+ #ifdef CONFIG_PM_ENABLE
+ error:
+ #endif // CONFIG_PM_ENABLE
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+ #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
+     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
+@@ -888,7 +894,7 @@
+ #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
+     esp_sleep_disable_bt_wakeup();
+     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
+-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
++#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+ #ifdef CONFIG_PM_ENABLE
+     /*lock should release first and then delete*/
+     if (s_pm_lock != NULL) {
+@@ -902,7 +908,7 @@
+ 
+ void controller_sleep_deinit(void)
+ {
+-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
+ #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
+     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
+@@ -912,7 +918,7 @@
+     esp_sleep_disable_bt_wakeup();
+     sleep_modem_ble_mac_modem_state_deinit();
+     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
+-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
++#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+ #ifdef CONFIG_PM_ENABLE
+     /* lock should be released first */
+     esp_pm_lock_delete(s_pm_lock);
 @@ -972,18 +978,18 @@
  {
      uint32_t duplicate_mode = FILTER_DUPLICATE_DEFAULT;
@@ -4065,16 +4475,41 @@
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (1)
      #else
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (0)
-@@ -178,7 +178,7 @@
+@@ -178,27 +178,27 @@
      #define DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER (0)
  #endif
  
 -#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
 +#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_ESP32_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
  
- #ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
- #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
-@@ -206,8 +206,8 @@
+-#ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+-#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
++#ifdef CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
++#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CONN_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CONN_UPDATE
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (1<<0)
+ #else
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (0<<0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CHAN_MAP_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CHAN_MAP_UPDATE
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
+ #else
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_PHY_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_PHY_UPDATE
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (1<<2)
+ #else
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (0<<2)
+@@ -206,26 +206,26 @@
  
  #define BT_LE_CTRL_LLCP_DISC_FLAG (BT_CTRL_BLE_LLCP_CONN_UPDATE | BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE | BT_CTRL_BLE_LLCP_PHY_UPDATE)
  
@@ -4084,6 +4519,30 @@
 +#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX)
  #else
  #define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (256)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
+-#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
++#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
+-#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
++#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
+ #else
+ #define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
+-#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
++#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (0)
  #endif
 @@ -249,8 +249,8 @@
  #define HCI_UART_EN 0 // hci ram mode
@@ -4159,6 +4618,21 @@
  }
 --- a/components/bt/controller/esp32h2/ble.c
 +++ b/components/bt/controller/esp32h2/ble.c
+@@ -37,12 +37,12 @@
+ int sync_stack_enable(void);
+ void sync_stack_disable(void);
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ int dtm_stack_initEnv(void);
+ void dtm_stack_deinitEnv(void);
+ int dtm_stack_enable(void);
+ void dtm_stack_disable(void);
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_PAWR_SUPPORTED || CONFIG_BT_LE_ERROR_SIM_ENABLED
+ int ble_single_env_init(void);
 @@ -101,9 +101,9 @@
  #endif // DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER
  void extAdv_stack_setExtAdvConstantDidVsCmd(bool en);
@@ -4183,6 +4657,48 @@
  }
  #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
  
+@@ -168,12 +168,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_initEnv();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_initEnv();
+@@ -240,9 +240,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_deinitEnv();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_deinitEnv();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+     sync_stack_deinitEnv();
+     scan_stack_deinitEnv();
+@@ -280,12 +280,12 @@
+         return rc;
+     }
+ 
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     rc = dtm_stack_enable();
+     if (rc) {
+         return rc;
+     }
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+ 
+ #if DEFAULT_BT_LE_MAX_CONNECTIONS
+     rc = conn_stack_enable();
 @@ -321,9 +321,9 @@
      ble_stack_enableVsEvents(true);
  #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
@@ -4195,6 +4711,18 @@
  
      return 0;
  }
+@@ -347,9 +347,9 @@
+ #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
+     conn_stack_disable();
+ #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
+-#if CONFIG_BT_LE_DTM_ENABLED
++#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     dtm_stack_disable();
+-#endif // CONFIG_BT_LE_DTM_ENABLED
++#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+     sync_stack_disable();
+     scan_stack_disable();
+     extAdv_stack_disable();
 --- a/components/bt/controller/esp32h2/bt.c
 +++ b/components/bt/controller/esp32h2/bt.c
 @@ -18,7 +18,7 @@
@@ -4979,16 +5507,41 @@
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (1)
      #else
          #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (0)
-@@ -177,7 +177,7 @@
+@@ -177,27 +177,27 @@
      #define DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER (0)
  #endif
  
 -#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
 +#define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_ESP32_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
  
- #ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
- #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
-@@ -205,8 +205,8 @@
+-#ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+-#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
++#ifdef CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS
++#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_ESP32_BT_LE_CTLR_CHECK_CONNECT_IND_ACCESS_ADDRESS)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CONN_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CONN_UPDATE
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (1<<0)
+ #else
+ #define BT_CTRL_BLE_LLCP_CONN_UPDATE (0<<0)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_CHAN_MAP_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_CHAN_MAP_UPDATE
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
+ #else
+ #define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
+ #endif
+ 
+-#ifdef CONFIG_BT_LE_CTRL_LLCP_PHY_UPDATE
++#ifdef CONFIG_ESP32_BT_LE_CTLR_LLCP_PHY_UPDATE
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (1<<2)
+ #else
+ #define BT_CTRL_BLE_LLCP_PHY_UPDATE (0<<2)
+@@ -205,26 +205,26 @@
  
  #define BT_LE_CTRL_LLCP_DISC_FLAG (BT_CTRL_BLE_LLCP_CONN_UPDATE | BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE | BT_CTRL_BLE_LLCP_PHY_UPDATE)
  
@@ -4998,6 +5551,30 @@
 +#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX)
  #else
  #define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (256)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
+-#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_BT_LE_CTRL_CHAN_ASS_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
++#define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (CONFIG_ESP32_BT_LE_CTLR_CHAN_ASS_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_CHAN_ASS_EN (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
+-#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
++#define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (CONFIG_ESP32_BT_LE_CTLR_ADV_DATA_LENGTH_ZERO_AUX)
+ #else
+ #define DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX (0)
+ #endif
+ 
+-#if defined(CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
+-#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_BT_LE_CTRL_FAST_CONN_DATA_TX_EN)
++#if defined(CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
++#define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (CONFIG_ESP32_BT_LE_CTLR_FAST_CONN_DATA_TX_EN)
+ #else
+ #define DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN (0)
  #endif
 @@ -245,11 +245,11 @@
  #ifdef CONFIG_BT_LE_HCI_INTERFACE_USE_UART
@@ -5203,15 +5780,46 @@
  /**
   * @brief Bluetooth Controller mode
   */
-@@ -130,7 +167,7 @@
+@@ -124,15 +161,15 @@
+ #define BT_CTRL_BLE_MAX_ACT_LIMIT           10  //Maximum BLE activity limitation
+ #define SLAVE_CE_LEN_MIN_DEFAULT             5
+ 
+-#ifdef CONFIG_BT_CTRL_SCAN_DUPL_TYPE
+-#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BT_CTRL_SCAN_DUPL_TYPE
++#ifdef CONFIG_ESP32_BT_LE_SCAN_DUPL_TYPE
++#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_ESP32_BT_LE_SCAN_DUPL_TYPE
+ #else
  #define SCAN_DUPLICATE_TYPE_VALUE  0
  #endif
  
 -/* normal adv cache size */
+-#ifdef CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
+-#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
 +//normal adv cache size
- #ifdef CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
- #define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_BT_CTRL_SCAN_DUPL_CACHE_SIZE
++#ifdef CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT
++#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT
  #else
+ #define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            20
+ #endif
+@@ -156,14 +193,14 @@
+     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
+ #endif
+ 
+-#ifndef CONFIG_BT_CTRL_DUPL_SCAN_CACHE_REFRESH_PERIOD
++#ifndef CONFIG_ESP32_BT_LE_SCAN_DUPL_CACHE_REFRESH_PERIOD
+ #define DUPL_SCAN_CACHE_REFRESH_PERIOD 0
+ #else
+-#define DUPL_SCAN_CACHE_REFRESH_PERIOD CONFIG_BT_CTRL_DUPL_SCAN_CACHE_REFRESH_PERIOD
++#define DUPL_SCAN_CACHE_REFRESH_PERIOD CONFIG_ESP32_BT_LE_SCAN_DUPL_CACHE_REFRESH_PERIOD
+ #endif
+ 
+-#ifdef CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+-#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
++#ifdef CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX
++#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX CONFIG_BT_CTLR_SCAN_BACKOFF_UPPERLIMITMAX
+ #else
+ #define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX  0
+ #endif
 @@ -193,10 +230,10 @@
  #define BT_CTRL_CODED_AGC_RECORRECT        0
  #endif
@@ -5236,8 +5844,8 @@
  
 -#if defined(CONFIG_BT_BLE_CCA_MODE)
 -#define BT_BLE_CCA_MODE (CONFIG_BT_BLE_CCA_MODE)
-+#if defined(CONFIG_BT_LE_CCA_MODE)
-+#define BT_BLE_CCA_MODE (CONFIG_BT_LE_CCA_MODE)
++#if defined(CONFIG_ESP32_BT_LE_CCA_MODE)
++#define BT_BLE_CCA_MODE (CONFIG_ESP32_BT_LE_CCA_MODE)
  #else
  #define BT_BLE_CCA_MODE (0)
  #endif
@@ -5553,6 +6161,27 @@
      .controller_run_cpu         = 0,                                                    \
      .enable_qa_test             = RUN_QA_TEST,                                          \
      .enable_bqb_test            = RUN_BQB_TEST,                                         \
+@@ -315,16 +344,16 @@
+ #elif CONFIG_IDF_TARGET_ESP32C61
+ #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                           \
+     .config_version = CONFIG_VERSION,                                                   \
+-    .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
++    .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
+     .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
+     .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
+     .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
+     .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
+-    .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+-    .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
++    .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
++    .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+     .ble_ll_tx_pwr_dbm = BLE_LL_TX_PWR_DBM_N,                                           \
+     .rtc_freq = RTC_FREQ_N,                                                             \
+-    .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
++    .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
+     .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
+     .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
+     .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
 --- a/components/bt/include/esp32h2/include/esp_bt.h
 +++ b/components/bt/include/esp32h2/include/esp_bt.h
 @@ -11,10 +11,9 @@
