@@ -13,12 +13,14 @@
 #include "soc/rtc_periph.h"
 #include "soc/rtc.h"
 #include "soc/periph_defs.h"
-#include "esp_intr_alloc.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/irq.h>
 #include "sys/lock.h"
 #include "esp_private/rtc_ctrl.h"
 #include "esp_private/critical_section.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_attr.h"
+#include "esp_cpu.h"
 
 #if SOC_RTC_CNTL_NEEDS_ATOMIC_ACCESS
 #define RTC_CNTL_ATOMIC() PERIPH_RCC_ATOMIC()
@@ -95,11 +97,11 @@ static esp_err_t rtc_isr_ensure_installed(void)
 
     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
-    err = esp_intr_alloc(ETS_RTC_CORE_INTR_SOURCE, ESP_INTR_FLAG_IRAM, &rtc_isr, NULL, &s_rtc_isr_handle);
-    if (err != ESP_OK) {
-        goto out;
-    }
-    rtc_isr_cpu = esp_intr_get_cpu(s_rtc_isr_handle);
+    
+    irq_connect_dynamic(ETS_RTC_CORE_INTR_SOURCE, 1, (void (*)(const void *))rtc_isr, NULL, ESP_INTR_FLAG_IRAM);
+    irq_enable(ETS_RTC_CORE_INTR_SOURCE);
+
+    rtc_isr_cpu = esp_cpu_get_core_id();
 out:
     esp_os_exit_critical(&s_rtc_isr_handler_list_lock);
     return err;

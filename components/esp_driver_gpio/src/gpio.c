@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/irq.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+
 #include <esp_types.h>
 #include "esp_err.h"
 #include <zephyr/kernel.h>
@@ -21,6 +25,8 @@
 #include "esp_private/io_mux.h"
 #include "esp_private/critical_section.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_rom_gpio.h"
+#include "esp_cpu.h"
 
 #if (SOC_RTCIO_PIN_COUNT > 0)
 #include "hal/rtc_io_hal.h"
@@ -652,8 +658,17 @@ esp_err_t gpio_uninstall_isr_service(void)
 static void gpio_isr_register_on_core_static(void *param)
 {
     gpio_isr_alloc_t *p = (gpio_isr_alloc_t *)param;
-    //We need to check the return value.
-    p->ret = esp_intr_alloc(p->source, p->intr_alloc_flags, p->fn, p->arg, p->handle);
+    struct vector_desc_t *desc;
+
+    // We need to check the return value.
+    p->ret = irq_connect_dynamic(p->source, 1, (void (*)(const void *))p->fn, p->arg, p->intr_alloc_flags);
+
+    if (p->handle) {
+        desc = find_desc_for_source(p->source, esp_cpu_get_core_id());
+        if (desc != NULL) {
+           ((gpio_isr_handle_t)p->handle)->vector_desc = desc;
+        }
+    }
 }
 
 esp_err_t gpio_isr_register(void (*fn)(void *), void *arg, int intr_alloc_flags, gpio_isr_handle_t *handle)
