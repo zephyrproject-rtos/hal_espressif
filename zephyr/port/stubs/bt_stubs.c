@@ -756,6 +756,24 @@ int esp_ble_controller_lib_check(void)
 	return 0;
 }
 
+int dtm_stack_initEnv(void)
+{
+	return 0;
+}
+
+void dtm_stack_deinitEnv(void)
+{
+}
+
+int dtm_stack_enable(void)
+{
+	return 0;
+}
+
+void dtm_stack_disable(void)
+{
+}
+
 #endif /* CONFIG_SOC_SERIES_ESP32H2 || CONFIG_SOC_SERIES_ESP32C6 */
 
 #if defined(CONFIG_SOC_SERIES_ESP32H2)
