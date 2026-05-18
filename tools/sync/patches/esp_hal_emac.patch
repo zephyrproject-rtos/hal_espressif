@@ -1,0 +1,11 @@
+--- a/components/esp_hal_emac/emac_hal.c
++++ b/components/esp_hal_emac/emac_hal.c
+@@ -396,7 +396,7 @@
+          * ———————————— = ————————————— ==> Increment = ————————————— ≈ —————————
+          *   Increment        2^31                           10^9         0.465
+          */
+-        base_increment = config->ptp_req_accuracy_ns / 0.465;
++        base_increment = config->ptp_req_accuracy_ns / 0.465f;
+     }
+     emac_ll_set_ts_sub_second_incre_val(hal->ptp_regs, base_increment);
+     /* Set Update Mode */
