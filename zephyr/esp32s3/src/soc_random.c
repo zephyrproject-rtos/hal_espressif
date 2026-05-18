@@ -27,7 +27,6 @@ void soc_random_enable(void)
 	 * random results, but enabling the SAR ADC as well adds some insurance.)
 	 */
 	REG_SET_BIT(RTC_CNTL_CLK_CONF_REG, RTC_CNTL_DIG_CLK8M_EN);
-
 	/* Enable SAR ADC to read a disconnected input for additional entropy */
 	_adc_ll_reset_register();
 	_adc_ll_enable_bus_clock(true);
@@ -36,7 +35,12 @@ void soc_random_enable(void)
 	adc_ll_digi_clk_sel(ADC_DIGI_CLK_SRC_APB);
 	adc_ll_digi_controller_clk_div(ADC_RNG_CLKM_DIV_NUM, ADC_RNG_CLKM_DIV_B, ADC_RNG_CLKM_DIV_A);
 
-	regi2c_saradc_enable();
+	/* Bootloader-equivalent context: call LL directly 
+	 * (matches ESP-IDF's BOOTLOADER_BUILD path in bootloader_random_esp32s3.c)
+	 * The regi2c_saradc_enable() wrapper uses a critical section that
+	 * is not safe to take in this pre-kernel stage.
+	 */
+	regi2c_ctrl_ll_i2c_sar_periph_enable();
 
 	/* Enable analog I2C master clock for RNG runtime */
 	ANALOG_CLOCK_ENABLE();
@@ -76,7 +80,12 @@ void soc_random_disable(void)
 	adc_ll_digi_reset_pattern_table();
 
 	adc_ll_regi2c_adc_deinit();
-	regi2c_saradc_disable();
+	
+	/* Bootloader-equivalent context: remove regi2c_saradc_disable();
+	 * (matches ESP-IDF's BOOTLOADER_BUILD path in bootloader_random_esp32s3.c)
+	 * The regi2c_saradc_disable() wrapper uses a critical section that
+	 * is not safe to take in this pre-kernel stage.
+	 */
 
 	/* Disable analog I2C master clock */
 	ANALOG_CLOCK_DISABLE();
