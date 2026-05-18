@@ -37,12 +37,12 @@ void sync_stack_deinitEnv(void);
 int sync_stack_enable(void);
 void sync_stack_disable(void);
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 int dtm_stack_initEnv(void);
 void dtm_stack_deinitEnv(void);
 int dtm_stack_enable(void);
 void dtm_stack_disable(void);
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 #if DEFAULT_BT_LE_PAWR_SUPPORTED || CONFIG_BT_LE_ERROR_SIM_ENABLED
 int ble_single_env_init(void);
@@ -168,12 +168,12 @@ int ble_stack_initEnv(void)
         return rc;
     }
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     rc = dtm_stack_initEnv();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_initEnv();
@@ -240,9 +240,9 @@ void ble_stack_deinitEnv(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_deinitEnv();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     dtm_stack_deinitEnv();
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
     sync_stack_deinitEnv();
     scan_stack_deinitEnv();
@@ -280,12 +280,12 @@ int ble_stack_enable(void)
         return rc;
     }
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     rc = dtm_stack_enable();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_enable();
@@ -347,9 +347,9 @@ void ble_stack_disable(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_disable();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     dtm_stack_disable();
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     sync_stack_disable();
     scan_stack_disable();
     extAdv_stack_disable();

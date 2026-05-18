@@ -832,7 +832,7 @@ esp_err_t controller_sleep_init(void)
 {
     esp_err_t rc = 0;
 
-#ifdef CONFIG_BT_LE_SLEEP_ENABLE
+#ifdef CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "BLE modem sleep is enabled");
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
@@ -841,7 +841,7 @@ esp_err_t controller_sleep_init(void)
     r_ble_lll_sleep_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0,
                                 BLE_RTC_DELAY_US_MODEM_SLEEP);
 #endif /* FREERTOS_USE_TICKLESS_IDLE */
-#endif // CONFIG_BT_LE_SLEEP_ENABLE
+#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 
 #ifdef CONFIG_PM_ENABLE
     rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
@@ -849,7 +849,7 @@ esp_err_t controller_sleep_init(void)
         goto error;
     }
 #endif // CONFIG_PM_ENABLE
-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && !CONFIG_MAC_BB_PD
 #error "CONFIG_MAC_BB_PD required for BLE light sleep to run properly"
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && !CONFIG_MAC_BB_PD
@@ -880,13 +880,13 @@ esp_err_t controller_sleep_init(void)
     sleep_modem_register_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                    sleep_modem_mac_bb_power_up_prepare);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
     return rc;
 
 #ifdef CONFIG_PM_ENABLE
 error:
 #endif // CONFIG_PM_ENABLE
-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
@@ -894,7 +894,7 @@ error:
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     esp_sleep_disable_bt_wakeup();
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 #ifdef CONFIG_PM_ENABLE
     /*lock should release first and then delete*/
     if (s_pm_lock != NULL) {
@@ -908,7 +908,7 @@ error:
 
 void controller_sleep_deinit(void)
 {
-#if CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     esp_pm_unregister_skip_light_sleep_callback(r_ble_lll_sleep_should_skip_light_sleep_check);
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
@@ -918,7 +918,7 @@ void controller_sleep_deinit(void)
     esp_sleep_disable_bt_wakeup();
     sleep_modem_ble_mac_modem_state_deinit();
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(sleep_modem_light_sleep_overhead_set);
-#endif /* CONFIG_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 #ifdef CONFIG_PM_ENABLE
     /* lock should be released first */
     esp_pm_lock_delete(s_pm_lock);
