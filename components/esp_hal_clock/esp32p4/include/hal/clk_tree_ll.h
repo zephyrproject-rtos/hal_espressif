@@ -28,7 +28,9 @@
 #include "hal/efuse_hal.h"
 #include "esp_private/regi2c_ctrl.h"
 
+#ifndef MHZ
 #define MHZ                 (1000000)
+#endif
 
 #define CLK_LL_PLL_8M_FREQ_MHZ     (8)
 

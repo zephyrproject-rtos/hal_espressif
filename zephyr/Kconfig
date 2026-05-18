@@ -42,6 +42,10 @@ if SOC_SERIES_ESP32H2
 rsource "../components/soc/esp32h2/include/soc/Kconfig.soc_caps.in"
 endif
 
+if SOC_SERIES_ESP32P4
+rsource "../components/soc/esp32p4/include/soc/Kconfig.soc_caps.in"
+endif
+
 # XTAL frequency in Hz from devicetree
 config XTAL_FREQ_HZ
 	int
@@ -79,6 +83,7 @@ config BOOTLOADER_OFFSET_IN_FLASH
 config BOOTLOADER_CPU_CLK_FREQ_MHZ
 	int
 	default 64 if SOC_SERIES_ESP32H2
+	default 100 if SOC_SERIES_ESP32P4
 	default 80
 
 config ESP_SYSTEM_RTC_EXT_XTAL_BOOTSTRAP_CYCLES
@@ -106,15 +111,18 @@ config ESP_DEFAULT_CPU_FREQ_MHZ
 	default 120 if ESP_CLK_FREQ_HZ = 120000000
 	default 160 if ESP_CLK_FREQ_HZ = 160000000
 	default 240 if ESP_CLK_FREQ_HZ = 240000000
+	default 400 if ESP_CLK_FREQ_HZ = 400000000
 
 # CPU clock frequency in Hz from devicetree
 config ESP_CLK_FREQ_HZ
 	int
 	default $(dt_node_int_prop_int,/cpus/cpu@0,clock-frequency)
 
-# Console serial port number for ESP-IDF ROM functions
+# Console serial port number for ESP-IDF ROM functions.
+# Set to -1 for USB Serial JTAG console (no UART TX wait needed).
 config ESP_CONSOLE_ROM_SERIAL_PORT_NUM
 	int
+	default -1 if ESP_CONSOLE_USB_SERIAL_JTAG
 	default ESP_CONSOLE_UART_NUM
 
 # ESP timer interrupt level (only ESP32 supports 1-3, others only 1)
@@ -179,6 +187,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x0017 if SOC_SERIES_ESP32C5
 	default 0x000D if SOC_SERIES_ESP32C6
 	default 0x0010 if SOC_SERIES_ESP32H2
+	default 0x0012 if SOC_SERIES_ESP32P4
 
 config SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY
 	bool
@@ -191,6 +200,19 @@ config SPIRAM_ALLOW_NOINIT_SEG_EXTERNAL_MEMORY
 	default y if SOC_SERIES_ESP32
 	default y if SOC_SERIES_ESP32S2
 	default y if SOC_SERIES_ESP32S3
+
+config IDF_TARGET
+	string
+	default SOC
+
+config PM_SLP_SPIRAM_HALFSLEEP_EXIT_WAIT_DELAY
+	int
+	default 150
+	help
+	  Delay in microseconds between waking PSRAM out of halfsleep
+	  and the first access to it. Mirrors the ESP-IDF symbol of
+	  the same name so HAL halfsleep recovery code compiles even
+	  when PM is not enabled in the application.
 
 config IDF_TARGET_ESP32
 	bool
@@ -223,6 +245,10 @@ config IDF_TARGET_ESP32C6
 config IDF_TARGET_ESP32H2
 	bool
 	default y if SOC_SERIES_ESP32H2
+
+config IDF_TARGET_ESP32P4
+	bool
+	default y if SOC_SERIES_ESP32P4
 
 config ESP_TIMER_IMPL_TG0_LAC
 	bool

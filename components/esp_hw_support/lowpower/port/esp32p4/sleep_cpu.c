@@ -12,13 +12,12 @@
 
 #include "esp_attr.h"
 #include "esp_check.h"
+#include "esp_cpu.h"
 #include "esp_ipc_isr.h"
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "esp_rom_crc.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/portmacro.h"
+#include <zephyr/kernel.h>
 #include "riscv/csr.h"
 #include "soc/clic_reg.h"
 #include "soc/rtc_periph.h"
@@ -41,7 +40,7 @@
 
 
 #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-static SPM_DRAM_ATTR smp_retention_state_t s_smp_retention_state[portNUM_PROCESSORS];
+static SPM_DRAM_ATTR smp_retention_state_t s_smp_retention_state[CONFIG_MP_MAX_NUM_CPUS];
 #endif
 
 static bool s_fpu_saved[portNUM_PROCESSORS];
@@ -50,7 +49,7 @@ ESP_LOG_ATTR_TAG(TAG, "sleep");
 
 static SPM_DRAM_ATTR __attribute__((unused)) sleep_cpu_retention_t s_cpu_retention;
 
-extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
 
 FORCE_INLINE_ATTR void save_csr_disable_global_int(uint32_t *mstatus_val, uint32_t *mintthresh_val)
 {
@@ -371,11 +370,11 @@ esp_err_t esp_sleep_cpu_retention_deinit(void)
 bool cpu_domain_pd_allowed(void)
 {
     bool allowed = true;
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         allowed &= (s_cpu_retention.retent.critical_frame[core_id] != NULL);
         allowed &= (s_cpu_retention.retent.non_critical_frame[core_id] != NULL);
     }
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         allowed &= (s_cpu_retention.retent.clic_frame[core_id] != NULL);
     }
     return allowed;

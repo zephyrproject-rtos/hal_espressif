@@ -15,7 +15,7 @@
 #include "sleep_cpu_retention.h"
 
 
-extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
 
 static void * cpu_domain_dev_sleep_frame_alloc_and_init(const cpu_domain_dev_regs_region_t *regions, const int region_num)
 {
@@ -41,8 +41,8 @@ static void * cpu_domain_dev_sleep_frame_alloc_and_init(const cpu_domain_dev_reg
 
 static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
 {
-    const static cpu_domain_dev_regs_region_t regions[portNUM_PROCESSORS][2] = {
-       [0 ... portNUM_PROCESSORS - 1] = {
+    const static cpu_domain_dev_regs_region_t regions[CONFIG_MP_MAX_NUM_CPUS][2] = {
+       [0 ... CONFIG_MP_MAX_NUM_CPUS - 1] = {
             { .start = CLIC_INT_CONFIG_REG, .end = CLIC_INT_THRESH_REG + 4 },
             { .start = CLIC_INT_CTRL_REG(0), .end = CLIC_INT_CTRL_REG(47) + 4 },
         }
@@ -53,7 +53,7 @@ static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
 #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
 esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, smp_retention_state_t *s_smp_retention_state)
 {
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
             if (frame == NULL) {
@@ -70,7 +70,7 @@ esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_ret
             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
         }
     }
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
             if (frame == NULL) {
@@ -79,7 +79,7 @@ esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_ret
             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
         }
     }
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         atomic_init(&s_smp_retention_state[core_id], SMP_IDLE);
     }
     return ESP_OK;
@@ -90,7 +90,7 @@ err:
 #else
 esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
 {
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
             if (frame == NULL) {
@@ -107,7 +107,7 @@ esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_ret
             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
         }
     }
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
             if (frame == NULL) {
@@ -125,7 +125,7 @@ err:
 
 esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
 {
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id]) {
             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.critical_frame[core_id]);
             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = NULL;
@@ -136,7 +136,7 @@ esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_r
             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = NULL;
         }
     }
-    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id]) {
             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.clic_frame[core_id]);
             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = NULL;

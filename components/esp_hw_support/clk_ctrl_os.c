@@ -5,6 +5,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include "esp_attr.h"
 #include "clk_ctrl_os.h"
 #include "soc/rtc.h"
 #include "esp_ldo_regulator.h"
@@ -34,7 +35,7 @@ static int s_apll_ref_cnt = 0;
 static uint32_t s_cur_mpll_freq_hz = 0;
 static int s_mpll_ref_cnt = 0;
 #endif
-#if CONFIG_ESP_LDO_RESERVE_PSRAM
+#if !CONFIG_REGULATOR_ESP32
 static esp_ldo_channel_handle_t s_ldo_chan = NULL;
 #endif
 
@@ -144,11 +145,15 @@ esp_err_t periph_rtc_apll_freq_set(uint32_t expt_freq_hz, uint32_t *real_freq_hz
 #if SOC_CLK_MPLL_SUPPORTED
 esp_err_t IRAM_ATTR periph_rtc_mpll_acquire(void)
 {
-    // power up LDO for the MPLL
-#if CONFIG_ESP_LDO_RESERVE_PSRAM
+    /* When the Zephyr esp32 regulator driver is built, it owns the
+     * PSRAM/MPLL LDO channel (boot-on, always-on). Skip the hal_espressif
+     * acquire/release path here to avoid double-enable and a release on the
+     * always-on regulator.
+     */
+#if !CONFIG_REGULATOR_ESP32
     esp_ldo_channel_config_t ldo_mpll_config = {
-        .chan_id = CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN,
-        .voltage_mv = CONFIG_ESP_LDO_VOLTAGE_PSRAM_DOMAIN,
+        .chan_id = 2,
+        .voltage_mv = 1800,
     };
     ESP_RETURN_ON_ERROR(esp_ldo_acquire_channel(&ldo_mpll_config, &s_ldo_chan), TAG, "acquire internal LDO for MPLL failed");
 #endif
@@ -165,7 +170,7 @@ esp_err_t IRAM_ATTR periph_rtc_mpll_acquire(void)
 
 void periph_rtc_mpll_release(void)
 {
-#if defined(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN) && CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN != -1
+#if !CONFIG_REGULATOR_ESP32
     if (s_ldo_chan) {
         esp_ldo_release_channel(s_ldo_chan);
     }
