@@ -344,16 +344,16 @@ typedef struct {
 #elif CONFIG_IDF_TARGET_ESP32C61
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                           \
     .config_version = CONFIG_VERSION,                                                   \
-    .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
+    .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
     .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
     .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
     .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
     .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-    .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
-    .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+    .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+    .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
     .ble_ll_tx_pwr_dbm = BLE_LL_TX_PWR_DBM_N,                                           \
     .rtc_freq = RTC_FREQ_N,                                                             \
-    .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
+    .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
     .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
     .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
     .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
