@@ -1397,36 +1397,36 @@ static void btdm_funcs_table_ready_wrapper(void)
                         BT_BLE_CCA_MODE, BLE_SECURITY_ENABLE, BT_CTRL_BLE_MASTER);
 
     ble_base_funcs_reset();
-#if CONFIG_BT_CTRL_BLE_ADV
+#if CONFIG_ESP32_BT_CTLR_LE_ADV
     ble_42_adv_funcs_reset();
 #if (BT_CTRL_50_FEATURE_SUPPORT == 1)
     ble_ext_adv_funcs_reset();
 #endif //
-#endif // CONFIG_BT_CTRL_BLE_ADV
+#endif // CONFIG_ESP32_BT_CTLR_LE_ADV
 
-#if CONFIG_BT_CTRL_DTM_ENABLE
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     ble_dtm_funcs_reset();
-#endif // CONFIG_BT_CTRL_DTM_ENABLE
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
-#if CONFIG_BT_CTRL_BLE_SCAN
+#if CONFIG_ESP32_BT_CTLR_LE_SCAN
     ble_scan_funcs_reset();
 #if (BT_CTRL_50_FEATURE_SUPPORT == 1)
     ble_ext_scan_funcs_reset();
 #endif // (BT_CTRL_50_FEATURE_SUPPORT == 1)
-#endif // CONFIG_BT_CTRL_BLE_SCAN
+#endif // CONFIG_ESP32_BT_CTLR_LE_SCAN
 
 #if (BT_BLE_CCA_MODE != 0)
     ble_cca_funcs_reset();
 #endif // (BT_BLE_CCA_MODE != 0)
 
-#if CONFIG_BT_CTRL_BLE_SECURITY_ENABLE
+#if CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
     ble_enc_funcs_reset();
-#endif // CONFIG_BT_CTRL_BLE_SECURITY_ENABLE
+#endif // CONFIG_ESP32_BT_CTLR_LE_SECURITY_ENABLE
 
-#if CONFIG_BT_CTRL_BLE_MASTER
+#if CONFIG_ESP32_BT_CTLR_LE_MASTER
     ble_init_funcs_reset();
     ble_con_funcs_reset();
-#endif // CONFIG_BT_CTRL_BLE_MASTER
+#endif // CONFIG_ESP32_BT_CTLR_LE_MASTER
 
 #endif // CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
 }
