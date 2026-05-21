@@ -204,13 +204,9 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     zephyr_sources(
       ../../components/esp_hal_gpspi/spi_hal.c
       ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
       ../../components/esp_hal_dma/gdma_hal_top.c
       )
-    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
-      zephyr_sources(
-        ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
-        )
-    endif()
   endif()
 
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
