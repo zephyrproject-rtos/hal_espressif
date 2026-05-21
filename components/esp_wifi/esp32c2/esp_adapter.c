@@ -44,7 +44,11 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 #define TAG "esp_adapter"
 
 static void *wifi_msgq_buffer;
-static struct k_thread wifi_task_handle;
+
+struct wifi_task {
+    struct k_thread thread;
+    k_thread_stack_t *stack;
+};
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -263,11 +267,17 @@ static void queue_delete_wrapper(void *queue)
 
 static void task_delete_wrapper(void *handle)
 {
-    if (handle != NULL) {
-        k_thread_abort((k_tid_t)handle);
+    if (handle == NULL) {
+        return;
     }
 
-    k_object_release(&wifi_task_handle);
+    k_tid_t tid = (k_tid_t)handle;
+    struct wifi_task *t = CONTAINER_OF(tid, struct wifi_task, thread);
+
+    k_thread_abort(tid);
+    k_thread_stack_free(t->stack);
+    k_object_release(tid);
+    esp_wifi_free(t);
 }
 
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_tick)
@@ -363,10 +373,21 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 {
     ARG_UNUSED(core_id);
 
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+    uint32_t stack_size = MAX(stack_depth, CONFIG_ESP32_WIFI_TASK_STACK_SIZE);
+    struct wifi_task *t = wifi_malloc(sizeof(*t));
 
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
+    if (t == NULL) {
+        return 0;
+    }
+
+    t->stack = k_thread_stack_alloc(stack_size,
+                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+    if (t->stack == NULL) {
+        esp_wifi_free(t);
+        return 0;
+    }
+
+    k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
                       (k_thread_entry_t)task_func, param, NULL, NULL,
                       prio, K_INHERIT_PERMS, K_NO_WAIT);
 
