@@ -62,7 +62,10 @@ static void esp_wifi_free(void *mem);
 
 static void *wifi_msgq_buffer;
 
-static struct k_thread wifi_task_handle;
+struct wifi_task {
+    struct k_thread thread;
+    k_thread_stack_t *stack;
+};
 
 IRAM_ATTR void *wifi_malloc(size_t size)
 {
@@ -339,10 +342,21 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 {
     ARG_UNUSED(core_id);
 
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+    uint32_t stack_size = MAX(stack_depth, CONFIG_ESP32_WIFI_TASK_STACK_SIZE);
+    struct wifi_task *t = wifi_malloc(sizeof(*t));
 
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
+    if (t == NULL) {
+        return 0;
+    }
+
+    t->stack = k_thread_stack_alloc(stack_size,
+                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+    if (t->stack == NULL) {
+        esp_wifi_free(t);
+        return 0;
+    }
+
+    k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
                       (k_thread_entry_t)task_func, param, NULL, NULL,
                       prio, K_INHERIT_PERMS, K_NO_WAIT);
 
@@ -354,26 +368,22 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
-    k_thread_stack_t *wifi_stack = k_thread_stack_alloc(stack_depth,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
-
-    k_tid_t tid = k_thread_create(&wifi_task_handle, wifi_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      prio, K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
-
-    *(int32_t *)task_handle = (int32_t)tid;
-    return 1;
+    return task_create_pinned_to_core_wrapper(task_func, name, stack_depth, param, prio, task_handle, 0);
 }
 
 static void task_delete_wrapper(void *handle)
 {
-    if (handle != NULL) {
-        k_thread_abort((k_tid_t)handle);
+    if (handle == NULL) {
+        return;
     }
 
-    k_object_release(&wifi_task_handle);
+    k_tid_t tid = (k_tid_t)handle;
+    struct wifi_task *t = CONTAINER_OF(tid, struct wifi_task, thread);
+
+    k_thread_abort(tid);
+    k_thread_stack_free(t->stack);
+    k_object_release(tid);
+    esp_wifi_free(t);
 }
 
 static void task_delay_wrapper(uint32_t ticks)
