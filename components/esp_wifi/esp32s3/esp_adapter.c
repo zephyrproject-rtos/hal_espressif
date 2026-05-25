@@ -58,7 +58,7 @@ extern void wifi_apb80m_request(void);
 extern void wifi_apb80m_release(void);
 #endif
 
-static void wifi_free(void *mem)
+static void esp_wifi_free(void *mem)
 {
 	esp_wifi_free_func(mem);
 }
@@ -220,7 +220,7 @@ static void *mutex_create_wrapper(void)
 
 static void mutex_delete_wrapper(void *mutex)
 {
-	wifi_free(mutex);
+	esp_wifi_free(mutex);
 }
 
 static int32_t IRAM_ATTR mutex_lock_wrapper(void *mutex)
@@ -256,7 +256,7 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
 static void queue_delete_wrapper(void *handle)
 {
 	if (handle != NULL) {
-		wifi_free(handle);
+		esp_wifi_free(handle);
 	}
 }
 
@@ -784,7 +784,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._ints_off = intr_off,
 	._is_from_isr = k_is_in_isr,
 	._spin_lock_create = esp_coex_common_spin_lock_create_wrapper,
-	._spin_lock_delete = wifi_free,
+	._spin_lock_delete = esp_wifi_free,
 	._wifi_int_disable = esp_coex_common_int_disable_wrapper,
 	._wifi_int_restore = esp_coex_common_int_restore_wrapper,
 	._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
@@ -819,7 +819,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
 	._task_get_current_task = (void *(*)(void))k_current_get,
 	._task_get_max_priority = task_get_max_priority_wrapper,
 	._malloc = wifi_malloc,
-	._free = wifi_free,
+	._free = esp_wifi_free,
 	._event_post = esp_event_post_wrapper,
 	._get_free_heap_size = esp_get_free_heap_size,
 	._rand = sys_rand32_get,
