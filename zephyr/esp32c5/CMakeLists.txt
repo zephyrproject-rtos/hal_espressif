@@ -283,15 +283,15 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
     ../common/pm_impl_zephyr.c
     )
-    if(CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
+    if(CONFIG_ESP32_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
         )
-      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_DYNAMIC
+      zephyr_sources_ifdef(CONFIG_ESP32_PM_CPU_RETENTION_DYNAMIC
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
         )
-      zephyr_sources_ifdef(CONFIG_PM_CPU_RETENTION_STATIC
+      zephyr_sources_ifdef(CONFIG_ESP32_PM_CPU_RETENTION_STATIC
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
         )
     endif()
@@ -304,14 +304,14 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       ../../components/esp_hal_dma/gdma_hal_ahb_v2.c
       )
 
-    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
         )
     endif()
   endif()
 
-  if(CONFIG_WDT_ESP32 AND CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+  if(CONFIG_WDT_ESP32 AND CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
     zephyr_sources(
       ../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/mwdt_periph.c
       )
@@ -447,7 +447,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     zephyr_sources(
       ../../components/esp_hal_timg/timer_hal.c
       )
-    if(CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
         )
