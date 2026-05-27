@@ -160,7 +160,7 @@ void bootloader_clock_configure(void)
 	 */
 	rtc_cpu_freq_config_t pll_cfg;
 
-	if (rtc_clk_cpu_freq_mhz_to_config(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, &pll_cfg)) {
+	if (rtc_clk_cpu_freq_mhz_to_config(CONFIG_BOOTLOADER_CPU_CLK_FREQ_MHZ, &pll_cfg)) {
 		rtc_clk_cpu_freq_set_config(&pll_cfg);
 	}
 
