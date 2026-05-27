@@ -774,6 +774,60 @@ void dtm_stack_disable(void)
 {
 }
 
+int ble_single_env_init(void)
+{
+	return 0;
+}
+
+void ble_single_env_deinit(void)
+{
+}
+
+int ble_single_init(void)
+{
+	return 0;
+}
+
+void ble_single_deinit(void)
+{
+}
+
+int pawrBcast_stack_initEnv(void)
+{
+	return 0;
+}
+
+void pawrBcast_stack_deinitEnv(void)
+{
+}
+
+int pawrBcast_stack_enable(void)
+{
+	return 0;
+}
+
+void pawrBcast_stack_disable(void)
+{
+}
+
+int pawrSync_stack_initEnv(void)
+{
+	return 0;
+}
+
+void pawrSync_stack_deinitEnv(void)
+{
+}
+
+int pawrSync_stack_enable(void)
+{
+	return 0;
+}
+
+void pawrSync_stack_disable(void)
+{
+}
+
 #endif /* CONFIG_SOC_SERIES_ESP32H2 || CONFIG_SOC_SERIES_ESP32C6 */
 
 #if defined(CONFIG_SOC_SERIES_ESP32H2)
