@@ -139,9 +139,14 @@ static inline void wpa2_task_delete(void *arg)
 {
     void *my_task_hdl = os_task_get_current_task();
     int ret = ESP_OK;
+    void *task_hdl = s_wpa2_task_hdl;
 
-    if (my_task_hdl == s_wpa2_task_hdl) {
+    if (my_task_hdl == task_hdl) {
         wpa_printf(MSG_ERROR, "EAP: should never call task delete api in eap task context");
+        return;
+    }
+
+    if (task_hdl == NULL) {
         return;
     }
 
@@ -151,6 +156,9 @@ static inline void wpa2_task_delete(void *arg)
         wpa_printf(MSG_ERROR, "EAP: failed to post task delete event, ret=%d", ret);
         return;
     }
+
+    os_task_delete(task_hdl);
+    s_wpa2_task_hdl = NULL;
 }
 
 #define WPA_ADDR_LEN 6
@@ -266,8 +274,7 @@ void wpa2_task(void *pvParameters)
         wpa_printf(MSG_ERROR, "EAP: null wifi->EAP sync sem");
     }
 
-    /* At this point, we completed */
-    os_task_delete(NULL);
+    /* The task creator owns the dynamically allocated Zephyr stack wrapper. */
 }
 
 int wpa2_post(uint32_t sig, uint32_t par)
@@ -1356,5 +1363,6 @@ esp_err_t esp_eap_client_set_eap_methods(esp_eap_method_t methods)
     }
 
     g_eap_method_mask = methods;
+    eloop_register_timeout(0, 0, config_changed_handler, NULL, NULL);
     return ESP_OK;
 }
