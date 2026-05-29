@@ -6,6 +6,9 @@
 
 #include <zephyr/sys/util.h>
 #include <zephyr/irq.h>
+#include <zephyr/device.h>
+#include <soc/soc.h>
+#include <soc.h>
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
@@ -190,8 +193,11 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 #define ISR_FLAGS (ESP_INTR_FLAG_IRAM)
 #endif
 
-    IRQ_CONNECT(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE, 1, timer_alarm_isr, NULL, ISR_FLAGS);
-    irq_enable(ETS_SYSTIMER_TARGET2_EDGE_INTR_SOURCE);
+    IRQ_CONNECT(DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, irq),
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, priority), timer_alarm_isr, NULL,
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, flags));
+    irq_matrix_enable(DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, irq),
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, source));
 
     if (s_alarm_handler == NULL) {
 	    s_alarm_handler = alarm_handler;
