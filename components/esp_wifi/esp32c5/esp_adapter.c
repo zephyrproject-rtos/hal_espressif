@@ -40,6 +40,7 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
 #include "os.h"
+#include "esp_log.h"
 #ifdef CONFIG_ESP_COEX_ENABLED
 #include "private/esp_coexist_internal.h"
 #endif
