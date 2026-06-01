@@ -2,7 +2,7 @@
 
 if(CONFIG_SOC_SERIES_ESP32C6)
 
-  zephyr_compile_options(-fstrict-volatile-bitfields)
+  zephyr_cc_option(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
   zephyr_compile_definitions_ifndef(typeof typeof=__typeof__)
@@ -169,7 +169,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
   endif()
 
   zephyr_link_libraries(
-    gcc
+    ${ESPRESSIF_ZEPHYR_LINK_LIBGCC}
     -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.peripherals.ld
   )
 
@@ -546,7 +546,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       phy
       mesh
       ## esp-idf wifi libs refer gcc libs symbols, so linked in libgcc
-      gcc
+      ${ESPRESSIF_ZEPHYR_LINK_LIBGCC}
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/${CONFIG_SOC_SERIES}
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.pp.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.phy.ld

@@ -240,8 +240,12 @@ extern "C" {
   asm volatile ("csrrci %0, mstatus, 0x8"  : "=r"(__tmp)); __tmp; })
 
 
-#define _CSR_STRINGIFY(REG) #REG /* needed so the 'reg' argument can be a macro or a register name */
+#ifndef tcontrol
+#define tcontrol 0x7a5
+#endif
 
+#define __CSR_STRINGIFY(REG) #REG
+#define _CSR_STRINGIFY(REG) __CSR_STRINGIFY(REG) /* needed so the 'reg' argument can be a macro or a register name */
 #ifdef __cplusplus
 }
 #endif
