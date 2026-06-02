@@ -150,6 +150,25 @@ def get_pinmux(dev_name, pin_name, pin_info, io):
     return pinmux
 
 
+def get_rmii_pinmux(pin_name, io):
+    # The Ethernet RMII data plane is routed through dedicated EMAC
+    # IOMUX pad functions instead of the GPIO matrix, so it uses the
+    # ESP32_RMII_PINMUX() encoding (signal slot + GPIO) rather than
+    # ESP32_PINMUX(). The slot maps to an ESP_RMII_* constant.
+    slot = 'ESP_RMII_' + pin_name.upper()
+
+    pinmux = 'RMII_' + pin_name.upper() + '_GPIO' + str(io)
+    define_str = '#define ' + pinmux
+    macro_str = 'ESP32_RMII_PINMUX(' + str(io) + ', ' + slot + ')'
+
+    if len(define_str + ' ' + macro_str) > 100:
+        pinmux = define_str + ' \\\n\t' + macro_str + '\n'
+    else:
+        pinmux = define_str + ' ' + macro_str + '\n'
+
+    return pinmux
+
+
 def main(pcfg_in):
     zephyr_base = os.getenv('ZEPHYR_BASE')
 
@@ -180,11 +199,20 @@ def main(pcfg_in):
         # diffs minimal and easily trackable
         dev_info = sorted(dev_info.items())
 
+        is_rmii = dev_name.lower() == 'rmii'
+
         for (pin_name, pin_info) in dev_info:
-            f.write('/**\n * @name ' + dev_name.upper() + '_' + pin_name.upper() + '\n * @{\n */\n')
+            if is_rmii:
+                name = 'RMII_' + pin_name.upper()
+            else:
+                name = dev_name.upper() + '_' + pin_name.upper()
+            f.write('/**\n * @name ' + name + '\n * @{\n */\n')
             ios = get_gpios(pin_info)
             for io in ios:
-                pinmux = get_pinmux(dev_name, pin_name, pin_info, io)
+                if is_rmii:
+                    pinmux = get_rmii_pinmux(pin_name, io)
+                else:
+                    pinmux = get_pinmux(dev_name, pin_name, pin_info, io)
                 f.write(pinmux)
             f.write('/** @} */\n\n')
 

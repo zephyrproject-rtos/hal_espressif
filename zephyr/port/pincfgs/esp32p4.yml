@@ -315,6 +315,22 @@ smi:
     sigo: emac_mdo_o
     gpio: [[0, 54]]
 
+rmii:
+  clk:
+    gpio: [32, 44, 50]
+  tx_en:
+    gpio: [33, 40, 49]
+  txd0:
+    gpio: [34, 41]
+  txd1:
+    gpio: [35, 42]
+  crs_dv:
+    gpio: [28, 45, 51]
+  rxd0:
+    gpio: [29, 46, 52]
+  rxd1:
+    gpio: [30, 47, 53]
+
 sdhc1:
   clkout:
     sigo: sd_card_cclk_2_out
