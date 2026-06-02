@@ -213,6 +213,7 @@ if(CONFIG_SOC_SERIES_ESP32C2)
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
+    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hw_support/sleep_gpio.c
     ../../components/esp_hw_support/sleep_event.c
     ../../components/esp_driver_gpio/src/gpio.c
@@ -285,7 +286,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
-    ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_mm/esp_cache_msync.c
     ../../components/esp_mm/esp_cache_utils.c
     ../../components/esp_mm/esp_mmu_map.c
