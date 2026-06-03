@@ -8,6 +8,10 @@ if(CONFIG_SOC_SERIES_ESP32P4)
   zephyr_compile_definitions_ifndef(typeof typeof=__typeof__)
   zephyr_compile_definitions(CONFIG_ESP_REV_MIN_FULL=500)
 
+  if(CONFIG_MCUBOOT)
+    zephyr_compile_options(-fdump-rtl-expand)
+  endif()
+
   zephyr_include_directories(
     include
     ../common/include
