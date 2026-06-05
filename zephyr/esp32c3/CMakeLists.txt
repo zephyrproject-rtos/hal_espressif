@@ -356,6 +356,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_cache.c
     ../../components/esp_mm/esp_cache_msync.c
     ../../components/esp_mm/esp_cache_utils.c
     ../../components/esp_mm/esp_mmu_map.c
