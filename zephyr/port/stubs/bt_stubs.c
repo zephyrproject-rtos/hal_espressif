@@ -167,6 +167,11 @@ int ble_txpwr_get(int power_type)
 	return ESP_OK;
 }
 
+void ble_min_conn_interval_enable(uint16_t min_interval)
+{
+	(void)min_interval;
+}
+
 int bredr_txpwr_set(int min_power_level, int max_power_level)
 {
 	(void)min_power_level;

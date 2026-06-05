@@ -305,6 +305,11 @@ bool esp_wifi_enable_sta_privacy_internal(void)
 	return false;
 }
 
+bool esp_wifi_use_supp_pmk_cache(void)
+{
+	return false;
+}
+
 uint8_t esp_wifi_get_user_init_flag_internal(void)
 {
 	return 0;
@@ -786,24 +791,29 @@ esp_err_t esp_nan_internal_subscribe_service(const wifi_nan_subscribe_cfg_t *sub
 	return ESP_OK;
 }
 
-esp_err_t esp_nan_internal_send_followup(const wifi_nan_followup_params_t *fup_params,
-					 uint32_t *context)
+esp_err_t esp_nan_internal_send_followup(wifi_nan_followup_params_t *fup_params,
+					 uint32_t *context, extra_params_internal_t *params_i)
 {
 	ARG_UNUSED(fup_params);
 	ARG_UNUSED(context);
+	ARG_UNUSED(params_i);
 	return ESP_OK;
 }
 
-esp_err_t esp_nan_internal_datapath_req(wifi_nan_datapath_req_t *req, uint8_t *ndp_id)
+esp_err_t esp_nan_internal_datapath_req(wifi_nan_datapath_req_t *req, uint8_t *ndp_id,
+					uint8_t ipv6_identifier[8])
 {
 	ARG_UNUSED(req);
 	ARG_UNUSED(ndp_id);
+	ARG_UNUSED(ipv6_identifier);
 	return ESP_OK;
 }
 
-esp_err_t esp_nan_internal_datapath_resp(wifi_nan_datapath_resp_t *resp)
+esp_err_t esp_nan_internal_datapath_resp(wifi_nan_datapath_resp_t *resp,
+					 uint8_t ipv6_identifier[8])
 {
 	ARG_UNUSED(resp);
+	ARG_UNUSED(ipv6_identifier);
 	return ESP_OK;
 }
 

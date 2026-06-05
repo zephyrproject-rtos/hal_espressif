@@ -370,6 +370,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
+    ../../components/esp_hw_support/sleep_cache.c
     ../../components/esp_hw_support/sleep_retention.c
     ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_mm/esp_cache_msync.c
