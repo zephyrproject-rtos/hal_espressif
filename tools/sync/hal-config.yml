@@ -4,7 +4,7 @@
 # to synchronize ESP-IDF components into hal_espressif.
 
 # ESP-IDF revision that components were last synced from
-esp_idf_sha: 338f3411101a8820e12ed824c5a9815ac787ae47
+esp_idf_sha: a532acdb77b8f2d299e1309e07e486d8b2f265e8
 
 # ESP-IDF components to sync
 components:
@@ -79,11 +79,18 @@ components:
 # Folders to remove after copying (relative to components/)
 exclude:
   # Bluetooth folders not needed for Zephyr
+  # Zephyr uses only the bt controller + porting glue, not the ESP-IDF
+  # Bluedroid/NimBLE host or its audio/ISO/mesh profile stacks.
   - bt/common
+  - bt/esp_ble_audio
+  - bt/esp_ble_iso
   - bt/esp_ble_mesh
   - bt/host
+  - bt/test_apps
   # Linux platform folders
   - efuse/linux
+  - esp_common/linux
+  - esp_hal_gpio/linux
   - esp_hal_mspi/linux
   - esp_hal_uart/linux
   - esp_hw_support/include/linux
@@ -99,17 +106,25 @@ exclude:
   - bootloader_support/test_apps
   - efuse/test_apps
   - esp_adc/test_apps
+  - esp_app_format/test_apps
   - esp_coex/test_apps
   - esp_common/test_apps
   - esp_driver_dac/test_apps
+  - esp_driver_gpio/test_apps
   - esp_driver_touch_sens/test_apps
   - esp_driver_tsens/test_apps
   - esp_event/host_test
   - esp_event/test_apps
+  - esp_hal_i2c/test_apps
   - esp_hal_regi2c/test_apps
+  - esp_hal_rtc_timer/test_apps
+  - esp_hal_security/test_apps
+  - esp_hal_systimer/test_apps
+  - esp_hal_wdt/test_apps
   - esp_hw_support/test_apps
   - esp_mm/test_apps
   - esp_phy/test_apps
+  - esp_pm/test_apps
   - esp_psram/test_apps
   - esp_rom/test_apps
   - esp_system/test_apps
@@ -119,6 +134,7 @@ exclude:
   - heap/test_apps
   - mbedtls/test_apps
   - spi_flash/test_apps
+  - ulp/test_apps
   - wpa_supplicant/test_apps
   - xtensa/test_apps
 

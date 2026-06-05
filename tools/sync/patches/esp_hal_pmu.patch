@@ -1,6 +1,6 @@
 --- a/components/esp_hal_pmu/include/hal/pmu_types.h
 +++ b/components/esp_hal_pmu/include/hal/pmu_types.h
-@@ -43,15 +43,6 @@
+@@ -55,15 +55,6 @@
      PMU_HP_PD_HPMEM = 2,
      PMU_HP_PD_CPU = 3,
  } pmu_hp_power_domain_t;

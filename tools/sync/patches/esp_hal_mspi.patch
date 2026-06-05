@@ -229,6 +229,20 @@
  #include <stdbool.h>
  #include <string.h>
  #include "hal/misc.h"
+--- a/components/esp_hal_mspi/esp32p4/include/hal/mspi_ll.h
++++ b/components/esp_hal_mspi/esp32p4/include/hal/mspi_ll.h
+@@ -658,9 +658,9 @@
+         return REG_GET_FIELD(SPI_MEM_C_CTRL_REG, SPI_MEM_C_FDUMMY_RIN);
+     } else if (spi_num == MSPI_TIMING_LL_MSPI_ID_1) {
+         return REG_GET_FIELD(SPI1_MEM_C_CTRL_REG, SPI1_MEM_C_FDUMMY_RIN);
+-    } else {
+-        HAL_ASSERT(false);
+     }
++    HAL_ASSERT(false);
++    return 0;
+ }
+ 
+ /**
 --- a/components/esp_hal_mspi/esp32p4/include/hal/psram_ctrlr_ll.h
 +++ b/components/esp_hal_mspi/esp32p4/include/hal/psram_ctrlr_ll.h
 @@ -14,7 +14,7 @@

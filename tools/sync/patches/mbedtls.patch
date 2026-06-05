@@ -106,7 +106,7 @@
  #endif
  #endif /* MBEDTLS_PSA_BUILTIN_ALG_HMAC */
  
-@@ -606,6 +606,7 @@
+@@ -596,6 +596,7 @@
   *
   * Comment this macro to disable FIXED POINT curves optimisation.
   */
@@ -114,7 +114,7 @@
  #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
  #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
  #else
-@@ -2018,6 +2019,7 @@
+@@ -1988,6 +1989,7 @@
  #ifdef CONFIG_MBEDTLS_CHACHA20_C
  #define PSA_WANT_KEY_TYPE_CHACHA20 1
  #else
@@ -122,7 +122,7 @@
  #undef PSA_WANT_KEY_TYPE_CHACHA20
  #endif
  
-@@ -2028,11 +2030,12 @@
+@@ -1998,11 +2000,12 @@
   *
   * Module:  library/chachapoly.c
   *
@@ -136,7 +136,7 @@
  #undef PSA_WANT_ALG_CHACHA20_POLY1305
  #endif
  
-@@ -2529,6 +2532,20 @@
+@@ -2486,6 +2489,20 @@
  #define MBEDTLS_PLATFORM_C
  
  /**
@@ -157,7 +157,7 @@
   * \def MBEDTLS_RIPEMD160_C
   *
   * Enable the RIPEMD-160 hash algorithm.
-@@ -2587,7 +2604,7 @@
+@@ -2550,7 +2567,7 @@
   *            on it, and considering stronger message digests instead.
   *
   */
@@ -166,7 +166,7 @@
  #define PSA_WANT_ALG_SHA_1 1
  #else
  #undef PSA_WANT_ALG_SHA_1
-@@ -2626,7 +2643,7 @@
+@@ -2589,7 +2606,7 @@
   *
   * This module adds support for SHA-384 and SHA-512.
   */
@@ -175,7 +175,7 @@
  #define PSA_WANT_ALG_SHA_512 1
  #else
  #undef PSA_WANT_ALG_SHA_512
-@@ -2647,7 +2664,7 @@
+@@ -2610,7 +2627,7 @@
   *
   * Comment to disable SHA-384
   */
@@ -184,7 +184,7 @@
  #define PSA_WANT_ALG_SHA_384 1
  #else
  #undef PSA_WANT_ALG_SHA_384
-@@ -2671,11 +2688,19 @@
+@@ -2634,11 +2651,19 @@
   */
  #ifdef CONFIG_MBEDTLS_SHA256_C
  #define MBEDTLS_SHA256_C
@@ -205,7 +205,7 @@
  #undef PSA_WANT_ALG_SHA_224
  #undef MBEDTLS_PSA_ACCEL_ALG_SHA_224
  #endif
-@@ -2720,7 +2745,7 @@
+@@ -2683,7 +2708,7 @@
  #define PSA_WANT_ALG_SHA3_512 1
  #if !defined(MBEDTLS_PSA_BUILTIN_ALG_HMAC)
      /* If SHA3 is enabled, use the builtin HMAC algorithm for HMAC(SHA3) operations */
@@ -216,7 +216,7 @@
  #undef PSA_WANT_ALG_SHA3_224
 --- a/components/mbedtls/port/mbedtls_rom/mbedtls_rom_osi.c
 +++ b/components/mbedtls/port/mbedtls_rom/mbedtls_rom_osi.c
-@@ -444,7 +444,7 @@
+@@ -534,7 +534,7 @@
      ._rom_mbedtls_mem_free = MBEDTLS_PLATFORM_STD_FREE,
  };
  

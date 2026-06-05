@@ -45,101 +45,7 @@
  #include "mbedtls/pk.h"
  #include "mbedtls/asn1write.h"
  #include "mbedtls/error.h"
-@@ -1542,11 +1542,13 @@
- static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bits)
- {
-     switch (grp_id) {
-+#if defined(MBEDTLS_ECP_DP_SECP192R1)
-     case MBEDTLS_ECP_DP_SECP192R1:
-         if (bits) {
-             *bits = 192;
-         }
-         return PSA_ECC_FAMILY_SECP_R1;
-+#endif
-     case MBEDTLS_ECP_DP_SECP256R1:
-         if (bits) {
-             *bits = 256;
-@@ -1582,11 +1584,13 @@
-             *bits = 255;
-         }
-         return PSA_ECC_FAMILY_MONTGOMERY;
-+#if defined(MBEDTLS_ECP_DP_SECP192K1)
-     case MBEDTLS_ECP_DP_SECP192K1:
-         if (bits) {
-             *bits = 192;
-         }
-         return PSA_ECC_FAMILY_SECP_K1;
-+#endif
-     // case MBEDTLS_ECP_DP_SECP224K1:
-     //     if (bits) {
-     //         *bits = 224;
-@@ -1978,55 +1982,33 @@
-         return (struct crypto_bignum *)wrapper->cached_private_key;
-     }
- 
--    mbedtls_pk_context *pkey_ctx = os_calloc(1, sizeof(mbedtls_pk_context));
--    if (!pkey_ctx) {
--        return NULL;
--    }
--
--    mbedtls_pk_init(pkey_ctx);
-+    unsigned char key_buf[PSA_BITS_TO_BYTES(PSA_VENDOR_ECC_MAX_CURVE_BITS)];
-+    size_t key_len = 0;
- 
--    int ret = mbedtls_pk_copy_from_psa(wrapper->key_id, pkey_ctx);
--    if (ret != 0) {
--        wpa_printf(MSG_ERROR, "Failed to copy key from PSA");
--        mbedtls_pk_free(pkey_ctx);
--        os_free(pkey_ctx);
-+    psa_status_t status = psa_export_key(wrapper->key_id, key_buf,
-+                                          sizeof(key_buf), &key_len);
-+    if (status != PSA_SUCCESS) {
-+        wpa_printf(MSG_ERROR, "Failed to export private key from PSA: %d", (int)status);
-         return NULL;
-     }
- 
-     mbedtls_mpi *d = os_calloc(1, sizeof(mbedtls_mpi));
-     if (!d) {
--        mbedtls_pk_free(pkey_ctx);
--        os_free(pkey_ctx);
-+        forced_memzero(key_buf, sizeof(key_buf));
-         return NULL;
-     }
- 
-     mbedtls_mpi_init(d);
- 
--    // Access the EC keypair directly from the PK context
--    // pkey_ctx->pk_ctx points to the underlying EC keypair
--    mbedtls_ecp_keypair *ec_key = (mbedtls_ecp_keypair *)(pkey_ctx->MBEDTLS_PRIVATE(pk_ctx));
--    if (!ec_key) {
--        wpa_printf(MSG_ERROR, "Failed to get EC keypair from PK context");
--        mbedtls_mpi_free(d);
--        os_free(d);
--        mbedtls_pk_free(pkey_ctx);
--        os_free(pkey_ctx);
--        return NULL;
--    }
--
--    ret = mbedtls_mpi_copy(d, &ec_key->MBEDTLS_PRIVATE(d));
-+    int ret = mbedtls_mpi_read_binary(d, key_buf, key_len);
-+    forced_memzero(key_buf, sizeof(key_buf));
-     if (ret != 0) {
--        wpa_printf(MSG_ERROR, "Failed to copy private key");
-+        wpa_printf(MSG_ERROR, "Failed to read private key into mpi: -0x%04x", -ret);
-         mbedtls_mpi_free(d);
-         os_free(d);
--        mbedtls_pk_free(pkey_ctx);
--        os_free(pkey_ctx);
-         return NULL;
-     }
- 
--    mbedtls_pk_free(pkey_ctx);
--    os_free(pkey_ctx);
--
-     // Cache the private key in wrapper for later cleanup
-     wrapper->cached_private_key = d;
- 
-@@ -2549,8 +2531,6 @@
+@@ -2544,8 +2544,6 @@
   */
  struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t len)
  {
@@ -147,165 +53,6 @@
 -    // This is the recommended replacement for the deprecated mbedtls_pk_parse_subpubkey()
      mbedtls_pk_context pk_ctx;
      mbedtls_pk_init(&pk_ctx);
- 
-@@ -2561,69 +2541,61 @@
-         return NULL;
-     }
- 
--    // Get the EC keypair from the PK context
--    mbedtls_ecp_keypair *ec = (mbedtls_ecp_keypair *)(pk_ctx.MBEDTLS_PRIVATE(pk_ctx));
--    if (!ec) {
--        wpa_printf(MSG_ERROR, "Failed to get EC keypair from parsed key");
-+    psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
-+    ret = mbedtls_pk_get_psa_attributes(&pk_ctx, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
-+    if (ret != 0) {
-+        wpa_printf(MSG_ERROR, "mbedtls_pk_get_psa_attributes failed: -0x%04x", -ret);
-         mbedtls_pk_free(&pk_ctx);
-         return NULL;
-     }
- 
--    mbedtls_ecp_group_id grp_id = ec->MBEDTLS_PRIVATE(grp).id;
-+    psa_key_type_t key_type = psa_get_key_type(&key_attributes);
-+    psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
-+    size_t key_bits = psa_get_key_bits(&key_attributes);
- 
--    // Convert mbedtls curve ID to PSA curve family and bits
--    size_t key_bits = 0;
--    psa_ecc_family_t ecc_family = group_id_to_psa(grp_id, &key_bits);
--    if (ecc_family == 0) {
--        wpa_printf(MSG_ERROR, "Unsupported or invalid curve: %d", grp_id);
-+    if (ecc_family == 0 || key_bits == 0) {
-+        wpa_printf(MSG_ERROR, "Unsupported or invalid curve from parsed key");
-         mbedtls_pk_free(&pk_ctx);
-         return NULL;
-     }
- 
--    // Export public key in uncompressed format for PSA import
--    unsigned char pub_key_buf[PSA_EXPORT_PUBLIC_KEY_MAX_SIZE] = {0};
--    size_t pub_key_len = 0;
--
--    ret = mbedtls_ecp_point_write_binary(
--              &ec->MBEDTLS_PRIVATE(grp),
--              &ec->MBEDTLS_PRIVATE(Q),
--              MBEDTLS_ECP_PF_UNCOMPRESSED,
--              &pub_key_len,
--              pub_key_buf,
--              sizeof(pub_key_buf)
--          );
--
--    if (ret != 0) {
--        wpa_printf(MSG_ERROR, "Failed to export public key: -0x%04x", -ret);
--        mbedtls_pk_free(&pk_ctx);
--        return NULL;
-+    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-+    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
-+        if (key_bits == 256) {
-+            grp_id = MBEDTLS_ECP_DP_SECP256R1;
-+        } else if (key_bits == 384) {
-+            grp_id = MBEDTLS_ECP_DP_SECP384R1;
-+        } else if (key_bits == 521) {
-+            grp_id = MBEDTLS_ECP_DP_SECP521R1;
-+        }
-+    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
-+        if (key_bits == 256) {
-+            grp_id = MBEDTLS_ECP_DP_BP256R1;
-+        } else if (key_bits == 384) {
-+            grp_id = MBEDTLS_ECP_DP_BP384R1;
-+        } else if (key_bits == 512) {
-+            grp_id = MBEDTLS_ECP_DP_BP512R1;
-+        }
-     }
- 
--    // Done with mbedtls temporary context
--    mbedtls_pk_free(&pk_ctx);
--
--    // Create wrapper structure
-     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
-     if (!wrapper) {
--        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
-+        mbedtls_pk_free(&pk_ctx);
-         return NULL;
-     }
--    wrapper->curve_id = grp_id;  // Store curve ID
--    mbedtls_ecp_group_init(&wrapper->group);  // Initialize group structure
--    wrapper->group.id = MBEDTLS_ECP_DP_NONE;  // Mark as not loaded yet (lazy init)
-+    wrapper->curve_id = grp_id;
-+    mbedtls_ecp_group_init(&wrapper->group);
-+    wrapper->group.id = MBEDTLS_ECP_DP_NONE;
- 
--    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
--    psa_set_key_usage_flags(&attributes,
-+    psa_set_key_usage_flags(&key_attributes,
-                             PSA_KEY_USAGE_VERIFY_HASH | PSA_KEY_USAGE_VERIFY_MESSAGE | PSA_KEY_USAGE_EXPORT);
--    psa_set_key_algorithm(&attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
--    psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(ecc_family));
--    psa_set_key_bits(&attributes, key_bits);
-+    psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
- 
--    psa_status_t status = psa_import_key(&attributes, pub_key_buf, pub_key_len, &wrapper->key_id);
--    psa_reset_key_attributes(&attributes);
-+    ret = mbedtls_pk_import_into_psa(&pk_ctx, &key_attributes, &wrapper->key_id);
-+    mbedtls_pk_free(&pk_ctx);
- 
--    if (status != PSA_SUCCESS) {
--        wpa_printf(MSG_ERROR, "Failed to import key to PSA: %d", status);
-+    if (ret != 0) {
-+        wpa_printf(MSG_ERROR, "mbedtls_pk_import_into_psa failed: -0x%04x", -ret);
-         mbedtls_ecp_group_free(&wrapper->group);
-         os_free(wrapper);
-         return NULL;
-@@ -3151,13 +3123,6 @@
-         return NULL;
-     }
- 
--    // Extract curve ID from parsed key
--    mbedtls_ecp_keypair *ec = (mbedtls_ecp_keypair *)(pkey->MBEDTLS_PRIVATE(pk_ctx));
--    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
--    if (ec) {
--        grp_id = ec->MBEDTLS_PRIVATE(grp).id;
--    }
--
-     psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
-     ret = mbedtls_pk_get_psa_attributes(pkey, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
-     if (ret != 0) {
-@@ -3167,15 +3132,35 @@
-         return NULL;
-     }
- 
--    // Create wrapper structure
-+    psa_key_type_t key_type = psa_get_key_type(&key_attributes);
-+    psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
-+    size_t key_bits = psa_get_key_bits(&key_attributes);
-+    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-+    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
-+        if (key_bits == 256) {
-+            grp_id = MBEDTLS_ECP_DP_SECP256R1;
-+        } else if (key_bits == 384) {
-+            grp_id = MBEDTLS_ECP_DP_SECP384R1;
-+        } else if (key_bits == 521) {
-+            grp_id = MBEDTLS_ECP_DP_SECP521R1;
-+        }
-+    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
-+        if (key_bits == 256) {
-+            grp_id = MBEDTLS_ECP_DP_BP256R1;
-+        } else if (key_bits == 384) {
-+            grp_id = MBEDTLS_ECP_DP_BP384R1;
-+        } else if (key_bits == 512) {
-+            grp_id = MBEDTLS_ECP_DP_BP512R1;
-+        }
-+    }
-+
-     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
-     if (!wrapper) {
--        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
-         mbedtls_pk_free(pkey);
-         os_free(pkey);
-         return NULL;
-     }
--    wrapper->curve_id = grp_id;  // Store curve ID
-+    wrapper->curve_id = grp_id;
-     mbedtls_ecp_group_init(&wrapper->group);
-     wrapper->group.id = MBEDTLS_ECP_DP_NONE;  // Mark as not loaded yet (lazy init)
  
 --- a/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/crypto/crypto_mbedtls-rsa.c
@@ -369,9 +116,20 @@
  
  int crypto_public_key_encrypt_pkcs1_v15(struct crypto_public_key *key,
                                          const u8 *in, size_t inlen,
+--- a/components/wpa_supplicant/esp_supplicant/src/crypto/tls_mbedtls.c
++++ b/components/wpa_supplicant/esp_supplicant/src/crypto/tls_mbedtls.c
+@@ -298,7 +298,7 @@
+ 
+ #if defined(MBEDTLS_SSL_PROTO_TLS1_2)
+ #if (defined(MBEDTLS_SHA512_C) || defined(PSA_WANT_ALG_SHA_512))
+-#if defined(MBEDTLS_ECDSA_C)
++#if defined(MBEDTLS_ECDSA_C) || defined(PSA_WANT_ALG_ECDSA)
+     MBEDTLS_SSL_TLS12_SIG_AND_HASH_ALG(MBEDTLS_SSL_SIG_ECDSA, MBEDTLS_SSL_HASH_SHA512),
+     MBEDTLS_SSL_TLS12_SIG_AND_HASH_ALG(MBEDTLS_SSL_SIG_ECDSA, MBEDTLS_SSL_HASH_SHA384),
+ #endif
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_common.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_common.c
-@@ -24,7 +24,6 @@
+@@ -25,7 +25,6 @@
  #include "rsn_supp/wpa.h"
  #include "esp_private/wifi.h"
  #include "esp_wifi_types_generic.h"
@@ -381,111 +139,65 @@
  esp_err_t esp_supplicant_str_to_mac(const char *str, uint8_t dest[6])
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_dpp.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_dpp.c
-@@ -771,14 +771,12 @@
-     esp_dpp_auth_resp_retry_timeout(NULL, NULL);
- }
- 
--static void tx_status_eloop_handler(void *eloop_ctx, void *event_data)
-+static void tx_status_handler(void *arg, esp_event_base_t event_base,
-+                              int32_t event_id, void *event_data)
- {
-     struct dpp_authentication *auth = s_dpp_ctx.dpp_auth;
--    wifi_event_action_tx_status_t *evt = event_data;
- 
--    if (!evt) {
--        return;
--    }
-+    wifi_event_action_tx_status_t *evt = event_data;
- 
-     wpa_printf(MSG_DEBUG, "Mgmt Tx Status - %d, Cookie - 0x%x",
-                evt->status, (uint32_t)evt->context);
-@@ -786,9 +784,13 @@
-     if (evt->op_id != s_current_tx_op_id) {
-         wpa_printf(MSG_DEBUG, "DPP: status not for recent frame op_id=%u, s_current_tx_op_id=%u",
-                    evt->op_id, s_current_tx_op_id);
--    } else if (!auth) {
-+        return;
-+    }
-+    if (!auth) {
-         wpa_printf(MSG_DEBUG, "Auth already deinitialized, return");
--    } else if (auth->waiting_auth_conf) {
-+        return;
-+    }
-+    if (auth->waiting_auth_conf) {
-         eloop_cancel_timeout(esp_dpp_auth_resp_retry_timeout, NULL, NULL);
-         if (evt->status == WIFI_ACTION_TX_FAILED) {
-             /* failed to send auth response frame */
-@@ -808,53 +810,22 @@
-             eloop_register_timeout(ESP_GAS_TIMEOUT_SECS, 0, gas_query_timeout, NULL, auth);
-         }
-     }
--    os_free(evt);
- }
- 
--static void tx_status_handler(void *arg, esp_event_base_t event_base,
--                              int32_t event_id, void *event_data)
--{
--    wifi_event_action_tx_status_t *evt_c = os_malloc(sizeof(*evt_c));
--    if (evt_c) {
--        os_memcpy(evt_c, event_data, sizeof(*evt_c));
--        if (eloop_register_timeout(0, 0, tx_status_eloop_handler, NULL, evt_c) < 0) {
--            os_free(evt_c);
--        }
--    } else {
--        wpa_printf(MSG_ERROR, "DPP: Failed to allocate memory for TX status");
--    }
--}
--
--static void roc_status_eloop_handler(void *eloop_ctx, void *event_data)
-+static void roc_status_handler(void *arg, esp_event_base_t event_base,
-+                               int32_t event_id, void *event_data)
- {
-     wifi_event_roc_done_t *evt = (wifi_event_roc_done_t *)event_data;
- 
--    if (evt) {
--        if (evt->context == (uint32_t)s_action_rx_cb) {
--            eloop_cancel_timeout(dpp_listen_next_channel, NULL, NULL);
--            eloop_register_timeout(0, 0, dpp_listen_next_channel, NULL, NULL);
--        }
--        os_free(evt);
-+    if (evt->context == (uint32_t)s_action_rx_cb) {
-+        eloop_cancel_timeout(dpp_listen_next_channel, NULL, NULL);
-+        eloop_register_timeout(0, 0, dpp_listen_next_channel, NULL, NULL);
-     }
- 
-     atomic_store(&roc_in_progress, false);
-     os_event_group_set_bits(s_dpp_event_group, DPP_ROC_EVENT_HANDLED);
- }
- 
--static void roc_status_handler(void *arg, esp_event_base_t event_base,
--                               int32_t event_id, void *event_data)
--{
--    wifi_event_roc_done_t *evt_c = os_malloc(sizeof(*evt_c));
--    if (evt_c) {
--        os_memcpy(evt_c, event_data, sizeof(*evt_c));
--        if (eloop_register_timeout(0, 0, roc_status_eloop_handler, NULL, evt_c) < 0) {
--            os_free(evt_c);
--        }
--    } else {
--        wpa_printf(MSG_ERROR, "DPP: Failed to allocate memory for ROC status");
--    }
--}
--
- static char *esp_dpp_parse_chan_list(const char *chan_list)
- {
-     struct dpp_bootstrap_params_t *params = &s_dpp_ctx.bootstrap_params;
-@@ -1124,7 +1095,7 @@
-     esp_err_t ret = ESP_OK;
+@@ -2368,7 +2368,7 @@
+     int eloop_ret;
  
      wifi_mode_t mode = 0;
 -    if (esp_wifi_get_mode(&mode) || ((mode != WIFI_MODE_STA) && (mode != WIFI_MODE_APSTA))) {
 +    if (esp_wifi_get_mode(&mode) || ((mode != ESP32_WIFI_MODE_STA) && (mode != ESP32_WIFI_MODE_APSTA))) {
          wpa_printf(MSG_ERROR, "DPP: failed to init as not in station mode.");
-         return ESP_FAIL;
+         return ESP_ERR_DPP_FAILURE;
      }
+--- a/components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c
++++ b/components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c
+@@ -139,18 +139,26 @@
+ {
+     void *my_task_hdl = os_task_get_current_task();
+     int ret = ESP_OK;
++    void *task_hdl = s_wpa2_task_hdl;
+ 
+-    if (my_task_hdl == s_wpa2_task_hdl) {
++    if (my_task_hdl == task_hdl) {
+         wpa_printf(MSG_ERROR, "EAP: should never call task delete api in eap task context");
+         return;
+     }
+ 
++    if (task_hdl == NULL) {
++        return;
++    }
++
+     ret = wpa2_post(SIG_WPA2_TASK_DEL, 0);
+ 
+     if (ESP_OK != ret) {
+         wpa_printf(MSG_ERROR, "EAP: failed to post task delete event, ret=%d", ret);
+         return;
+     }
++
++    os_task_delete(task_hdl);
++    s_wpa2_task_hdl = NULL;
+ }
+ 
+ #define WPA_ADDR_LEN 6
+@@ -285,8 +293,7 @@
+         wpa_printf(MSG_ERROR, "EAP: null wifi->EAP sync sem");
+     }
+ 
+-    /* At this point, we completed */
+-    os_task_delete(NULL);
++    /* The task creator owns the dynamically allocated Zephyr stack wrapper. */
+ }
+ 
+ int wpa2_post(uint32_t sig, uint32_t par)
+@@ -1385,5 +1392,6 @@
+     }
+ 
+     g_eap_method_mask = methods;
++    eloop_register_timeout(0, 0, config_changed_handler, NULL, NULL);
+     return ESP_OK;
+ }
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_hostap.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_hostap.c
-@@ -31,7 +31,7 @@
+@@ -37,7 +37,7 @@
  struct hostapd_data *global_hapd;
  
  #ifdef CONFIG_SAE
@@ -494,45 +206,38 @@
  #endif /* CONFIG_SAE */
  
  struct hostapd_data *hostapd_get_hapd_data(void)
-@@ -319,7 +319,7 @@
-     wpa3_hostap_auth_deinit();
-     /* Wait till lock is released by wpa3 task */
-     if (g_wpa3_hostap_auth_api_lock &&
--            WPA3_HOSTAP_AUTH_API_LOCK() == pdTRUE) {
-+            WPA3_HOSTAP_AUTH_API_LOCK() == 1) {
-         WPA3_HOSTAP_AUTH_API_UNLOCK();
-     }
- #endif /* CONFIG_SAE */
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
 @@ -144,7 +144,7 @@
+ 
  static int wifi_ap_wps_enable_internal(const esp_wps_config_t *config)
  {
-     struct wps_sm *sm = gWpsSm;
 -    wifi_mode_t mode = WIFI_MODE_NULL;
 +    wifi_mode_t mode = ESP32_WIFI_MODE_NULL;
+     enum wps_owner owner;
  
      if (esp_wifi_get_user_init_flag_internal() == 0) {
-         wpa_printf(MSG_ERROR, "wps enable: wifi not started cannot enable wpsreg");
-@@ -156,7 +156,7 @@
+@@ -157,7 +157,7 @@
          return ESP_FAIL;
      }
  
 -    if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA) {
-+    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_ESP32_WIFI_MODE_APSTA) {
++    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_WIFI_MODE_APSTA) {
          wpa_printf(MSG_ERROR, "wps enable: mode=%d does not include AP", mode);
          return ESP_ERR_WIFI_MODE;
      }
-@@ -265,10 +265,10 @@
+@@ -266,12 +266,12 @@
  
  static int wifi_ap_wps_start_internal(const unsigned char *pin)
  {
 -    wifi_mode_t mode = WIFI_MODE_NULL;
 +    wifi_mode_t mode = ESP32_WIFI_MODE_NULL;
+     int prev_wps_status;
+     enum wps_owner owner;
  
      esp_wifi_get_mode(&mode);
 -    if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA) {
-+    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_ESP32_WIFI_MODE_APSTA) {
++    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_WIFI_MODE_APSTA) {
          wpa_printf(MSG_ERROR, "wps start: mode=%d does not include AP", mode);
          return ESP_ERR_WIFI_MODE;
      }
@@ -552,25 +257,35 @@
          if (scan_params->bssid) {
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
-@@ -438,9 +438,9 @@
+@@ -443,10 +443,10 @@
  
  #ifdef CONFIG_SAE
  
 -static TaskHandle_t g_wpa3_hostap_task_hdl = NULL;
 -static QueueHandle_t g_wpa3_hostap_evt_queue = NULL;
--SemaphoreHandle_t g_wpa3_hostap_auth_api_lock = NULL;
 +static void *g_wpa3_hostap_task_hdl = NULL;
 +static void *g_wpa3_hostap_evt_queue = NULL;
+ /* Global API lock - created once, never deleted */
+-SemaphoreHandle_t g_wpa3_hostap_auth_api_lock = NULL;
 +void *g_wpa3_hostap_auth_api_lock = NULL;
  
  int wpa3_hostap_post_evt(uint32_t evt_id, uint32_t data)
  {
-@@ -462,13 +462,13 @@
+@@ -468,7 +468,7 @@
      }
-     if (evt.id == SIG_WPA3_RX_CONFIRM || evt.id == SIG_TASK_DEL) {
+     if (evt.id == SIG_WPA3_RX_CONFIRM) {
          /* prioritising confirm for completing handshake for committed sta */
 -        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, 0) != pdPASS) {
 +        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, 0) != 1) {
+             WPA3_HOSTAP_AUTH_API_UNLOCK();
+             wpa_printf(MSG_DEBUG, "failed to add msg to queue front");
+             return ESP_FAIL;
+@@ -476,13 +476,13 @@
+     } else if (evt.id == SIG_TASK_DEL) {
+         /* Wi-Fi blocks until SIG_TASK_DEL is queued; only Wi-Fi calls wpa3_hostap_post_evt. */
+         /* Hence there will be no deadlock for g_wpa3_hostap_auth_api_lock. */
+-        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, portMAX_DELAY) != pdPASS) {
++        if (os_queue_send_to_front(g_wpa3_hostap_evt_queue, &evt, OS_BLOCK) != 1) {
              WPA3_HOSTAP_AUTH_API_UNLOCK();
              wpa_printf(MSG_DEBUG, "failed to add msg to queue front");
              return ESP_FAIL;
@@ -581,7 +296,16 @@
              WPA3_HOSTAP_AUTH_API_UNLOCK();
              wpa_printf(MSG_DEBUG, "failed to send msg to queue");
              return ESP_FAIL;
-@@ -592,7 +592,7 @@
+@@ -603,7 +603,7 @@
+         return;
+     }
+ 
+-    if (os_semphr_take(sta->lock, 0) != pdTRUE) {
++    if (os_semphr_take(sta->lock, 0) != 1) {
+         HOSTAPD_STA_LIST_UNLOCK(hapd);
+         os_free(frm);
+         return;
+@@ -653,7 +653,7 @@
      bool task_del = false;
  
      while (1) {
@@ -590,7 +314,7 @@
              switch (evt.id) {
              case SIG_WPA3_RX_COMMIT: {
                  wpa3_process_rx_commit(&evt);
-@@ -617,7 +617,7 @@
+@@ -678,7 +678,7 @@
      uint32_t items_in_queue = os_queue_msg_waiting(g_wpa3_hostap_evt_queue);
      while (items_in_queue--) {
          /* Free events posted to queue */
@@ -599,7 +323,7 @@
          if (evt.id == SIG_WPA3_RX_CONFIRM) {
              os_free((void *)evt.data);
          }
-@@ -656,7 +656,7 @@
+@@ -751,7 +751,7 @@
      if (os_task_create(esp_wpa3_hostap_task, "esp_wpa3_hostap_task",
                         WPA3_HOSTAP_HANDLE_AUTH_TASK_STACK_SIZE, NULL,
                         WPA3_HOSTAP_HANDLE_AUTH_TASK_PRIORITY,
@@ -627,7 +351,7 @@
  /*
   * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
   *
-@@ -60,7 +61,7 @@
+@@ -67,7 +68,7 @@
  // Callback structure for handling WPS events within the Wi-Fi task
  static struct wps_sm_funcs *s_wps_sm_cb = NULL;
  
@@ -636,7 +360,7 @@
  
  /* API lock to ensure thread safety for public WPS functions */
  void *s_wps_api_lock = NULL;  /* Used in WPS/WPS-REG public API only, never be freed */
-@@ -255,9 +256,9 @@
+@@ -262,9 +263,9 @@
      }
  
      esp_wifi_get_mode(&op_mode);
@@ -648,7 +372,7 @@
  #endif
         ) {
          return false;
-@@ -963,9 +964,9 @@
+@@ -1013,9 +1014,9 @@
          }
      }
  
@@ -661,7 +385,7 @@
      os_snprintf(s_factory_info->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s STATION", wps_model_number);
  
      return ESP_OK;
-@@ -1042,28 +1043,28 @@
+@@ -1092,28 +1093,28 @@
          ret = ESP_FAIL;
          goto _out;
      }
@@ -694,7 +418,7 @@
  
      dev->serial_number = os_zalloc(16);
      if (!dev->serial_number) {
-@@ -1541,9 +1542,9 @@
+@@ -1608,9 +1609,9 @@
  
      if (
  #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
@@ -708,7 +432,7 @@
      }
 --- a/components/wpa_supplicant/port/eloop.c
 +++ b/components/wpa_supplicant/port/eloop.c
-@@ -12,6 +12,7 @@
+@@ -12,13 +12,14 @@
   */
  
  #include "includes.h"
@@ -716,15 +440,164 @@
  
  #include "common.h"
  #include "list.h"
-@@ -507,7 +508,7 @@
-     atomic_store(&eloop.eloop_started, false);
+ #include "eloop.h"
+ #include "esp_wifi_driver.h"
+ #include "rom/ets_sys.h"
+-#include <stdatomic.h>
++#include <zephyr/sys/atomic.h>
+ #include <stdint.h>
  
-     while (atomic_load(&eloop.timeout_running)) {
--        vTaskDelay(100 / portTICK_PERIOD_MS);  // Yield CPU
-+        k_msleep(100);
+ bool current_task_is_wifi_task(void);
+@@ -38,7 +39,7 @@
+     eloop_timeout_handler destroy_handler;
+     eloop_blocking_timeout_handler blocking_handler;
+     void *sync_semph;
+-    atomic_uint ref_count;
++    atomic_t ref_count;
+     int ret;
+     bool blocking;
+ #ifdef ELOOP_DEBUG
+@@ -50,8 +51,8 @@
+ struct eloop_data {
+     struct dl_list timeout;
+     ETSTimer eloop_timer;
+-    atomic_int state;
+-    atomic_uint dispatch_count;
++    atomic_t state;
++    atomic_t dispatch_count;
+ };
+ 
+ #define ELOOP_LOCK() os_mutex_lock(eloop_data_lock)
+@@ -59,21 +60,18 @@
+ 
+ static void *eloop_data_lock = NULL;
+ static struct eloop_data eloop;
+-static atomic_bool eloop_lifecycle_busy = false;
++static atomic_t eloop_lifecycle_busy = ATOMIC_INIT(0);
+ 
+ static void eloop_lifecycle_lock(void)
+ {
+-    bool expected = false;
+-
+-    while (!atomic_compare_exchange_weak(&eloop_lifecycle_busy, &expected, true)) {
+-        expected = false;
+-        vTaskDelay(1);
++    while (!atomic_cas(&eloop_lifecycle_busy, 0, 1)) {
++        k_msleep(1);
      }
-     dl_list_for_each_safe(timeout, prev, &eloop.timeout,
-                           struct eloop_timeout, list) {
+ }
+ 
+ static void eloop_lifecycle_unlock(void)
+ {
+-    atomic_store(&eloop_lifecycle_busy, false);
++    atomic_set(&eloop_lifecycle_busy, 0);
+ }
+ 
+ #ifdef ELOOP_DEBUG
+@@ -119,7 +117,7 @@
+ 
+ static bool eloop_is_running(void)
+ {
+-    return atomic_load(&eloop.state) == ELOOP_STATE_RUNNING;
++    return atomic_get(&eloop.state) == ELOOP_STATE_RUNNING;
+ }
+ 
+ static int eloop_get_reltime_now(struct os_reltime *time)
+@@ -139,12 +137,12 @@
+ 
+ static void eloop_timeout_get(struct eloop_timeout *timeout)
+ {
+-    atomic_fetch_add(&timeout->ref_count, 1);
++    atomic_add(&timeout->ref_count, 1);
+ }
+ 
+ static void eloop_timeout_put(struct eloop_timeout *timeout)
+ {
+-    if (atomic_fetch_sub(&timeout->ref_count, 1) != 1) {
++    if (atomic_sub(&timeout->ref_count, 1) != 1) {
+         return;
+     }
+ 
+@@ -350,7 +348,7 @@
+         return NULL;
+     }
+ 
+-    atomic_init(&timeout->ref_count, 1);
++    atomic_set(&timeout->ref_count, 1);
+ #ifdef ELOOP_DEBUG
+     os_strlcpy(timeout->func_name, func, sizeof(timeout->func_name));
+     timeout->line = line;
+@@ -381,8 +379,8 @@
+     dl_list_init(&eloop.timeout);
+     os_timer_disarm(&eloop.eloop_timer);
+     os_timer_setfn(&eloop.eloop_timer, (ETSTimerFunc *)eloop_run_timer, NULL);
+-    atomic_store(&eloop.dispatch_count, 0);
+-    atomic_store(&eloop.state, ELOOP_STATE_RUNNING);
++    atomic_set(&eloop.dispatch_count, 0);
++    atomic_set(&eloop.state, ELOOP_STATE_RUNNING);
+ }
+ 
+ int eloop_init(void)
+@@ -393,7 +391,7 @@
+ 
+     eloop_lifecycle_lock();
+     if (eloop_data_lock) {
+-        int current_state = atomic_load(&eloop.state);
++        int current_state = atomic_get(&eloop.state);
+ 
+         if (current_state == ELOOP_STATE_RUNNING) {
+             eloop_lifecycle_unlock();
+@@ -849,7 +847,7 @@
+         }
+ 
+         dl_list_del(&timeout->list);
+-        atomic_fetch_add(&eloop.dispatch_count, 1);
++        atomic_add(&eloop.dispatch_count, 1);
+         ELOOP_UNLOCK();
+ 
+         if (timeout->blocking) {
+@@ -868,7 +866,7 @@
+             eloop_run_async_timeout(timeout, timeout->handler);
+         }
+ 
+-        atomic_fetch_sub(&eloop.dispatch_count, 1);
++        atomic_sub(&eloop.dispatch_count, 1);
+     }
+ }
+ 
+@@ -892,9 +890,9 @@
+         return;
+     }
+ 
+-    old_state = atomic_exchange(&eloop.state, ELOOP_STATE_DESTROYING);
++    old_state = atomic_set(&eloop.state, ELOOP_STATE_DESTROYING);
+     if (old_state == ELOOP_STATE_STOPPED) {
+-        atomic_store(&eloop.state, ELOOP_STATE_STOPPED);
++        atomic_set(&eloop.state, ELOOP_STATE_STOPPED);
+         eloop_lifecycle_unlock();
+         return;
+     }
+@@ -944,16 +942,16 @@
+ 
+ #ifdef ELOOP_DEBUG
+     wpa_printf(MSG_DEBUG, "ELOOP: waiting for %u in-flight dispatches before destroy",
+-               atomic_load(&eloop.dispatch_count));
++               (unsigned int)atomic_get(&eloop.dispatch_count));
+ #endif
+-    while (atomic_load(&eloop.dispatch_count) != 0) {
++    while (atomic_get(&eloop.dispatch_count) != 0) {
+         if (++wait_loops >= wait_warn_loops) {
+             wpa_printf(MSG_ERROR,
+                        "ELOOP: destroy still waiting for %u in-flight dispatches after %u ms",
+-                       atomic_load(&eloop.dispatch_count), wait_warn_loops * wait_step_ms);
++                       (unsigned int)atomic_get(&eloop.dispatch_count), wait_warn_loops * wait_step_ms);
+             wait_loops = 0;
+         }
+-        vTaskDelay(wait_step_ms / portTICK_PERIOD_MS);
++        k_msleep(wait_step_ms);
+     }
+ 
+ #ifdef ELOOP_DEBUG
 --- a/components/wpa_supplicant/port/include/os.h
 +++ b/components/wpa_supplicant/port/include/os.h
 @@ -17,12 +17,22 @@
@@ -874,6 +747,110 @@
  }
  
  #ifdef CONFIG_CRYPTO_MBEDTLS
+--- a/components/wpa_supplicant/src/eap_peer/eap.c
++++ b/components/wpa_supplicant/src/eap_peer/eap.c
+@@ -609,54 +609,60 @@
+ 	int allowed_method_count = 0;
+ 	const struct eap_method *methods;
+ 
+-	if (!config_methods) {
+-		methods = eap_peer_get_methods(&mcount);
+-		if (methods == NULL) {
+-			wpa_printf(MSG_ERROR, "EAP: Set config init: EAP methods not registered.");
+-			return -1;
+-		}
++	if (config_methods) {
++		os_free(config_methods);
++		config_methods = NULL;
++		sm->config.eap_methods = NULL;
++	}
+ 
+-		// Allocate a buffer large enough to accomodate all the registered methods.
+-		config_methods = os_malloc(mcount * sizeof(struct eap_method_type));
+-		if (config_methods == NULL) {
+-			wpa_printf(MSG_ERROR, "EAP: Set config init: Out of memory, set configured methods failed");
+-			return -1;
+-		}
++	methods = eap_peer_get_methods(&mcount);
++	if (methods == NULL) {
++		wpa_printf(MSG_ERROR, "EAP: Set config init: EAP methods not registered.");
++		return -1;
++	}
++
++	// Allocate a buffer large enough to accommodate all the registered methods
++	// plus the EAP_TYPE_NONE terminator.
++	config_methods = os_malloc((mcount + 1) * sizeof(struct eap_method_type));
++	if (config_methods == NULL) {
++		wpa_printf(MSG_ERROR, "EAP: Set config init: Out of memory, set configured methods failed");
++		return -1;
++	}
+ 
+-		if (g_wpa_username) {
+-			//set EAP-PEAP
+-			if (g_eap_method_mask & ESP_EAP_TYPE_PEAP) {
+-				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+-				config_methods[allowed_method_count++].method = EAP_TYPE_PEAP;
+-			}
+-			//set EAP-TTLS
+-			if (g_eap_method_mask & ESP_EAP_TYPE_TTLS) {
+-				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+-				config_methods[allowed_method_count++].method = EAP_TYPE_TTLS;
+-			}
++	if (g_wpa_username) {
++		//set EAP-PEAP
++		if (g_eap_method_mask & ESP_EAP_TYPE_PEAP) {
++			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
++			config_methods[allowed_method_count++].method = EAP_TYPE_PEAP;
+ 		}
+-		if (g_wpa_private_key) {
+-			//set EAP-TLS
+-			if (g_eap_method_mask & ESP_EAP_TYPE_TLS) {
+-				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+-				config_methods[allowed_method_count++].method = EAP_TYPE_TLS;
+-			}
++		//set EAP-TTLS
++		if (g_eap_method_mask & ESP_EAP_TYPE_TTLS) {
++			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
++			config_methods[allowed_method_count++].method = EAP_TYPE_TTLS;
+ 		}
++	}
++	if (g_wpa_private_key) {
++		//set EAP-TLS
++		if (g_eap_method_mask & ESP_EAP_TYPE_TLS) {
++			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
++			config_methods[allowed_method_count++].method = EAP_TYPE_TLS;
++		}
++	}
+ #ifdef EAP_FAST
+-		if (g_wpa_pac_file) {
+-			//set EAP-FAST
+-			if (g_eap_method_mask & ESP_EAP_TYPE_FAST) {
+-				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+-				config_methods[allowed_method_count++].method = EAP_TYPE_FAST;
+-			}
++	if (g_wpa_pac_file) {
++		//set EAP-FAST
++		if (g_eap_method_mask & ESP_EAP_TYPE_FAST) {
++			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
++			config_methods[allowed_method_count++].method = EAP_TYPE_FAST;
+ 		}
+-#endif
+-		// Terminate the allowed method list
+-		config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+-		config_methods[allowed_method_count++].method = EAP_TYPE_NONE;
+-		// Set the allowed methods to config
+-		sm->config.eap_methods = config_methods;
+ 	}
++#endif
++	// Terminate the allowed method list
++	config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
++	config_methods[allowed_method_count++].method = EAP_TYPE_NONE;
++	// Set the allowed methods to config
++	sm->config.eap_methods = config_methods;
++
+ 	return 0;
+ 
+ }
 --- a/components/wpa_supplicant/src/utils/common.h
 +++ b/components/wpa_supplicant/src/utils/common.h
 @@ -456,7 +456,9 @@

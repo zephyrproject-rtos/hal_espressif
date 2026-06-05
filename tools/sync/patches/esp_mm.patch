@@ -162,7 +162,7 @@
  
      return ESP_OK;
  }
-@@ -444,7 +446,7 @@
+@@ -486,7 +488,7 @@
       */
      s_stop_cache();
  
@@ -171,8 +171,8 @@
  
      cache_bus_mask_t bus_mask = cache_ll_l1_get_bus(0, vaddr_start, size);
      cache_ll_l1_enable_bus(0, bus_mask);
-@@ -471,7 +473,7 @@
-     ESP_RETURN_ON_FALSE((paddr_start % CONFIG_MMU_PAGE_SIZE == 0), ESP_ERR_INVALID_ARG, TAG, "paddr must be rounded up to the nearest multiple of CONFIG_MMU_PAGE_SIZE");
+@@ -514,7 +516,7 @@
+     ESP_RETURN_ON_FALSE((vaddr_start % CONFIG_MMU_PAGE_SIZE == 0), ESP_ERR_INVALID_ARG, TAG, "vaddr must be rounded up to the nearest multiple of CONFIG_MMU_PAGE_SIZE");
      ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
  
 -    _lock_acquire(&s_mmu_ctx.mutex);
@@ -180,30 +180,36 @@
      mem_block_t *dummy_head = NULL;
      mem_block_t *dummy_tail = NULL;
      size_t aligned_size = ALIGN_UP_BY(size, CONFIG_MMU_PAGE_SIZE);
-@@ -536,7 +538,7 @@
-          * address.
+@@ -579,7 +581,7 @@
           */
          const uint32_t new_paddr_offset = paddr_start - mem_block->paddr_start;
--        *out_ptr = (void *)mem_block->vaddr_start + new_paddr_offset;
-+        *out_ptr = (void *)(mem_block->vaddr_start + new_paddr_offset);
+         if (out_ptr) {
+-            *out_ptr = (void *)mem_block->vaddr_start + new_paddr_offset;
++            *out_ptr = (void *)(mem_block->vaddr_start + new_paddr_offset);
+         }
          ESP_LOGD(TAG, "paddr block is mapped already, vaddr_start: %p, size: 0x%x", (void *)mem_block->vaddr_start, mem_block->size);
          ret = ESP_ERR_INVALID_STATE;
-         goto err;
-@@ -599,18 +601,18 @@
-     //do mapping
-     s_do_mapping(target, new_block->vaddr_start, paddr_start, aligned_size);
-     *out_ptr = (void *)new_block->vaddr_start;
+@@ -682,23 +684,23 @@
+     if (out_ptr) {
+         *out_ptr = (void *)new_block->vaddr_start;
+     }
 -    _lock_release(&s_mmu_ctx.mutex);
 +    k_mutex_unlock(&s_mmu_ctx.mutex);
  
      return ESP_OK;
  
  err:
+     if (new_block) {
+-        free(new_block);
++        k_free(new_block);
+     }
      if (dummy_tail) {
+         TAILQ_REMOVE(&found_region->mem_block_head, dummy_tail, entries);
 -        free(dummy_tail);
 +        k_free(dummy_tail);
      }
      if (dummy_head) {
+         TAILQ_REMOVE(&found_region->mem_block_head, dummy_head, entries);
 -        free(dummy_head);
 +        k_free(dummy_head);
      }
@@ -212,7 +218,7 @@
  
      return ret;
  }
-@@ -657,7 +659,7 @@
+@@ -751,7 +753,7 @@
      uint32_t ptr_laddr = mmu_ll_vaddr_to_laddr((uint32_t)ptr);
      size_t slot_len = 0;
  
@@ -221,7 +227,7 @@
      for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
          ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-out-of-bounds")
          if (ptr_laddr >= s_mmu_ctx.mem_regions[i].free_head && ptr_laddr < s_mmu_ctx.mem_regions[i].end) {
-@@ -693,15 +695,15 @@
+@@ -787,15 +789,15 @@
  
      //do unmap
      s_do_unmapping(mem_block->vaddr_start, mem_block->size);
@@ -240,7 +246,7 @@
      return ret;
  }
  
-@@ -731,10 +733,10 @@
+@@ -825,10 +827,10 @@
          int id = 0;
          TAILQ_FOREACH(mem_block, &region->mem_block_head, entries) {
              if (mem_block != TAILQ_FIRST(&region->mem_block_head) && mem_block != TAILQ_LAST(&region->mem_block_head, mem_block_head_)) {
@@ -254,7 +260,7 @@
                           mem_block->size,
                           mem_block->caps,
                           mem_block->paddr_start,
-@@ -783,7 +785,7 @@
+@@ -877,7 +879,7 @@
  {
      uint32_t mmu_id = 0;
  
@@ -263,7 +269,7 @@
  
  #if SOC_MMU_PER_EXT_MEM_TARGET
      mmu_id = mmu_hal_get_id_from_vaddr(vaddr);
-@@ -795,7 +797,7 @@
+@@ -889,7 +891,7 @@
      }
  #endif
  
@@ -272,7 +278,7 @@
  
      return is_mapped;
  }
-@@ -819,7 +821,7 @@
+@@ -913,7 +915,7 @@
  
  static bool s_paddr_to_vaddr(esp_paddr_t paddr, mmu_target_t target, mmu_vaddr_t type, uint32_t *out_vaddr)
  {
@@ -281,7 +287,7 @@
  
      uint32_t mmu_id = 0;
  #if SOC_MMU_PER_EXT_MEM_TARGET
-@@ -827,7 +829,7 @@
+@@ -921,7 +923,7 @@
  #endif
      bool found = mmu_hal_paddr_to_vaddr(mmu_id, paddr, target, type, out_vaddr);
  
