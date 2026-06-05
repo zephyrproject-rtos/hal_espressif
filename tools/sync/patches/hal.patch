@@ -55,7 +55,7 @@
  #include "hal/efuse_hal.h"
 --- a/components/hal/esp32c5/include/hal/lp_core_ll.h
 +++ b/components/hal/esp32c5/include/hal/lp_core_ll.h
-@@ -52,6 +52,10 @@
+@@ -51,6 +51,10 @@
  {
      LPPERI.reset_en.lp_cpu_reset_en = 1;
      LPPERI.reset_en.lp_cpu_reset_en = 0;
@@ -90,17 +90,14 @@
  #include "hal/efuse_hal.h"
 --- a/components/hal/esp32/cache_hal_esp32.c
 +++ b/components/hal/esp32/cache_hal_esp32.c
-@@ -73,8 +73,9 @@
- 
- bool cache_hal_invalidate_addr(uint32_t vaddr, uint32_t size)
+@@ -73,6 +73,7 @@
  {
--    //esp32 doesn't support invalidate certain addr
-+    /* esp32 doesn't support invalidate certain addr */
+     //esp32 doesn't support invalidate certain addr
      abort();
 +    return false; /* unreachable, silence compiler warning */
  }
  
- void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, bool ascending)
+ void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 --- a/components/hal/esp32/efuse_hal.c
 +++ b/components/hal/esp32/efuse_hal.c
 @@ -4,7 +4,7 @@
@@ -197,9 +194,9 @@
  
 +#ifndef __noreturn
  #if CONFIG_LIBC_PICOLIBC
- #if defined(__cplusplus) && __cplusplus >= 201103L
- #define __noreturn [[noreturn]]
-@@ -22,6 +23,7 @@
+ // TODO IDF-15569
+ // #if defined(__cplusplus) && __cplusplus >= 201103L
+@@ -24,6 +25,7 @@
  #else
  #define __noreturn
  #endif

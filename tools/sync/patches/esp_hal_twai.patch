@@ -1,6 +1,6 @@
 --- a/components/esp_hal_twai/include/hal/twai_hal.h
 +++ b/components/esp_hal_twai/include/hal/twai_hal.h
-@@ -280,9 +280,7 @@
+@@ -281,9 +281,7 @@
  __attribute__((always_inline))
  static inline twai_error_flags_t twai_hal_get_err_flags(twai_hal_context_t *hal_ctx)
  {

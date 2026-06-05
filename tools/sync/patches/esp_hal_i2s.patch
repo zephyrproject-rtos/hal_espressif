@@ -1,3 +1,167 @@
+--- a/components/esp_hal_i2s/esp32c3/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32c3/include/hal/i2s_ll.h
+@@ -1197,6 +1197,7 @@
+     hw->tx_pcm2pdm_conf.tx_pdm_dac_2out_en = line_mode != I2S_PDM_TX_ONE_LINE_DAC;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1215,6 +1216,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32c5/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32c5/include/hal/i2s_ll.h
+@@ -1371,6 +1371,7 @@
+     }
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1389,6 +1390,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32c6/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32c6/include/hal/i2s_ll.h
+@@ -1243,6 +1243,7 @@
+     hw->etm_conf.etm_rx_receive_word_num = thresh;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1261,6 +1262,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32h2/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32h2/include/hal/i2s_ll.h
+@@ -1243,6 +1243,7 @@
+     hw->etm_conf.etm_rx_receive_word_num = thresh;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1261,6 +1262,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32/include/hal/i2s_ll.h
+@@ -1153,6 +1153,7 @@
+     hw->conf2.camera_en = 0;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1171,6 +1172,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32p4/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32p4/include/hal/i2s_ll.h
+@@ -1804,6 +1804,7 @@
+     }
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1822,6 +1823,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32p4/include/hal/lp_i2s_ll.h
++++ b/components/esp_hal_i2s/esp32p4/include/hal/lp_i2s_ll.h
+@@ -658,7 +658,7 @@
+ static inline void lp_i2s_ll_read_buffer(lp_i2s_dev_t *hw, void *buffer_to_rcv, size_t byte_len)
+ {
+     for (int i = 0; i < byte_len; i += 4) {
+-        *(uint32_t *)(buffer_to_rcv + i) = *((uint32_t *)LP_I2S_RAM_BASE);
++        *(uint32_t *)((uint8_t *)buffer_to_rcv + i) = *((uint32_t *)LP_I2S_RAM_BASE);
+     }
+ }
+ 
+@@ -673,7 +673,7 @@
+ {
+     for (int i = 0; i < byte_len; i += 4) {
+         //Use memcpy to get around alignment issues for txdata
+-        *((uint32_t *)LP_I2S_RAM_BASE) = *(uint32_t *)(buffer_to_send + i);
++        *((uint32_t *)LP_I2S_RAM_BASE) = *(const uint32_t *)((const uint8_t *)buffer_to_send + i);
+     }
+ }
+ 
+--- a/components/esp_hal_i2s/esp32s2/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32s2/include/hal/i2s_ll.h
+@@ -1016,6 +1016,7 @@
+     hw->conf1.tx_stop_en = en;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1034,6 +1035,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32s3/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32s3/include/hal/i2s_ll.h
+@@ -1236,6 +1236,7 @@
+     hw->tx_pcm2pdm_conf.tx_dac_2out_en = line_mode != I2S_PDM_TX_ONE_LINE_DAC;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1254,6 +1255,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
 --- a/components/esp_hal_i2s/include/hal/i2s_hal.h
 +++ b/components/esp_hal_i2s/include/hal/i2s_hal.h
 @@ -178,6 +178,7 @@

@@ -484,16 +484,16 @@
  
      return ESP_OK;
  }
-@@ -1071,7 +1071,7 @@
-         ESP_LOGE(GPIO_TAG, "GPIO wakeup only supports level mode, but edge mode set. gpio_num:%u", gpio_num);
+@@ -1078,7 +1078,7 @@
          return ESP_ERR_INVALID_ARG;
      }
+ #endif
 -    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
 +    GPIO_ENTER_CRITICAL();
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
      io_mux_enable_lp_io_clock(gpio_num, true);
  #endif
-@@ -1079,7 +1079,7 @@
+@@ -1086,7 +1086,7 @@
  #if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
      gpio_hal_sleep_sel_dis(gpio_context.gpio_hal, gpio_num);
  #endif
@@ -502,7 +502,7 @@
      return ESP_OK;
  }
  
-@@ -1089,7 +1089,7 @@
+@@ -1096,7 +1096,7 @@
          ESP_LOGE(GPIO_TAG, "GPIO %d does not support wakeup on peripheral powerdown sleep", gpio_num);
          return ESP_ERR_INVALID_ARG;
      }
@@ -511,7 +511,7 @@
      gpio_hal_wakeup_disable_on_hp_periph_powerdown_sleep(gpio_context.gpio_hal, gpio_num);
  #if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
      gpio_hal_sleep_sel_en(gpio_context.gpio_hal, gpio_num);
-@@ -1097,7 +1097,7 @@
+@@ -1104,7 +1104,7 @@
  #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
      io_mux_enable_lp_io_clock(gpio_num, false);
  #endif
@@ -532,7 +532,7 @@
  #include "driver/rtc_io.h"
  #include "driver/lp_io.h"
  #include "hal/rtc_io_hal.h"
-@@ -25,9 +26,11 @@
+@@ -22,9 +23,11 @@
  
  static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
  

@@ -438,6 +438,109 @@
  typedef enum {
      EMPTY,
      UNDER_WRITE,
+--- a/components/esp_rom/esp32p4/include/esp32p4/rom/uart.h
++++ b/components/esp_rom/esp32p4/include/esp32p4/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32p4/ld/esp32p4lp.rom.newlib.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4lp.rom.newlib.ld
+@@ -64,14 +64,16 @@
+ strspn = 0x501001e0;
+ strtok_r = 0x501001e4;
+ strupr = 0x501001e8;
+-longjmp = 0x501001ec;
+-setjmp = 0x501001f0;
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x501001ec );
++PROVIDE ( setjmp = 0x501001f0 );
++PROVIDE ( atoi = 0x50100208 );
++PROVIDE ( atol = 0x5010020c );
++/*******************************************/
+ abs = 0x501001f4;
+ div = 0x501001f8;
+ labs = 0x501001fc;
+ ldiv = 0x50100200;
+ qsort = 0x50100204;
+-atoi = 0x50100208;
+-atol = 0x5010020c;
+ itoa = 0x50100210;
+ utoa = 0x50100214;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
+@@ -3,6 +3,12 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( longjmp = 0x4fc00330 );
++PROVIDE ( setjmp = 0x4fc00334 );
++/*******************************************/
++
++/* Functions */
+ esp_rom_newlib_init_common_mutexes = 0x4fc00264;
+ memset = 0x4fc00268;
+ strlen = 0x4fc00288;
+@@ -44,8 +50,6 @@
+ strspn = 0x4fc00324;
+ strtok_r = 0x4fc00328;
+ strupr = 0x4fc0032c;
+-longjmp = 0x4fc00330;
+-setjmp = 0x4fc00334;
+ abs = 0x4fc00338;
+ div = 0x4fc0033c;
+ labs = 0x4fc00340;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
+@@ -19,23 +19,26 @@
+  Group newlib
+  ***************************************/
+ 
++/* ZEPHYR: Keep PROVIDE for these symbols: */
++PROVIDE ( strdup = 0x4fc002f0 );
++PROVIDE ( strndup = 0x4fc00314 );
++PROVIDE ( rand_r = 0x4fc0034c );
++PROVIDE ( rand = 0x4fc00350 );
++PROVIDE ( srand = 0x4fc00354 );
++PROVIDE ( atoi = 0x4fc00360 );
++PROVIDE ( atol = 0x4fc00364 );
++PROVIDE ( strtol = 0x4fc00368 );
++PROVIDE ( strtoul = 0x4fc0036c );
++PROVIDE ( fflush = 0x4fc00370 );
++PROVIDE ( _fflush_r = 0x4fc00374 );
++PROVIDE ( _fwalk = 0x4fc00378 );
++PROVIDE ( _fwalk_reent = 0x4fc0037c );
++PROVIDE ( __swbuf_r = 0x4fc00388 );
++/*******************************************/
++
+ /* Functions */
+ _isatty_r = 0x4fc00294;
+-strdup = 0x4fc002f0;
+-strndup = 0x4fc00314;
+-rand_r = 0x4fc0034c;
+-rand = 0x4fc00350;
+-srand = 0x4fc00354;
+-atoi = 0x4fc00360;
+-atol = 0x4fc00364;
+-strtol = 0x4fc00368;
+-strtoul = 0x4fc0036c;
+-fflush = 0x4fc00370;
+-_fflush_r = 0x4fc00374;
+-_fwalk = 0x4fc00378;
+-_fwalk_reent = 0x4fc0037c;
+ __smakebuf_r = 0x4fc00380;
+ __swhatbuf_r = 0x4fc00384;
+-__swbuf_r = 0x4fc00388;
+ __swbuf = 0x4fc0038c;
+ __swsetup_r = 0x4fc00390;
 --- a/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
 +++ b/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
 @@ -113,6 +113,8 @@
@@ -625,7 +728,7 @@
  #include "rom/ets_sys.h"
 --- a/components/esp_rom/patches/esp_rom_sys.c
 +++ b/components/esp_rom/patches/esp_rom_sys.c
-@@ -146,7 +146,7 @@
+@@ -162,7 +162,7 @@
      }
  }
  
@@ -634,14 +737,3 @@
  {
      /* Copy ROM default function table into our patch table */
      memcpy(&ets_ops_patch_table_ptr, ets_ops_table_ptr, sizeof(struct ets_ops));
---- a/components/esp_rom/patches/esp_rom_tlsf.c
-+++ b/components/esp_rom/patches/esp_rom_tlsf.c
-@@ -163,7 +163,7 @@
-  * This function must not be defined as static, as it is marked as "undefined" in the linker flags
-  * (to force the linker to integrate the functions of this file inside the final binary)
-  */
--void __attribute__((constructor)) tlsf_set_rom_patches(void)
-+void tlsf_set_rom_patches(void)
- {
-     /* Copy the ROM default table inside our table */
-     memcpy(&heap_tlsf_patch_table_ptr, heap_tlsf_table_ptr, sizeof(struct heap_tlsf_stub_table_t));

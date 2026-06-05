@@ -100,9 +100,9 @@
      esp_psram_impl_get_available_size(&maxram);
 --- a/components/esp_psram/include/esp_psram.h
 +++ b/components/esp_psram/include/esp_psram.h
-@@ -42,6 +42,22 @@
+@@ -60,6 +60,22 @@
   */
- size_t esp_psram_get_size(void);
+ bool esp_psram_ptr_is_no_enc(const void *p);
  
 +/**
 + * @brief Get the mapped PSRAM region address and size (Zephyr only)
@@ -149,7 +149,7 @@
  #if SOC_SPIRAM_XIP_SUPPORTED
  #include "esp_private/mmu_psram_flash.h"
  #endif
-@@ -113,45 +110,6 @@
+@@ -119,45 +116,6 @@
  static psram_ctx_t s_psram_ctx;
  static const DRAM_ATTR char TAG[] = "esp_psram";
  
@@ -195,7 +195,7 @@
  #if CONFIG_IDF_TARGET_ESP32
  //If no function in esp_himem.c is used, this function will be linked into the
  //binary instead of the one in esp_himem.c, automatically making sure no memory
-@@ -470,62 +428,19 @@
+@@ -520,78 +478,19 @@
      return ESP_OK;
  }
  
@@ -225,6 +225,22 @@
 -
 -    ESP_EARLY_LOGI(TAG, "Adding pool of %dK of PSRAM memory to heap allocator",
 -                   (s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size + s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].size) / 1024);
+-
+-#if CONFIG_SPIRAM_ENC_EXEMPT
+-    if (s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].size) {
+-        // Only MALLOC_CAP_SPIRAM_NO_ENC: any other bit here would let generic 8BIT/32BIT
+-        // allocations fall through to this region as a low-priority match.
+-        uint32_t no_enc_caps[] = {MALLOC_CAP_SPIRAM_NO_ENC, 0, 0};
+-        ret = heap_caps_add_region_with_caps(no_enc_caps,
+-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_start,
+-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_end);
+-        if (ret != ESP_OK) {
+-            return ret;
+-        }
+-        ESP_EARLY_LOGI(TAG, "Adding pool of %dK of unencrypted PSRAM memory to heap allocator",
+-                       (int)(s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].size / 1024));
+-    }
+-#endif
 -
 -    // To allow using the page alignment gaps created while mapping the flash segments,
 -    // the alignment gaps must be configured with correct memory protection configurations.
@@ -267,8 +283,8 @@
      return ESP_OK;
  }
  
-@@ -555,31 +470,9 @@
-     return false;
+@@ -643,31 +542,9 @@
+ #endif
  }
  
 +/* Not used in Zephyr */

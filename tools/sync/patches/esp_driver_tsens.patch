@@ -3,7 +3,7 @@
 @@ -20,7 +20,7 @@
  #include "esp_types.h"
  #include "esp_heap_caps.h"
- #include "clk_ctrl_os.h"
+ #include "esp_clk_tree.h"
 -#include "freertos/FreeRTOS.h"
 +#include <zephyr/kernel.h>
  #include "driver/temperature_sensor.h"
@@ -20,7 +20,7 @@
  }
  #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
  
-@@ -296,7 +294,7 @@
+@@ -289,7 +287,7 @@
      if (s_deltaT == INT_MIN) { //suggests that the value is not initialized
          read_delta_t_from_efuse();
      }
@@ -29,7 +29,7 @@
      return result;
  }
  
-@@ -356,8 +354,8 @@
+@@ -349,8 +347,8 @@
  
      temperature_sensor_ll_set_sample_rate(0xffff);
      temperature_sensor_ll_wakeup_mode(TEMPERATURE_SENSOR_LL_WAKE_DELTA);

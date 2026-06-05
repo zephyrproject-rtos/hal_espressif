@@ -1,16 +1,56 @@
 --- a/components/ulp/lp_core/lp_core.c
 +++ b/components/ulp/lp_core/lp_core.c
-@@ -21,6 +21,8 @@
- #include "hal/lp_core_ll.h"
- #include "hal/pmu_ll.h"
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include "sdkconfig.h"
++#include <zephyr/devicetree.h>
+ #include "esp_rom_caps.h"
+ #include "soc/soc.h"
+ #include "soc/soc_caps.h"
+@@ -26,8 +27,10 @@
+ #include "esp32p4/rom/rtc.h"
+ #endif
  
 +#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
 +
- #if CONFIG_IDF_TARGET_ESP32P4
- #include "esp32p4/rom/rtc.h"
- #endif
-@@ -87,7 +89,7 @@
+ #if ESP_ROM_HAS_LP_ROM
+-extern uint8_t _rtc_ulp_memory_start[];
++#define ULP_LP_MEMORY_BASE DT_REG_ADDR(DT_NODELABEL(ulp_ram))
  #endif //ESP_ROM_HAS_LP_ROM
+ 
+ #if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+@@ -48,7 +51,9 @@
+ 
+ #define WAKEUP_SOURCE_MAX_NUMBER 6
+ 
+-#define RESET_HANDLER_ADDR ((intptr_t)_rtc_ulp_memory_start + 0x80) // Placed after the 0x80 byte long vector table
++#if ESP_ROM_HAS_LP_ROM
++#define RESET_HANDLER_ADDR ((intptr_t)ULP_LP_MEMORY_BASE + 0x80) // Placed after the 0x80 byte long vector table
++#endif
+ 
+ /* Maps the flags defined in ulp_lp_core.h e.g. ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU to their actual HW values */
+ static uint32_t wakeup_src_sw_to_hw_flag_lookup[WAKEUP_SOURCE_MAX_NUMBER] = {
+@@ -66,7 +71,7 @@
+ static uintptr_t ulp_lp_core_lp_mem_start(void)
+ {
+ #if ESP_ROM_HAS_LP_ROM
+-    return (uintptr_t)&_rtc_ulp_memory_start;
++    return (uintptr_t)ULP_LP_MEMORY_BASE;
+ #else
+     return (uintptr_t)RTC_SLOW_MEM;
+ #endif
+@@ -74,7 +79,7 @@
+ 
+ static uintptr_t ulp_lp_core_lp_mem_end(void)
+ {
+-    return ulp_lp_core_lp_mem_start() + CONFIG_ULP_COPROC_RESERVE_MEM;
++    return ulp_lp_core_lp_mem_start() + ULP_COPROC_RESERVE_MEM;
+ }
+ 
+ static bool ulp_lp_core_addr_range_in_region(uintptr_t start, size_t len, uintptr_t region_start, uintptr_t region_end)
+@@ -137,7 +142,7 @@
+ #endif // SOC_LP_CORE_CONFIGURABLE_BOOT_ADDR
  
      PERIPH_RCC_ATOMIC() {
 -#if CONFIG_ULP_NORESET_UNDER_DEBUG
@@ -18,7 +58,7 @@
          /* lp_core module reset causes loss of configured HW breakpoints and dcsr.ebreak* */
          if (!esp_cpu_dbgr_is_attached()) {
              lp_core_ll_reset_register();
-@@ -109,7 +111,11 @@
+@@ -159,7 +164,11 @@
      /* Enable reset CPU when going to sleep */
      /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
@@ -31,21 +71,31 @@
  
      /* Set wake-up sources */
      lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
-@@ -150,7 +156,7 @@
-     if (program_binary == NULL) {
-         return ESP_ERR_INVALID_ARG;
-     }
+@@ -285,23 +294,26 @@
+     ulp_lp_core_stop();
+ 
+ #if ESP_ROM_HAS_LP_ROM
+-    uint32_t* base = (uint32_t*)_rtc_ulp_memory_start;
++    uint32_t* base = (uint32_t*)ULP_LP_MEMORY_BASE;
+ #else
+     uint32_t* base = RTC_SLOW_MEM;
+ #endif
+ 
+-    /* Clear LP RAM — also initializes LP-side bss */
+-    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
+-
+ #if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
++    /* Clear LP RAM — also initializes LP-side bss */
++    hal_memset(base, 0, ULP_COPROC_RESERVE_MEM);
+     ESP_LOGW(TAG, "Running ULP app from HP memory. ULP will not be able to run if system enters deep sleep and power down HP memory.");
+     /* Clear HP RAM — initializes HP-side bss before the LP core runs */
+     hal_memset(&_ulp_hp_mem_resv_start, 0, CONFIG_ULP_COPROC_RESERVE_HP_MEM_BYTES);
+     return ulp_lp_core_load_segments(program_binary, program_size_bytes);
+ #else
 -    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
 +    if (program_size_bytes > ULP_COPROC_RESERVE_MEM) {
          return ESP_ERR_INVALID_SIZE;
      }
- 
-@@ -162,8 +168,10 @@
-     uint32_t* base = RTC_SLOW_MEM;
- #endif
- 
--    //Start by clearing memory reserved with zeros, this will also will initialize the bss:
--    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
 +    /* Clear only the binary region to initialize bss without wiping
 +     * shared memory structures (e.g. mbox lock) at the end of LP SRAM.
 +     */
@@ -53,7 +103,7 @@
      hal_memcpy(base, program_binary, program_size_bytes);
  
      return ESP_OK;
-@@ -175,9 +183,13 @@
+@@ -327,9 +339,13 @@
          /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
             so configure it to stall when going to sleep */
          lp_core_ll_stall_at_sleep_request(true);
@@ -138,7 +188,7 @@
  #include "soc/soc_caps.h"
  #include "ulp_lp_core_i2c.h"
  #include "ulp_lp_core_utils.h"
-@@ -68,7 +68,7 @@
+@@ -67,7 +67,7 @@
  static inline esp_err_t lp_core_i2c_wait_for_interrupt(uint32_t intr_mask, int32_t cycles_to_wait)
  {
      uint32_t intr_status = 0;
@@ -147,7 +197,7 @@
  
      while (1) {
          i2c_ll_get_intr_raw_mask(dev, &intr_status);
-@@ -96,10 +96,17 @@
+@@ -95,10 +95,17 @@
              break;
          }
  
@@ -188,7 +238,7 @@
 +#endif //#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
 --- a/components/ulp/lp_core/lp_core/lp_core_print.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_print.c
-@@ -14,7 +14,7 @@
+@@ -13,7 +13,7 @@
  
  #define is_digit(c) ((c >= '0') && (c <= '9'))
  
@@ -197,15 +247,15 @@
  void __attribute__((alias("hp_uart_send_char"))) lp_core_print_char(char c);
  
  static void hp_uart_send_char(char t)
-@@ -26,7 +26,7 @@
+@@ -25,7 +25,7 @@
      }
      uart_ll_write_txfifo(uart, &t, 1);
  }
--#elif !CONFIG_ULP_ROM_PRINT_ENABLE
-+#elif !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE
+-#elif !CONFIG_ULP_ROM_PRINT_ENABLE && CONFIG_SOC_ULP_LP_UART_SUPPORTED
++#elif !CONFIG_ESP32_ULP_ROM_PRINT_ENABLE && CONFIG_SOC_ULP_LP_UART_SUPPORTED
  void __attribute__((alias("lp_uart_send_char"))) lp_core_print_char(char c);
+ #define LP_UART_PORT_NUM LP_UART_NUM_0
  static void lp_uart_send_char(char c)
- {
 @@ -44,9 +44,9 @@
  {
      esp_rom_output_putc(c);
@@ -229,24 +279,15 @@
  {
 --- a/components/ulp/lp_core/lp_core/lp_core_spi.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_spi.c
-@@ -12,7 +12,6 @@
- #include <string.h>
- #include "esp_err.h"
- #include "ulp_lp_core_spi.h"
--#include "ulp_lp_core_utils.h"
- #include "soc/lp_spi_struct.h"
- 
- /* Use the register structure to access LP_SPI module registers */
-@@ -20,12 +19,18 @@
+@@ -19,11 +19,17 @@
  
  static inline esp_err_t lp_core_spi_wait_for_interrupt(int32_t cycles_to_wait)
  {
 -    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
 +    uint32_t to = 0;
-     while (!lp_spi_dev->spi_dma_int_raw.reg_trans_done_int_raw) {
+     while (!lp_spi_ll_get_int_trans_done(lp_spi_dev)) {
 -        if (ulp_lp_core_is_timeout_elapsed(timeout_start, cycles_to_wait)) {
--            /* Clear interrupt bits */
--            lp_spi_dev->spi_dma_int_clr.reg_trans_done_int_clr = 1;
+-            lp_spi_ll_clear_int_trans_done(lp_spi_dev);
 -            return ESP_ERR_TIMEOUT;
 +        if (cycles_to_wait > -1) {
 +            /* If the cycles_to_wait value is not -1, keep track of cycles and
@@ -254,8 +295,7 @@
 +             */
 +            to++;
 +            if (to >= cycles_to_wait) {
-+                /* Clear interrupt bits */
-+                lp_spi_dev->spi_dma_int_clr.reg_trans_done_int_clr = 1;
++                lp_spi_ll_clear_int_trans_done(lp_spi_dev);
 +                return ESP_ERR_TIMEOUT;
 +            }
          }
@@ -263,7 +303,7 @@
  
 --- a/components/ulp/lp_core/lp_core/lp_core_startup.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_startup.c
-@@ -18,7 +18,7 @@
+@@ -21,7 +21,7 @@
  void lp_core_startup()
  {
  
@@ -333,7 +373,7 @@
              if (ret == ESP_ERR_TIMEOUT) {
                  /* Timeout. Clear interrupt status and break */
                  uart_hal_clr_intsts_mask(&hal, intr_mask);
-@@ -177,14 +182,14 @@
+@@ -177,7 +182,7 @@
      int32_t remaining_bytes = size;
      esp_err_t ret = ESP_OK;
      uint32_t intr_status = 0;
@@ -341,24 +381,29 @@
 +    uint32_t to = 0;
  
      while (remaining_bytes > 0) {
-         /* Read from the Rx FIFO
-          * We set rx_len to -1 to read all bytes in the Rx FIFO
-          */
-         rx_len = -1;
--        uart_hal_read_rxfifo(&hal, (uint8_t *)(buf + bytes_rcvd), &rx_len);
-+        uart_hal_read_rxfifo(&hal, (uint8_t *)buf + bytes_rcvd, &rx_len);
+         /* Drain only as many bytes as fit in the remaining buffer space */
+@@ -185,7 +190,7 @@
+         rx_len = (fifo_len < remaining_bytes) ? fifo_len : remaining_bytes;
  
-         if (rx_len) {
-             /* We have some data to read from the Rx FIFO. Check Rx interrupt status */
-@@ -210,7 +215,7 @@
+         if (rx_len > 0) {
+-            uart_hal_read_rxfifo(&hal, (uint8_t *)(buf + bytes_rcvd), &rx_len);
++            uart_hal_read_rxfifo(&hal, (uint8_t *)buf + bytes_rcvd, &rx_len);
+             bytes_rcvd += rx_len;
              remaining_bytes -= rx_len;
+ 
+@@ -210,10 +215,10 @@
+ 
+             /* Progress was made; restart the timeout window so callers with
+              * a finite timeout can tolerate gaps between bursts. */
+-            timeout_start = ulp_lp_core_get_cpu_cycles();
++            to = 0;
          } else {
-             /* We have no data to read from the Rx FIFO. Check for transaction timeout */
+             /* FIFO empty. Honour the caller's timeout. */
 -            ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
 +            ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
              if (ret == ESP_ERR_TIMEOUT) {
-                 /* Timeout. Clear interrupt status and break */
                  uart_hal_clr_intsts_mask(&hal, intr_mask);
+                 break;
 --- a/components/ulp/lp_core/lp_core/lp_core_ubsan.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_ubsan.c
 @@ -88,7 +88,7 @@
@@ -372,8 +417,8 @@
  #endif
 --- a/components/ulp/lp_core/lp_core/lp_core_utils.c
 +++ b/components/ulp/lp_core/lp_core/lp_core_utils.c
-@@ -156,15 +156,14 @@
-     lp_core_ll_request_sleep();
+@@ -177,15 +177,14 @@
+     ulp_lp_core_sleep_start_lp_core();
  }
  
 -void __attribute__((noreturn)) abort(void)
