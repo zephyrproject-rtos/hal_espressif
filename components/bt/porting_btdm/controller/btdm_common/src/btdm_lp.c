@@ -24,7 +24,12 @@
 #include "esp_private/sleep_modem.h"
 #include "esp_private/sleep_retention.h"
 #endif
+#include "soc/rtc.h"
 
+#if CONFIG_IDF_TARGET_ESP32S31
+// TODO: remove this include after use of HP_SYS_CLKRST_MODEM_CONF_REG is removed
+#include "soc/hp_sys_clkrst_reg.h"
+#endif
 /*
  ***************************************************************************************************
  * Local Defined Macros
@@ -51,7 +56,7 @@ extern esp_err_t sleep_modem_bredr_mac_modem_state_init(void);
 extern esp_err_t sleep_modem_ble_mac_modem_state_init(void);
 #endif // UC_BT_CTRL_BLE_IS_ENABLEs
 #endif /* CONFIG_FREERTOS_USE_TICKLESS_IDLE */
-
+extern int r_btdm_hal_rtc_freq_set(uint64_t rtc_freq);
 extern void r_btdm_sleep_set_sleep_cb(void *s_cb, void *w_cb, void *s_arg, void *w_arg,
                                       uint32_t us_to_enabled);
 
@@ -66,8 +71,8 @@ static DRAM_ATTR modem_clock_lpclk_src_t s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_
 #ifdef CONFIG_PM_ENABLE
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock = NULL;
 #endif // CONFIG_PM_ENABLE
-// static modem_clock_lpclk_src_t s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_INVALID;
-static uint32_t s_bt_lpclk_freq = 100000;
+static uint32_t s_bt_xtal_lpclk_freq = 100000;
+static uint32_t s_bt_lpclk_freq = 0;
 
 /*
  ***************************************************************************************************
@@ -81,7 +86,7 @@ btdm_lp_rtc_slow_clk_select(uint8_t slow_clk_src)
     switch (slow_clk_src) {
         case MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL:
             ESP_LOGI(BTDM_LOG_TAG, "Using main XTAL as clock source");
-            modem_clock_select_lp_clock_source(PERIPH_BT_MODULE, slow_clk_src, (CONFIG_XTAL_FREQ * 1000000 / s_bt_lpclk_freq - 1));
+            modem_clock_select_lp_clock_source(PERIPH_BT_MODULE, slow_clk_src, (CONFIG_XTAL_FREQ * 1000000 / s_bt_xtal_lpclk_freq - 1));
             break;
         case MODEM_CLOCK_LPCLK_SRC_RC_SLOW:
             ESP_LOGW(BTDM_LOG_TAG, "Using 136 kHz RC as clock source, use with caution as it may not maintain ACL or Sync process due to low clock accuracy!");
@@ -107,55 +112,83 @@ static void
 btdm_lp_timer_clk_init(esp_btdm_controller_config_t *cfg)
 {
     if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_INVALID) {
-#if CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL
+#if CONFIG_BT_CTRL_LP_CLK_SRC_MAIN_XTAL
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
+        s_bt_lpclk_freq = s_bt_xtal_lpclk_freq;
 #else
 #if CONFIG_RTC_CLK_SRC_INT_RC
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC_SLOW;
+        s_bt_lpclk_freq = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED) / 5;
 #elif CONFIG_RTC_CLK_SRC_EXT_CRYS
         uint32_t clk_freq = 0;
-
-        if (rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
-            if (!esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_XTAL32K, ESP_CLK_TREE_SRC_FREQ_PRECISION_EXACT, &clk_freq)) {
-                if (clk_freq > 32700 && clk_freq < 33800) {
-                    s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_XTAL32K;
-                } else {
-                    ESP_LOGW(BTDM_LOG_TAG, "32.768kHz XTAL detection error, switch to main XTAL as Bluetooth sleep clock");
-                    s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
-                }
-            } else {
-                ESP_LOGW(BTDM_LOG_TAG, "32.768kHz XTAL detection error, switch to main XTAL as Bluetooth sleep clock");
-                s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
-            }
+        if ((rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) &&
+            !esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_XTAL32K, ESP_CLK_TREE_SRC_FREQ_PRECISION_EXACT, &clk_freq) &&
+            (clk_freq > 32700 && clk_freq < 33800) ) {
+            s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_XTAL32K;
+            s_bt_lpclk_freq = 32768;
         } else {
-            ESP_LOGW(BTDM_LOG_TAG, "32.768kHz XTAL not detected, fall back to main XTAL as Bluetooth sleep clock");
+            ESP_LOGW(BTDM_LOG_TAG, "32.768kHz XTAL detection error, switch to main XTAL as Bluetooth sleep clock");
             s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
+            s_bt_lpclk_freq = s_bt_xtal_lpclk_freq;
         }
 #elif CONFIG_RTC_CLK_SRC_INT_RC32K
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC32K;
+        s_bt_lpclk_freq = 32000;
 #elif CONFIG_RTC_CLK_SRC_EXT_OSC
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_EXT32K;
+        s_bt_lpclk_freq = 32000;
 #else
         ESP_LOGE(BTDM_LOG_TAG, "Unsupported clock source");
         assert(0);
 #endif
-#endif /* CONFIG_BT_LE_LP_CLK_SRC_MAIN_XTAL */
+#endif /* CONFIG_BT_CTRL_LP_CLK_SRC_MAIN_XTAL */
     }
 
-    // if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
-    //     cfg->rtc_freq = s_bt_lpclk_freq;
-    // } else if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_XTAL32K) {
-    //     cfg->rtc_freq = 32768;
-    // } else if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_RC_SLOW) {
-    //     cfg->rtc_freq = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED) / 5;
-    //     //TODO
-    //     // cfg->ble_ll_sca = 3000;
-    // } else if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_RC32K) {
-    //     cfg->rtc_freq = 32000;
-    // } else if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_EXT32K) {
-    //     cfg->rtc_freq = 32000;
-    // }
     btdm_lp_rtc_slow_clk_select(s_bt_lpclk_src);
+}
+
+modem_clock_lpclk_src_t btdm_lp_get_lpclk_src(void)
+{
+    return s_bt_lpclk_src;
+}
+
+extern esp_bt_controller_status_t esp_ble_controller_get_status(void);
+void btdm_lp_set_lpclk_src(modem_clock_lpclk_src_t clk_src)
+{
+    if (esp_ble_controller_get_status() != ESP_BT_CONTROLLER_STATUS_IDLE) {
+        return;
+    }
+
+    if (clk_src >= MODEM_CLOCK_LPCLK_SRC_MAX || clk_src <= MODEM_CLOCK_LPCLK_SRC_INVALID) {
+        return;
+    }
+
+    s_bt_lpclk_src = clk_src;
+}
+
+uint32_t btdm_lp_get_lpclk_freq(void)
+{
+    return s_bt_xtal_lpclk_freq;
+}
+
+void btdm_lp_set_lpclk_freq(uint32_t clk_freq)
+{
+    uint32_t xtal_freq;
+
+    if (esp_ble_controller_get_status() != ESP_BT_CONTROLLER_STATUS_IDLE) {
+        return;
+    }
+
+    if (!clk_freq) {
+        return;
+    }
+
+    xtal_freq = CONFIG_XTAL_FREQ * 1000000;
+    if (xtal_freq % clk_freq) {
+        return;
+    }
+
+    s_bt_xtal_lpclk_freq = clk_freq;
 }
 
 static void
@@ -220,10 +253,25 @@ btdm_lp_modem_state_init(void)
 {
     sleep_retention_module_init_param_t init_param = {
         .cbs = {.create = {.handle = (void *)btdm_lp_modem_retention_create, .arg = NULL}},
-        .depends = RETENTION_MODULE_BITMAP_INIT(BT_BB)};
+        .attribute = SLEEP_RETENTION_MODULE_ATTR_ATTACH,
+        .depends = RETENTION_MODULE_BITMAP_INIT(BT_BB)
+    };
+
     esp_err_t err = sleep_retention_module_init(SLEEP_RETENTION_MODULE_BLE_MAC, &init_param);
-    if (err == ESP_OK) {
-        err = sleep_retention_module_allocate(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention init error");
+        return err;
+    }
+
+    err = sleep_retention_module_allocate(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention allocate error");
+        return err;
+    }
+
+    err = sleep_retention_module_attach(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention attach error");
     }
     return err;
 }
@@ -231,9 +279,21 @@ btdm_lp_modem_state_init(void)
 static void
 btdm_lp_modem_state_deinit(void)
 {
-    esp_err_t err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_BLE_MAC);
-    if (err == ESP_OK) {
-        err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_BLE_MAC);
+    esp_err_t err = sleep_retention_module_detach(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention detach error");
+        assert(err == ESP_OK);
+    }
+
+    err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention free error");
+        assert(err == ESP_OK);
+    }
+
+    err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_BLE_MAC);
+    if (err != ESP_OK) {
+        ESP_LOGE(BTDM_LOG_TAG, "BT sleep retention deinit error");
         assert(err == ESP_OK);
     }
 }
@@ -244,14 +304,11 @@ btdm_lp_modem_state_deinit(void)
  * Public Function Definitions
  ***************************************************************************************************
  */
-#include "modem/modem_syscon_reg.h"
 void
 btdm_lp_enable_clock(esp_btdm_controller_config_t *cfg)
 {
     modem_clock_module_enable(PERIPH_BT_MODULE);
     modem_clock_module_mac_reset(PERIPH_BT_MODULE);
-    // TODO: set the clock ion modem_clock_module_enable
-    REG_WRITE(MODEM_SYSCON_CLK_CONF_POWER_ST_REG, 0XFFFFFFFF);
     btdm_lp_timer_clk_init(cfg);
 }
 
@@ -288,18 +345,19 @@ btdm_lp_init(void)
     rc = btdm_lp_modem_state_init();
     assert(rc == 0);
     esp_sleep_enable_bt_wakeup();
-    ESP_LOGW(BTDM_LOG_TAG, "Enable light sleep, the wake up source is BLE timer");
+    ESP_LOGW(BTDM_LOG_TAG, "Enable light sleep, the wake up source is modem lp timer");
 
     rc = esp_pm_register_inform_out_light_sleep_overhead_callback(r_btdm_sleep_wake_up_overhead_set);
     if (rc != ESP_OK) {
         return -2;
     }
-    // rc = esp_pm_register_skip_light_sleep_callback(r_btdm_sleep_should_skip_light_sleep_check);
+    rc = esp_pm_register_skip_light_sleep_callback(r_btdm_sleep_should_skip_light_sleep_check);
     if (rc != ESP_OK) {
         return -3;
     }
 #endif /* UC_BT_CTRL_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 #endif /* CONFIG_PM_ENABLE */
+    r_btdm_hal_rtc_freq_set(s_bt_lpclk_freq);
 
     return 0;
 }
@@ -308,7 +366,7 @@ void
 btdm_lp_deinit(void)
 {
 #if UC_BT_CTRL_SLEEP_ENABLE && CONFIG_FREERTOS_USE_TICKLESS_IDLE
-    // esp_pm_unregister_skip_light_sleep_callback(r_btdm_sleep_should_skip_light_sleep_check);
+    esp_pm_unregister_skip_light_sleep_callback(r_btdm_sleep_should_skip_light_sleep_check);
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(r_btdm_sleep_wake_up_overhead_set);
     esp_sleep_disable_bt_wakeup();
     btdm_lp_modem_state_deinit();
@@ -335,14 +393,16 @@ btdm_lp_reset(bool enable_stage)
 #endif // CONFIG_PM_ENABLE
 
         esp_phy_enable(PHY_MODEM_BT);
+#if CONFIG_IDF_TARGET_ESP32H4
         // TODO: Need to be deleted.
         void phy_set_rfpll_xpd(bool en);
         phy_set_rfpll_xpd(0);
+#endif
         esp_btbb_enable();
         s_bt_active = true;
     } else {
+        esp_btbb_disable();
         if (s_bt_active) {
-            esp_btbb_disable();
             esp_phy_disable(PHY_MODEM_BT);
 #if CONFIG_PM_ENABLE
             esp_pm_lock_release(s_pm_lock);

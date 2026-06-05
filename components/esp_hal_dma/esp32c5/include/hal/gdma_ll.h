@@ -24,6 +24,8 @@
  * AHB-GDMA-v2 SoCs without source changes.
  */
 #define GDMA_LL_M2M_FREE_PERIPH_ID_MASK          AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK
+#define GDMA_LL_RX_EVENT_MASK                     AHB_DMA_LL_RX_EVENT_MASK
+#define GDMA_LL_TX_EVENT_MASK                     AHB_DMA_LL_TX_EVENT_MASK
 #define gdma_ll_force_enable_reg_clock            ahb_dma_ll_force_enable_reg_clock
 #define gdma_ll_rx_clear_interrupt_status          ahb_dma_ll_rx_clear_interrupt_status
 #define gdma_ll_rx_connect_to_mem                  ahb_dma_ll_rx_connect_to_mem

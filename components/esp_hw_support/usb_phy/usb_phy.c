@@ -20,11 +20,6 @@
 #include "hal/gpio_ll.h"
 #include "soc/soc_caps.h"
 
-#if SOC_USB_UTMI_PHY_NO_POWER_OFF_ISO
-#include "esp_private/sleep_usb.h"
-#include "esp_sleep.h"
-#endif
-
 #if (SOC_USB_FSLS_PHY_NUM > 0)
 #define USB_PHY_FSLS_EXT_PHY_SUPPORTED USB_WRAP_LL_EXT_PHY_SUPPORTED
 #else
@@ -243,12 +238,6 @@ esp_err_t usb_new_phy(const usb_phy_config_t *config, usb_phy_handle_t *handle_r
     if (config->controller == USB_PHY_CTRL_OTG && phy_target == USB_PHY_TARGET_INT) {
         ESP_LOGW(USBPHY_TAG, "Using UTMI PHY instead of requested internal PHY");
         phy_target = USB_PHY_TARGET_UTMI;
-    }
-#endif
-
-#if SOC_USB_UTMI_PHY_NO_POWER_OFF_ISO
-    if (phy_target == USB_PHY_TARGET_UTMI) {
-        esp_deep_sleep_register_hook(&sleep_usb_suppress_deepsleep_leakage);
     }
 #endif
 

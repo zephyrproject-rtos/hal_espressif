@@ -11,9 +11,9 @@
 #include "esp_fault.h"
 #include "hal/cache_ll.h"
 #include "riscv/csr.h"
-#if CONFIG_SPIRAM
+#if !BOOTLOADER_BUILD && CONFIG_SPIRAM
 #include "esp_private/esp_psram_extram.h"
-#endif /* CONFIG_SPIRAM */
+#endif /* !BOOTLOADER_BUILD && CONFIG_SPIRAM */
 
 #include "soc/chip_revision.h"
 #include "hal/config.h"
@@ -36,7 +36,7 @@
 
 #define ALIGN_UP_TO_MMU_PAGE_SIZE(addr) (((addr) + (SOC_MMU_PAGE_SIZE) - 1) & ~((SOC_MMU_PAGE_SIZE) - 1))
 #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ((addr) & ~((SOC_MMU_PAGE_SIZE) - 1))
-#define ALIGN_UP(addr, align)  ((addr) & ~((align) - 1))
+#define ALIGN_UP(addr, align)  (((addr) + (align) - 1) & ~((align) - 1))
 
 static void esp_cpu_configure_invalid_regions(void)
 {
@@ -153,6 +153,17 @@ static void esp_cpu_configure_region_protection_rev_v3(void)
     const uint32_t page_aligned_irom_resv_end = ALIGN_UP_TO_MMU_PAGE_SIZE((uint32_t)(&_instruction_reserved_end));
     __attribute__((unused)) const uint32_t page_aligned_drom_resv_end = ALIGN_UP_TO_MMU_PAGE_SIZE((uint32_t)(&_rodata_reserved_end));
 
+    PMP_ENTRY_CFG_RESET(11);
+    PMP_ENTRY_CFG_RESET(12);
+    PMP_ENTRY_CFG_RESET(13);
+    PMP_ENTRY_CFG_RESET(14);
+    PMP_ENTRY_CFG_RESET(15);
+    PMP_ENTRY_CFG_RESET(16);
+    PMP_ENTRY_CFG_RESET(17);
+    PMP_ENTRY_CFG_RESET(18);
+    PMP_ENTRY_CFG_RESET(19);
+    PMP_ENTRY_CFG_RESET(23);
+
     // 6. I_EXTRAM / D_EXTRAM (SPIRAM)
 #if CONFIG_SPIRAM && CONFIG_SPIRAM_PRE_CONFIGURE_MEMORY_PROTECTION
 
@@ -187,14 +198,14 @@ static void esp_cpu_configure_region_protection_rev_v3(void)
     PMP_ENTRY_SET_CACHED_AND_UNCACHED(22, 26, page_aligned_drom_resv_end, PMP_TOR | R);
 
 #else
-#if CONFIG_SPIRAM
+#if !BOOTLOADER_BUILD && CONFIG_SPIRAM
     const uint32_t pmpaddr10 = PMPADDR_NAPOT(SOC_EXTRAM_LOW, SOC_EXTRAM_HIGH);
     PMP_RESET_AND_ENTRY_SET(10, pmpaddr10, PMP_NAPOT | CONDITIONAL_RWX);
 
     const uint32_t pmpaddr11 = PMPADDR_NAPOT(CACHE_LL_L2MEM_NON_CACHE_ADDR(SOC_EXTRAM_LOW), CACHE_LL_L2MEM_NON_CACHE_ADDR(SOC_EXTRAM_HIGH));
     PMP_RESET_AND_ENTRY_SET(11, pmpaddr11, PMP_NAPOT | CONDITIONAL_RWX);
     _Static_assert(SOC_EXTRAM_LOW < SOC_EXTRAM_HIGH, "Invalid I/D_EXTRAM region");
-#endif /* CONFIG_SPIRAM */
+#endif /* !BOOTLOADER_BUILD && CONFIG_SPIRAM */
 
     const uint32_t pmpaddr12 = PMPADDR_NAPOT(SOC_IROM_LOW, SOC_IROM_HIGH);
     PMP_RESET_AND_ENTRY_SET(12, pmpaddr12, PMP_NAPOT | CONDITIONAL_RX);
@@ -209,7 +220,7 @@ static void esp_cpu_configure_region_protection_rev_v3(void)
     PMP_RESET_AND_ENTRY_SET(27, pmpaddr27, PMP_NAPOT | RW);
     _Static_assert(SOC_PERIPHERAL_LOW < SOC_PERIPHERAL_HIGH, "Invalid peripheral region");
 
-    // 9. LP memory
+    // 9. LP memory and LP peripherals
 #if CONFIG_ESP_SYSTEM_MEMPROT && CONFIG_ESP_SYSTEM_MEMPROT_PMP && !BOOTLOADER_BUILD
     extern int _rtc_text_start;
     extern int _rtc_text_end;
@@ -224,11 +235,15 @@ static void esp_cpu_configure_region_protection_rev_v3(void)
     PMP_RESET_AND_ENTRY_SET(29, (int)&_rtc_text_start, PMP_TOR | RW);
 #endif
     PMP_RESET_AND_ENTRY_SET(30, (int)&_rtc_text_end, PMP_TOR | RX);
-    PMP_RESET_AND_ENTRY_SET(31, SOC_RTC_IRAM_HIGH, PMP_TOR | RW);
+    // LP peripherals are contiguous with LP memory; this entry covers both with R/W
+    PMP_RESET_AND_ENTRY_SET(31, SOC_LP_PERIPH_HIGH, PMP_TOR | RW);
 #else
     const uint32_t pmpaddr28 = PMPADDR_NAPOT(SOC_RTC_IRAM_LOW, SOC_RTC_IRAM_HIGH);
     PMP_RESET_AND_ENTRY_SET(28, pmpaddr28, PMP_NAPOT | CONDITIONAL_RWX);
     _Static_assert(SOC_RTC_IRAM_LOW < SOC_RTC_IRAM_HIGH, "Invalid RTC IRAM region");
+
+    PMP_RESET_AND_ENTRY_SET(29, SOC_LP_PERIPH_LOW, NONE);
+    PMP_RESET_AND_ENTRY_SET(30, SOC_LP_PERIPH_HIGH, PMP_TOR | CONDITIONAL_RW);
 #endif
 }
 #else

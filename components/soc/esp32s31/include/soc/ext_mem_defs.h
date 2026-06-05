@@ -32,13 +32,13 @@ extern "C" {
 #define SOC_DRAM0_CACHE_ADDRESS_HIGH                 SOC_IRAM0_CACHE_ADDRESS_HIGH               //I/D share the same vaddr range
 
 #define SOC_IRAM_FLASH_ADDRESS_LOW                   0x40000000
-#define SOC_IRAM_FLASH_ADDRESS_HIGH                  0x44000000
+#define SOC_IRAM_FLASH_ADDRESS_HIGH                  (SOC_IRAM_FLASH_ADDRESS_LOW + ((SOC_MMU_PAGE_SIZE) * SOC_MMU_ENTRY_NUM))  //max 0x44000000 for nor, 0x50000000 for nand
 
 #define SOC_DRAM_FLASH_ADDRESS_LOW                   SOC_IRAM_FLASH_ADDRESS_LOW
 #define SOC_DRAM_FLASH_ADDRESS_HIGH                  SOC_IRAM_FLASH_ADDRESS_HIGH
 
 #define SOC_IRAM_PSRAM_ADDRESS_LOW                   0x50000000
-#define SOC_IRAM_PSRAM_ADDRESS_HIGH                  0x54000000
+#define SOC_IRAM_PSRAM_ADDRESS_HIGH                  (SOC_IRAM_PSRAM_ADDRESS_LOW + ((SOC_MMU_PAGE_SIZE) * SOC_MMU_ENTRY_NUM))  //max 0x54000000 for psram
 
 #define SOC_DRAM_PSRAM_ADDRESS_LOW                   SOC_IRAM_PSRAM_ADDRESS_LOW
 #define SOC_DRAM_PSRAM_ADDRESS_HIGH                  SOC_IRAM_PSRAM_ADDRESS_HIGH

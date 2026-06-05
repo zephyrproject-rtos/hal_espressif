@@ -17,7 +17,6 @@
 #define PRO_CPU_NUM (0)
 
 #define REG_UART_BASE(i)                        (DR_REG_UART_BASE + (i) * 0x1000)        // UART0 and UART1
-#define REG_TIMG_BASE(i)                        (DR_REG_TIMERGROUP0_BASE + (i) * 0x1000) // TIMERG0 and TIMERG1
 
 //Registers Operation {{
 #define ETS_UNCACHED_ADDR(addr) (addr)
@@ -128,7 +127,6 @@
 
 //Periheral Clock {{
 #define  APB_CLK_FREQ                                ( 40*1000000 )
-#define  REF_CLK_FREQ                                ( 1000000 )
 //}}
 
 /* Overall memory map */
@@ -199,8 +197,9 @@
 #define SOC_PERIPHERAL_LOW 0x50000000   //TODO need update
 #define SOC_PERIPHERAL_HIGH 0x50100000   //TODO need update
 
-#define SOC_LP_PERIPH_LOW  0x50110000  //TODO need update
-#define SOC_LP_PERIPH_HIGH 0x50130000  //TODO need update
+/** LP subsystem from ``LP_SYS`` through ``LP_DAC``*/
+#define SOC_LP_PERIPH_LOW   DR_REG_LP_SYS_BASE
+#define SOC_LP_PERIPH_HIGH  (DR_REG_LP_DAC_BASE + 0x2000)
 
 // CPU sub-system region, contains interrupt config registers
 #define SOC_CPU_SUBSYSTEM_LOW 0x10000000

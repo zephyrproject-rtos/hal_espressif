@@ -38,6 +38,8 @@
 
 #define GPIO_LL_INTR_SOURCE0   ETS_GPIO_INTR_SOURCE
 
+#define GPIO_LL_CLK_SRC_SELECTABLE 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -509,6 +511,7 @@ static inline void gpio_ll_set_output_enable_ctrl(gpio_dev_t *hw, uint8_t gpio_n
  * @param signal_idx Peripheral signal index (tagged as output attribute). Particularly, `SIG_GPIO_OUT_IDX` means disconnect GPIO and other peripherals. Only the GPIO driver can control the output level.
  * @param out_inv True if the signal output needs to be inverted, otherwise False.
  */
+__attribute__((always_inline))
 static inline void gpio_ll_set_output_signal_matrix_source(gpio_dev_t *hw, uint32_t gpio_num, uint32_t signal_idx, bool out_inv)
 {
     HAL_FORCE_MODIFY_U32_REG_FIELD(hw->func_out_sel_cfg[gpio_num], out_sel, signal_idx);

@@ -1067,10 +1067,17 @@ esp_err_t gpio_wakeup_enable_on_hp_periph_powerdown_sleep(gpio_num_t gpio_num, g
         ESP_LOGE(GPIO_TAG, "GPIO %d does not support wakeup on peripheral powerdown sleep", gpio_num);
         return ESP_ERR_INVALID_ARG;
     }
+#if SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED
+    if (intr_type == GPIO_INTR_DISABLE || intr_type > GPIO_INTR_HIGH_LEVEL) {
+        ESP_LOGE(GPIO_TAG, "invalid intr_type for wakeup, gpio_num:%u", gpio_num);
+        return ESP_ERR_INVALID_ARG;
+    }
+#else
     if ((intr_type != GPIO_INTR_LOW_LEVEL) && (intr_type != GPIO_INTR_HIGH_LEVEL)) {
         ESP_LOGE(GPIO_TAG, "GPIO wakeup only supports level mode, but edge mode set. gpio_num:%u", gpio_num);
         return ESP_ERR_INVALID_ARG;
     }
+#endif
     GPIO_ENTER_CRITICAL();
 #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
     io_mux_enable_lp_io_clock(gpio_num, true);
@@ -1143,9 +1150,9 @@ esp_err_t gpio_dump_io_configuration(FILE *out_stream, uint64_t io_bit_mask)
         fprintf(out_stream, "IO[%"PRIu32"]%s -\n", gpio_num, esp_gpio_is_reserved(BIT64(gpio_num)) ? " **RESERVED**" : "");
         fprintf(out_stream, "  Pullup: %d, Pulldown: %d, DriveCap: %"PRIu32"\n", io_config.pu, io_config.pd, (uint32_t)io_config.drv);
         fprintf(out_stream, "  InputEn: %d, OutputEn: %s%s, OpenDrain: %d\n", io_config.ie, oe_str, ((io_config.fun_sel == PIN_FUNC_GPIO) && (io_config.oe_inv)) ? " (inversed)" : "", io_config.od);
-        fprintf(out_stream, "  FuncSel: %"PRIu32" (%s)\n", io_config.fun_sel, (io_config.fun_sel == PIN_FUNC_GPIO) ? "GPIO" : "IOMUX");
+        fprintf(out_stream, "  FuncSel: %"PRIu32" (%s)\n", (uint32_t)io_config.fun_sel, (io_config.fun_sel == PIN_FUNC_GPIO) ? "GPIO" : "IOMUX");
         if (io_config.fun_sel == PIN_FUNC_GPIO) {
-            fprintf(out_stream, "  GPIO Matrix SigOut ID: %"PRIu32"%s\n", io_config.sig_out, (io_config.sig_out == SIG_GPIO_OUT_IDX) ? " (simple GPIO output)" : "");
+            fprintf(out_stream, "  GPIO Matrix SigOut ID: %"PRIu32"%s\n", (uint32_t)io_config.sig_out, (io_config.sig_out == SIG_GPIO_OUT_IDX) ? " (simple GPIO output)" : "");
         }
         if (io_config.ie && io_config.fun_sel == PIN_FUNC_GPIO) {
             uint32_t cnt = 0;

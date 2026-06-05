@@ -39,8 +39,6 @@ LOG_MODULE_REGISTER(esp32c2_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "wifi/wifi_event.h"
 #include <riscv/interrupt.h>
 
-extern void intr_matrix_route(int intr_src, int intr_num);
-
 #define TAG "esp_adapter"
 
 struct wifi_task {

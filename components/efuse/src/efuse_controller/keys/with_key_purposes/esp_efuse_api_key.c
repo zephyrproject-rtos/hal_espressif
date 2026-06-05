@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -43,7 +43,7 @@ const esp_efuse_keys_t s_table[EFUSE_BLK_KEY_MAX - EFUSE_BLK_KEY0] = {
     {ESP_EFUSE_KEY2, ESP_EFUSE_KEY_PURPOSE_2, ESP_EFUSE_RD_DIS_KEY2, ESP_EFUSE_WR_DIS_KEY2, ESP_EFUSE_WR_DIS_KEY2_PURPOSE},
     {ESP_EFUSE_KEY3, ESP_EFUSE_KEY_PURPOSE_3, ESP_EFUSE_RD_DIS_KEY3, ESP_EFUSE_WR_DIS_KEY3, ESP_EFUSE_WR_DIS_KEY3_PURPOSE},
     {ESP_EFUSE_KEY4, ESP_EFUSE_KEY_PURPOSE_4, ESP_EFUSE_RD_DIS_KEY4, ESP_EFUSE_WR_DIS_KEY4, ESP_EFUSE_WR_DIS_KEY4_PURPOSE},
-#if !CONFIG_IDF_TARGET_ESP32S31 // TODO: [ESP32S31] IDF-14688
+#if !CONFIG_IDF_TARGET_ESP32S31
     {ESP_EFUSE_KEY5, ESP_EFUSE_KEY_PURPOSE_5, ESP_EFUSE_RD_DIS_KEY5, ESP_EFUSE_WR_DIS_KEY5, ESP_EFUSE_WR_DIS_KEY5_PURPOSE},
 #endif
 #if 0
@@ -78,7 +78,6 @@ bool esp_efuse_block_is_empty(esp_efuse_block_t block)
     return false;
 }
 
-#if !CONFIG_IDF_TARGET_ESP32S31 // TODO: [ESP32S31] IDF-14688
 // Sets a write protection for the whole block.
 esp_err_t esp_efuse_set_write_protect(esp_efuse_block_t blk)
 {
@@ -88,7 +87,7 @@ esp_err_t esp_efuse_set_write_protect(esp_efuse_block_t blk)
         return esp_efuse_write_field_cnt(ESP_EFUSE_WR_DIS_SYS_DATA_PART1, 1);
     } else if (blk == EFUSE_BLK3) {
         return esp_efuse_write_field_cnt(ESP_EFUSE_WR_DIS_USER_DATA, 1);
-    } else if (blk == EFUSE_BLK10) {
+    } else if (blk == EFUSE_BLK_SYS_DATA_PART2) {
         return esp_efuse_write_field_cnt(ESP_EFUSE_WR_DIS_SYS_DATA_PART2, 1);
     } else if (blk >= EFUSE_BLK_KEY0 && blk < EFUSE_BLK_KEY_MAX) {
         unsigned idx = blk - EFUSE_BLK_KEY0;
@@ -104,14 +103,15 @@ esp_err_t esp_efuse_set_read_protect(esp_efuse_block_t blk)
         unsigned idx = blk - EFUSE_BLK_KEY0;
         return esp_efuse_write_field_cnt(s_table[idx].key_rd_dis, 1);
     }
-    else if (blk == EFUSE_BLK10) {
+#ifdef ESP_EFUSE_RD_DIS_SYS_DATA_PART2
+    else if (blk == EFUSE_BLK_SYS_DATA_PART2) {
         return esp_efuse_write_field_cnt(ESP_EFUSE_RD_DIS_SYS_DATA_PART2, 1);
     }
+#endif
     return ESP_ERR_NOT_SUPPORTED;
 
 }
 
-#endif
 // get efuse coding_scheme.
 esp_efuse_coding_scheme_t esp_efuse_get_coding_scheme(esp_efuse_block_t blk)
 {

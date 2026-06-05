@@ -17,9 +17,6 @@
 #include "hal/rtc_io_hal.h"
 #include "hal/rtc_io_periph.h"
 #include "soc/soc_caps.h"
-#if SOC_RTCIO_PIN_COUNT > 0
-#include "hal/rtc_gpio_caps.h"
-#endif
 #if SOC_LP_GPIO_MATRIX_SUPPORTED
 #include "soc/lp_gpio_pins.h"
 #endif
@@ -57,7 +54,13 @@ esp_err_t rtc_gpio_init(gpio_num_t gpio_num)
 #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
     io_mux_enable_lp_io_clock(gpio_num, true);
 #endif
-    rtcio_hal_function_select(rtc_io_number_get(gpio_num), RTCIO_LL_FUNC_RTC);
+    int rtcio_num = rtc_io_number_get(gpio_num);
+    // Select the pad as RTC GPIO
+    rtcio_hal_function_select(rtcio_num, RTCIO_LL_FUNC_RTC);
+#if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
+    // Select LP GPIO function
+    rtcio_hal_iomux_func_sel(rtcio_num, RTCIO_LL_PIN_FUNC);
+#endif
     RTCIO_EXIT_CRITICAL();
 
     return ESP_OK;
@@ -67,9 +70,9 @@ esp_err_t rtc_gpio_deinit(gpio_num_t gpio_num)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
     RTCIO_ENTER_CRITICAL();
+    // Select the pad as Digital GPIO (this is usually in AON domain, not relying on lp io clock)
+    rtcio_hal_function_select(rtc_io_number_get(gpio_num), RTCIO_LL_FUNC_DIGITAL);
     if (io_mux_is_lp_io_in_use(gpio_num)) {
-        // Select GPIO as Digital GPIO
-        rtcio_hal_function_select(rtc_io_number_get(gpio_num), RTCIO_LL_FUNC_DIGITAL);
 #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
         // Disable any configuration of the RTC IO that may affect the GPIO behavior
         rtc_gpio_set_direction(gpio_num, RTC_GPIO_MODE_DISABLED);
@@ -213,7 +216,7 @@ esp_err_t rtc_gpio_iomux_output(gpio_num_t gpio_num, int func)
 }
 
 #if SOC_LP_GPIO_MATRIX_SUPPORTED
-esp_err_t lp_gpio_connect_in_signal(gpio_num_t gpio_num, uint32_t signal_idx, bool inv)
+esp_err_t lp_gpio_matrix_input(gpio_num_t gpio_num, uint32_t signal_idx, bool inv)
 {
     uint32_t io_num;
     if (gpio_num == LP_GPIO_MATRIX_CONST_ZERO_INPUT || gpio_num == LP_GPIO_MATRIX_CONST_ONE_INPUT) {
@@ -226,12 +229,35 @@ esp_err_t lp_gpio_connect_in_signal(gpio_num_t gpio_num, uint32_t signal_idx, bo
     return ESP_OK;
 }
 
-esp_err_t lp_gpio_connect_out_signal(gpio_num_t gpio_num, uint32_t signal_idx, bool out_inv, bool out_en_inv)
+esp_err_t lp_gpio_matrix_output(gpio_num_t gpio_num, uint32_t signal_idx, bool out_inv, bool out_en_inv)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "LP_IO number error");
     rtcio_hal_matrix_out(rtc_io_number_get(gpio_num), signal_idx, out_inv, out_en_inv);
     return ESP_OK;
 }
+
+esp_err_t lp_gpio_connect_in_signal(gpio_num_t gpio_num, uint32_t signal_idx, bool inv)
+{
+    uint32_t io_num;
+    if (gpio_num == LP_GPIO_MATRIX_CONST_ZERO_INPUT || gpio_num == LP_GPIO_MATRIX_CONST_ONE_INPUT) {
+        io_num = gpio_num;
+    } else {
+        ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "LP_IO number error");
+        io_num = rtc_io_number_get(gpio_num);
+    }
+    rtcio_ll_set_input_signal_matrix_source(io_num, signal_idx, inv);
+    return ESP_OK;
+}
+
+esp_err_t lp_gpio_connect_out_signal(gpio_num_t gpio_num, uint32_t signal_idx, bool out_inv, bool out_en_inv)
+{
+    ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "LP_IO number error");
+    uint32_t rtcio_num = rtc_io_number_get(gpio_num);
+    rtcio_ll_set_output_signal_matrix_source(rtcio_num, signal_idx, out_inv);
+    rtcio_ll_set_output_enable_ctrl(rtcio_num, true, out_en_inv);
+    return ESP_OK;
+}
+
 #endif // SOC_LP_GPIO_MATRIX_SUPPORTED
 
 #endif // SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
@@ -294,11 +320,11 @@ esp_err_t rtc_gpio_isolate(gpio_num_t gpio_num)
 esp_err_t rtc_gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
 {
     ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
-#if !RTC_GPIO_CAPS_GET(EDGE_WAKEUP_SUPPORTED)
+#if !SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED
     if (intr_type == GPIO_INTR_POSEDGE || intr_type == GPIO_INTR_NEGEDGE || intr_type == GPIO_INTR_ANYEDGE) {
         return ESP_ERR_INVALID_ARG; // Dont support this mode.
     }
-#endif //!RTC_GPIO_CAPS_GET(EDGE_WAKEUP_SUPPORTED)
+#endif //!SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED
     RTCIO_ENTER_CRITICAL();
     rtcio_hal_wakeup_enable(rtc_io_number_get(gpio_num), intr_type);
     RTCIO_EXIT_CRITICAL();

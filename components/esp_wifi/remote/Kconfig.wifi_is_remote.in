@@ -142,6 +142,19 @@ if WIFI_RMT_WPA3_COMPATIBLE_SUPPORT
         default WIFI_RMT_WPA3_COMPATIBLE_SUPPORT
 endif
 
+if WIFI_RMT_ENABLE_WPA3_OWE_SOFTAP
+    config ESP_WIFI_ENABLE_WPA3_OWE_SOFTAP # ignore: multiple-definition
+        bool
+        depends on WIFI_RMT_SOFTAP_SUPPORT
+        default WIFI_RMT_ENABLE_WPA3_OWE_SOFTAP
+endif
+
+if WIFI_RMT_PASN_SUPPORT
+    config ESP_WIFI_PASN_SUPPORT # ignore: multiple-definition
+        bool
+        default WIFI_RMT_PASN_SUPPORT
+endif
+
 if WIFI_RMT_SLP_IRAM_OPT
     config ESP_WIFI_SLP_IRAM_OPT # ignore: multiple-definition
         bool
@@ -283,11 +296,25 @@ if WIFI_RMT_NAN_SYNC_ENABLE
         default WIFI_RMT_NAN_SYNC_ENABLE
 endif
 
+if WIFI_RMT_NAN_SECURITY
+    config ESP_WIFI_NAN_SECURITY # ignore: multiple-definition
+        bool
+        depends on WIFI_RMT_NAN_SYNC_ENABLE && IDF_EXPERIMENTAL_FEATURES && WIFI_RMT_MBEDTLS_CRYPTO
+        default WIFI_RMT_NAN_SECURITY
+endif
+
 if WIFI_RMT_NAN_USD_ENABLE
     config ESP_WIFI_NAN_USD_ENABLE # ignore: multiple-definition
         bool
         depends on IDF_EXPERIMENTAL_FEATURES
         default WIFI_RMT_NAN_USD_ENABLE
+endif
+
+if WIFI_RMT_NAN_PAIRING
+    config ESP_WIFI_NAN_PAIRING # ignore: multiple-definition
+        bool
+        depends on WIFI_RMT_NAN_SECURITY && IDF_EXPERIMENTAL_FEATURES && WIFI_RMT_MBEDTLS_CRYPTO
+        default WIFI_RMT_NAN_PAIRING
 endif
 
 if WIFI_RMT_MBEDTLS_CRYPTO
@@ -360,7 +387,6 @@ endif
 if WIFI_RMT_ENABLE_ROAMING_APP
     config ESP_WIFI_ENABLE_ROAMING_APP # ignore: multiple-definition
         bool
-        depends on IDF_EXPERIMENTAL_FEATURES
         default WIFI_RMT_ENABLE_ROAMING_APP
 endif
 
@@ -369,6 +395,11 @@ if WIFI_RMT_DPP_SUPPORT
         bool
         default WIFI_RMT_DPP_SUPPORT
 endif
+
+config ESP_WIFI_DPP_MAX_CONF_OBJ # ignore: multiple-definition
+    int
+    depends on WIFI_RMT_DPP_SUPPORT
+    default WIFI_RMT_DPP_MAX_CONF_OBJ
 
 if WIFI_RMT_11R_SUPPORT
     config ESP_WIFI_11R_SUPPORT # ignore: multiple-definition
@@ -486,3 +517,14 @@ if WIFI_RMT_PASSIVE_HIDDEN_AP_SUPPORT
         bool
         default WIFI_RMT_PASSIVE_HIDDEN_AP_SUPPORT
 endif
+
+if WIFI_RMT_PRIVACY_ENHANCEMENTS_ENABLED
+    config ESP_WIFI_PRIVACY_ENHANCEMENTS_ENABLED # ignore: multiple-definition
+        bool
+        default WIFI_RMT_PRIVACY_ENHANCEMENTS_ENABLED
+endif
+
+config ESP_WIFI_RMAC_AUTO_RESET_INTERVAL # ignore: multiple-definition
+    int
+    depends on WIFI_RMT_PRIVACY_ENHANCEMENTS_ENABLED
+    default WIFI_RMT_RMAC_AUTO_RESET_INTERVAL

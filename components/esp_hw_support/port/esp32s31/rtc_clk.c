@@ -15,6 +15,7 @@
 #include "esp_private/rtc_clk.h"
 #include "esp_hw_log.h"
 #include "esp_rom_sys.h"
+#include "esp_sleep.h"
 #include "hal/clk_tree_ll.h"
 #include "esp_private/sleep_event.h"
 #include "esp_private/regi2c_ctrl.h"
@@ -87,19 +88,13 @@ void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
 {
     clk_ll_rtc_slow_set_src(clk_src);
     esp_rom_delay_us(SOC_DELAY_RTC_SLOW_CLK_SWITCH);
-    // TODO: IDF-14645
-// #ifndef BOOTLOADER_BUILD
-//     if (clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
-//         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_ON);
-//     } else {
-//         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_AUTO);
-//     }
-//     if (clk_src == SOC_RTC_SLOW_CLK_SRC_RC32K) {
-//         esp_sleep_pd_config(ESP_PD_DOMAIN_RC32K, ESP_PD_OPTION_ON);
-//     } else {
-//         esp_sleep_pd_config(ESP_PD_DOMAIN_RC32K, ESP_PD_OPTION_AUTO);
-//     }
-// #endif
+#ifndef BOOTLOADER_BUILD
+    if (clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_ON);
+    } else {
+        esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL32K, ESP_PD_OPTION_AUTO);
+    }
+#endif
 }
 
 soc_rtc_slow_clk_src_t rtc_clk_slow_src_get(void)
@@ -235,13 +230,14 @@ static void rtc_clk_cpu_freq_to_cpll_mhz(int cpu_freq_mhz, hal_utils_clk_div_t *
      *
      * Current available configurations:
      * CPLL    ->     CPU_CLK   ->     MEM_CLK
-     *                          ->     SYS_CLK   ->     APB_CLK
+     *                          ->     SYS_CLK              ->         APB_CLK
      * 320    div1      320    div2      160
-     *                         div4      80     div2      40
+     *                         div3      320/3(106.67)     div2      320/6(53.33)
      * 320    div2      160    div1      160
-     *                         div2      80     div2      40
+     *                         div2      80                div2      40
      * 320    div4      80     div1      80
-     *                         div1      80     div2      40
+     *                         div1      80                div2      40
+     * 320    div6      53.33  div1      53.33             div1      53.33
      */
     uint32_t mem_divider = 1;
     uint32_t sys_divider = 1;
@@ -249,7 +245,7 @@ static void rtc_clk_cpu_freq_to_cpll_mhz(int cpu_freq_mhz, hal_utils_clk_div_t *
     switch (cpu_freq_mhz) {
     case 320:
         mem_divider = 2;
-        sys_divider = 4;
+        sys_divider = 3;
         apb_divider = 2;
         break;
     case 160:
@@ -261,6 +257,11 @@ static void rtc_clk_cpu_freq_to_cpll_mhz(int cpu_freq_mhz, hal_utils_clk_div_t *
         mem_divider = 1;
         sys_divider = 1;
         apb_divider = 2;
+        break;
+    case 53:
+        mem_divider = 1;
+        sys_divider = 1;
+        apb_divider = 1;
         break;
     default:
         // Unsupported configuration
@@ -296,6 +297,11 @@ bool rtc_clk_cpu_freq_mhz_to_config(uint32_t freq_mhz, rtc_cpu_freq_config_t *ou
         }
         source_freq_mhz = xtal_freq;
         source = SOC_CPU_CLK_SRC_XTAL;
+    } else if (freq_mhz == 53) {
+        real_freq_mhz = freq_mhz;
+        source = SOC_CPU_CLK_SRC_CPLL;
+        source_freq_mhz = CLK_LL_PLL_320M_FREQ_MHZ;
+        divider.integer = 6;
     } else if (freq_mhz == 80) {
         real_freq_mhz = freq_mhz;
         source = SOC_CPU_CLK_SRC_CPLL;
@@ -592,7 +598,18 @@ uint32_t rtc_clk_apll_coeff_calc(uint32_t freq, uint32_t *_o_div, uint32_t *_sdm
 
 void rtc_clk_apll_coeff_set(uint32_t o_div, uint32_t sdm0, uint32_t sdm1, uint32_t sdm2)
 {
-    // TODO: IDF-14771, IDF-14750
+    clk_ll_apll_set_config(o_div, sdm0, sdm1, sdm2);
+
+    /* calibration */
+    ANALOG_CLOCK_ENABLE();
+    clk_ll_apll_set_calibration();
+
+    /* wait for calibration end */
+    while (!clk_ll_apll_calibration_is_done()) {
+        /* use esp_rom_delay_us so the RTC bus doesn't get flooded */
+        esp_rom_delay_us(1);
+    }
+    ANALOG_CLOCK_DISABLE();
 }
 
 void rtc_dig_clk8m_enable(void)

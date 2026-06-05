@@ -15,7 +15,6 @@
 #include "hal/misc.h"
 #include "esp32s31/rom/rtc.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -63,6 +62,24 @@ FORCE_INLINE_ATTR void lp_sys_ll_set_pau_link_addr(uint32_t addr)
 static inline void lp_sys_set_regdma_link_count(int count)
 {
     HAL_FORCE_MODIFY_U32_REG_FIELD(LP_SYS.backup_dma_cfg1, branch_link_length_aon, count);
+}
+
+/**
+ * @brief Set the wakeup cause stored by LP core
+ * @param wakeup_cause  The wakeup cause in PMU register
+ */
+static inline void lp_sys_ll_store_wakeup_cause(uint32_t wakeup_cause)
+{
+    REG_WRITE(RTC_LP_CORE_STORE_WAKEUP_REG, wakeup_cause);
+}
+
+/**
+ * @brief Get the wakeup cause stored by LP core
+ * @return  The wakeup cause cleared before LP core sleep
+ */
+static inline uint32_t lp_sys_ll_load_wakeup_cause(void)
+{
+    return REG_READ(RTC_LP_CORE_STORE_WAKEUP_REG);
 }
 
 #ifdef __cplusplus

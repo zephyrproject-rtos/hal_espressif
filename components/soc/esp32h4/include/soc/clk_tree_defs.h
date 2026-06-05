@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -230,6 +230,22 @@ typedef enum {
     PCNT_CLK_SRC_DEFAULT = SOC_MOD_CLK_XTAL,      /*!< Select XTAL as the default choice */
 } soc_periph_pcnt_clk_src_t;
 
+//////////////////////////////////////////////////Temp Sensor///////////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of Temperature Sensor
+ */
+#define SOC_TEMP_SENSOR_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_RC_FAST}
+
+/**
+ * @brief Type of Temp Sensor clock source
+ */
+typedef enum {
+    TEMPERATURE_SENSOR_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,       /*!< Select XTAL as the source clock */
+    TEMPERATURE_SENSOR_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST, /*!< Select RC_FAST as the source clock */
+    TEMPERATURE_SENSOR_CLK_SRC_DEFAULT = SOC_MOD_CLK_XTAL,    /*!< Select XTAL as the default choice */
+} soc_periph_temperature_sensor_clk_src_t;
+
 ///////////////////////////////////////////////////UART/////////////////////////////////////////////////////////////////
 
 /**
@@ -436,7 +452,7 @@ typedef enum {
 typedef enum {
     I2S_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F96M,                 /*!< Select PLL_F96M as the default source clock */
     I2S_CLK_SRC_PLL_96M = SOC_MOD_CLK_PLL_F96M,                 /*!< Select PLL_F96M as the source clock */
-    I2S_CLK_SRC_PLL_64M = SOC_MOD_CLK_XTAL_X2_F64M,          /*!< Select XTAL_X2_F64M as the source clock */
+    I2S_CLK_SRC_XTAL_X2 = SOC_MOD_CLK_XTAL_X2_F64M,          /*!< Select XTAL_X2_F64M as the source clock */
     I2S_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,                        /*!< Select XTAL as the source clock */
     I2S_CLK_SRC_EXTERNAL = -1,                                  /*!< Select external clock as source clock */
 } soc_periph_i2s_clk_src_t;
@@ -474,6 +490,23 @@ typedef enum {
     GLITCH_FILTER_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F48M,  /*!< Select PLL_F48M clock as the default clock choice */
 } soc_periph_glitch_filter_clk_src_t;
 
+////////////////////////////////////////////////ANA_CMPR////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of Analog Comparator
+ */
+#define SOC_ANA_CMPR_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_RC_FAST, SOC_MOD_CLK_PLL_F48M}
+
+/**
+ * @brief Type of Analog Comparator clock source
+ */
+typedef enum {
+    ANA_CMPR_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,         /*!< Select XTAL clock as the source clock */
+    ANA_CMPR_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST,   /*!< Select RC_FAST as the source clock */
+    ANA_CMPR_CLK_SRC_PLL_F48M = SOC_MOD_CLK_PLL_F48M, /*!< Select PLL_F48M as the source clock */
+    ANA_CMPR_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F48M,  /*!< Select PLL_F48M as the default clock choice */
+} soc_periph_ana_cmpr_clk_src_t;
+
 //////////////////////////////////////////////////TWAI//////////////////////////////////////////////////////////////////
 
 /**
@@ -507,6 +540,22 @@ typedef enum {
     PARLIO_CLK_SRC_EXTERNAL = -1,                     /*!< Select EXTERNAL clock as the source clock */
     PARLIO_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F96M,    /*!< Select PLL_F96M as the default clock choice */
 } soc_periph_parlio_clk_src_t;
+
+//////////////////////////////////////////////////ADC///////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of ADC digital controller
+ */
+#define SOC_ADC_DIGI_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_RC_FAST}
+
+/**
+ * @brief ADC digital controller clock source
+ */
+typedef enum {
+    ADC_DIGI_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,           /*!< Select XTAL as the source clock */
+    ADC_DIGI_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST,     /*!< Select RC_FAST as the source clock */
+    ADC_DIGI_CLK_SRC_DEFAULT = SOC_MOD_CLK_XTAL,        /*!< Select XTAL as the default clock choice */
+} soc_periph_adc_digi_clk_src_t;
 
 #ifdef __cplusplus
 }

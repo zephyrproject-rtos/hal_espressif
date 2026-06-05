@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -469,6 +469,12 @@ void non_shared_periph_module_enable(int periph)
 #endif
 #endif
 #if SOC_UHCI_SUPPORTED
+#ifdef ESP32_UHCI0_MODULE
+    case ESP32_UHCI0_MODULE:
+        uhci_ll_enable_bus_clock(0, true);
+        uhci_ll_reset_register(0);
+        break;
+#endif
 #ifdef ESP32_UHCI1_MODULE
     case ESP32_UHCI1_MODULE:
         uhci_ll_enable_bus_clock(1, true);
@@ -789,6 +795,11 @@ void non_shared_periph_module_disable(int periph)
 #endif
 #endif
 #if SOC_UHCI_SUPPORTED
+#ifdef ESP32_UHCI0_MODULE
+    case ESP32_UHCI0_MODULE:
+        uhci_ll_enable_bus_clock(0, false);
+        break;
+#endif
 #ifdef ESP32_UHCI1_MODULE
     case ESP32_UHCI1_MODULE:
         uhci_ll_enable_bus_clock(1, false);

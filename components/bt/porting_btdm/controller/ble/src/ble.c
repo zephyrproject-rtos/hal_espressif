@@ -500,9 +500,6 @@ static void IRAM_ATTR osi_assert_wrapper(const uint32_t ln, const char *fn,
 
 static uint32_t IRAM_ATTR osi_random_wrapper(void)
 {
-    //TODO: use esp_ramdom
-    // return esp_ramdom();
-
     return btdm_osal_rand();
 }
 
@@ -633,13 +630,6 @@ esp_err_t esp_ble_controller_init(esp_bt_controller_config_t *cfg)
         return ret;
     }
 
-#if CONFIG_BT_NIMBLE_ENABLED
-    /* ble_npl_eventq_init() needs to use npl functions in rom and
-     * must be called after esp_ble_controller_init().
-     */
-    ble_npl_eventq_init(nimble_port_get_dflt_eventq());
-#endif // CONFIG_BT_NIMBLE_ENABLE
-
     /* Enable BT-related clocks */
     // modem_clock_module_mac_reset(PERIPH_BT_MODULE);
     // modem_clock_module_enable(PERIPH_BT_MODULE);
@@ -733,10 +723,6 @@ modem_deint:
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
     // modem_clock_deselect_lp_clock_source(PERIPH_BT_MODULE);
     // modem_clock_module_disable(PERIPH_BT_MODULE);
-#if CONFIG_BT_NIMBLE_ENABLED
-    ble_npl_eventq_deinit(nimble_port_get_dflt_eventq());
-#endif // CONFIG_BT_NIMBLE_ENABLED
-
     esp_unregister_ext_funcs();
     return ret;
 }
@@ -762,11 +748,6 @@ esp_err_t esp_ble_controller_deinit(void)
 #if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
     esp_bt_controller_log_deinit();
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_ENABLED
-
-#if CONFIG_BT_NIMBLE_ENABLED
-    /* De-initialize default event queue */
-    ble_npl_eventq_deinit(nimble_port_get_dflt_eventq());
-#endif // CONFIG_BT_NIMBLE_ENABLED
 
     esp_unregister_ext_funcs();
 
@@ -1502,21 +1483,11 @@ int ble_stack_init(esp_bt_controller_config_t *cfg)
     }
 #endif // CONFIG_BT_LE_ISO_SUPPORT
 
-#if CONFIG_SW_COEXIST_ENABLE
-    // Should be invoked in ble ?
-    extern int r_bt_rf_coex_env_init(void);
-    r_bt_rf_coex_env_init();
-#endif /* CONFIG_SW_COEXIST_ENABLE */
     return 0;
 }
 
 void ble_stack_deinit(void)
 {
-#if CONFIG_SW_COEXIST_ENABLE
-    extern void r_bt_rf_coex_env_deinit(void);
-    r_bt_rf_coex_env_deinit();
-#endif /* CONFIG_SW_COEXIST_ENABLE */
-
 #if CONFIG_BT_LE_ISO_SUPPORT
     iso_stack_deinitEnv();
 #endif // CONFIG_BT_LE_ISO_SUPPORT
@@ -1578,10 +1549,6 @@ int ble_stack_enable(void)
 
 #endif // BT_LE_ISO_SUPPORT
 
-#if CONFIG_SW_COEXIST_ENABLE
-    extern int r_bt_rf_coex_env_enable(void);
-    r_bt_rf_coex_env_enable();
-#endif /* CONFIG_SW_COEXIST_ENABLE */
     return 0;
 }
 

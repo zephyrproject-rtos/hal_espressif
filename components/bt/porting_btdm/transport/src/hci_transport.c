@@ -9,6 +9,9 @@
 #include "esp_hci_transport.h"
 #include "esp_hci_internal.h"
 #include "esp_bt.h"
+#if UC_BT_CTRL_BLE_IS_ENABLE
+#include "ble_mbuf.h"
+#endif // UC_BT_CTRL_BLE_IS_ENABLE
 
 typedef struct hci_transport_env
 {
@@ -182,11 +185,13 @@ hci_transport_controller_le_iso_tx(const uint8_t *data, uint16_t len, void *arg)
 #endif // CONFIG_BT_LE_ISO_SUPPORT
 
 /* Functions for controller Tx. */
+#if UC_BT_CTRL_BLE_IS_ENABLE
 static int
 hci_transport_controller_le_tx_dummy(void *data, void *arg)
 {
     return -1;
 }
+#endif
 
 static int
 hci_transport_controller_tx_dummy(hci_driver_packet_t *pkt)

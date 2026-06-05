@@ -142,11 +142,11 @@ int wr_btdm_osal_intr_free(btdm_osal_intr_handle_t intr_handle);
 void *wr_btdm_osal_malloc(uint32_t size, btdm_osal_malloc_flag_t flags);
 void wr_btdm_osal_free(void *ptr);
 
-#if !CONFIG_BTDM_CTRL_MULTI_LINK_ENABLED
+#if !CONFIG_BT_CTRL_MULTI_LINK_ENABLED
 void *wr_btdm_osal_mmgmt_block_malloc(uint32_t size);
 void wr_btdm_osal_mmgmt_block_free(void *ptr);
 void wr_btdm_osal_mmgmt_block_copy(void *dst, const void *src, uint16_t size);
-#endif /* !CONFIG_BTDM_CTRL_MULTI_LINK_ENABLED */
+#endif /* !CONFIG_BT_CTRL_MULTI_LINK_ENABLED */
 
 // void * wr_btdm_osal_ets_delay_us(uint32_t us);
 int wr_btdm_osal_read_efuse_mac(uint8_t *mac);

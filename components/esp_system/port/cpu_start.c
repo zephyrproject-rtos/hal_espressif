@@ -63,6 +63,7 @@
 #elif CONFIG_IDF_TARGET_ESP32H21
 #include "esp_memprot.h"
 #elif CONFIG_IDF_TARGET_ESP32H4
+#include "soc/lp_aon_reg.h"
 #include "esp_memprot.h"
 #elif CONFIG_IDF_TARGET_ESP32S31
 #endif
@@ -374,6 +375,12 @@ void IRAM_ATTR do_multicore_settings(void)
     restore_app_mmu_from_pro_mmu();
 #endif
 
+#if CONFIG_IDF_TARGET_ESP32H4
+    // Reassign Layer6 memory to ICache1 for multicore apps before enabling
+    // cache settings for the other cores.
+    REG_SET_BIT(LP_AON_SRAM_USAGE_CONF_REG, LP_AON_ICACHE1_USAGE);
+#endif
+
     cache_bus_mask_t cache_bus_mask_core0 = cache_ll_l1_get_enabled_bus(0);
 #ifndef CONFIG_IDF_TARGET_ESP32
     // 1. disable the cache before changing its settings.
@@ -489,6 +496,12 @@ FORCE_INLINE_ATTR IRAM_ATTR void ram_app_init(void)
 //Keep this static, the compiler will check output parameters are initialized.
 FORCE_INLINE_ATTR IRAM_ATTR void ext_mem_init(void)
 {
+#if CONFIG_IDF_TARGET_ESP32H4
+    // Initially assign Layer6 memory to CPU RAM. Multicore startup will
+    // reassign it to ICache1 if the app is not configured for single-core mode.
+    REG_CLR_BIT(LP_AON_SRAM_USAGE_CONF_REG, LP_AON_ICACHE1_USAGE);
+#endif
+
 #if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE && !SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
     // It helps to fix missed cache settings for other cores. It happens when bootloader is unicore.
     do_multicore_settings();
@@ -569,11 +582,15 @@ FORCE_INLINE_ATTR IRAM_ATTR void ext_mem_init(void)
 MSPI_INIT_ATTR void sys_rtc_init(const soc_reset_reason_t *rst_reas)
 {
 #if SOC_RTC_WDT_SUPPORTED
-#if CONFIG_IDF_TARGET_ESP32P4
+#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S31
 #define RWDT_RESET           RESET_REASON_CORE_RWDT
-#define MWDT_RESET           RESET_REASON_CORE_MWDT
 #else
 #define RWDT_RESET           RESET_REASON_CORE_RTC_WDT
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32P4
+#define MWDT_RESET           RESET_REASON_CORE_MWDT
+#else
 #define MWDT_RESET           RESET_REASON_CORE_MWDT0
 #endif
 
@@ -731,6 +748,10 @@ NOINLINE_ATTR static void system_early_init(const soc_reset_reason_t *rst_reas)
 #elif CONFIG_IDF_TARGET_ESP32H4
     REG_CLR_BIT(PCR_CORE1_CONF_REG, PCR_CORE1_CLK_EN);
     REG_SET_BIT(PCR_CORE1_CONF_REG, PCR_CORE1_RST_EN);
+#elif CONFIG_IDF_TARGET_ESP32S31
+    REG_CLR_BIT(HP_SYS_CLKRST_HPCORE1_CTRL0_REG, HP_SYS_CLKRST_REG_CORE1_CPU_CLK_EN);
+    REG_CLR_BIT(HP_SYS_CLKRST_HPCORE1_CTRL0_REG, HP_SYS_CLKRST_REG_CORE1_CLIC_CLK_EN);
+    REG_SET_BIT(HP_SYS_CLKRST_HPCORE1_CTRL0_REG, HP_SYS_CLKRST_REG_CORE1_GLOBAL_RST_EN);
 #endif // CONFIG_IDF_TARGET_ESP32
 #endif // !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 #endif // SOC_CPU_CORES_NUM > 1

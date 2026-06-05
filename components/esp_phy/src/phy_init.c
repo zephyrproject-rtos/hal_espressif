@@ -20,6 +20,7 @@
 #include "esp_private/esp_sleep_internal.h"
 #include "esp_check.h"
 #include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include <zephyr/kernel.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/atomic.h>
@@ -68,6 +69,9 @@ wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 extern void pm_mac_modem_clear_rf_power_state(void);
 extern bool pm_mac_modem_rf_already_enabled(void);
+#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC
+extern bool pm_get_wifimac_regdma_link_selection(void);
+#endif
 #endif
 
 static const char* TAG __attribute__((unused)) = "phy_init";
@@ -75,10 +79,10 @@ static const char* TAG __attribute__((unused)) = "phy_init";
 K_MUTEX_DEFINE(s_phy_access_lock);
 
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
-#if !SOC_PMU_SUPPORTED
+#if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
 static DRAM_ATTR int s_wifi_bt_pd_count;
 K_MUTEX_DEFINE(s_wifi_bt_pd_lock);
-#endif // !SOC_PMU_SUPPORTED
+#endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 
 #if CONFIG_IDF_TARGET_ESP32
@@ -319,12 +323,29 @@ void esp_phy_enable(esp_phy_modem_t modem)
         assert(phy_module_has_clock_bits(PHY_INIT_MODEM_CLOCK_REQUIRED_BITS));
         if (s_is_phy_calibrated == false) {
             esp_phy_load_cal_and_init();
+#if CONFIG_ESP_PHY_PLL_TRACK_TEMP_DEBUG
+            phy_track_temp_debug(CONFIG_ESP_PHY_PLL_TRACK_TEMP_DEBUG_FLAG, CONFIG_ESP_PHY_PLL_TRACK_TEMP_DELTA);
+#endif
             s_is_phy_calibrated = true;
         } else {
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
+            bool wifimac_link_is_sel = false;
             if (!pm_mac_modem_rf_already_enabled()) {
                 if (sleep_modem_wifi_modem_state_enabled() && sleep_modem_wifi_modem_link_done()) {
-                    sleep_modem_wifi_do_phy_retention(true);
+#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
+/*
+ * A race exists between SoC wakeup and modem state sleep. After modem initiates sleep,
+ * SoC may wake up before REGDMA completes RF close, leaving mac_modem_sleep_flag uncleared
+ * (it depends on regdma done). The stale flag can incorrectly trigger a sleep request
+ * on the next modem entry, causing abnormal sleep behavior.
+ *
+ * Therefore, this workaround ensures that mac_modem_sleep_flag is properly
+ * cleared by regdma closing RF with wifimac link.
+ * See WIFI-7246 for details.
+*/
+                wifimac_link_is_sel = pm_get_wifimac_regdma_link_selection();
+#endif
+                sleep_modem_wifi_do_phy_retention(true, wifimac_link_is_sel);
                 } else {
                     phy_wakeup_init();
                 }
@@ -390,7 +411,11 @@ void esp_phy_disable(esp_phy_modem_t modem)
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
         pm_mac_modem_clear_rf_power_state();
         if (sleep_modem_wifi_modem_state_enabled()) {
-            sleep_modem_wifi_do_phy_retention(false);
+            bool wifimac_link_is_sel = false;
+#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
+            wifimac_link_is_sel = pm_get_wifimac_regdma_link_selection();
+#endif
+            sleep_modem_wifi_do_phy_retention(false, wifimac_link_is_sel);
         } else
 #endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
         {
@@ -405,6 +430,7 @@ void esp_phy_disable(esp_phy_modem_t modem)
         // Update WiFi MAC time before disable WiFi/BT common peripheral clock
         phy_update_wifi_mac_time(true, esp_timer_get_time());
 #endif
+        phy_wait_freq_hw_hop_done();
         // Disable WiFi/BT common peripheral clock. Do not disable clock for hardware RNG
         esp_phy_common_clock_disable();
     }

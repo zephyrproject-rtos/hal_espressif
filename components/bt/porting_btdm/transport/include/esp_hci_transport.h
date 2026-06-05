@@ -11,7 +11,6 @@
 extern "C" {
 #endif
 #include <stdint.h>
-#include "ble_mbuf.h"
 #include "esp_hci_driver.h"
 
 /**

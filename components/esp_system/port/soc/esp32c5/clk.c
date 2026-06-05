@@ -17,9 +17,7 @@
 #include "soc/rtc.h"
 #include "soc/rtc_periph.h"
 #include "soc/i2s_reg.h"
-#include "soc/chip_revision.h"
 #include "esp_cpu.h"
-#include "hal/efuse_hal.h"
 #if SOC_WDT_SUPPORTED || SOC_RTC_WDT_SUPPORTED
 #include "hal/wdt_hal.h"
 #endif
@@ -220,13 +218,6 @@ __attribute__((weak)) void esp_perip_clk_init(void)
     modem_clock_select_lp_clock_source(PERIPH_WIFI_MODULE, modem_lpclk_src, 0);
 #endif
 
-    /* On ESP32-C5 ECO1, clearing BIT(31) of PCR_FPGA_DEBUG_REG is used to fix
-     * the issue where the modem module fails to transmit and receive packets
-     * due to the loss of the modem root clock caused by automatic clock gating
-     * during soc root clock source switching. For detailed information, refer
-     * to IDF-11064. */
-    clk_ll_soc_root_clk_auto_gating_bypass(true);
-
     soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
     periph_ll_clk_gate_config_t clk_gate_config = {0};
 
@@ -247,6 +238,16 @@ __attribute__((weak)) void esp_perip_clk_init(void)
 #endif
 #if !CONFIG_ESP_ENABLE_PVT
     clk_gate_config.disable_pvt_clk = true;
+#endif
+
+#if defined(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG) && CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+    /* ESP32-C5 rev <= 1.0: Do not disable UART0 sclk when USB Serial/JTAG is primary console.
+     * Disabling it would cause the chip to end in infinite loop on reset (workaround for rom code issue).
+     * See: IDFGH-17050
+     */
+    if (efuse_hal_chip_revision() <= 100) {
+        clk_gate_config.disable_uart0_clk = false;
+    }
 #endif
 
     periph_ll_clk_gate_set_default(rst_reason, &clk_gate_config);

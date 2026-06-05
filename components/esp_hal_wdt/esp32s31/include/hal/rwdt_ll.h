@@ -21,8 +21,6 @@ extern "C" {
 
 #include "esp32s31/rom/ets_sys.h"
 
-// TODO: ["ESP32S31"] IDF-14636
-
 /* The value that needs to be written to RTC_WDT_WPROTECT_REG to write-enable the wdt registers */
 #define RTC_WDT_WKEY_VALUE 0x50D83AA1
 /* The value that needs to be written to RTC_WDT_SWD_WPROTECT_REG to write-enable the swd registers */
@@ -238,28 +236,23 @@ FORCE_INLINE_ATTR void rwdt_ll_set_pause_in_sleep_en(rwdt_dev_t *hw, bool enable
 }
 
 /**
- * @brief Enable/Disable chip reset on RWDT timeout.
- *
- * A chip reset also resets the analog portion of the chip. It will appear as a
- * POWERON reset rather than an RTC reset.
- *
- * @param hw Start address of the peripheral registers.
- * @param enable True to enable, false to disable.
+ * @brief No register for setting chip_reset_en, we keep an empty function to
+ *        provide the same HAL interface as other targets.
  */
 FORCE_INLINE_ATTR void rwdt_ll_set_chip_reset_en(rwdt_dev_t *hw, bool enable)
 {
-    // hw->config0.wdt_chip_reset_en = (enable) ? 1 : 0;
+    (void)hw;
+    (void)enable;
 }
 
 /**
- * @brief Set width of chip reset signal
- *
- * @param hw Start address of the peripheral registers.
- * @param width Width of chip reset signal in terms of number of RTC_SLOW_CLK cycles
+ * @brief No register for setting reset width, we keep an empty function to
+ *        provide the same HAL interface as other targets.
  */
 FORCE_INLINE_ATTR void rwdt_ll_set_chip_reset_width(rwdt_dev_t *hw, uint32_t width)
 {
-    // HAL_FORCE_MODIFY_U32_REG_FIELD(hw->config0, wdt_chip_reset_width, width);
+    (void)hw;
+    (void)width;
 }
 
 /**
@@ -271,7 +264,7 @@ FORCE_INLINE_ATTR void rwdt_ll_set_chip_reset_width(rwdt_dev_t *hw, uint32_t wid
  */
 FORCE_INLINE_ATTR void rwdt_ll_feed(rwdt_dev_t *hw)
 {
-    // hw->feed.rtc_wdt_feed = 1;
+    hw->feed.feed = 1;
 }
 
 /**

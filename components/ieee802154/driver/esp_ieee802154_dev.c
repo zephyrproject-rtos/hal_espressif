@@ -1014,8 +1014,6 @@ esp_err_t ieee802154_transmit(const uint8_t *frame, bool cca)
 
 esp_err_t ieee802154_transmit_at(const uint8_t *frame, bool cca, uint32_t time)
 {
-    uint32_t rampup_time = cca ? IEEE802154_ED_TRIG_TX_RAMPUP_TIME_US : IEEE802154_TX_RAMPUP_TIME_US;
-    uint32_t tx_target_time = (time >= rampup_time) ? time - rampup_time : 0;
     IEEE802154_RF_ENABLE();
     tx_init(frame);
     IEEE802154_SET_TXRX_PTI(IEEE802154_SCENE_TX_AT);
@@ -1025,12 +1023,8 @@ esp_err_t ieee802154_transmit_at(const uint8_t *frame, bool cca, uint32_t time)
     ieee802154_set_state(cca ? IEEE802154_STATE_TX_CCA : IEEE802154_STATE_TX);
     ieee802154_enter_critical();
     ieee802154_etm_set_event_task(IEEE802154_ETM_CHANNEL0, ETM_EVENT_TIMER0_OVERFLOW, cca ? ETM_TASK_ED_TRIG_TX : ETM_TASK_TX_START);
-    ieee802154_timer0_fire_at(tx_target_time);
+    ieee802154_timer0_fire_at(time - (cca ? IEEE802154_ED_TRIG_TX_RAMPUP_TIME_US : IEEE802154_TX_RAMPUP_TIME_US));
     ieee802154_exit_critical();
-    if (time < rampup_time) {
-        // First start the transmit at and then print some logs.
-        ESP_EARLY_LOGE(IEEE802154_TAG, "Time should be longer than %d us to account for the TX ramp-up", rampup_time);
-    }
     return ESP_OK;
 }
 
@@ -1078,7 +1072,6 @@ IEEE802154_NOINLINE static void ieee802154_start_receive_at(void* ctx)
 esp_err_t ieee802154_receive_at(uint32_t time, uint32_t duration)
 {
     // TODO: Light sleep current optimization, TZ-1613.
-    uint32_t target_time = (time >= IEEE802154_RX_RAMPUP_TIME_US) ? time - IEEE802154_RX_RAMPUP_TIME_US : 0;
     IEEE802154_RF_ENABLE();
     ieee802154_enter_critical();
     rx_init();
@@ -1087,15 +1080,11 @@ esp_err_t ieee802154_receive_at(uint32_t time, uint32_t duration)
     ieee802154_set_state(IEEE802154_STATE_RX);
     ieee802154_etm_set_event_task(IEEE802154_ETM_CHANNEL1, ETM_EVENT_TIMER1_OVERFLOW, ETM_TASK_RX_START);
     if (duration) {
-        ieee802154_timer1_fire_at_with_callback(target_time, ieee802154_start_receive_at, (void*)(time + duration));
+        ieee802154_timer1_fire_at_with_callback(time - IEEE802154_RX_RAMPUP_TIME_US, ieee802154_start_receive_at, (void*)(time + duration));
     } else {
-        ieee802154_timer1_fire_at(target_time);
+        ieee802154_timer1_fire_at(time - IEEE802154_RX_RAMPUP_TIME_US);
     }
     ieee802154_exit_critical();
-    if (time < IEEE802154_RX_RAMPUP_TIME_US) {
-        // First start the receive at and then print some logs.
-        ESP_EARLY_LOGE(IEEE802154_TAG, "Time should be longer than %d us to account for the RX ramp-up", IEEE802154_RX_RAMPUP_TIME_US);
-    }
     return ESP_OK;
 }
 
@@ -1120,14 +1109,18 @@ static esp_err_t ieee802154_sleep_init(void)
 {
     esp_err_t err = ESP_OK;
 #if CONFIG_PM_ENABLE
-    sleep_retention_module_init_param_t init_param = { .cbs = { .create = { .handle = ieee802154_sleep_retention_init, .arg = NULL } } };
+    sleep_retention_module_init_param_t init_param = {
+        .cbs = { .create = { .handle = ieee802154_sleep_retention_init, .arg = NULL } },
+        .attribute = SLEEP_RETENTION_MODULE_ATTR_ATTACH
+    };
     init_param.depends.bitmap[SLEEP_RETENTION_MODULE_BT_BB >> 5] |= BIT(SLEEP_RETENTION_MODULE_BT_BB % 32);
     init_param.depends.bitmap[SLEEP_RETENTION_MODULE_CLOCK_MODEM >> 5] |= BIT(SLEEP_RETENTION_MODULE_CLOCK_MODEM % 32);
     err = sleep_retention_module_init(SLEEP_RETENTION_MODULE_802154_MAC, &init_param);
-    if (err == ESP_OK) {
-        err = sleep_retention_module_allocate(SLEEP_RETENTION_MODULE_802154_MAC);
-    }
-    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "failed to create sleep retention linked list for ieee802154 mac retention");
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention init error");
+    err = sleep_retention_module_allocate(SLEEP_RETENTION_MODULE_802154_MAC);
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention allocate error");
+    err = sleep_retention_module_attach(SLEEP_RETENTION_MODULE_802154_MAC);
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention attach error");
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_register_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                    sleep_modem_mac_bb_power_up_prepare);
@@ -1140,10 +1133,12 @@ static esp_err_t ieee802154_sleep_deinit(void)
 {
     esp_err_t err = ESP_OK;
 #if CONFIG_PM_ENABLE
+    err = sleep_retention_module_detach(SLEEP_RETENTION_MODULE_802154_MAC);
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention detach error");
     err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_802154_MAC);
-    if (err == ESP_OK) {
-        err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_802154_MAC);
-    }
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention free error");
+    err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_802154_MAC);
+    ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention deinit error");
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                      sleep_modem_mac_bb_power_up_prepare);

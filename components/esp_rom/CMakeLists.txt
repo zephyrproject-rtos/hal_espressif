@@ -24,18 +24,6 @@ else()
                         "patches/esp_rom_efuse.c"
                         "patches/esp_rom_gpio.c")
 
-    if(NOT BOOTLOADER_BUILD)
-        if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_TLSF_CHECK_PATCH)
-            # This file shall be included in the build if TLSF in ROM is activated
-            list(APPEND sources "patches/esp_rom_tlsf.c")
-        endif()
-
-        if(CONFIG_HEAP_TLSF_USE_ROM_IMPL AND CONFIG_ESP_ROM_MULTI_HEAP_WALK_PATCH)
-            # This file shall be included in the build if TLSF in ROM is activated
-            list(APPEND sources "patches/esp_rom_multi_heap.c")
-        endif()
-    endif()
-
     list(APPEND private_required_comp soc hal esp_hal_uart)
 endif()
 
@@ -61,6 +49,14 @@ endif()
 
 if(CONFIG_SECURE_ENABLE_TEE AND CONFIG_IDF_TARGET_ESP32C5 AND NOT ESP_TEE_BUILD)
     list(APPEND sources "patches/esp_rom_cache_esp32c5.c")
+endif()
+
+if(CONFIG_ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_MAP)
+    list(APPEND sources "patches/esp_rom_cache_writeback_esp32p4_esp32s31.c")
+endif()
+
+if(CONFIG_ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_NO_MAP)
+    list(APPEND sources "patches/esp_rom_cache_writeback_esp32c5_esp32c61_esp32h4.c")
 endif()
 
 idf_component_register(SRCS ${sources}
@@ -119,7 +115,6 @@ if(CONFIG_ESP_ROM_HAS_VERSION)
 endif()
 
 if(ESP_TEE_BUILD)
-    rom_linker_script("heap")
     if(CONFIG_LIBC_NEWLIB AND CONFIG_ESP_ROM_HAS_NEWLIB_NANO_FORMAT)
         rom_linker_script("newlib-nano")
     endif()
@@ -163,11 +158,8 @@ if(BOOTLOADER_BUILD)
     endif()
 
     if(CONFIG_MBEDTLS_USE_CRYPTO_ROM_IMPL_BOOTLOADER)
-        rom_linker_script("mbedtls")
         # For ESP32C2(ECO4), mbedTLS in ROM has been updated to v3.6.0-LTS
-        if(CONFIG_ESP32C2_REV_MIN_FULL GREATER_EQUAL 200)
-            rom_linker_script("mbedtls.eco4")
-        endif()
+        rom_linker_script("mbedtls.eco4")
     endif()
 
 else() # Regular app build
@@ -347,22 +339,6 @@ else() # Regular app build
         endif()
     endif()
 
-    if(CONFIG_HEAP_TLSF_USE_ROM_IMPL)
-        # After registering the component, set the tlsf_set_rom_patches symbol as undefined
-        # to force the linker to integrate the whole `esp_rom_tlsf.c` object file inside the
-        # final binary. This is necessary because tlsf_set_rom_patches is a constructor, thus,
-        # there as no explicit reference/call to it in IDF.
-        if((CONFIG_ESP_ROM_TLSF_CHECK_PATCH OR CONFIG_HEAP_TLSF_CHECK_PATCH))
-            target_link_libraries(${COMPONENT_LIB} PRIVATE "-u tlsf_set_rom_patches")
-        endif()
-
-        if((CONFIG_ESP_ROM_TLSF_CHECK_PATCH OR CONFIG_ESP_ROM_MULTI_HEAP_WALK_PATCH))
-            target_link_libraries(${COMPONENT_LIB} PRIVATE "-u esp_rom_include_multi_heap_patch")
-        endif()
-
-        rom_linker_script("heap")
-    endif()
-
     if(CONFIG_SPI_FLASH_ROM_IMPL)
         # Older targets do not have a separate ld file for spiflash
         if(NOT target STREQUAL "esp32c3" AND NOT target STREQUAL "esp32s3" AND NOT target STREQUAL "esp32c2")
@@ -371,11 +347,8 @@ else() # Regular app build
     endif()
 
     if(CONFIG_MBEDTLS_USE_CRYPTO_ROM_IMPL)
-        rom_linker_script("mbedtls")
         # For ESP32C2(ECO4), mbedTLS in ROM has been updated to v3.6.0-LTS
-        if(CONFIG_ESP32C2_REV_MIN_FULL GREATER_EQUAL 200)
-            rom_linker_script("mbedtls.eco4")
-        endif()
+        rom_linker_script("mbedtls.eco4")
     endif()
 
     if(CONFIG_ESP_ROM_DELAY_US_PATCH AND CONFIG_SECURE_ENABLE_TEE AND

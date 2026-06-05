@@ -407,3 +407,59 @@ if SLAVE_IDF_TARGET_ESP32C61
         default y
 
 endif # ESP32C61
+
+if SLAVE_IDF_TARGET_ESP32S31
+
+    config SLAVE_SOC_WIFI_SUPPORTED # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_HW_TSF # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_FTM_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_GCMP_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_WAPI_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_CSI_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_MESH_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_HE_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_MAC_VERSION_NUM # ignore: multiple-definition
+        int
+        default 3
+
+    config SLAVE_SOC_WIFI_NAN_SUPPORT # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_SOC_WIFI_LIGHT_SLEEP_CLK_WIDTH # ignore: multiple-definition
+        int
+        default 12
+
+    config SLAVE_IDF_TARGET_ARCH_RISCV # ignore: multiple-definition
+        bool
+        default y
+
+    config SLAVE_IDF_ENV_BRINGUP # ignore: multiple-definition
+        bool
+        default y
+
+endif # ESP32S31

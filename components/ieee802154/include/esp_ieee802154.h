@@ -823,7 +823,7 @@ esp_err_t esp_ieee802154_multipan_reset_pending_table(esp_ieee802154_multipan_in
  * @param  inf_index  Index of the multipan interface.
  *
  * @return
- *      - Current pending mode of type ::esp_ieee802154_pending_mode_t.
+ *      - Current pending mode of type refer to esp_ieee802154_pending_mode_t
  */
 esp_ieee802154_pending_mode_t esp_ieee802154_multipan_get_pending_mode(esp_ieee802154_multipan_index_t inf_index);
 

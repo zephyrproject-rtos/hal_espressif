@@ -47,6 +47,18 @@ config ESP_ROM_HAS_HAL_SYSTIMER
     bool
     default y
 
+config ESP_ROM_HAS_HEAP_TLSF
+    bool
+    default y
+
+config ESP_ROM_TLSF_CHECK_PATCH
+    bool
+    default y
+
+config ESP_ROM_MULTI_HEAP_WALK_PATCH
+    bool
+    default y
+
 config ESP_ROM_HAS_LAYOUT_TABLE
     bool
     default y
@@ -55,7 +67,7 @@ config ESP_ROM_WDT_INIT_PATCH
     bool
     default y
 
-config ESP_ROM_HAS_HEAP_TLSF
+config ESP_ROM_WDT_CONFIG_STAGE_PATCH
     bool
     default y
 
@@ -71,6 +83,18 @@ config ESP_ROM_HAS_VERSION
     bool
     default y
 
-config ESP_ROM_MULTI_HEAP_WALK_PATCH
+config ESP_ROM_HAS_OUTPUT_PUTC_FUNC
+    bool
+    default y
+
+config ESP_ROM_PRINTS_LOCKUP_STATUS
+    bool
+    default y
+
+config ESP_ROM_BOOTLOADER_OFFSET_FLASH
+    hex
+    default 0x2000
+
+config ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_MAP
     bool
     default y

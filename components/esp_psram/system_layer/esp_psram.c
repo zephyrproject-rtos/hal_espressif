@@ -46,13 +46,19 @@
 #define BYTES_TO_MMU_PAGE(bytes)        ((bytes) / MMU_PAGE_SIZE)
 
 /**
- * Two types of PSRAM memory regions for now:
+ * PSRAM memory regions:
  * - 8bit aligned
  * - 32bit aligned
+ * - Optional: encryption-exempt carve-out (upper end of PSRAM, highest physical addresses)
  */
-#define PSRAM_MEM_TYPE_NUM          2
 #define PSRAM_MEM_8BIT_ALIGNED      0
 #define PSRAM_MEM_32BIT_ALIGNED     1
+#if CONFIG_SPIRAM_ENC_EXEMPT
+#define PSRAM_MEM_ENC_EXEMPT        2
+#define PSRAM_MEM_TYPE_NUM          3
+#else
+#define PSRAM_MEM_TYPE_NUM          2
+#endif
 
 #if CONFIG_SPIRAM_FLASH_LOAD_TO_PSRAM
 #define PSRAM_EARLY_LOGI   ESP_DRAM_LOGI
@@ -241,6 +247,16 @@ static void s_xip_psram_placement(uint32_t *psram_available_size, uint32_t *out_
 static void s_psram_mapping(uint32_t psram_available_size, uint32_t start_page)
 {
     esp_err_t ret = ESP_FAIL;
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    size_t enc_exempt_size = ALIGN_UP_BY((size_t)CONFIG_SPIRAM_ENC_EXEMPT_SIZE * 1024, MMU_PAGE_SIZE);
+    if (enc_exempt_size >= psram_available_size) {
+        ESP_EARLY_LOGE(TAG, "SPIRAM_ENC_EXEMPT_SIZE (%dKB) >= available PSRAM (%dKB); disabling carve-out",
+                       (int)(enc_exempt_size / 1024), (int)(psram_available_size / 1024));
+        enc_exempt_size = 0;
+    } else {
+        psram_available_size -= enc_exempt_size;
+    }
+#endif
     //----------------------------------Map the PSRAM physical range to MMU-----------------------------//
     /**
      * @note 2
@@ -330,6 +346,36 @@ static void s_psram_mapping(uint32_t psram_available_size, uint32_t start_page)
         ESP_EARLY_LOGW(TAG, "Virtual address not enough for PSRAM, map as much as we can. %dMB is mapped", total_mapped_size / 1024 / 1024);
     }
 
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    if (enc_exempt_size) {
+        const void *v_start_no_enc = NULL;
+        ret = esp_mmu_map_reserve_block_with_caps(enc_exempt_size,
+                                                  MMU_MEM_CAP_READ | MMU_MEM_CAP_WRITE | MMU_MEM_CAP_8BIT | MMU_MEM_CAP_32BIT,
+                                                  MMU_TARGET_PSRAM0, &v_start_no_enc);
+        if (ret != ESP_OK) {
+            ESP_EARLY_LOGE(TAG, "Virtual address pool exhausted; disabling SPIRAM_ENC_EXEMPT carve-out (%dKB)",
+                           (int)(enc_exempt_size / 1024));
+        } else {
+            mmu_hal_map_region_no_enc((uint32_t)v_start_no_enc, MMU_PAGE_TO_BYTES(start_page), enc_exempt_size);
+
+            cache_bus_mask_t bus_mask = cache_ll_l1_get_bus(0, (uint32_t)v_start_no_enc, enc_exempt_size);
+            cache_ll_l1_enable_bus(0, bus_mask);
+#if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
+            bus_mask = cache_ll_l1_get_bus(1, (uint32_t)v_start_no_enc, enc_exempt_size);
+            cache_ll_l1_enable_bus(1, bus_mask);
+#endif
+
+            s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].size = enc_exempt_size;
+            s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_start = (intptr_t)v_start_no_enc;
+            s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_end = (intptr_t)v_start_no_enc + enc_exempt_size;
+            s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].size = enc_exempt_size;
+            s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_start = (intptr_t)v_start_no_enc;
+            s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_end = (intptr_t)v_start_no_enc + enc_exempt_size;
+            ESP_EARLY_LOGI(TAG, "PSRAM unencrypted region: 0x%x B at %p", (unsigned)enc_exempt_size, v_start_no_enc);
+        }
+    }
+#endif /* CONFIG_SPIRAM_ENC_EXEMPT */
+
     /*------------------------------------------------------------------------------
     * After mapping, we DON'T care about the PSRAM PHYSICAL ADDRESS ANYMORE!
     *----------------------------------------------------------------------------*/
@@ -394,6 +440,10 @@ esp_err_t esp_psram_init(void)
     ret = esp_psram_impl_get_available_size(&psram_available_size);
     assert(ret == ESP_OK);
 
+#if SOC_MMU_PER_EXT_MEM_TARGET
+    //set PSRAM dedicated MMU
+    mmu_ll_set_page_size(1, CONFIG_MMU_PAGE_SIZE);
+#endif
     /**
      * `start_page` is the psram physical address in MMU page size.
      * MMU page size on ESP32S2 is 64KB
@@ -455,6 +505,13 @@ bool IRAM_ATTR esp_psram_check_ptr_addr(const void *p)
         return true;
     }
 
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    if ((intptr_t)p >= s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_start &&
+            (intptr_t)p < s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_end) {
+        return true;
+    }
+#endif
+
 #if CONFIG_SPIRAM_RODATA
     if (mmu_psram_check_ptr_addr_in_xip_psram_rodata_region(p)) {
         return true;
@@ -468,6 +525,21 @@ bool IRAM_ATTR esp_psram_check_ptr_addr(const void *p)
 #endif
 
     return false;
+}
+
+bool IRAM_ATTR esp_psram_ptr_is_no_enc(const void *p)
+{
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    if (!s_psram_ctx.is_initialised) {
+        return false;
+    }
+
+    return ((intptr_t)p >= s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_start &&
+            (intptr_t)p < s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_end);
+#else
+    (void)p;
+    return false;
+#endif
 }
 
 /* Not used in Zephyr */
@@ -565,6 +637,18 @@ bool esp_psram_extram_test(void)
         return false;
     }
 
+#if CONFIG_SPIRAM_ENC_EXEMPT
+    if (s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].size) {
+        test_success = s_test_psram(s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].vaddr_start,
+                                    s_psram_ctx.mapped_regions[PSRAM_MEM_ENC_EXEMPT].size,
+                                    0,
+                                    0);
+    }
+    if (!test_success) {
+        return false;
+    }
+#endif
+
     return true;
 }
 
@@ -611,7 +695,11 @@ static size_t esp_psram_get_effective_mapped_size(void)
     }
 
     if (s_psram_ctx.is_initialised) {
-        return s_psram_ctx.mapped_regions[PSRAM_MEM_8BIT_ALIGNED].size + s_psram_ctx.mapped_regions[PSRAM_MEM_32BIT_ALIGNED].size;
+        size_t mapped = 0;
+        for (int i = 0; i < PSRAM_MEM_TYPE_NUM; i++) {
+            mapped += s_psram_ctx.mapped_regions[i].size;
+        }
+        return mapped;
     } else {
         uint32_t psram_available_size = 0;
         esp_err_t ret = esp_psram_impl_get_available_size(&psram_available_size);
@@ -650,7 +738,11 @@ size_t esp_psram_get_heap_size_to_protect(void)
     }
 
     if (s_psram_ctx.is_initialised) {
-        return s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size + s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].size;
+        size_t heap = 0;
+        for (int i = 0; i < PSRAM_MEM_TYPE_NUM; i++) {
+            heap += s_psram_ctx.regions_to_heap[i].size;
+        }
+        return heap;
     } else {
         size_t effective_mapped_size = esp_psram_get_effective_mapped_size();
         if (effective_mapped_size == 0) {

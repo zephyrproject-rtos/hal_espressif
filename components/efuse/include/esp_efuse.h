@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "esp_assert.h"
 #include "esp_log.h"
 #include "soc/soc_caps.h"
 #include "sdkconfig.h"
@@ -32,10 +33,12 @@ extern "C" {
  * @brief Type definition for an eFuse field
  */
 typedef struct {
-    esp_efuse_block_t   efuse_block: 8; /**< Block of eFuse */
-    uint8_t             bit_start;      /**< Start bit [0..255] */
+    esp_efuse_block_t   efuse_block: 7; /**< Block of eFuse */
+    uint16_t            bit_start: 9;  /**< Start bit [0..511] */
     uint16_t            bit_count;      /**< Length of bit field [1..-]*/
 } esp_efuse_desc_t;
+
+ESP_STATIC_ASSERT(sizeof(esp_efuse_desc_t) == sizeof(uint32_t), "esp_efuse_desc_t should be 32 bits");
 
 /**
  * @brief Type definition for ROM log scheme

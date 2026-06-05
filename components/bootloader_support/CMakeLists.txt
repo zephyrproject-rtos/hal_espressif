@@ -84,6 +84,7 @@ if(BOOTLOADER_BUILD OR CONFIG_APP_BUILD_TYPE_RAM)
     list(APPEND priv_requires esp_hal_wdt esp_hal_gpio esp_hal_uart esp_hal_ana_conv esp_hal_rtc_timer
          esp_hal_clock esp_hal_security)
     list(APPEND srcs
+    "src/bootloader_reset_common.c"
     "src/bootloader_init.c"
     "src/bootloader_clock_loader.c"
     "src/bootloader_console.c"
@@ -104,9 +105,13 @@ else()
         esp_hal_clock esp_hal_security)
 endif()
 
+# src/flash_encrypt.c includes esp_security/esp_key_mgr.h on
+# SOC_KEY_MANAGER_SUPPORTED targets. flash_encrypt.c is in the unconditional
+# srcs list, so declare the dep unconditionally for all build variants.
+list(APPEND priv_requires esp_security)
+
 if(BOOTLOADER_BUILD)
     list(APPEND srcs "src/bootloader_panic.c")
-    list(APPEND priv_requires esp_security)
 
     if(CONFIG_SECURE_FLASH_ENC_ENABLED)
         list(APPEND srcs "src/flash_encryption/flash_encrypt.c"
@@ -156,6 +161,8 @@ idf_component_register(SRCS "${srcs}"
                     PRIV_INCLUDE_DIRS "${priv_include_dirs}"
                     REQUIRES "${requires}"
                     PRIV_REQUIRES "${priv_requires}")
+
+idf_define_esp_err_codes(HEADERS include/esp_image_format.h)
 
 if(NOT BOOTLOADER_BUILD)
     if(CONFIG_SECURE_SIGNED_ON_UPDATE)

@@ -24,8 +24,8 @@ extern "C" {
 #define CACHE_LL_DEFAULT_IBUS_MASK                  CACHE_BUS_IBUS0
 #define CACHE_LL_DEFAULT_DBUS_MASK                  CACHE_BUS_DBUS0
 
-#define CACHE_LL_L1_ACCESS_EVENT_MASK               (1<<4)
-#define CACHE_LL_L1_ACCESS_EVENT_CACHE_FAIL         (1<<4)
+#define CACHE_LL_L1_ACCESS_EVENT_MASK               (BIT(0) | BIT(1) | BIT(4))
+#define CACHE_LL_L1_ACCESS_EVENT_CACHE_FAIL         CACHE_LL_L1_ACCESS_EVENT_MASK
 
 #define CACHE_LL_ID_ALL                             2   //All of the caches in a type and level, make this value greater than any ID
 #define CACHE_LL_LEVEL_INT_MEM                      0   //Cache level for accessing internal mem
@@ -577,7 +577,6 @@ static inline void cache_ll_writeback_all(uint32_t cache_level, cache_type_t typ
     }
 }
 
-
 /*------------------------------------------------------------------------------
  * Freeze
  *----------------------------------------------------------------------------*/
@@ -718,9 +717,16 @@ static inline void cache_ll_preload_set_strategy(uint32_t cache_level, cache_typ
  * @brief Preload cache (L1 only)
  *
  * Starts preload for the given map and does not wait. Use cache_ll_preload_wait_done() to wait for completion.
+ *
+ * @param cache_level  level of the cache (must be CACHE_LL_LEVEL_EXT_MEM)
+ * @param type         see `cache_type_t` (selects instruction/data/all cache map)
+ * @param cache_id     id of the cache (unused on H4; pass 0)
+ * @param vaddr        start virtual address of the preload region
+ * @param size         size of the preload region in bytes
+ * @param order        preload order, see `cache_preload_order_t`
  */
 __attribute__((always_inline))
-static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     (void)cache_id;
     HAL_ASSERT(cache_level == CACHE_LL_LEVEL_EXT_MEM);
@@ -737,7 +743,7 @@ static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uin
         map = CACHE_MAP_ALL;
         break;
     }
-    Cache_Start_Preload(map, vaddr, size, ascending ? 0 : 1);
+    Cache_Start_Preload(map, vaddr, size, order);
 }
 
 /**
@@ -881,7 +887,7 @@ __attribute__((always_inline))
 static inline void cache_ll_l1_disable_bus(uint32_t bus_id, cache_bus_mask_t mask)
 {
     //On esp32h4, only `CACHE_BUS_IBUS0` and `CACHE_BUS_DBUS0` are supported. Use `cache_ll_l1_get_bus()` to get your bus first
-    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2| CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
+    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2 | CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
 
     uint32_t ibus_mask = 0;
     if (bus_id == 0) {

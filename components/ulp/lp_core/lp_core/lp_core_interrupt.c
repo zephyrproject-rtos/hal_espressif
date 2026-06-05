@@ -44,7 +44,7 @@ void  __attribute__((weak)) ulp_lp_core_panic_handler(RvExcFrame *frame, int exc
     ulp_lp_core_abort();
 }
 
-static void ulp_lp_core_default_intr_handler(void)
+static void __attribute__((section(".text.handlers"))) ulp_lp_core_default_intr_handler(void)
 {
     ulp_lp_core_abort();
 }

@@ -22,7 +22,7 @@ extern "C" {
 /*
  * Function declarations for BTDM EXTERNAL
  */
-const int8_t *wr_btdm_external_bb_get_tx_pwr_table(uint8_t *length);
+const int8_t *wr_btdm_external_bb_get_tx_pwr_table(uint8_t *length, uint8_t modem_cfg);
 
 int btdm_external_init(void);
 void btdm_external_deinit(void);

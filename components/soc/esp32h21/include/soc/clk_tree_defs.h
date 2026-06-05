@@ -486,10 +486,45 @@ typedef enum {
 typedef enum {
     I2S_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F96M,                 /*!< Select PLL_F96M as the default source clock */
     I2S_CLK_SRC_PLL_96M = SOC_MOD_CLK_PLL_F96M,                 /*!< Select PLL_F96M as the source clock */
-    I2S_CLK_SRC_PLL_64M = SOC_MOD_CLK_XTAL_X2_F64M,             /*!< Select XTAL_X2_F64M as the source clock */
+    I2S_CLK_SRC_XTAL_X2 = SOC_MOD_CLK_XTAL_X2_F64M,             /*!< Select XTAL_X2_F64M as the source clock */
     I2S_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,                        /*!< Select XTAL as the source clock */
     I2S_CLK_SRC_EXTERNAL = -1,                                  /*!< Select external clock as source clock */
 } soc_periph_i2s_clk_src_t;
+
+//////////////////////////////////////////////////PARLIO////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of PARLIO
+ */
+#define SOC_PARLIO_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_PLL_F96M, SOC_MOD_CLK_RC_FAST}
+
+/**
+ * @brief PARLIO clock source
+ */
+typedef enum {
+    PARLIO_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,          /*!< Select XTAL as the source clock */
+    PARLIO_CLK_SRC_PLL_F96M = SOC_MOD_CLK_PLL_F96M,  /*!< Select PLL_F96M as the source clock */
+    PARLIO_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST,    /*!< Select RC_FAST as the source clock */
+    PARLIO_CLK_SRC_EXTERNAL = -1,                    /*!< Select EXTERNAL clock as the source clock */
+    PARLIO_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F96M,   /*!< Select PLL_F96M as the default clock choice */
+} soc_periph_parlio_clk_src_t;
+
+//////////////////////////////////////////////////ADC///////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of ADC digital controller
+ */
+#define SOC_ADC_DIGI_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_PLL_F96M, SOC_MOD_CLK_RC_FAST}
+
+/**
+ * @brief ADC digital controller clock source
+ */
+typedef enum {
+    ADC_DIGI_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,           /*!< Select XTAL as the source clock */
+    ADC_DIGI_CLK_SRC_PLL_F96M = SOC_MOD_CLK_PLL_F96M,   /*!< Select PLL_F96M as the source clock */
+    ADC_DIGI_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST,     /*!< Select RC_FAST as the source clock */
+    ADC_DIGI_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F96M,    /*!< Select PLL_F96M as the default clock choice */
+} soc_periph_adc_digi_clk_src_t;
 
 #ifdef __cplusplus
 }

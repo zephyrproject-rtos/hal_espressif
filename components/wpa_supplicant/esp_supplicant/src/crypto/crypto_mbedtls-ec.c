@@ -47,7 +47,6 @@
 static bool crypto_ec_point_mul_curve_supported(const mbedtls_ecp_group *grp)
 {
     switch (grp->id) {
-    case MBEDTLS_ECP_DP_SECP192R1:
     case MBEDTLS_ECP_DP_SECP256R1:
 #if SOC_ECC_SUPPORT_CURVE_P384
     case MBEDTLS_ECP_DP_SECP384R1:
@@ -73,7 +72,7 @@ static int crypto_ec_point_mul_ecc_hw(const mbedtls_ecp_group *grp,
         return MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
     }
 
-    if (curve_len != P192_LEN && curve_len != P256_LEN
+    if (curve_len != P256_LEN
 #if SOC_ECC_SUPPORT_CURVE_P384
             && curve_len != P384_LEN
 #endif
@@ -160,71 +159,6 @@ static int crypto_ec_key_cache_public_key_buf(crypto_ec_key_wrapper_t *wrapper,
 
     os_memcpy(wrapper->cached_public_key_buf, buf, len);
     wrapper->cached_public_key_len = len;
-    return 0;
-}
-
-static int crypto_ec_key_cache_public_key_from_pk(crypto_ec_key_wrapper_t *wrapper,
-                                                  mbedtls_pk_context *pkey)
-{
-    unsigned char buf[PSA_EXPORT_PUBLIC_KEY_MAX_SIZE];
-    size_t pub_len = 0;
-    mbedtls_ecp_keypair *ec;
-    int ret;
-
-    if (!wrapper || !pkey) {
-        return -1;
-    }
-
-    ec = (mbedtls_ecp_keypair *)(pkey->MBEDTLS_PRIVATE(pk_ctx));
-    if (!ec) {
-        return -1;
-    }
-
-    ret = mbedtls_ecp_point_write_binary(&ec->MBEDTLS_PRIVATE(grp),
-                                         &ec->MBEDTLS_PRIVATE(Q),
-                                         MBEDTLS_ECP_PF_UNCOMPRESSED,
-                                         &pub_len, buf, sizeof(buf));
-    if (ret != 0) {
-        return -1;
-    }
-
-    return crypto_ec_key_cache_public_key_buf(wrapper, buf, pub_len);
-}
-
-static int crypto_ec_key_cache_private_key_from_pk(crypto_ec_key_wrapper_t *wrapper,
-                                                   mbedtls_pk_context *pkey)
-{
-    mbedtls_ecp_keypair *ec;
-    mbedtls_mpi *d;
-    int ret;
-
-    if (!wrapper || !pkey) {
-        return -1;
-    }
-
-    ec = (mbedtls_ecp_keypair *)(pkey->MBEDTLS_PRIVATE(pk_ctx));
-    if (!ec) {
-        return -1;
-    }
-
-    if (wrapper->cached_private_key) {
-        return 0;
-    }
-
-    d = os_calloc(1, sizeof(*d));
-    if (!d) {
-        return -1;
-    }
-
-    mbedtls_mpi_init(d);
-    ret = mbedtls_mpi_copy(d, &ec->MBEDTLS_PRIVATE(d));
-    if (ret != 0) {
-        mbedtls_mpi_free(d);
-        os_free(d);
-        return -1;
-    }
-
-    wrapper->cached_private_key = d;
     return 0;
 }
 
@@ -359,7 +293,7 @@ static int crypto_ec_key_ensure_public_key_cached(crypto_ec_key_wrapper_t *wrapp
     status = psa_export_public_key(wrapper->key_id, pub_key_buf,
                                    sizeof(pub_key_buf), &pub_key_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "psa_export_public_key failed with %d", status);
+        wpa_printf(MSG_ERROR, "psa_export_public_key failed with %d", (int) status);
         return -1;
     }
 
@@ -630,7 +564,7 @@ static u32 p256_fast_words_add_carry(u32 *z, const u32 *x, const u32 *y)
 
 static void p256_fast_words_add_mod(u32 *z, const u32 *x, const u32 *y)
 {
-    u32 reduced[P256_WORDS];
+    u32 reduced[P256_WORDS] = {0};
     u32 carry = p256_fast_words_add_carry(z, x, y);
     u32 borrow = p256_words_sub_borrow(reduced, z, p256_p_le);
     u32 use_sub = carry | (1U - borrow);
@@ -640,7 +574,7 @@ static void p256_fast_words_add_mod(u32 *z, const u32 *x, const u32 *y)
 
 static void p256_fast_words_sub_mod(u32 *z, const u32 *x, const u32 *y)
 {
-    u32 tmp[P256_WORDS];
+    u32 tmp[P256_WORDS] = {0};
 
     if (p256_words_sub_borrow(z, x, y) != 0) {
         (void) p256_fast_words_add_carry(tmp, z, p256_p_le);
@@ -663,7 +597,7 @@ static void p256_words_rshift1_with_carry(u32 *z, u32 carry)
 static void p256_fast_half_mod(u32 *z)
 {
     if (z[0] & 1U) {
-        u32 tmp[P256_WORDS];
+        u32 tmp[P256_WORDS] = {0};
         u32 carry = p256_fast_words_add_carry(tmp, z, p256_p_le);
 
         p256_words_rshift1_with_carry(tmp, carry);
@@ -676,7 +610,7 @@ static void p256_fast_half_mod(u32 *z)
 
 static int p256_fast_inv_std(u32 out[P256_WORDS], const u32 in[P256_WORDS])
 {
-    u32 u[P256_WORDS], v[P256_WORDS], r[P256_WORDS], s[P256_WORDS];
+    u32 u[P256_WORDS] = {0}, v[P256_WORDS] = {0}, r[P256_WORDS] = {0}, s[P256_WORDS] = {0};
 
     if (p256_words_is_zero(in)) {
         return -1;
@@ -783,7 +717,7 @@ static void p256_fast_dbl(u32 out[P256_WORDS], const u32 in[P256_WORDS])
 
 static void p256_fast_triple(u32 out[P256_WORDS], const u32 in[P256_WORDS])
 {
-    u32 tmp[P256_WORDS];
+    u32 tmp[P256_WORDS] = {0};
 
     p256_fast_dbl(tmp, in);
     p256_fast_words_add_mod(out, tmp, in);
@@ -791,7 +725,7 @@ static void p256_fast_triple(u32 out[P256_WORDS], const u32 in[P256_WORDS])
 
 static void p256_fast_eight(u32 out[P256_WORDS], const u32 in[P256_WORDS])
 {
-    u32 tmp[P256_WORDS];
+    u32 tmp[P256_WORDS] = {0};
 
     p256_fast_dbl(tmp, in);
     p256_fast_dbl(tmp, tmp);
@@ -833,10 +767,10 @@ static void p256_fast_point_from_affine(p256_fast_jac_point *p,
 
 static void p256_fast_point_double(p256_fast_jac_point *r)
 {
-    u32 z2[P256_WORDS], y2[P256_WORDS], y4[P256_WORDS];
-    u32 s[P256_WORDS], m[P256_WORDS], x3[P256_WORDS];
-    u32 y3[P256_WORDS], z3[P256_WORDS], tmp1[P256_WORDS];
-    u32 tmp2[P256_WORDS];
+    u32 z2[P256_WORDS] = {0}, y2[P256_WORDS] = {0}, y4[P256_WORDS] = {0};
+    u32 s[P256_WORDS] = {0}, m[P256_WORDS] = {0}, x3[P256_WORDS] = {0};
+    u32 y3[P256_WORDS] = {0}, z3[P256_WORDS] = {0}, tmp1[P256_WORDS] = {0};
+    u32 tmp2[P256_WORDS] = {0};
 
     if (p256_words_is_zero(r->Z) || p256_words_is_zero(r->Y)) {
         p256_fast_point_set_zero(r);
@@ -878,11 +812,11 @@ static void p256_fast_point_add_mixed(p256_fast_jac_point *r,
                                       const u32 qy[P256_WORDS],
                                       const u32 one_mont[P256_WORDS])
 {
-    u32 z1z1[P256_WORDS], z1z1z1[P256_WORDS];
-    u32 u2[P256_WORDS], s2[P256_WORDS], h[P256_WORDS];
-    u32 rr[P256_WORDS], hh[P256_WORDS], hhh[P256_WORDS];
-    u32 v[P256_WORDS], x3[P256_WORDS], y3[P256_WORDS];
-    u32 z3[P256_WORDS], tmp[P256_WORDS], y1[P256_WORDS];
+    u32 z1z1[P256_WORDS] = {0}, z1z1z1[P256_WORDS] = {0};
+    u32 u2[P256_WORDS] = {0}, s2[P256_WORDS] = {0}, h[P256_WORDS] = {0};
+    u32 rr[P256_WORDS] = {0}, hh[P256_WORDS] = {0}, hhh[P256_WORDS] = {0};
+    u32 v[P256_WORDS] = {0}, x3[P256_WORDS] = {0}, y3[P256_WORDS] = {0};
+    u32 z3[P256_WORDS] = {0}, tmp[P256_WORDS] = {0}, y1[P256_WORDS] = {0};
 
     if (p256_words_is_zero(r->Z)) {
         p256_fast_point_from_affine(r, qx, qy, one_mont);
@@ -932,8 +866,8 @@ static int p256_fast_point_normalize(const mbedtls_ecp_group *grp,
                                      const p256_fast_jac_point *p,
                                      mbedtls_ecp_point *res)
 {
-    u32 z_std[P256_WORDS], inv_std[P256_WORDS], inv_mont[P256_WORDS];
-    u32 x_std[P256_WORDS], y_std[P256_WORDS], tmp[P256_WORDS];
+    u32 z_std[P256_WORDS] = {0}, inv_std[P256_WORDS] = {0}, inv_mont[P256_WORDS] = {0};
+    u32 x_std[P256_WORDS] = {0}, y_std[P256_WORDS] = {0}, tmp[P256_WORDS] = {0};
     int ret = MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
 
     if (p256_words_is_zero(p->Z)) {
@@ -966,10 +900,10 @@ static int p256_fast_points_batch_to_affine_mont(
     const p256_fast_jac_point *points, size_t num,
     u32(*xs)[P256_WORDS], u32(*ys)[P256_WORDS])
 {
-    u32 prefix[P256_WINDOW_BATCH_COUNT][P256_WORDS];
-    u32 prod_std[P256_WORDS], inv_std[P256_WORDS];
-    u32 running_inv[P256_WORDS], inv_z[P256_WORDS];
-    u32 tmp[P256_WORDS];
+    u32 prefix[P256_WINDOW_BATCH_COUNT][P256_WORDS] = {{0}};
+    u32 prod_std[P256_WORDS] = {0}, inv_std[P256_WORDS] = {0};
+    u32 running_inv[P256_WORDS] = {0}, inv_z[P256_WORDS] = {0};
+    u32 tmp[P256_WORDS] = {0};
     size_t i;
 
     if (!points || !xs || !ys) {
@@ -1028,8 +962,8 @@ static int crypto_ec_point_mul_p256_window4_core(const mbedtls_ecp_group *grp,
                                                  bool validate_inputs)
 {
     struct p256_window4_scratch *scratch = NULL;
-    u32 scalar[P256_WORDS], x_std[P256_WORDS], y_std[P256_WORDS];
-    u32 x_mont[P256_WORDS], y_mont[P256_WORDS], one_mont[P256_WORDS];
+    u32 scalar[P256_WORDS] = {0}, x_std[P256_WORDS] = {0}, y_std[P256_WORDS] = {0};
+    u32 x_mont[P256_WORDS] = {0}, y_mont[P256_WORDS] = {0}, one_mont[P256_WORDS] = {0};
     static const u32 one_std[P256_WORDS] = {1};
     int window;
     int ret = MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
@@ -1151,8 +1085,8 @@ static int crypto_ec_point_mul_p256_generator_comb_fast(const mbedtls_ecp_group 
                                                         bool validate_inputs)
 {
     p256_fast_jac_point r;
-    u32 scalar[P256_WORDS];
-    u32 one_mont[P256_WORDS];
+    u32 scalar[P256_WORDS] = {0};
+    u32 one_mont[P256_WORDS] = {0};
     static const u32 one_std[P256_WORDS] = {1};
     int col;
     int ret = MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
@@ -1493,12 +1427,12 @@ int crypto_ec_key_compare(struct crypto_ec_key *key1, struct crypto_ec_key *key2
 
     psa_status_t status = psa_export_public_key(wrapper1->key_id, pub1, sizeof(pub1), &key1_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_compare: psa_export_public_key failed with %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_compare: psa_export_public_key failed with %d", (int)status);
         return 0;
     }
     status = psa_export_public_key(wrapper2->key_id, pub2, sizeof(pub2), &key2_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_compare: psa_export_public_key failed with %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_compare: psa_export_public_key failed with %d", (int)status);
         return 0;
     }
 
@@ -1542,13 +1476,6 @@ static int init_group_in_wrapper(crypto_ec_key_wrapper_t *wrapper)
 static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bits)
 {
     switch (grp_id) {
-#if defined(MBEDTLS_ECP_DP_SECP192R1)
-    case MBEDTLS_ECP_DP_SECP192R1:
-        if (bits) {
-            *bits = 192;
-        }
-        return PSA_ECC_FAMILY_SECP_R1;
-#endif
     case MBEDTLS_ECP_DP_SECP256R1:
         if (bits) {
             *bits = 256;
@@ -1584,18 +1511,6 @@ static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bit
             *bits = 255;
         }
         return PSA_ECC_FAMILY_MONTGOMERY;
-#if defined(MBEDTLS_ECP_DP_SECP192K1)
-    case MBEDTLS_ECP_DP_SECP192K1:
-        if (bits) {
-            *bits = 192;
-        }
-        return PSA_ECC_FAMILY_SECP_K1;
-#endif
-    // case MBEDTLS_ECP_DP_SECP224K1:
-    //     if (bits) {
-    //         *bits = 224;
-    //     }
-    //     return PSA_ECC_FAMILY_SECP_K1;
     case MBEDTLS_ECP_DP_SECP256K1:
         if (bits) {
             *bits = 256;
@@ -1614,6 +1529,56 @@ static psa_ecc_family_t group_id_to_psa(mbedtls_ecp_group_id grp_id, size_t *bit
     }
 }
 
+static mbedtls_ecp_group_id psa_to_group_id(psa_ecc_family_t family, size_t bits)
+{
+    switch (family) {
+    case PSA_ECC_FAMILY_SECP_R1:
+        switch (bits) {
+        case 256:
+            return MBEDTLS_ECP_DP_SECP256R1;
+        case 384:
+            return MBEDTLS_ECP_DP_SECP384R1;
+        case 521:
+            return MBEDTLS_ECP_DP_SECP521R1;
+        default:
+            break;
+        }
+        break;
+    case PSA_ECC_FAMILY_BRAINPOOL_P_R1:
+        switch (bits) {
+        case 256:
+            return MBEDTLS_ECP_DP_BP256R1;
+        case 384:
+            return MBEDTLS_ECP_DP_BP384R1;
+        case 512:
+            return MBEDTLS_ECP_DP_BP512R1;
+        default:
+            break;
+        }
+        break;
+    case PSA_ECC_FAMILY_MONTGOMERY:
+        if (bits == 255) {
+            return MBEDTLS_ECP_DP_CURVE25519;
+        }
+        if (bits == 448) {
+            return MBEDTLS_ECP_DP_CURVE448;
+        }
+        break;
+    case PSA_ECC_FAMILY_SECP_K1:
+        switch (bits) {
+        case 256:
+            return MBEDTLS_ECP_DP_SECP256K1;
+        default:
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return MBEDTLS_ECP_DP_NONE;
+}
+
 static size_t crypto_ecdh_output_size(const crypto_ec_key_wrapper_t *wrapper)
 {
     size_t key_bits = 0;
@@ -1628,8 +1593,7 @@ static size_t crypto_ecdh_output_size(const crypto_ec_key_wrapper_t *wrapper)
         return 0;
     }
 
-    return PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(
-               PSA_KEY_TYPE_ECC_KEY_PAIR(ecc_family), key_bits);
+    return PSA_BITS_TO_BYTES(key_bits);
 }
 
 struct crypto_ec_key * crypto_ec_key_set_pub(const struct crypto_ec_group *group,
@@ -1686,13 +1650,7 @@ struct crypto_ec_key * crypto_ec_key_set_pub(const struct crypto_ec_group *group
 
             os_memcpy(key_buf, buf, len);
             key_len = len;
-            // For uncompressed: key_bits = (len - 1) * 4
-            // For compressed: key_bits = (len - 1) * 8
-            if (buf[0] == 0x04) {
-                key_bits = (len - 1) * 4;
-            } else {
-                key_bits = (len - 1) * 8;
-            }
+            key_bits = bits;
         } else if ((len & 1) == 0) {
             // Raw X||Y format (even length, no prefix) - prepend 0x04
             key_buf = os_calloc(1, len + 1);
@@ -1705,8 +1663,7 @@ struct crypto_ec_key * crypto_ec_key_set_pub(const struct crypto_ec_group *group
             key_buf[0] = 0x04;
             os_memcpy(key_buf + 1, buf, len);
             key_len = len + 1;
-            // key_bits = len * 4 (since len = 2 * coordinate_size)
-            key_bits = len * 4;
+            key_bits = bits;
         } else {
             // Odd length without format prefix - invalid format
             wpa_printf(MSG_ERROR, "Invalid public key format: odd length without prefix");
@@ -1723,17 +1680,22 @@ struct crypto_ec_key * crypto_ec_key_set_pub(const struct crypto_ec_group *group
         }
         os_memcpy(key_buf, buf, len);
         key_len = len;
-        key_bits = len * 8;
+        key_bits = bits;
     }
 
-    psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_VERIFY_HASH | PSA_KEY_USAGE_SIGN_HASH | PSA_KEY_USAGE_EXPORT | PSA_KEY_USAGE_DERIVE);
-    psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
+    if (ecc_family == PSA_ECC_FAMILY_MONTGOMERY) {
+        psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_EXPORT | PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDH);
+    } else {
+        psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_VERIFY_HASH | PSA_KEY_USAGE_SIGN_HASH | PSA_KEY_USAGE_EXPORT | PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
+    }
     psa_set_key_type(&key_attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(ecc_family));
     psa_set_key_bits(&key_attributes, key_bits);
 
     psa_status_t status = psa_import_key(&key_attributes, key_buf, key_len, &wrapper->key_id);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "Failed to import key, %d", status);
+        wpa_printf(MSG_ERROR, "Failed to import key, %d", (int)status);
         os_free(key_buf);
         os_free(wrapper);
         return NULL;
@@ -1788,7 +1750,7 @@ struct crypto_ec_point *crypto_ec_key_get_public_key(struct crypto_ec_key *key)
     status = psa_export_public_key(wrapper->key_id, pub_key_buf, sizeof(pub_key_buf),
                                    &pub_key_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "Failed to export public key: %d", status);
+        wpa_printf(MSG_ERROR, "Failed to export public key: %d", (int)status);
         return NULL;
     }
     if (pub_key_len < 3 || pub_key_buf[0] != 0x04) {
@@ -1956,7 +1918,7 @@ int crypto_ec_key_group(struct crypto_ec_key *key)
 
     psa_status_t status = psa_get_key_attributes(wrapper->key_id, &key_attributes);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_group: psa_get_key_attributes failed: %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_group: psa_get_key_attributes failed: %d", (int)status);
         psa_reset_key_attributes(&key_attributes);
         return -1;
     }
@@ -1982,26 +1944,28 @@ struct crypto_bignum *crypto_ec_key_get_private_key(struct crypto_ec_key *key)
         return (struct crypto_bignum *)wrapper->cached_private_key;
     }
 
+    // Export raw private key bytes from PSA
     unsigned char key_buf[PSA_BITS_TO_BYTES(PSA_VENDOR_ECC_MAX_CURVE_BITS)];
     size_t key_len = 0;
 
-    psa_status_t status = psa_export_key(wrapper->key_id, key_buf,
-                                          sizeof(key_buf), &key_len);
+    psa_status_t status = psa_export_key(wrapper->key_id,
+                                         key_buf, sizeof(key_buf), &key_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "Failed to export private key from PSA: %d", (int)status);
+        wpa_printf(MSG_ERROR, "Failed to export private key from PSA: %d", status);
         return NULL;
     }
 
     mbedtls_mpi *d = os_calloc(1, sizeof(mbedtls_mpi));
     if (!d) {
-        forced_memzero(key_buf, sizeof(key_buf));
+        mbedtls_platform_zeroize(key_buf, sizeof(key_buf));
         return NULL;
     }
 
     mbedtls_mpi_init(d);
 
     int ret = mbedtls_mpi_read_binary(d, key_buf, key_len);
-    forced_memzero(key_buf, sizeof(key_buf));
+    mbedtls_platform_zeroize(key_buf, sizeof(key_buf));
+
     if (ret != 0) {
         wpa_printf(MSG_ERROR, "Failed to read private key into mpi: -0x%04x", -ret);
         mbedtls_mpi_free(d);
@@ -2036,13 +2000,13 @@ int crypto_ec_get_publickey_buf(struct crypto_ec_key *key, u8 *key_buf, int len)
 
         status = psa_get_key_attributes(wrapper->key_id, &key_attributes);
         if (status != PSA_SUCCESS) {
-            printf("psa_get_key_attributes failed with %d\n", status);
+            wpa_printf(MSG_ERROR, "psa_get_key_attributes failed with %d", (int) status);
             return -1;
         }
 
         size_t key_bits = psa_get_key_bits(&key_attributes);
         if (key_bits == 0) {
-            printf("psa_get_key_bits failed with %d\n", -1);
+            wpa_printf(MSG_ERROR, "psa_get_key_bits failed with %d", -1);
             return -1;
         }
 
@@ -2077,7 +2041,7 @@ int crypto_ec_get_publickey_buf(struct crypto_ec_key *key, u8 *key_buf, int len)
     size_t key_len = 0;
     status = psa_export_public_key(wrapper->key_id, key_buf, len, &key_len);
     if (status != PSA_SUCCESS) {
-        printf("psa_export_public_key failed with %d\n", status);
+        wpa_printf(MSG_ERROR, "psa_export_public_key failed with %d", (int) status);
         return -1;
     }
 
@@ -2185,22 +2149,7 @@ struct crypto_ec_key *crypto_ec_key_parse_priv(const u8 *privkey, size_t privkey
     psa_key_type_t key_type = psa_get_key_type(&key_attributes);
     psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
     int key_bits = psa_get_key_bits(&key_attributes);
-    if (ecc_family != 0 && key_bits > 0) {
-        // Map PSA ECC family to mbedtls curve ID
-        mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-        if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
-            if (key_bits == 256) {
-                grp_id = MBEDTLS_ECP_DP_SECP256R1;
-            } else if (key_bits == 384) {
-                grp_id = MBEDTLS_ECP_DP_SECP384R1;
-            } else if (key_bits == 521) {
-                grp_id = MBEDTLS_ECP_DP_SECP521R1;
-            }
-        }
-        wrapper->curve_id = grp_id;
-    } else {
-        wrapper->curve_id = MBEDTLS_ECP_DP_NONE;
-    }
+    wrapper->curve_id = psa_to_group_id(ecc_family, key_bits);
 
     // Allow ECDH as enrollment algorithm for key agreement operations
     // Note: While usage flags allow DERIVE, the algorithm policy must also permit ECDH.
@@ -2214,12 +2163,10 @@ struct crypto_ec_key *crypto_ec_key_parse_priv(const u8 *privkey, size_t privkey
     }
 
 #if CONFIG_MBEDTLS_HARDWARE_MPI && !CONFIG_MBEDTLS_HARDWARE_ECC
-    if (crypto_ec_key_cache_private_key_from_pk(wrapper, kctx) < 0 &&
-            crypto_ec_key_cache_private_key_from_psa(wrapper) < 0) {
+    if (crypto_ec_key_cache_private_key_from_psa(wrapper) < 0) {
         wpa_printf(MSG_DEBUG, "Failed to cache private key scalar");
     }
-    if (crypto_ec_key_cache_public_key_from_pk(wrapper, kctx) < 0 &&
-            crypto_ec_key_cache_public_key_from_private_scalar(wrapper) < 0) {
+    if (crypto_ec_key_cache_public_key_from_private_scalar(wrapper) < 0) {
         wpa_printf(MSG_DEBUG, "Failed to cache private key public component");
     }
 #endif
@@ -2375,7 +2322,7 @@ int crypto_ecdh(struct crypto_ec_key *key_own, struct crypto_ec_key *key_peer,
                                                 secret, secret_buf_size,
                                                 &secret_length);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with %d", status);
+        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with %d", (int)status);
         return -1;
     }
 
@@ -2394,7 +2341,7 @@ int crypto_ecdh(struct crypto_ec_key *key_own, struct crypto_ec_key *key_peer,
                                                 PSA_EXPORT_PUBLIC_KEY_MAX_SIZE,
                                                 &peer_key_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "psa_export_public_key failed with %d", status);
+        wpa_printf(MSG_ERROR, "psa_export_public_key failed with %d", (int)status);
         ret = -1;
         goto fail;
     }
@@ -2406,7 +2353,7 @@ int crypto_ecdh(struct crypto_ec_key *key_own, struct crypto_ec_key *key_peer,
                                    secret_buf_size,
                                    &secret_length);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with %d", status);
+        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with %d", (int)status);
         ret = -1;
         goto fail;
     }
@@ -2433,7 +2380,7 @@ int crypto_ecdsa_get_sign(unsigned char *hash,
 
     psa_status_t status = psa_sign_hash(wrapper->key_id, PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_256), hash, hash_len, signature, sizeof(signature), &signature_length);
     if (status != PSA_SUCCESS) {
-        printf("psa_sign_hash failed with %d\n", status);
+        wpa_printf(MSG_ERROR, "psa_sign_hash failed with %d", (int) status);
         return -1;
     }
 
@@ -2460,6 +2407,9 @@ int crypto_ec_key_verify_signature_r_s(struct crypto_ec_key *csign,
                                        const u8 *s, size_t s_len)
 {
     crypto_ec_key_wrapper_t *wrapper = (crypto_ec_key_wrapper_t *)csign;
+    psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_algorithm_t policy_alg;
+    psa_algorithm_t verify_alg;
     if (!wrapper) {
         return -1;
     }
@@ -2472,9 +2422,72 @@ int crypto_ec_key_verify_signature_r_s(struct crypto_ec_key *csign,
     os_memcpy(sig, r, r_len);
     os_memcpy(sig + r_len, s, s_len);
 
-    psa_status_t status = psa_verify_hash(wrapper->key_id, PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_256), hash, hlen, sig, r_len + s_len);
+    if (psa_get_key_attributes(wrapper->key_id, &key_attributes) != PSA_SUCCESS) {
+        psa_reset_key_attributes(&key_attributes);
+        wpa_printf(MSG_ERROR, "psa_get_key_attributes failed for verify key");
+        os_free(sig);
+        return -1;
+    }
+    policy_alg = psa_get_key_algorithm(&key_attributes);
+    psa_reset_key_attributes(&key_attributes);
+
+    if (policy_alg == PSA_ALG_ECDSA_ANY) {
+        verify_alg = PSA_ALG_ECDSA_ANY;
+    } else {
+        psa_algorithm_t verify_hash_alg;
+        psa_algorithm_t policy_hash_alg;
+        bool policy_deterministic;
+
+        switch (hlen) {
+        case 20:
+            verify_hash_alg = PSA_ALG_SHA_1;
+            break;
+        case 28:
+            verify_hash_alg = PSA_ALG_SHA_224;
+            break;
+        case 32:
+            verify_hash_alg = PSA_ALG_SHA_256;
+            break;
+        case 48:
+            verify_hash_alg = PSA_ALG_SHA_384;
+            break;
+        case 64:
+            verify_hash_alg = PSA_ALG_SHA_512;
+            break;
+        default:
+            wpa_printf(MSG_ERROR, "Unsupported ECDSA hash length: %d", hlen);
+            os_free(sig);
+            return -1;
+        }
+
+        if (!PSA_ALG_IS_RANDOMIZED_ECDSA(policy_alg) &&
+                !PSA_ALG_IS_DETERMINISTIC_ECDSA(policy_alg)) {
+            wpa_printf(MSG_ERROR, "Unsupported ECDSA verify policy alg: 0x%x",
+                       (unsigned int) policy_alg);
+            os_free(sig);
+            return -1;
+        }
+
+        policy_hash_alg = PSA_ALG_SIGN_GET_HASH(policy_alg);
+        if (policy_hash_alg != 0 && policy_hash_alg != PSA_ALG_ANY_HASH &&
+                policy_hash_alg != verify_hash_alg) {
+            wpa_printf(MSG_ERROR, "ECDSA hash mismatch policy=0x%x verify=0x%x",
+                       (unsigned int) policy_hash_alg, (unsigned int) verify_hash_alg);
+            os_free(sig);
+            return -1;
+        }
+
+        policy_deterministic = PSA_ALG_IS_DETERMINISTIC_ECDSA(policy_alg);
+        verify_alg = policy_deterministic ?
+                     PSA_ALG_DETERMINISTIC_ECDSA(verify_hash_alg) :
+                     PSA_ALG_ECDSA(verify_hash_alg);
+    }
+
+    psa_status_t status = psa_verify_hash(wrapper->key_id,
+                                          verify_alg,
+                                          hash, hlen, sig, r_len + s_len);
     if (status != PSA_SUCCESS) {
-        printf("psa_verify_hash failed with %d\n", status);
+        wpa_printf(MSG_ERROR, "psa_verify_hash failed with %d", (int) status);
         os_free(sig);
         return -1;
     }
@@ -2496,7 +2509,7 @@ void crypto_ec_key_debug_print(struct crypto_ec_key *key, const char *title)
     size_t pub_len = 0;
     psa_status_t status = psa_export_public_key(wrapper->key_id, pub, sizeof(pub), &pub_len);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_debug_print: psa_export_public_key failed with %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_debug_print: psa_export_public_key failed with %d", (int)status);
         return;
     }
 
@@ -2506,7 +2519,7 @@ void crypto_ec_key_debug_print(struct crypto_ec_key *key, const char *title)
     psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
     status = psa_get_key_attributes(wrapper->key_id, &key_attributes);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_debug_print: psa_get_key_attributes failed with %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_debug_print: psa_get_key_attributes failed with %d", (int)status);
         return;
     }
 
@@ -2541,45 +2554,32 @@ struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t 
         return NULL;
     }
 
-    psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
-    ret = mbedtls_pk_get_psa_attributes(&pk_ctx, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
+    // Get curve info via PSA attributes instead of accessing pk_ctx internals
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    ret = mbedtls_pk_get_psa_attributes(&pk_ctx, PSA_KEY_USAGE_VERIFY_HASH, &attributes);
     if (ret != 0) {
-        wpa_printf(MSG_ERROR, "mbedtls_pk_get_psa_attributes failed: -0x%04x", -ret);
+        wpa_printf(MSG_ERROR, "Failed to get PSA attributes: -0x%04x", -ret);
         mbedtls_pk_free(&pk_ctx);
         return NULL;
     }
 
-    psa_key_type_t key_type = psa_get_key_type(&key_attributes);
+    psa_key_type_t key_type = psa_get_key_type(&attributes);
+    size_t key_bits = psa_get_key_bits(&attributes);
     psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
-    size_t key_bits = psa_get_key_bits(&key_attributes);
 
-    if (ecc_family == 0 || key_bits == 0) {
-        wpa_printf(MSG_ERROR, "Unsupported or invalid curve from parsed key");
+    mbedtls_ecp_group_id grp_id = psa_to_group_id(ecc_family, key_bits);
+    if (grp_id == MBEDTLS_ECP_DP_NONE) {
+        wpa_printf(MSG_ERROR, "Unsupported curve: family=0x%x bits=%zu", ecc_family, key_bits);
+        psa_reset_key_attributes(&attributes);
         mbedtls_pk_free(&pk_ctx);
         return NULL;
     }
 
-    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
-        if (key_bits == 256) {
-            grp_id = MBEDTLS_ECP_DP_SECP256R1;
-        } else if (key_bits == 384) {
-            grp_id = MBEDTLS_ECP_DP_SECP384R1;
-        } else if (key_bits == 521) {
-            grp_id = MBEDTLS_ECP_DP_SECP521R1;
-        }
-    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
-        if (key_bits == 256) {
-            grp_id = MBEDTLS_ECP_DP_BP256R1;
-        } else if (key_bits == 384) {
-            grp_id = MBEDTLS_ECP_DP_BP384R1;
-        } else if (key_bits == 512) {
-            grp_id = MBEDTLS_ECP_DP_BP512R1;
-        }
-    }
-
+    // Create wrapper structure
     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
     if (!wrapper) {
+        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
+        psa_reset_key_attributes(&attributes);
         mbedtls_pk_free(&pk_ctx);
         return NULL;
     }
@@ -2587,22 +2587,26 @@ struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t 
     mbedtls_ecp_group_init(&wrapper->group);
     wrapper->group.id = MBEDTLS_ECP_DP_NONE;
 
-    psa_set_key_usage_flags(&key_attributes,
+    // Configure attributes for import
+    psa_set_key_usage_flags(&attributes,
                             PSA_KEY_USAGE_VERIFY_HASH | PSA_KEY_USAGE_VERIFY_MESSAGE | PSA_KEY_USAGE_EXPORT);
-    psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
+    /* C-sign public keys: ECDSA-SHA256 policy for DPP signature verify */
+    psa_set_key_algorithm(&attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
 
-    ret = mbedtls_pk_import_into_psa(&pk_ctx, &key_attributes, &wrapper->key_id);
+    // Import directly from PK context into PSA
+    ret = mbedtls_pk_import_into_psa(&pk_ctx, &attributes, &wrapper->key_id);
+    psa_reset_key_attributes(&attributes);
     mbedtls_pk_free(&pk_ctx);
 
     if (ret != 0) {
-        wpa_printf(MSG_ERROR, "mbedtls_pk_import_into_psa failed: -0x%04x", -ret);
+        wpa_printf(MSG_ERROR, "Failed to import key to PSA: -0x%04x", -ret);
         mbedtls_ecp_group_free(&wrapper->group);
         os_free(wrapper);
         return NULL;
     }
 
 #if CONFIG_MBEDTLS_HARDWARE_MPI && !CONFIG_MBEDTLS_HARDWARE_ECC
-    if (crypto_ec_key_cache_public_key_buf(wrapper, pub_key_buf, pub_key_len) < 0) {
+    if (crypto_ec_key_ensure_public_key_cached(wrapper) < 0) {
         wpa_printf(MSG_DEBUG, "Failed to cache parsed SPKI public key");
     }
 #endif
@@ -2626,7 +2630,7 @@ int crypto_is_ec_key(struct crypto_ec_key *key)
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_status_t status = psa_get_key_attributes(wrapper->key_id, &attributes);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_DEBUG, "Failed to get key attributes: %d", status);
+        wpa_printf(MSG_DEBUG, "Failed to get key attributes: %d", (int)status);
         return 0;
     }
 
@@ -2749,7 +2753,7 @@ int crypto_pk_write_formatted_pubkey_der(psa_key_id_t key_id, unsigned char *buf
     psa_status_t status = psa_export_public_key(key_id, point_buf, PSA_EXPORT_PUBLIC_KEY_MAX_SIZE, &point_len);
     if (status != PSA_SUCCESS) {
         os_free(point_buf);
-        wpa_printf(MSG_ERROR, "psa_export_public_key failed: %d", status);
+        wpa_printf(MSG_ERROR, "psa_export_public_key failed: %d", (int)status);
         return MBEDTLS_ERR_PK_BAD_INPUT_DATA;
     }
 
@@ -3093,7 +3097,7 @@ struct wpabuf * crypto_ecdh_set_peerkey(struct crypto_ecdh *ecdh, int inc_y,
     os_free(peer_key_buf);
 
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with PSA error 0x%x", status);
+        wpa_printf(MSG_ERROR, "psa_raw_key_agreement failed with PSA error 0x%x", (int)status);
         os_free(secret);
         return NULL;
     }
@@ -3103,6 +3107,100 @@ struct wpabuf * crypto_ecdh_set_peerkey(struct crypto_ecdh *ecdh, int inc_y,
     os_free(secret);
 
     return sh_secret;
+}
+
+mbedtls_ecp_group_id ecc_group_from_psa(psa_ecc_family_t family,
+                                        size_t bits)
+{
+    switch (family) {
+    case PSA_ECC_FAMILY_SECP_R1:
+        switch (bits) {
+#ifdef MBEDTLS_ECP_DP_SECP192R1_ENABLED
+        case 192:
+            return MBEDTLS_ECP_DP_SECP192R1;
+#endif
+        case 256:
+            return MBEDTLS_ECP_DP_SECP256R1;
+        case 384:
+            return MBEDTLS_ECP_DP_SECP384R1;
+        case 521:
+            return MBEDTLS_ECP_DP_SECP521R1;
+        }
+        break;
+
+    case PSA_ECC_FAMILY_BRAINPOOL_P_R1:
+        switch (bits) {
+        case 256:
+            return MBEDTLS_ECP_DP_BP256R1;
+        case 384:
+            return MBEDTLS_ECP_DP_BP384R1;
+        case 512:
+            return MBEDTLS_ECP_DP_BP512R1;
+        }
+        break;
+
+    case PSA_ECC_FAMILY_MONTGOMERY:
+        switch (bits) {
+        case 255:
+            return MBEDTLS_ECP_DP_CURVE25519;
+        case 448:
+            return MBEDTLS_ECP_DP_CURVE448;
+        }
+        break;
+
+    case PSA_ECC_FAMILY_SECP_K1:
+        switch (bits) {
+#ifdef MBEDTLS_ECP_DP_SECP192K1_ENABLED
+        case 192:
+            return MBEDTLS_ECP_DP_SECP192K1;
+#endif
+        case 256:
+            return MBEDTLS_ECP_DP_SECP256K1;
+        }
+        break;
+    }
+
+    return MBEDTLS_ECP_DP_NONE;
+}
+
+size_t crypto_ecdh_prime_len(struct crypto_ecdh *ecdh)
+{
+    mbedtls_ecp_group e;
+    mbedtls_ecp_group_id grp_id;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_ecc_family_t curve;
+    size_t bits;
+    size_t prime_len = 0;
+    int ret;
+
+    if (!ecdh) {
+        return 0;
+    }
+
+    psa_key_id_t key_id = *(psa_key_id_t *)ecdh;
+    psa_status_t status = psa_get_key_attributes(key_id, &attributes);
+    if (status != PSA_SUCCESS) {
+        psa_reset_key_attributes(&attributes);
+        return 0;
+    }
+
+    curve = PSA_KEY_TYPE_ECC_GET_FAMILY(psa_get_key_type(&attributes));
+    bits = psa_get_key_bits(&attributes);
+    psa_reset_key_attributes(&attributes);
+
+    grp_id = ecc_group_from_psa(curve, bits);
+    if (grp_id == MBEDTLS_ECP_DP_NONE) {
+        return 0;
+    }
+
+    mbedtls_ecp_group_init(&e);
+    ret = mbedtls_ecp_group_load(&e, grp_id);
+    if (ret == 0) {
+        prime_len = mbedtls_mpi_size(&e.P);
+    }
+    mbedtls_ecp_group_free(&e);
+
+    return prime_len;
 }
 
 struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
@@ -3123,6 +3221,7 @@ struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
         return NULL;
     }
 
+    // Extract curve info via PSA attributes instead of accessing pk_ctx internals
     psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
     ret = mbedtls_pk_get_psa_attributes(pkey, PSA_KEY_USAGE_VERIFY_HASH, &key_attributes);
     if (ret != 0) {
@@ -3132,39 +3231,27 @@ struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
         return NULL;
     }
 
+    // Derive mbedtls group ID from PSA attributes
     psa_key_type_t key_type = psa_get_key_type(&key_attributes);
-    psa_ecc_family_t ecc_family = PSA_KEY_TYPE_ECC_GET_FAMILY(key_type);
     size_t key_bits = psa_get_key_bits(&key_attributes);
-    mbedtls_ecp_group_id grp_id = MBEDTLS_ECP_DP_NONE;
-    if (ecc_family == PSA_ECC_FAMILY_SECP_R1) {
-        if (key_bits == 256) {
-            grp_id = MBEDTLS_ECP_DP_SECP256R1;
-        } else if (key_bits == 384) {
-            grp_id = MBEDTLS_ECP_DP_SECP384R1;
-        } else if (key_bits == 521) {
-            grp_id = MBEDTLS_ECP_DP_SECP521R1;
-        }
-    } else if (ecc_family == PSA_ECC_FAMILY_BRAINPOOL_P_R1) {
-        if (key_bits == 256) {
-            grp_id = MBEDTLS_ECP_DP_BP256R1;
-        } else if (key_bits == 384) {
-            grp_id = MBEDTLS_ECP_DP_BP384R1;
-        } else if (key_bits == 512) {
-            grp_id = MBEDTLS_ECP_DP_BP512R1;
-        }
-    }
+    mbedtls_ecp_group_id grp_id = psa_to_group_id(
+                                      PSA_KEY_TYPE_ECC_GET_FAMILY(key_type), key_bits);
 
+    // Create wrapper structure
     crypto_ec_key_wrapper_t *wrapper = os_calloc(1, sizeof(crypto_ec_key_wrapper_t));
     if (!wrapper) {
+        wpa_printf(MSG_ERROR, "Memory allocation failed for key wrapper");
+        psa_reset_key_attributes(&key_attributes);
         mbedtls_pk_free(pkey);
         os_free(pkey);
         return NULL;
     }
     wrapper->curve_id = grp_id;
     mbedtls_ecp_group_init(&wrapper->group);
-    wrapper->group.id = MBEDTLS_ECP_DP_NONE;  // Mark as not loaded yet (lazy init)
+    wrapper->group.id = MBEDTLS_ECP_DP_NONE;
 
     ret = mbedtls_pk_import_into_psa(pkey, &key_attributes, &wrapper->key_id);
+    psa_reset_key_attributes(&key_attributes);
     if (ret != 0) {
         wpa_printf(MSG_ERROR, "mbedtls_pk_import_into_psa failed with %d", ret);
         mbedtls_ecp_group_free(&wrapper->group);
@@ -3173,14 +3260,15 @@ struct crypto_ec_key *crypto_ec_key_parse_pub(const u8 *der, size_t der_len)
         os_free(pkey);
         return NULL;
     }
-#if CONFIG_MBEDTLS_HARDWARE_MPI && !CONFIG_MBEDTLS_HARDWARE_ECC
-    if (crypto_ec_key_cache_public_key_from_pk(wrapper, pkey) < 0) {
-        wpa_printf(MSG_DEBUG, "Failed to cache parsed public key");
-    }
-#endif
     psa_reset_key_attributes(&key_attributes);
     mbedtls_pk_free(pkey);
     os_free(pkey);
+
+#if CONFIG_MBEDTLS_HARDWARE_MPI && !CONFIG_MBEDTLS_HARDWARE_ECC
+    if (crypto_ec_key_ensure_public_key_cached(wrapper) < 0) {
+        wpa_printf(MSG_DEBUG, "Failed to cache parsed public key");
+    }
+#endif
 
     return (struct crypto_ec_key *)wrapper;
 }
@@ -3232,27 +3320,59 @@ int crypto_ec_key_verify_signature(struct crypto_ec_key *key, const u8 *data,
     psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_status_t status = psa_get_key_attributes(wrapper->key_id, &key_attributes);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: psa_get_key_attributes failed: %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: psa_get_key_attributes failed: %d", (int)status);
         psa_reset_key_attributes(&key_attributes);
         return -1;
     }
 
     size_t key_bits = psa_get_key_bits(&key_attributes);
+    psa_algorithm_t policy_alg = psa_get_key_algorithm(&key_attributes);
     psa_reset_key_attributes(&key_attributes);
 
-    /* Determine hash algorithm from data length */
+    /* Determine hash algorithm from data length and enforce key policy. */
     psa_algorithm_t verify_alg;
-    if (len == 32) {
-        verify_alg = PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_256);
-    } else if (len == 48) {
-        verify_alg = PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_384);
-    } else if (len == 64) {
-        verify_alg = PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_512);
-    } else if (len == 20) {
-        verify_alg = PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_1);
+
+    if (policy_alg == PSA_ALG_ECDSA_ANY) {
+        verify_alg = PSA_ALG_ECDSA_ANY;
     } else {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: Unsupported hash length %d", (int)len);
-        return -1;
+        psa_algorithm_t verify_hash_alg;
+        psa_algorithm_t policy_hash_alg;
+        bool policy_deterministic;
+
+        if (len == 32) {
+            verify_hash_alg = PSA_ALG_SHA_256;
+        } else if (len == 28) {
+            verify_hash_alg = PSA_ALG_SHA_224;
+        } else if (len == 48) {
+            verify_hash_alg = PSA_ALG_SHA_384;
+        } else if (len == 64) {
+            verify_hash_alg = PSA_ALG_SHA_512;
+        } else if (len == 20) {
+            verify_hash_alg = PSA_ALG_SHA_1;
+        } else {
+            wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: Unsupported hash length %d", (int)len);
+            return -1;
+        }
+
+        if (!PSA_ALG_IS_RANDOMIZED_ECDSA(policy_alg) &&
+                !PSA_ALG_IS_DETERMINISTIC_ECDSA(policy_alg)) {
+            wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: Unsupported policy alg 0x%x",
+                       (unsigned int)policy_alg);
+            return -1;
+        }
+
+        policy_hash_alg = PSA_ALG_SIGN_GET_HASH(policy_alg);
+        if (policy_hash_alg != 0 && policy_hash_alg != PSA_ALG_ANY_HASH &&
+                policy_hash_alg != verify_hash_alg) {
+            wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: hash mismatch policy=0x%x verify=0x%x",
+                       (unsigned int)policy_hash_alg, (unsigned int)verify_hash_alg);
+            return -1;
+        }
+
+        policy_deterministic = PSA_ALG_IS_DETERMINISTIC_ECDSA(policy_alg);
+        verify_alg = policy_deterministic ?
+                     PSA_ALG_DETERMINISTIC_ECDSA(verify_hash_alg) :
+                     PSA_ALG_ECDSA(verify_hash_alg);
     }
 
     /* Convert DER-encoded signature to raw format (r||s) for PSA */
@@ -3285,7 +3405,7 @@ int crypto_ec_key_verify_signature(struct crypto_ec_key *key, const u8 *data,
     status = psa_verify_hash(wrapper->key_id, verify_alg,
                              data, len, sig_to_verify, sig_len_to_verify);
     if (status != PSA_SUCCESS) {
-        wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: psa_verify_hash failed: %d", status);
+        wpa_printf(MSG_ERROR, "crypto_ec_key_verify_signature: psa_verify_hash failed: %d", (int)status);
         return -1;
     }
 

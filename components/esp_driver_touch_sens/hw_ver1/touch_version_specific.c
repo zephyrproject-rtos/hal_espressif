@@ -237,9 +237,11 @@ esp_err_t touch_priv_deinit_controller(touch_sensor_handle_t sens_handle)
 {
     touch_ll_reset_trigger_groups();
     /* Disable the additional functions */
+#if SOC_TOUCH_SUPPORT_SLEEP_WAKEUP
     if (sens_handle->sleep_en) {
         touch_sensor_config_sleep_wakeup(sens_handle, NULL);
     }
+#endif
     return ESP_OK;
 }
 

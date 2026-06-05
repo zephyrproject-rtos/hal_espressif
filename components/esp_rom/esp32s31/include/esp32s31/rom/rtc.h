@@ -46,6 +46,7 @@ extern "C" {
   *     RTC_CNTL_STORE5_REG     FAST_RTC_MEMORY_LENGTH
   *     RTC_CNTL_STORE6_REG     FAST_RTC_MEMORY_ENTRY
   *     RTC_CNTL_STORE7_REG     FAST_RTC_MEMORY_CRC
+  *     RTC_CNTL_STORE9_REG     LP core store wakeup cause
   *************************************************************************************
   */
 
@@ -56,6 +57,7 @@ extern "C" {
 #define RTC_ENTRY_ADDR_REG      LP_SYSTEM_REG_LP_STORE6_REG
 #define RTC_RESET_CAUSE_REG     LP_SYSTEM_REG_LP_STORE6_REG
 #define RTC_MEMORY_CRC_REG      LP_SYSTEM_REG_LP_STORE7_REG
+#define RTC_LP_CORE_STORE_WAKEUP_REG  LP_SYSTEM_REG_LP_STORE9_REG
 
 // light sleep
 /* use LP_SYS_LP_STORE8_REG to store light sleep wake stub addr and sleep mode for dualcore

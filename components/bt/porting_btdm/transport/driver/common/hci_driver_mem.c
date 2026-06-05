@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,6 +8,9 @@
 #include "esp_hci_internal.h"
 #include "common/hci_driver_mem.h"
 #include "common/hci_driver_h4.h"
+#if UC_BT_CTRL_BLE_IS_ENABLE
+#include "ble_mbuf.h"
+#endif
 
 hci_driver_packet_t *
 hci_driver_mem_cmd_alloc(void)
@@ -23,6 +26,7 @@ hci_driver_mem_evt_alloc(int discardable)
     return NULL;
 }
 
+#if UC_BT_CTRL_BLE_IS_ENABLE
 struct ble_mbuf *
 hci_driver_mem_acl_alloc(void)
 {
@@ -53,6 +57,8 @@ hci_driver_mem_iso_len_alloc(uint32_t len)
      return ble_msys_get_pkthdr(len, ESP_HCI_INTERNAL_ACL_MBUF_LEADINGSPCAE);
 }
 
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
+
 void
 hci_driver_mem_cmd_free(void * ptr)
 {
@@ -67,7 +73,7 @@ hci_driver_mem_evt_free(void *ptr)
     btdm_hci_trans_buf_free(pkt);
 }
 
-#if UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#if UC_BT_CTRL_BR_EDR_IS_ENABLE
 hci_driver_packet_t *
 hci_driver_mem_bredr_acl_alloc(uint16_t handle)
 {
@@ -78,7 +84,6 @@ void
 hci_driver_mem_bredr_acl_free(void *ptr)
 {
     hci_driver_packet_t *pkt = (hci_driver_packet_t *) ptr;
-    bredr_hci_trans_acl_tx_done(pkt);
     bredr_hci_trans_acl_free(pkt);
 }
 
@@ -92,30 +97,33 @@ void
 hci_driver_mem_sync_free(void *ptr)
 {
     hci_driver_packet_t *pkt = (hci_driver_packet_t *) ptr;
-    bredr_hci_trans_sync_tx_done(pkt);
     bredr_hci_trans_sync_free(pkt);
 }
-#endif // UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
 
 const struct hci_h4_allocators s_hci_driver_mem_alloc = {
     .cmd = hci_driver_mem_cmd_alloc,
     .evt = hci_driver_mem_evt_alloc,
+#if UC_BT_CTRL_BLE_IS_ENABLE
     .acl = hci_driver_mem_acl_alloc,
     .iso = hci_driver_mem_iso_alloc,
-#if UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
+#if UC_BT_CTRL_BR_EDR_IS_ENABLE
     .sync = hci_driver_mem_sync_alloc,
     .bredr_acl = hci_driver_mem_bredr_acl_alloc,
-#endif // UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
 };
 
 const struct hci_h4_frees s_hci_driver_mem_free = {
     .cmd = hci_driver_mem_cmd_free,
     .evt = hci_driver_mem_evt_free,
+#if UC_BT_CTRL_BLE_IS_ENABLE
     .acl = ble_mbuf_free_chain,
     .iso = hci_driver_mem_iso_free,
     .le_evt = r_ble_hci_trans_buf_free,
-#if UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#endif // UC_BT_CTRL_BLE_IS_ENABLE
+#if UC_BT_CTRL_BR_EDR_IS_ENABLE
     .sync = hci_driver_mem_sync_free,
     .bredr_acl = hci_driver_mem_bredr_acl_free,
-#endif // UC_BTDM_CTRL_BR_EDR_IS_ENABLE
+#endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
 };
