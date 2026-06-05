@@ -13,12 +13,6 @@
 
 #define RTCIO_RCC_ATOMIC()  PERIPH_RCC_ATOMIC()
 
-esp_err_t io_mux_set_clock_source(soc_module_clk_t clk_src)
-{
-    // IO MUX clock source is not selectable
-    return ESP_OK;
-}
-
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
 
 static rtc_io_status_t s_rtc_io_status = {

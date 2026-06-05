@@ -108,6 +108,17 @@ extern "C" {
 #define USB_DWC_LL_INTR_CHAN_XFERCOMPL      (1 << 0)
 
 /*
+ * OTG mode configuration values for the GHWCFG2 register
+ */
+#define USB_DWC_LL_GHWCFG_OTG_MODE_HNP_SRP_OTG 0
+#define USB_DWC_LL_GHWCFG_OTG_MODE_SRP_OTG     1
+#define USB_DWC_LL_GHWCFG_OTG_MODE_OTG         2
+#define USB_DWC_LL_GHWCFG_OTG_MODE_SRP_DEVICE  3
+#define USB_DWC_LL_GHWCFG_OTG_MODE_DEVICE      4
+#define USB_DWC_LL_GHWCFG_OTG_MODE_SRP_HOST    5
+#define USB_DWC_LL_GHWCFG_OTG_MODE_HOST        6
+
+/*
  * QTD (Queue Transfer Descriptor) structure used in Scatter/Gather DMA mode.
  * Each QTD describes one transfer. Scatter gather mode will automatically split
  * a transfer into multiple MPS packets. Each QTD is 64bits in size
@@ -202,14 +213,14 @@ static inline void usb_dwc_ll_gusbcfg_force_host_mode(usb_dwc_dev_t *hw)
     hw->gusbcfg_reg.forcehstmode = 1;
 }
 
-static inline void usb_dwc_ll_gusbcfg_dis_hnp_cap(usb_dwc_dev_t *hw)
+static inline void usb_dwc_ll_gusbcfg_set_hnp_cap(usb_dwc_dev_t *hw, bool hnp_cap)
 {
-    hw->gusbcfg_reg.hnpcap = 0;
+    hw->gusbcfg_reg.hnpcap = hnp_cap;
 }
 
-static inline void usb_dwc_ll_gusbcfg_dis_srp_cap(usb_dwc_dev_t *hw)
+static inline void usb_dwc_ll_gusbcfg_set_srp_cap(usb_dwc_dev_t *hw, bool srp_cap)
 {
-    hw->gusbcfg_reg.srpcap = 0;
+    hw->gusbcfg_reg.srpcap = srp_cap;
 }
 
 static inline void usb_dwc_ll_gusbcfg_set_timeout_cal(usb_dwc_dev_t *hw, uint8_t tout_cal)
@@ -347,6 +358,24 @@ static inline uint32_t usb_dwc_ll_gsnpsid_get_id(usb_dwc_dev_t *hw)
 }
 
 // --------------------------- GHWCFGx Register --------------------------------
+
+static inline void usb_dwc_ll_ghwcfg_get_hnp_srp_cap(usb_dwc_dev_t *hw, bool *hnp_cap, bool *srp_cap)
+{
+    const uint32_t otg_mode = hw->ghwcfg2_reg.otgmode;
+
+    if (otg_mode == USB_DWC_LL_GHWCFG_OTG_MODE_HNP_SRP_OTG) {
+        *hnp_cap = true;
+        *srp_cap = true;
+    } else if (otg_mode == USB_DWC_LL_GHWCFG_OTG_MODE_SRP_OTG ||
+               otg_mode == USB_DWC_LL_GHWCFG_OTG_MODE_SRP_DEVICE ||
+               otg_mode == USB_DWC_LL_GHWCFG_OTG_MODE_SRP_HOST) {
+        *hnp_cap = false;
+        *srp_cap = true;
+    } else {
+        *hnp_cap = false;
+        *srp_cap = false;
+    }
+}
 
 static inline unsigned usb_dwc_ll_ghwcfg_get_fifo_depth(usb_dwc_dev_t *hw)
 {

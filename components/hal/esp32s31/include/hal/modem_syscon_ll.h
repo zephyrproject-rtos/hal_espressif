@@ -371,11 +371,10 @@ static inline void modem_syscon_ll_reset_all(modem_syscon_dev_t *hw)
     hw->modem_rst_conf.val = 0;
 }
 
-
 __attribute__((always_inline))
 static inline void modem_syscon_ll_clk_conf1_configure(modem_syscon_dev_t *hw, bool en, uint32_t mask)
 {
-    if(en){
+    if (en) {
         hw->clk_conf1.val = hw->clk_conf1.val | mask;
     } else {
         hw->clk_conf1.val = hw->clk_conf1.val & ~mask;
@@ -393,19 +392,25 @@ static inline void modem_syscon_ll_clk_wifibb_configure(modem_syscon_dev_t *hw, 
 {
     /* Configure
         clk_wifibb_22m / clk_wifibb_40m / clk_wifibb_80m
-        clk_wifibb_40x / clk_wifibb_80x / clk_wifibb_40x1 / clk_wifibb_80x1
+        clk_wifibb_40x / clk_wifibb_80x / clk_wifibb_40x1
         clk_wifibb_160x1
 
         clk_wifibb_44m is configured in modem_syscon_ll_enable_wifibb_44m_clock
+        clk_wifibb_80x1 is configured in modem_syscon_ll_enable_wifibb_80x1_clock
     */
-    modem_syscon_ll_clk_conf1_configure(hw, en, 0x1fb);
+    modem_syscon_ll_clk_conf1_configure(hw, en, 0x17b);
 }
 
 __attribute__((always_inline))
 static inline bool modem_syscon_ll_wifibb_clock_is_enabled(modem_syscon_dev_t *hw)
 {
-    // Check if any of the wifibb clocks are enabled
-    return (hw->clk_conf1.val & 0x1fb) == 0x1fb;
+    return (hw->clk_conf1.val & 0x17b) == 0x17b;
+}
+
+__attribute__((always_inline))
+static inline bool modem_syscon_ll_wifibb_80x1_clock_is_enabled(modem_syscon_dev_t *hw)
+{
+    return hw->clk_conf1.clk_wifibb_80x1_en;
 }
 
 __attribute__((always_inline))

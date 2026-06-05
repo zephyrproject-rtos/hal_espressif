@@ -20,6 +20,10 @@
 extern "C" {
 #endif
 
+// Aliases used by LP core code (lp_core_utils.c) which references LP_TIMER naming convention
+#define LP_TIMER RTC_TIMER
+#define LP_TIMER_MAIN_TIMER_LP_INT_RAW RTC_TIMER_MAIN_TIMER_LP_INT_RAW
+
 FORCE_INLINE_ATTR void rtc_timer_ll_set_alarm_target(rtc_timer_dev_t *dev, uint8_t timer_id, uint64_t value)
 {
     HAL_FORCE_MODIFY_U32_REG_FIELD(dev->target[timer_id].hi, target_hi, (value >> 32) & 0xFFFF);

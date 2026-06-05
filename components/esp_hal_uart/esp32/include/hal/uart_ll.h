@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -61,6 +61,10 @@ typedef enum {
     UART_INTR_RS485_CLASH      = (0x1 << 17),
     UART_INTR_CMD_CHAR_DET     = (0x1 << 18),
 } uart_intr_t;
+
+typedef enum {
+    UART_LL_MEM_LP_MODE_SHUT_DOWN, /*!< mem_pd only; no mem_lp_mode stage field (cf. rmt_ll_mem_set_low_power_mode) */
+} uart_ll_mem_lp_mode_t;
 
 /**
  * @brief Check if UART is enabled or disabled.
@@ -206,6 +210,47 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, soc_module_clk_t *source
         *source_clk = (soc_module_clk_t)UART_SCLK_APB;
         break;
     }
+}
+
+/**
+ * @brief UART FIFO/RAM memory power control (HP blocks).
+ */
+/**
+ * @brief Force UART FIFO memory powered on for this block (clear mem_pd).
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_power_on(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_pd = 0;
+}
+
+/**
+ * @brief Set UART memory low power mode in low power stage (ESP32 has no mem_lp_mode; no-op).
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_set_low_power_mode(uart_port_t uart_num, uart_ll_mem_lp_mode_t mode)
+{
+    HAL_ASSERT(mode == UART_LL_MEM_LP_MODE_SHUT_DOWN);
+    (void)uart_num;
+}
+
+/**
+ * @brief Let UART FIFO memory power follow PMU (clear software mem_pd), same idea as rmt_ll_mem_power_by_pmu.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_power_by_pmu(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_pd = 0;
+}
+
+/**
+ * @brief Force UART FIFO memory to low power (set mem_pd), same idea as rmt_ll_mem_force_low_power.
+ *
+ * @note When all three UART instances have mem_pd set, shared memory enters low power (TRM).
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_low_power(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_pd = 1;
 }
 
 /**

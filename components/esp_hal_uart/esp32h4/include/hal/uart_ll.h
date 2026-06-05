@@ -86,6 +86,13 @@ typedef enum {
     UART_INTR_WAKEUP           = (0x1 << 19),
 } uart_intr_t;
 
+typedef enum {
+    UART_LL_MEM_LP_MODE_DEEP_SLEEP,  // memory enters deep sleep in low power stage
+    UART_LL_MEM_LP_MODE_LIGHT_SLEEP, // memory enters light sleep in low power stage
+    UART_LL_MEM_LP_MODE_SHUT_DOWN,   // memory is powered down in low power stage
+    UART_LL_MEM_LP_MODE_DISABLE,     // disable low power stage behavior
+} uart_ll_mem_lp_mode_t;
+
 /**
  * @brief Sync the update to UART core clock domain
  *
@@ -247,6 +254,101 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, soc_module_clk_t *source
         break;
     case 2:
         *source_clk = (soc_module_clk_t)UART_SCLK_PLL_F48M;
+        break;
+    }
+}
+
+/**
+ * @brief  Force UART memory block powered on by software.
+ *
+ * @param  uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_power_on(uart_port_t uart_num)
+{
+    switch (uart_num) {
+    case 0:
+        PCR.uart0_mem_lp_ctrl.uart0_mem_force_ctrl = 1;
+        PCR.uart0_mem_lp_ctrl.uart0_mem_lp_en = 0;
+        break;
+    case 1:
+        PCR.uart1_mem_lp_ctrl.uart1_mem_force_ctrl = 1;
+        PCR.uart1_mem_lp_ctrl.uart1_mem_lp_en = 0;
+        break;
+    default:
+        abort();
+        break;
+    }
+}
+
+/**
+ * @brief  Force UART memory block in low power by software.
+ *
+ * @param  uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_low_power(uart_port_t uart_num)
+{
+    switch (uart_num) {
+    case 0:
+        PCR.uart0_mem_lp_ctrl.uart0_mem_force_ctrl = 1;
+        PCR.uart0_mem_lp_ctrl.uart0_mem_lp_en = 1;
+        break;
+    case 1:
+        PCR.uart1_mem_lp_ctrl.uart1_mem_force_ctrl = 1;
+        PCR.uart1_mem_lp_ctrl.uart1_mem_lp_en = 1;
+        break;
+    default:
+        abort();
+        break;
+    }
+}
+
+/**
+ * @brief  Control UART memory block by PMU logic.
+ *
+ * @param  uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_power_by_pmu(uart_port_t uart_num)
+{
+    switch (uart_num) {
+    case 0:
+        PCR.uart0_mem_lp_ctrl.uart0_mem_force_ctrl = 0;
+        PCR.uart0_mem_lp_ctrl.uart0_mem_lp_en = 0;
+        break;
+    case 1:
+        PCR.uart1_mem_lp_ctrl.uart1_mem_force_ctrl = 0;
+        PCR.uart1_mem_lp_ctrl.uart1_mem_lp_en = 0;
+        break;
+    default:
+        abort();
+        break;
+    }
+}
+
+/**
+ * @brief  Set UART memory low power mode in low power stage.
+ *
+ * @param  uart_num UART port number, the max port number is (UART_NUM_MAX -1).
+ * @param  mode UART memory low power mode.
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_set_low_power_mode(uart_port_t uart_num, uart_ll_mem_lp_mode_t mode)
+{
+    switch (uart_num) {
+    case 0:
+        PCR.uart0_mem_lp_ctrl.uart0_mem_lp_mode = mode;
+        break;
+    case 1:
+        PCR.uart1_mem_lp_ctrl.uart1_mem_lp_mode = mode;
+        break;
+    default:
+        abort();
         break;
     }
 }

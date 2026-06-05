@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -35,11 +35,16 @@
 #include "esp_phy_init.h"
 #include "phy_init_data.h"
 #endif
+#if CONFIG_MAC_BB_PD && SOC_PM_MODEM_RETENTION_BY_REGDMA
+#include "esp_private/phy.h"
+#endif
 #include "soc/rtc_cntl_periph.h"
 #include "soc/rtc.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
 #include "nvs.h"
+#include "esp_efuse.h"
+#include "esp_efuse_table.h"
 #include "os.h"
 #include "esp_smartconfig.h"
 #ifdef CONFIG_ESP_COEX_ENABLED
@@ -641,6 +646,49 @@ static void esp_phy_disable_wrapper(void)
     esp_phy_disable(PHY_MODEM_WIFI);
 }
 
+static bool esp_wifi_disable_ac_ax_wrapper(void)
+{
+    return esp_efuse_read_field_bit(ESP_EFUSE_DIS_WIFI6);
+}
+
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
+static int32_t esp_phy_wifi_bb_sleep_retention_attach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_phy_wifi_bb_sleep_retention_attach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_phy_wifi_bb_sleep_retention_detach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_phy_wifi_bb_sleep_retention_detach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_wifi_mac_sleep_retention_attach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_wifi_internal_mac_sleep_retention_attach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_wifi_mac_sleep_retention_detach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_wifi_internal_mac_sleep_retention_detach();
+#else
+    return 1;
+#endif
+}
+#endif
+
 wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._version = ESP_WIFI_OS_ADAPTER_VERSION,
     ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
@@ -764,5 +812,12 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._coex_schm_flexible_period_set = coex_schm_flexible_period_set_wrapper,
     ._coex_schm_flexible_period_get = coex_schm_flexible_period_get_wrapper,
     ._coex_schm_get_phase_by_idx = coex_schm_get_phase_by_idx_wrapper,
+    ._wifi_disable_ac_ax = esp_wifi_disable_ac_ax_wrapper,
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
+    ._wifi_bb_sleep_retention_attach = esp_phy_wifi_bb_sleep_retention_attach_wrapper,
+    ._wifi_bb_sleep_retention_detach = esp_phy_wifi_bb_sleep_retention_detach_wrapper,
+    ._wifi_mac_sleep_retention_attach = esp_wifi_mac_sleep_retention_attach_wrapper,
+    ._wifi_mac_sleep_retention_detach = esp_wifi_mac_sleep_retention_detach_wrapper,
+#endif
     ._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };

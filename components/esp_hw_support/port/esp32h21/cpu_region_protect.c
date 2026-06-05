@@ -139,7 +139,7 @@ void esp_cpu_configure_region_protection(void)
         PMP_ENTRY_CFG_RESET(3);
         PMP_ENTRY_SET(1, SOC_IROM_MASK_LOW, NONE);
         PMP_ENTRY_SET(2, drom_start, PMP_TOR | RX);
-        PMP_ENTRY_SET(3, SOC_DROM_MASK_HIGH, PMP_TOR | RW);
+        PMP_ENTRY_SET(3, SOC_DROM_MASK_HIGH, PMP_TOR | R);
     } else
 #endif
     {

@@ -359,33 +359,21 @@ config SOC_ADC_PERIPH_NUM
     int
     default 1
 
-config SOC_ADC_MAX_CHANNEL_NUM
-    int
-    default 6
-
 config SOC_ADC_ATTEN_NUM
     int
     default 4
-
-config SOC_ADC_DIGI_CONTROLLER_NUM
-    int
-    default 1
 
 config SOC_ADC_PATT_LEN_MAX
     int
     default 8
 
-config SOC_ADC_DIGI_MAX_BITWIDTH
-    int
-    default 12
-
 config SOC_ADC_DIGI_MIN_BITWIDTH
     int
     default 12
 
-config SOC_ADC_DIGI_IIR_FILTER_NUM
+config SOC_ADC_DIGI_MAX_BITWIDTH
     int
-    default 2
+    default 12
 
 config SOC_ADC_DIGI_MONITOR_NUM
     int
@@ -398,22 +386,6 @@ config SOC_ADC_DIGI_RESULT_BYTES
 config SOC_ADC_DIGI_DATA_BYTES_PER_CONV
     int
     default 4
-
-config SOC_ADC_SAMPLE_FREQ_THRES_HIGH
-    int
-    default 83333
-
-config SOC_ADC_SAMPLE_FREQ_THRES_LOW
-    int
-    default 611
-
-config SOC_ADC_RTC_MIN_BITWIDTH
-    int
-    default 12
-
-config SOC_ADC_RTC_MAX_BITWIDTH
-    int
-    default 12
 
 config SOC_ADC_CALIBRATION_V1_SUPPORTED
     bool
@@ -579,6 +551,10 @@ config SOC_GPIO_SUPPORT_HP_PERIPH_PD_SLEEP_WAKEUP
     bool
     default y
 
+config SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED
+    bool
+    default y
+
 config SOC_LP_IO_CLOCK_IS_INDEPENDENT
     bool
     default y
@@ -644,6 +620,10 @@ config SOC_ETM_SUPPORT_SLEEP_RETENTION
     default y
 
 config SOC_ANA_CMPR_SUPPORT_ETM
+    bool
+    default y
+
+config SOC_ANA_CMPR_SUPPORT_AUTO_SCAN
     bool
     default y
 
@@ -1159,6 +1139,10 @@ config SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS
     int
     default 3
 
+config SOC_EFUSE_SECURE_BOOT_P384_WR_DIS
+    bool
+    default y
+
 config SOC_EFUSE_REVOKE_BOOT_KEY_DIGESTS
     bool
     default y
@@ -1240,14 +1224,6 @@ config SOC_APM_SUPPORT_TEE_PERI_ACCESS_CTRL
     default y
 
 config SOC_CRYPTO_DPA_PROTECTION_SUPPORTED
-    bool
-    default y
-
-config SOC_RNG_BUF_CHAIN_ENTROPY_SOURCE
-    bool
-    default y
-
-config SOC_RNG_RTC_TIMER_ENTROPY_SOURCE
     bool
     default y
 
@@ -1439,6 +1415,10 @@ config SOC_PM_PAU_REGDMA_COMMON_PHY_LINK_ENTRY
     bool
     default y
 
+config SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
+    bool
+    default y
+
 config SOC_PM_PMU_MIN_SLP_SLOW_CLK_CYCLE_FIXED
     bool
     default y
@@ -1446,6 +1426,10 @@ config SOC_PM_PMU_MIN_SLP_SLOW_CLK_CYCLE_FIXED
 config SOC_PM_RETENTION_MODULE_NUM
     int
     default 32
+
+config SOC_PM_FLASH_KEEP_POWER_IN_LSLP
+    bool
+    default y
 
 config SOC_CLK_RC_FAST_SUPPORT_CALIBRATION
     bool
@@ -1476,6 +1460,10 @@ config SOC_CLK_LP_FAST_SUPPORT_XTAL_D2
     default y
 
 config SOC_RCC_IS_INDEPENDENT
+    bool
+    default y
+
+config SOC_CLK_ROOT_CLK_SWITCH_PROTECT
     bool
     default y
 
@@ -1608,5 +1596,13 @@ config SOC_LP_CORE_SUPPORT_ETM
     default y
 
 config SOC_LP_CORE_SUPPORT_STORE_LOAD_EXCEPTIONS
+    bool
+    default y
+
+config SOC_LP_CORE_SUPPORT_I2C
+    bool
+    default y
+
+config SOC_LP_CORE_HW_AUTO_CLRWAKEUPCAUSE
     bool
     default y

@@ -325,6 +325,21 @@ config WIFI_RMT_WPA3_COMPATIBLE_SUPPORT
     help
         Select this option to support wpa3_compatible mode for station and AP
 
+config WIFI_RMT_ENABLE_WPA3_OWE_SOFTAP
+    bool "Enable OWE-ONLY SOFTAP"
+    default y
+    select WIFI_RMT_MBEDTLS_CRYPTO
+    depends on WIFI_RMT_SOFTAP_SUPPORT
+    help
+        Select this option to allow the device to enable OWE Only mode for softap.
+
+config WIFI_RMT_PASN_SUPPORT
+    bool "Enable PASN support"
+    default n
+    help
+        Pre-Association Security Negotiation (PASN) for Wi-Fi NAN.
+        The wpa_supplicant exposes CONFIG_PASN when this is on.
+
 config WIFI_RMT_SLP_IRAM_OPT
     bool "WiFi SLP IRAM speed optimization"
     select PM_SLP_DEFAULT_PARAMS_OPT
@@ -438,7 +453,8 @@ config WIFI_RMT_SLP_BEACON_LOST_OPT
 config WIFI_RMT_SLP_BEACON_LOST_TIMEOUT
     int "Beacon loss timeout"
     range 5 100
-    default 10
+    default 25 if ESP_COEX_SW_COEXIST_ENABLE
+    default 10 if (!ESP_COEX_SW_COEXIST_ENABLE)
     depends on WIFI_RMT_SLP_BEACON_LOST_OPT
     help
         Timeout time for close rf phy when beacon loss occurs, Unit: 1024 microsecond.
@@ -563,12 +579,39 @@ config WIFI_RMT_NAN_SYNC_ENABLE
     help
         Enable Wi-Fi Aware: Synchronization feature (NAN-Sync).
 
+config WIFI_RMT_NAN_SECURITY
+    bool "Enable Wi-Fi Aware: Encrypted Pairwise Datapath (NDP Security)"
+    depends on WIFI_RMT_NAN_SYNC_ENABLE && IDF_EXPERIMENTAL_FEATURES && WIFI_RMT_MBEDTLS_CRYPTO
+    select MBEDTLS_PKCS5_C
+    select MBEDTLS_SHA256_C
+    default n
+    help
+        Enable encrypted pairwise datapath for Wi-Fi Aware (NAN).
+        Adds PBKDF2 key derivation (mbedTLS PKCS#5), 4-way handshake (M1-M4),
+        PTK derivation, and CCMP key installation for secured NAN
+        data links. Disable to save code size when only open
+        datapaths are needed.
+
+        Requires WIFI_RMT_MBEDTLS_CRYPTO + MBEDTLS_PKCS5_C + MBEDTLS_SHA256_C
+        for ND-PMK derivation via pbkdf2_sha256() (MBEDTLS_MD_C is pulled in
+        transitively by MBEDTLS_PKCS5_C).
+
 config WIFI_RMT_NAN_USD_ENABLE
     bool "Enable Wi-Fi Aware: Unsynchronized service discovery (NAN-USD)"
     depends on IDF_EXPERIMENTAL_FEATURES
     default n
     help
         Enable Wi-Fi Aware: Unsynchronized service discovery (NAN-USD)
+
+config WIFI_RMT_NAN_PAIRING
+    bool "Enable NAN Pairing"
+    depends on WIFI_RMT_NAN_SECURITY && IDF_EXPERIMENTAL_FEATURES && WIFI_RMT_MBEDTLS_CRYPTO
+    select WIFI_RMT_PASN_SUPPORT
+    default n
+    help
+        Enable NAN Pairing support. This allows devices to establish
+        secure pairing using bootstrapping methods like PIN code.
+        Requires PASN in wpa_supplicant (WIFI_RMT_PASN_SUPPORT)
 
 config WIFI_RMT_MBEDTLS_CRYPTO
     bool "Use MbedTLS crypto APIs"
@@ -688,18 +731,12 @@ config WIFI_RMT_MBO_SUPPORT
         Select this option to enable WiFi Multiband operation certification support.
 
 config WIFI_RMT_ENABLE_ROAMING_APP
-    bool "Advanced support for Wi-Fi Roaming (Experimental)"
-    depends on IDF_EXPERIMENTAL_FEATURES
+    bool "Advanced support for Wi-Fi Roaming"
     default n
     help
         Enable Espressif's roaming app to allow for efficient Wi-Fi roaming.
         This includes configurable periodic environment scans, maintaining a cache of the
         best APs, handling low rssi events etc.
-
-        Risk Warning
-        Please note that this feature is still experimental and enabling this potentially can
-        lead to unpredictable scanning, connection and roaming attempts.
-        We are still working on tuning and optimising this feature to ensure reliable and stable use.
 
 menu "Configure roaming App"
     depends on WIFI_RMT_ENABLE_ROAMING_APP
@@ -712,6 +749,17 @@ config WIFI_RMT_DPP_SUPPORT
     select WIFI_RMT_MBEDTLS_CRYPTO
     help
         Select this option to enable WiFi Easy Connect Support.
+
+config WIFI_RMT_DPP_MAX_CONF_OBJ
+    int "Maximum number of DPP configuration objects"
+    depends on WIFI_RMT_DPP_SUPPORT
+    range 1 10
+    default 3
+    help
+        Maximum number of configuration objects that can be received and stored
+        during a DPP configuration exchange. DPP v2 configurators may send
+        multiple configuration objects (e.g., for different SSIDs or AKMs).
+        Increasing this value will increase the memory usage for DPP events.
 
 config WIFI_RMT_11R_SUPPORT
     bool "Enable 802.11R (Fast Transition) Support"
@@ -866,6 +914,23 @@ config WIFI_RMT_PASSIVE_HIDDEN_AP_SUPPORT
     help
         Select this option to enable/disable support for station connections
         to hidden APs using passive scan when the country policy is set to auto.
+
+config WIFI_RMT_PRIVACY_ENHANCEMENTS_ENABLED
+    bool "WiFi Privacy Enhancements enabled"
+    default n
+    help
+        Select this option to enable WiFi Privacy Enhancements (enables random mac,
+        seq number, dialogue token number, vendor seq number cnt).
+        Supported on station interface only; softAP may be added in future.
+
+config WIFI_RMT_RMAC_AUTO_RESET_INTERVAL
+    int "Random MAC Auto-Reset Interval time"
+    depends on WIFI_RMT_PRIVACY_ENHANCEMENTS_ENABLED
+    range 1 24
+    default 12
+    help
+        Interval in hours to rotate the random MAC while not connected to an AP.
+        Values below 1 or above 24 are not allowed.
 
 if !ESP_WIFI_ENABLED
     rsource "Kconfig.wifi_is_remote.in"

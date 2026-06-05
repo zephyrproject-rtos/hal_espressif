@@ -39,6 +39,10 @@ config ESP_ROM_HAS_HEAP_TLSF
     bool
     default y
 
+config ESP_ROM_TLSF_CHECK_PATCH
+    bool
+    default y
+
 config ESP_ROM_MULTI_HEAP_WALK_PATCH
     bool
     default y
@@ -102,3 +106,7 @@ config ESP_ROM_NO_USB_SERIAL_OUTPUT_API
 config ESP_ROM_SUPPORT_SECURE_BOOT_FAST_WAKEUP
     bool
     default y
+
+config ESP_ROM_BOOTLOADER_OFFSET_FLASH
+    hex
+    default 0x0

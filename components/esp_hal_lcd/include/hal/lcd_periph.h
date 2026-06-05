@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include "soc/soc_caps.h"
 #include "soc/periph_defs.h"
 #include "soc/regdma.h"
@@ -36,6 +37,24 @@ typedef struct {
 } soc_lcd_rgb_signal_desc_t;
 
 extern const soc_lcd_rgb_signal_desc_t soc_lcd_rgb_signals[LCD_LL_GET(RGB_PANEL_NUM)];
+
+#if LCD_LL_SUPPORT(IOMUX)
+typedef struct {
+    const int gpio_num;
+    const int func;
+} soc_lcd_iomux_pin_desc_t;
+
+typedef struct {
+    const soc_lcd_iomux_pin_desc_t data_pins[LCD_LL_GET(RGB_BUS_WIDTH)];
+    const soc_lcd_iomux_pin_desc_t hsync_pin;
+    const soc_lcd_iomux_pin_desc_t vsync_pin;
+    const soc_lcd_iomux_pin_desc_t pclk_pin;
+    const soc_lcd_iomux_pin_desc_t de_pin;
+} soc_lcd_rgb_iomux_desc_t;
+
+extern const soc_lcd_rgb_iomux_desc_t soc_lcd_rgb_iomux_descs[LCD_LL_GET(RGB_PANEL_NUM)];
+#endif // LCD_LL_SUPPORT(IOMUX)
+
 #endif // SOC_HAS(LCDCAM_RGB_LCD)
 
 #if SOC_HAS(LCDCAM_I80_LCD)

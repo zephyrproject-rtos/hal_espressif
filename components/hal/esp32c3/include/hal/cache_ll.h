@@ -19,7 +19,6 @@
 extern "C" {
 #endif
 
-
 #define CACHE_LL_DEFAULT_IBUS_MASK                  CACHE_BUS_IBUS0
 #define CACHE_LL_DEFAULT_DBUS_MASK                  CACHE_BUS_DBUS0
 
@@ -227,16 +226,23 @@ static inline void cache_ll_preload_set_strategy(uint32_t cache_level, cache_typ
  * Starts preload for the given region and does not wait. Use
  * cache_ll_preload_wait_done() to wait for completion.
  * DATA type is no-op.
+ *
+ * @param cache_level  level of the cache (must be CACHE_LL_LEVEL_EXT_MEM)
+ * @param type         see `cache_type_t` (only INSTRUCTION and ALL trigger preload)
+ * @param cache_id     id of the cache (unused on C3; pass 0 or CACHE_LL_ID_ALL)
+ * @param vaddr        start virtual address of the preload region
+ * @param size         size of the preload region in bytes
+ * @param order        preload order, see `cache_preload_order_t`
  */
 __attribute__((always_inline))
-static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     (void)cache_id;
     HAL_ASSERT(cache_level == CACHE_LL_LEVEL_EXT_MEM);
     if (type == CACHE_TYPE_DATA) {
         return;
     }
-    Cache_Start_ICache_Preload(vaddr, size, ascending ? 0 : 1);
+    Cache_Start_ICache_Preload(vaddr, size, order);
 }
 
 /**
@@ -312,7 +318,7 @@ __attribute__((always_inline))
 static inline void cache_ll_l1_enable_bus(uint32_t bus_id, cache_bus_mask_t mask)
 {
     //On esp32c3, only `CACHE_BUS_IBUS0` and `CACHE_BUS_DBUS0` are supported. Use `cache_ll_l1_get_bus()` to get your bus first
-    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2| CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
+    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2 | CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
 
     uint32_t ibus_mask = 0;
     ibus_mask = ibus_mask | ((mask & CACHE_BUS_IBUS0) ? EXTMEM_ICACHE_SHUT_IBUS : 0);
@@ -333,7 +339,7 @@ __attribute__((always_inline))
 static inline void cache_ll_l1_disable_bus(uint32_t bus_id, cache_bus_mask_t mask)
 {
     //On esp32c3, only `CACHE_BUS_IBUS0` and `CACHE_BUS_DBUS0` are supported. Use `cache_ll_l1_get_bus()` to get your bus first
-    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2| CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
+    HAL_ASSERT((mask & (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2 | CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)) == 0);
 
     uint32_t ibus_mask = 0;
     ibus_mask = ibus_mask | ((mask & CACHE_BUS_IBUS0) ? EXTMEM_ICACHE_SHUT_IBUS : 0);

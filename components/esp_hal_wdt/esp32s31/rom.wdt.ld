@@ -18,9 +18,9 @@
  ***************************************/
 
 /* Functions */
-wdt_hal_init = 0x2f800368;
-wdt_hal_deinit = 0x2f80036c;
-wdt_hal_config_stage = 0x2f800370;
+rom_wdt_hal_init = 0x2f800368;
+rom_wdt_hal_deinit = 0x2f80036c;
+rom_wdt_hal_config_stage = 0x2f800370;
 wdt_hal_write_protect_disable = 0x2f800374;
 wdt_hal_write_protect_enable = 0x2f800378;
 wdt_hal_enable = 0x2f80037c;

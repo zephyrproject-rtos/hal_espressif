@@ -147,7 +147,9 @@ hci_driver_uart_rx_task(void *p)
             ret = hci_h4_sm_rx(s_hci_driver_uart_env.h4_sm, data, read_len);
             if (ret < 0) {
                 ESP_LOGE(TAG, "parse rx data error! sm_state:%d\n", s_hci_driver_uart_env.h4_sm->state);
+#if UC_BT_CTRL_BLE_IS_ENABLE
                 r_ble_ll_hci_ev_hw_err(ESP_HCI_SYNC_LOSS_ERR);
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
             }
         }
     }

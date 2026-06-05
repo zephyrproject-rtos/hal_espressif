@@ -5,10 +5,12 @@
  */
 #include <string.h>
 #include <stdio.h>
-#include "ble_mbuf.h"
 #include "esp_hci_driver.h"
 #include "esp_hci_internal.h"
 #include "esp_bt.h"
+#if UC_BT_CTRL_BLE_IS_ENABLE
+#include "ble_mbuf.h"
+#endif
 
 typedef struct {
     hci_driver_forward_fn *forward_cb;
@@ -80,14 +82,13 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
     int rc = 0;
     uint16_t buf_len = length + 1;;
     uint8_t *buf = NULL;
-    struct ble_mbuf *om;
     uint8_t old_value = 0;
     hci_driver_packet_t *pkt = (hci_driver_packet_t *)data;
 
     if (data_type == HCI_DRIVER_TYPE_ACL) {
 #if UC_BT_CTRL_BLE_IS_ENABLE
         if (dir == HCI_DRIVER_DIR_LEC2H) {
-            om = (struct ble_mbuf *)data;
+            struct ble_mbuf *om = (struct ble_mbuf *)data;
             buf = malloc(buf_len);
             /* TODO: If there is no memory, should handle it in the controller. */
             assert(buf);
@@ -114,6 +115,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
     } else if (data_type == HCI_DRIVER_TYPE_EVT) {
         /* TODO: If there is no memory, should handle it in the controller. */
         if (dir == HCI_DRIVER_DIR_LEC2H) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
             buf = malloc(buf_len);
             assert(buf != NULL);
             buf[0] = HCI_DRIVER_TYPE_EVT;
@@ -121,6 +123,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
             rc = hci_driver_vhci_host_recv_with_type(data_type, buf, buf_len);
             r_ble_hci_trans_buf_free(data);
             free(buf);
+#endif
         }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
          else if (dir == HCI_DRIVER_DIR_BREDRC2H) {
@@ -175,9 +178,9 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
 static int
 hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length)
 {
-    struct ble_mbuf *om;
     uint16_t pkt_len;
     uint16_t conn_handle;
+    uint16_t handle_flags = 0;
     hci_driver_packet_t *pkt = NULL;
     uint8_t data_source = 0xFF;
 
@@ -192,10 +195,13 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         break;
 
     case HCI_DRIVER_TYPE_ACL:
-        conn_handle = btdm_get_le16(&data[1]) & HCI_INTERNAL_CONN_MASK;
+        handle_flags = btdm_get_le16(&data[1]);
+        conn_handle = handle_flags & HCI_INTERNAL_CONN_MASK;
+        bool is_bredr = HCI_INTERNAL_ACL_IS_BREDR_BCAST(handle_flags) ||
+                        HCI_INTERNAL_CONN_IS_BREDR(conn_handle);
 #if UC_BT_CTRL_BLE_IS_ENABLE
-        if (HCI_INTERNAL_CONN_IS_BLE(conn_handle)) {
-            om = ble_msys_get_pkthdr(pkt_len, ESP_HCI_INTERNAL_ACL_MBUF_LEADINGSPCAE);
+        if (!is_bredr && HCI_INTERNAL_CONN_IS_BLE(conn_handle)) {
+            struct ble_mbuf *om = ble_msys_get_pkthdr(pkt_len, ESP_HCI_INTERNAL_ACL_MBUF_LEADINGSPCAE);
             assert(om);
             assert(ble_mbuf_append(om, &data[1], length - 1) == 0);
             data = (uint8_t *)om;
@@ -203,7 +209,7 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         }
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
-        if (HCI_INTERNAL_CONN_IS_BREDR(conn_handle)) {
+        if (is_bredr) {
             pkt = btdm_hci_trans_buf_alloc(data_type, conn_handle);
             assert(pkt);
             memcpy(pkt->data, &data[1], pkt_len);

@@ -6,6 +6,7 @@
 
 #include "hal/rmt_periph.h"
 #include "soc/gpio_sig_map.h"
+#include "soc/interrupts.h"
 
 const soc_rmt_signal_desc_t soc_rmt_signals[1] = {
     [0] = {

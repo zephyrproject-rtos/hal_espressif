@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -20,7 +20,6 @@
 LOG_MODULE_REGISTER(esp32c6_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 #include <riscv/interrupt.h>
-extern void intr_matrix_route(int intr_src, int intr_num);
 
 #include "esp_types.h"
 #include "esp_random.h"
@@ -34,6 +33,9 @@ extern void intr_matrix_route(int intr_src, int intr_num);
 #ifdef CONFIG_ESP_PHY_ENABLED
 #include "esp_phy_init.h"
 #include "phy_init_data.h"
+#endif
+#if CONFIG_MAC_BB_PD && SOC_PM_MODEM_RETENTION_BY_REGDMA
+#include "esp_private/phy.h"
 #endif
 #include "soc/rtc_cntl_periph.h"
 #include "soc/rtc.h"
@@ -902,14 +904,57 @@ static void esp_phy_disable_wrapper(void)
 }
 
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA
-static void regdma_link_set_write_wait_content_wrapper(void *addr, uint32_t value, uint32_t mask)
+static void IRAM_ATTR regdma_link_set_write_wait_content_wrapper(void *addr, uint32_t value, uint32_t mask)
 {
     regdma_link_set_write_wait_content(addr, value, mask);
 }
 
-static void *sleep_retention_find_link_by_id_wrapper(int id)
+static void *IRAM_ATTR sleep_retention_find_link_by_id_wrapper(int id)
 {
     return sleep_retention_find_link_by_id(id);
+}
+#endif
+
+static bool esp_wifi_disable_ac_ax_wrapper(void)
+{
+    return false; // disable 11ac and 11ax is not supported on esp32c6.
+}
+
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
+static int32_t esp_phy_wifi_bb_sleep_retention_attach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_phy_wifi_bb_sleep_retention_attach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_phy_wifi_bb_sleep_retention_detach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_phy_wifi_bb_sleep_retention_detach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_wifi_mac_sleep_retention_attach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_wifi_internal_mac_sleep_retention_attach();
+#else
+    return 1;
+#endif
+}
+
+static int32_t esp_wifi_mac_sleep_retention_detach_wrapper(void)
+{
+#if CONFIG_MAC_BB_PD
+    return (int32_t)esp_wifi_internal_mac_sleep_retention_detach();
+#else
+    return 1;
+#endif
 }
 #endif
 
@@ -1037,5 +1082,12 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._coex_schm_flexible_period_set = coex_schm_flexible_period_set_wrapper,
     ._coex_schm_flexible_period_get = coex_schm_flexible_period_get_wrapper,
     ._coex_schm_get_phase_by_idx = coex_schm_get_phase_by_idx_wrapper,
+    ._wifi_disable_ac_ax = esp_wifi_disable_ac_ax_wrapper,
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
+    ._wifi_bb_sleep_retention_attach = esp_phy_wifi_bb_sleep_retention_attach_wrapper,
+    ._wifi_bb_sleep_retention_detach = esp_phy_wifi_bb_sleep_retention_detach_wrapper,
+    ._wifi_mac_sleep_retention_attach = esp_wifi_mac_sleep_retention_attach_wrapper,
+    ._wifi_mac_sleep_retention_detach = esp_wifi_mac_sleep_retention_detach_wrapper,
+#endif
     ._magic = ESP_WIFI_OS_ADAPTER_MAGIC,
 };

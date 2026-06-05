@@ -252,7 +252,7 @@ __attribute__((weak)) void esp_perip_clk_init(void)
 
 #if !CONFIG_ESP_SYSTEM_HW_PC_RECORD
     /* Disable ASSIST Debug module clock if PC recoreding function is not used,
-     * if stack guard function needs it, it will be re-enabled at esp_hw_stack_guard_init */
+     * if stack guard function needs it, it will be re-enabled at esp_hw_debug_assist_init */
     CLEAR_PERI_REG_MASK(SYSTEM_CPU_PERI_CLK_EN_REG, SYSTEM_CLK_EN_ASSIST_DEBUG);
     SET_PERI_REG_MASK(SYSTEM_CPU_PERI_RST_EN_REG, SYSTEM_RST_EN_ASSIST_DEBUG);
 #endif

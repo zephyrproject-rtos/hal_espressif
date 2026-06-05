@@ -50,6 +50,7 @@
 #define SOC_ASYNC_MEMCPY_SUPPORTED      1
 #define SOC_EMAC_SUPPORTED              1
 #define SOC_USB_OTG_SUPPORTED           1
+#define SOC_USB_DFU_SUPPORTED           1
 #define SOC_WIRELESS_HOST_SUPPORTED     1
 #define SOC_USB_SERIAL_JTAG_SUPPORTED   1
 #define SOC_TEMP_SENSOR_SUPPORTED       1
@@ -111,7 +112,7 @@
 #define SOC_SPI_FLASH_SUPPORTED         1
 #define SOC_TOUCH_SENSOR_SUPPORTED      1
 #define SOC_RNG_SUPPORTED               1
-#define SOC_GP_LDO_SUPPORTED            1 // General purpose LDO
+#define SOC_GP_LDO_SUPPORTED            1
 #define SOC_PPA_SUPPORTED               1
 #define SOC_LIGHT_SLEEP_SUPPORTED       1
 #define SOC_DEEP_SLEEP_SUPPORTED        1
@@ -142,30 +143,18 @@
 #define SOC_ADC_DIG_CTRL_SUPPORTED              1
 // #define SOC_ADC_DIG_IIR_FILTER_SUPPORTED        1
 // #define SOC_ADC_MONITOR_SUPPORTED               1
-#define SOC_ADC_DIG_SUPPORTED_UNIT(UNIT)        1    //Digital controller supported ADC unit
 #define SOC_ADC_DMA_SUPPORTED                   1
 #define SOC_ADC_PERIPH_NUM                      (2)
 #define SOC_ADC_CHANNEL_NUM(PERIPH_NUM)         ((PERIPH_NUM==0)? 8: 6)
-#define SOC_ADC_MAX_CHANNEL_NUM                 (8)
 #define SOC_ADC_ATTEN_NUM                       (4)
 
 /*!< Digital */
-#define SOC_ADC_DIGI_CONTROLLER_NUM             (2)
 #define SOC_ADC_PATT_LEN_MAX                    (16) /*!< Four pattern tables, each contains 4 items. Each item takes 1 byte */
-#define SOC_ADC_DIGI_MAX_BITWIDTH               (12)
 #define SOC_ADC_DIGI_MIN_BITWIDTH               (12)
-#define SOC_ADC_DIGI_IIR_FILTER_NUM             (2)
+#define SOC_ADC_DIGI_MAX_BITWIDTH               (12)
 #define SOC_ADC_DIGI_MONITOR_NUM                (2)
 #define SOC_ADC_DIGI_RESULT_BYTES               (4)
 #define SOC_ADC_DIGI_DATA_BYTES_PER_CONV        (4)
-/*!< F_sample = F_digi_con / 2 / interval. F_digi_con = 5M for now. 30 <= interval <= 4095 */
-#define SOC_ADC_SAMPLE_FREQ_THRES_HIGH          83333
-#define SOC_ADC_SAMPLE_FREQ_THRES_LOW           611
-
-/*!< RTC */
-#define SOC_ADC_RTC_MIN_BITWIDTH                (12)
-#define SOC_ADC_RTC_MAX_BITWIDTH                (12)
-
 /*!< Calibration */
 #define SOC_ADC_CALIBRATION_V1_SUPPORTED        (1) /*!< support HW offset calibration version 1*/
 #define SOC_ADC_SELF_HW_CALI_SUPPORTED          (1) /*!< support HW offset self calibration */
@@ -263,6 +252,7 @@
 
 // LP IO peripherals have independent clock gating to manage
 #define SOC_LP_IO_CLOCK_IS_INDEPENDENT      (1)
+#define SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED  (1)
 
 #define SOC_GPIO_VALID_GPIO_MASK        (0x007FFFFFFFFFFFFF)
 #define SOC_GPIO_VALID_OUTPUT_GPIO_MASK SOC_GPIO_VALID_GPIO_MASK
@@ -285,7 +275,7 @@
 #define SOC_GPIO_CLOCKOUT_CHANNEL_NUM            (2)
 #define SOC_CLOCKOUT_SUPPORT_CHANNEL_DIVIDER     (1)
 
-#define SOC_DEBUG_PROBE_NUM_UNIT                 (1U)  // Number of debug probe units
+#define SOC_DEBUG_PROBE_NUM_UNIT                 (2U)  // Unit 0: HP probe, Unit 1: LP probe
 #define SOC_DEBUG_PROBE_MAX_OUTPUT_WIDTH         (16) // Maximum width of the debug probe output in each unit
 
 /*-------------------------- RTCIO CAPS --------------------------------------*/
@@ -305,6 +295,7 @@
 
 /*------------------------- Analog Comparator CAPS ---------------------------*/
 #define SOC_ANA_CMPR_SUPPORT_ETM               (1)
+#define SOC_ANA_CMPR_SUPPORT_AUTO_SCAN         (1)
 
 /*-------------------------- I2C CAPS ----------------------------------------*/
 #define SOC_I2C_NUM                             (3U)
@@ -392,6 +383,9 @@
 #define SOC_LEDC_SUPPORT_SLEEP_RETENTION    (1)
 #define SOC_LEDC_SUPPORT_ETM                (1)
 
+/*-------------------------- LDO CAPS ----------------------------------------*/
+#define SOC_GP_LDO_NUM_UNITS                4    // Number of general purpose LDO units
+
 /*-------------------------- MMU CAPS ----------------------------------------*/
 #define SOC_MMU_PERIPH_NUM                    (2U)
 #define SOC_MMU_LINEAR_ADDRESS_REGION_NUM     (2U)
@@ -431,10 +425,10 @@
 // USB OTG Caps
 #define SOC_USB_OTG_PERIPH_NUM          (2U)
 #define SOC_USB_FSLS_PHY_NUM            (1U)
+#define SOC_USB_OTG_NEED_SOFTWARE_SUSPEND_BEFORE_SLEEP (1)
 
 // USB PHY Caps
 #define SOC_USB_UTMI_PHY_NUM            (1U)
-#define SOC_USB_UTMI_PHY_NO_POWER_OFF_ISO    1
 
 /*-------------------------- PARLIO CAPS --------------------------------------*/
 #define SOC_PARLIO_TX_UNIT_MAX_DATA_WIDTH    16  /*!< Number of data lines of the TX unit */
@@ -513,9 +507,6 @@
 #define SOC_SPI_SUPPORT_SLAVE_HD_VER2       1
 #define SOC_SPI_SUPPORT_OCT                 1
 
-/*-------------------------- LP SPI CAPS ----------------------------------------*/
-#define SOC_LP_SPI_MAXIMUM_BUFFER_SIZE     64
-
 /*-------------------------- SPIRAM CAPS ----------------------------------------*/
 #define SOC_SPIRAM_XIP_SUPPORTED        1
 
@@ -536,6 +527,7 @@
 #define SOC_MSPI_HAS_INDEPENT_IOMUX               1
 #define SOC_MEMSPI_IS_INDEPENDENT                 1
 #define SOC_MEMSPI_SUPPORT_CONTROL_DUMMY_OUT      1
+#define SOC_PSRAM_MEMSPI_IS_INDEPENDENT           1
 
 #define SOC_SPI_MEM_FLASH_SUPPORT_HPM                         (1) /*!< Support High Performance Mode */
 
@@ -618,6 +610,10 @@
 #define SOC_PSRAM_ENCRYPTION_SEPARATE_KEY       1  /* PSRAM encryption can use independent key */
 #define SOC_PSRAM_ENCRYPTION_PAGE_CONFIGURABLE  1  /* PSRAM encryption can be configured on a MMU page basis */
 
+/*------------------------Bootloader CAPS---------------------------------*/
+/* Support Recovery Bootloader */
+#define SOC_RECOVERY_BOOTLOADER_SUPPORTED             (1)
+
 /*-------------------------- MEMPROT CAPS ------------------------------------*/
 
 /*-------------------------- UART CAPS ---------------------------------------*/
@@ -687,6 +683,8 @@
 
 #define SOC_PM_RETENTION_MODULE_NUM         (64)
 
+#define SOC_MAIN_POWER_CONTROL_SUPPORTED    (1)  /*!<Supports outputting an enable signal to control the power-on and power-off of the main power supply when powered by VBAT.*/
+
 /*-------------------------- CLOCK SUBSYSTEM CAPS ----------------------------------------*/
 #define SOC_CLK_RC_FAST_SUPPORT_CALIBRATION       (1)
 
@@ -735,3 +733,5 @@
 #define SOC_LP_CORE_SUPPORT_ETM                     (1) /*!< LP Core supports ETM */
 #define SOC_LP_CORE_SUPPORT_LP_ADC                  (1) /*!< LP ADC can be accessed from the LP-Core */
 #define SOC_LP_CORE_SUPPORT_STORE_LOAD_EXCEPTIONS   (1) /*!< LP Core will raise exceptions if accessing invalid addresses */
+#define SOC_LP_CORE_SUPPORT_I2C                     (1) /*!< LP Core supports I2C */
+#define SOC_LP_CORE_HW_AUTO_CLRWAKEUPCAUSE          (1) /*!< LP core requests sleep, PMU clears both HP and LP wakeup causes */

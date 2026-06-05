@@ -23,3 +23,4 @@
 #define ESP_ROM_HAS_OUTPUT_TO_CHANNELS_FUNC (1) // ROM has ets_write_char, alias is esp_rom_output_to_channels
 #define ESP_ROM_HAS_OUTPUT_PUTC_FUNC        (1) // ROM has esp_rom_output_putc (or ets_write_char_uart)
 #define ESP_ROM_CONSOLE_OUTPUT_SECONDARY    (1) // The console output functions will also output to the USB-serial secondary console
+#define ESP_ROM_BOOTLOADER_OFFSET_FLASH     (0x1000) // Bootloader offset in flash determined by the ROM bootloader

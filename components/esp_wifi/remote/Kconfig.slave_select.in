@@ -20,4 +20,6 @@ choice SLAVE_IDF_TARGET
         bool "esp32c5"
     config SLAVE_IDF_TARGET_ESP32C61
         bool "esp32c61"
+    config SLAVE_IDF_TARGET_ESP32S31
+        bool "esp32s31"
 endchoice

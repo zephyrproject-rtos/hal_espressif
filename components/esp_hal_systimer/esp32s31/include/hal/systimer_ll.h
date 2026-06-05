@@ -19,8 +19,6 @@ extern "C" {
 // All these functions get invoked either from ISR or HAL that linked to IRAM.
 // Always inline these functions even no gcc optimization is applied.
 
-// TODO: [ESP32S31] IDF-14693
-
 /******************* SYSTIMER LL CAPS *************************/
 #define SYSTIMER_LL_COUNTER_NUM             2  // Number of counter units
 #define SYSTIMER_LL_ALARM_NUM               3  // Number of alarm units

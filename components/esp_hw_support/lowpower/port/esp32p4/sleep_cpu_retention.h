@@ -46,7 +46,7 @@ typedef struct {
 } sleep_cpu_retention_t;
 
 #if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-    esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, smp_retention_state_t *s_smp_retention_state);
+    esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, _Atomic(smp_retention_state_t) *s_smp_retention_state);
 #else
     esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr);
 #endif

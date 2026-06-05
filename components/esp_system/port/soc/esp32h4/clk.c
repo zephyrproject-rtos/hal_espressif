@@ -21,6 +21,7 @@
 #if SOC_WDT_SUPPORTED || SOC_RTC_WDT_SUPPORTED
 #include "hal/wdt_hal.h"
 #endif
+#include "hal/clk_gate_ll.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/esp_pmu.h"
@@ -196,5 +197,30 @@ void rtc_clk_select_rtc_slow_clk(void)
  */
 __attribute__((weak)) void esp_perip_clk_init(void)
 {
-    ESP_EARLY_LOGW(TAG, "esp_perip_clk_init() has not been implemented yet");
+    soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
+    periph_ll_clk_gate_config_t clk_gate_config = {0};
+
+#if CONFIG_ESP_CONSOLE_UART_NUM != 0
+    clk_gate_config.disable_uart0_clk = true;
+#endif
+#if CONFIG_ESP_CONSOLE_UART_NUM != 1
+    clk_gate_config.disable_uart1_clk = true;
+#endif
+#if CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+    clk_gate_config.disable_mspi_flash_clk = true;
+#endif
+#if !CONFIG_ESP_SYSTEM_HW_PC_RECORD
+    clk_gate_config.disable_assist_clk = true;
+#endif
+#if !CONFIG_SECURE_ENABLE_TEE
+    clk_gate_config.disable_crypto_periph_clk = true;
+#endif
+#if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
+    clk_gate_config.disable_usb_serial_jtag = true;
+#endif
+#if !CONFIG_ESP_ENABLE_PVT
+    clk_gate_config.disable_pvt_clk = true;
+#endif
+
+    periph_ll_clk_gate_set_default(rst_reason, &clk_gate_config);
 }

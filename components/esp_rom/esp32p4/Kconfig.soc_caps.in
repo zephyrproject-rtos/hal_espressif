@@ -51,6 +51,10 @@ config ESP_ROM_WDT_INIT_PATCH
     bool
     default y
 
+config ESP_ROM_WDT_CONFIG_STAGE_PATCH
+    bool
+    default y
+
 config ESP_ROM_HAS_LP_ROM
     bool
     default y
@@ -80,5 +84,13 @@ config ESP_ROM_HAS_OUTPUT_PUTC_FUNC
     default y
 
 config ESP_ROM_HAS_SUBOPTIMAL_NEWLIB_ON_MISALIGNED_MEMORY
+    bool
+    default y
+
+config ESP_ROM_BOOTLOADER_OFFSET_FLASH
+    hex
+    default 0x2000
+
+config ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_MAP
     bool
     default y

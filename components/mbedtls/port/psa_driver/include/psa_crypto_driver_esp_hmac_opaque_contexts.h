@@ -9,7 +9,6 @@
 #include "esp_types.h"
 #include "soc/soc_caps.h"
 #include "psa/crypto_driver_common.h"
-#include "hal/hmac_types.h"
 
 #if SOC_KEY_MANAGER_SUPPORTED
 #include "esp_key_mgr.h"
@@ -38,8 +37,9 @@ typedef struct {
  * @brief Structure to store opaque HMAC operation context.
  */
 typedef struct {
-    const esp_hmac_opaque_key_t *opaque_key;    /**< Pointer to the opaque key structure */
+    const uint8_t *key_buffer;                  /**< Pointer to the per-source storage struct in key slot */
     uint8_t hmac[ESP_HMAC_RESULT_SIZE];         /**< Buffer to store the HMAC result */
+    bool is_persistent;                         /**< Cached persistence flag for use in update */
 } esp_hmac_opaque_operation_t;
 
 #endif /* ESP_HMAC_OPAQUE_DRIVER_ENABLED */

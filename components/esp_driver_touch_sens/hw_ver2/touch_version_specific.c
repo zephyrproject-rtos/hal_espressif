@@ -223,9 +223,11 @@ esp_err_t touch_priv_deinit_controller(touch_sensor_handle_t sens_handle)
     if (sens_handle->proximity_en) {
         touch_sensor_config_proximity_sensing(sens_handle, NULL);
     }
+#if SOC_TOUCH_SUPPORT_SLEEP_WAKEUP
     if (sens_handle->sleep_en) {
         touch_sensor_config_sleep_wakeup(sens_handle, NULL);
     }
+#endif
     if (sens_handle->waterproof_en) {
         touch_sensor_config_waterproof(sens_handle, NULL);
     }

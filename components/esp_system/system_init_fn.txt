@@ -50,7 +50,7 @@ CORE: 102: init_libc in components/esp_libc/src/init.c on BIT(0)
 CORE: 103: psram_core_stage_init in components/esp_psram/system_layer/esp_psram.c on BIT(0)
 
 CORE: 105: init_brownout in components/esp_system/startup_funcs.c on BIT(0)
-CORE: 106: init_newlib_time in components/esp_system/startup_funcs.c on BIT(0)
+CORE: 106: init_libc_time in components/esp_libc/src/init.c on BIT(0)
 
 # Peripheral-specific implementation operators should be filled first
 # Then register vfs console, and follow by esp_libc stdio initialization
@@ -72,8 +72,8 @@ CORE: 170: init_xt_wdt in components/esp_system/startup_funcs.c on BIT(0)
 # esp_timer has to be initialized early, since it is used by several other components
 SECONDARY: 100: esp_timer_init_os in components/esp_timer/src/esp_timer.c on ESP_TIMER_INIT_MASK
 
-# HW stack guard via assist-debug module.
-SECONDARY: 101: esp_hw_stack_guard_init in components/esp_system/hw_stack_guard.c on ESP_SYSTEM_INIT_ALL_CORES
+# Assist-debug early init for stack guard and PC recording.
+SECONDARY: 101: esp_hw_debug_assist_init in components/esp_system/debug_assist.c on ESP_SYSTEM_INIT_ALL_CORES
 
 # Initialize RNG (enable clock which is disabled in `esp_perip_clk_init`, configure entropy sources)
 SECONDARY: 102: init_rng in components/esp_hw_support/hw_random.c on BIT(0)
@@ -96,6 +96,7 @@ SECONDARY: 106: sleep_clock_startup_init in components/esp_hw_support/lowpower/p
 SECONDARY: 106: sleep_clock_startup_init in components/esp_hw_support/lowpower/port/esp32s31/sleep_clock.c on BIT(0)
 SECONDARY: 106: sleep_clock_icg_startup_init in components/esp_hw_support/port/esp32p4/pmu_sleep_clock_icg.c on BIT(0)
 SECONDARY: 107: sleep_sys_periph_startup_init in components/esp_hw_support/sleep_system_peripheral.c on BIT(0)
+SECONDARY: 108: sleep_power_startup_init in components/esp_hw_support/lowpower/port/esp32h4/sleep_power.c on BIT(0)
 
 # app_trace doesn't have init dependencies
 SECONDARY: 115: apptrace_early_init in components/app_trace/app_trace.c on ESP_SYSTEM_INIT_ALL_CORES

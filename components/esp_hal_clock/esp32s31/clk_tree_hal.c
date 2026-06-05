@@ -84,3 +84,15 @@ uint32_t clk_hal_apll_get_freq_hz(void)
     uint32_t apll_freq_hz = (uint32_t)((xtal_freq_hz * numerator) / denominator);
     return apll_freq_hz;
 }
+
+void clk_hal_clock_output_setup(soc_clkout_sig_id_t clk_sig, clock_out_channel_t channel_id)
+{
+    clk_ll_bind_output_channel(clk_sig, channel_id);
+    clk_ll_set_output_channel_divider(channel_id, 1);
+    clk_ll_enable_output_channel(channel_id, true);
+}
+
+void clk_hal_clock_output_teardown(clock_out_channel_t channel_id)
+{
+    clk_ll_enable_output_channel(channel_id, false);
+}

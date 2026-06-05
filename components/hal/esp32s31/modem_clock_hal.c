@@ -7,6 +7,7 @@
 // The HAL layer for MODEM CLOCK (ESP32-S31 specific part)
 #include <stdbool.h>
 #include "soc/soc.h"
+#include "soc/hp_sys_clkrst_reg.h"
 #include "esp_attr.h"
 #include "hal/modem_clock_hal.h"
 #include "hal/modem_clock_types.h"
@@ -22,8 +23,7 @@ typedef enum {
 void IRAM_ATTR modem_clock_hal_set_clock_domain_icg_bitmap(modem_clock_hal_context_t *hal, modem_clock_domain_t domain, uint32_t bitmap)
 {
     HAL_ASSERT(domain < MODEM_CLOCK_DOMAIN_MAX);
-    switch (domain)
-    {
+    switch (domain) {
     case MODEM_CLOCK_DOMAIN_MODEM_APB:
         modem_syscon_ll_set_modem_apb_icg_bitmap(hal->syscon_dev, bitmap);
         break;
@@ -45,6 +45,7 @@ void IRAM_ATTR modem_clock_hal_set_clock_domain_icg_bitmap(modem_clock_hal_conte
         break;
 #if SOC_IEEE802154_SUPPORTED
     case MODEM_CLOCK_DOMAIN_IEEE802154:
+        modem_syscon_ll_set_bt_icg_bitmap(hal->syscon_dev, bitmap);
         modem_syscon_ll_set_ieee802154_icg_bitmap(hal->syscon_dev, bitmap);
         break;
 #endif
@@ -71,8 +72,7 @@ uint32_t IRAM_ATTR modem_clock_hal_get_clock_domain_icg_bitmap(modem_clock_hal_c
 {
     HAL_ASSERT(domain < MODEM_CLOCK_DOMAIN_MAX);
     uint32_t bitmap = 0;
-    switch (domain)
-    {
+    switch (domain) {
     case MODEM_CLOCK_DOMAIN_MODEM_APB:
         bitmap = modem_syscon_ll_get_modem_apb_icg_bitmap(hal->syscon_dev);
         break;
@@ -115,6 +115,18 @@ uint32_t IRAM_ATTR modem_clock_hal_get_clock_domain_icg_bitmap(modem_clock_hal_c
         HAL_ASSERT(0);
     }
     return bitmap;
+}
+
+void IRAM_ATTR modem_clock_hal_enable_soc_pll_source_cg(modem_clock_hal_context_t *hal, bool enable)
+{
+    (void)hal;
+    HP_SYS_CLKRST.modem_conf.val = enable ? 0x3d : 0x25;
+}
+
+bool IRAM_ATTR modem_clock_hal_soc_pll_source_cg_is_enabled(modem_clock_hal_context_t *hal)
+{
+    (void)hal;
+    return (HP_SYS_CLKRST.modem_conf.val == 0x3d);
 }
 
 void IRAM_ATTR modem_clock_hal_enable_modem_common_fe_clock(modem_clock_hal_context_t *hal, bool enable)
@@ -171,8 +183,7 @@ void modem_clock_hal_select_ble_rtc_timer_lpclk_source(modem_clock_hal_context_t
 {
     HAL_ASSERT(src < MODEM_CLOCK_LPCLK_SRC_MAX);
 
-    switch (src)
-    {
+    switch (src) {
     case MODEM_CLOCK_LPCLK_SRC_RC_SLOW:
         modem_lpcon_ll_enable_ble_rtc_timer_slow_osc(hal->lpcon_dev, true);
         break;
@@ -211,8 +222,7 @@ void modem_clock_hal_select_coex_lpclk_source(modem_clock_hal_context_t *hal, mo
 {
     HAL_ASSERT(src < MODEM_CLOCK_LPCLK_SRC_MAX);
 
-    switch (src)
-    {
+    switch (src) {
     case MODEM_CLOCK_LPCLK_SRC_RC_SLOW:
         modem_lpcon_ll_enable_coex_lpclk_slow_osc(hal->lpcon_dev, true);
         break;
@@ -251,8 +261,7 @@ void modem_clock_hal_select_wifi_lpclk_source(modem_clock_hal_context_t *hal, mo
 {
     HAL_ASSERT(src < MODEM_CLOCK_LPCLK_SRC_MAX);
 
-    switch (src)
-    {
+    switch (src) {
     case MODEM_CLOCK_LPCLK_SRC_RC_SLOW:
         modem_lpcon_ll_enable_wifi_lpclk_slow_osc(hal->lpcon_dev, true);
         break;

@@ -929,12 +929,11 @@ static inline void cache_ll_unfreeze_cache(uint32_t cache_level, cache_type_t ty
  * @param cache_id   id of the cache in this type and level (0: Core0, 1: Core1, CACHE_LL_ID_ALL: both)
  * @param vaddr      start virtual address of the preload region
  * @param size       size of the preload region in bytes
- * @param ascending  true: ascending (positive) order; false: descending (negative) order
+ * @param order      preload order
  */
 __attribute__((always_inline))
-static inline void cache_ll_l1_icache_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_l1_icache_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
-    uint32_t order = ascending ? 0 : 1;
     if (cache_id == 0) {
         Cache_Start_L1_CORE0_ICache_Preload(vaddr, size, order);
     } else if (cache_id == 1) {
@@ -972,13 +971,13 @@ static inline void cache_ll_l1_icache_preload_wait_done(uint32_t cache_id)
  * @param cache_id   id of the cache in this type and level (0 or CACHE_LL_ID_ALL)
  * @param vaddr      start virtual address of the preload region
  * @param size       size of the preload region in bytes
- * @param ascending  true: ascending (positive) order; false: descending (negative) order
+ * @param order      preload order
  */
 __attribute__((always_inline))
-static inline void cache_ll_l1_dcache_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_l1_dcache_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     if (cache_id == 0 || cache_id == CACHE_LL_ID_ALL) {
-        Cache_Start_L1_DCache_Preload(vaddr, size, ascending ? 0 : 1);
+        Cache_Start_L1_DCache_Preload(vaddr, size, order);
     }
 }
 
@@ -1005,13 +1004,13 @@ static inline void cache_ll_l1_dcache_preload_wait_done(uint32_t cache_id)
  * @param cache_id   id of the cache in this type and level (0 or CACHE_LL_ID_ALL)
  * @param vaddr      start virtual address of the preload region
  * @param size       size of the preload region in bytes
- * @param ascending  true: ascending (positive) order; false: descending (negative) order
+ * @param order      preload order
  */
 __attribute__((always_inline))
-static inline void cache_ll_l2_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_l2_preload(uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     if (cache_id == 0 || cache_id == CACHE_LL_ID_ALL) {
-        Cache_Start_L2_Cache_Preload(vaddr, size, ascending ? 0 : 1);
+        Cache_Start_L2_Cache_Preload(vaddr, size, order);
     }
 }
 
@@ -1066,36 +1065,36 @@ static inline void cache_ll_preload_set_strategy(uint32_t cache_level, cache_typ
 }
 
 /**
- * @brief Preload cache
+ * @brief Preload cache (L1 and/or L2)
  *
  * Starts preload for the given level/type and does not wait. Use
  * cache_ll_preload_wait_done() to wait for completion.
  *
- * @param cache_level  level of the cache (1: L1, 2: L2)
+ * @param cache_level  level of the cache (1: L1, 2: L2, or CACHE_LL_LEVEL_ALL)
  * @param type         see `cache_type_t` (INSTRUCTION, DATA, or ALL)
  * @param cache_id     id of the cache in this type and level (0, 1, or CACHE_LL_ID_ALL)
  * @param vaddr        start virtual address of the preload region
  * @param size         size of the preload region in bytes
- * @param ascending    true: ascending (positive) order; false: descending (negative) order
+ * @param order        preload order, see `cache_preload_order_t`
  */
 __attribute__((always_inline))
-static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     if (cache_level == 2 || cache_level == CACHE_LL_LEVEL_ALL) {
-        cache_ll_l2_preload(cache_id, vaddr, size, ascending);
+        cache_ll_l2_preload(cache_id, vaddr, size, order);
     }
     if (cache_level == 1 || cache_level == CACHE_LL_LEVEL_ALL) {
         switch (type) {
         case CACHE_TYPE_INSTRUCTION:
-            cache_ll_l1_icache_preload(cache_id, vaddr, size, ascending);
+            cache_ll_l1_icache_preload(cache_id, vaddr, size, order);
             break;
         case CACHE_TYPE_DATA:
-            cache_ll_l1_dcache_preload(cache_id, vaddr, size, ascending);
+            cache_ll_l1_dcache_preload(cache_id, vaddr, size, order);
             break;
         case CACHE_TYPE_ALL:
         default:
-            cache_ll_l1_icache_preload(cache_id, vaddr, size, ascending);
-            cache_ll_l1_dcache_preload(cache_id, vaddr, size, ascending);
+            cache_ll_l1_icache_preload(cache_id, vaddr, size, order);
+            cache_ll_l1_dcache_preload(cache_id, vaddr, size, order);
             break;
         }
     }

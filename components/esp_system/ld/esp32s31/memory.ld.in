@@ -14,10 +14,14 @@
 
 #include "sdkconfig.h"
 #include "ld.common"
+#include "ld.hp_mem_defs"
 
 #define SRAM_START     0x2F000000
-#define SRAM_END       0x2F07AFC0  /* 2nd stage bootloader iram_loader_seg start address */
-#define SRAM_SIZE      SRAM_END - SRAM_START
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+#define SRAM_SIZE      (ULP_HP_MEM_START - SRAM_START)
+#else
+#define SRAM_SIZE      (SRAM_SEG_END - SRAM_START)
+#endif
 
 #define IDROM_SEG_SIZE   (CONFIG_MMU_PAGE_SIZE << 10)
 
@@ -61,10 +65,14 @@ MEMORY
 #endif // CONFIG_APP_BUILD_USE_FLASH_SECTIONS
 
   /**
-   * lp ram memory (RWX). Persists over deep sleep. // TODO: IDF-5667
+   * lp ram memory (RWX). Persists over deep sleep.
    */
-   /* TODO: ["ESP32S31"] IDF-14640 */
-   lp_ram_seg(RW)  :                  org = 0x2E000000, len = 0x8000 - RESERVE_RTC_MEM
+#if CONFIG_ULP_COPROC_ENABLED
+  lp_ram_seg(RW)  :                 org = 0x2E000000 + CONFIG_ULP_COPROC_RESERVE_MEM,
+                                    len = 0x8000 - CONFIG_ULP_COPROC_RESERVE_MEM - RESERVE_RTC_MEM
+#else
+  lp_ram_seg(RW)  :                 org = 0x2E000000, len = 0x8000 - RESERVE_RTC_MEM
+#endif // CONFIG_ULP_COPROC_ENABLED
 
   /* We reduced the size of lp_ram_seg by RESERVE_RTC_MEM value.
      It reserves the amount of LP memory that we use for this memory segment.
@@ -72,10 +80,8 @@ MEMORY
        - (lower addr) rtc timer data (s_rtc_timer_retain_mem, see esp_clk.c files).
        - (higher addr) bootloader rtc data (s_bootloader_retain_mem, when a Kconfig option is on).
      The aim of this is to keep data that will not be moved around and have a fixed address.
-     This segment is placed at the beginning of LP RAM, as the end of LP RAM is occupied by LP ROM stack/data
   */
-  /* TODO: ["ESP32S31"] IDF-14640 */
-  lp_reserved_seg(RW) :              org = 0x2E000000 + 0x8000 - RESERVE_RTC_MEM, len = RESERVE_RTC_MEM
+  lp_reserved_seg(RW) :        org = 0x2E000000 + 0x8000 - RESERVE_RTC_MEM, len = RESERVE_RTC_MEM
 
   /* PSRAM seg */
   extern_ram_seg(RWX) :        org = 0x50000000, len = IDROM_SEG_SIZE
@@ -92,14 +98,12 @@ REGION_ALIAS("dram_seg", sram_seg);
  *  S31 has no distinguished LP(RTC) fast and slow memory sections, instead, there is a unified LP_RAM section
  *  Thus, the following region segments are not configurable like on other targets
  */
-
-  /* TODO: ["ESP32S31"] IDF-14640 */
 REGION_ALIAS("rtc_text_seg", lp_ram_seg);
 REGION_ALIAS("rtc_data_seg", lp_ram_seg);
 REGION_ALIAS("rtc_slow_seg", lp_ram_seg);
 REGION_ALIAS("rtc_force_fast_seg", lp_ram_seg);
 REGION_ALIAS("rtc_force_slow_seg", lp_ram_seg);
-REGION_ALIAS("rtc_reserved_seg", lp_reserved_seg );
+REGION_ALIAS("rtc_reserved_seg", lp_reserved_seg);
 
 #if CONFIG_APP_BUILD_USE_FLASH_SECTIONS
   REGION_ALIAS("flash_text_seg", irom_seg);
@@ -116,3 +120,8 @@ REGION_ALIAS("rtc_reserved_seg", lp_reserved_seg );
 #endif //#if CONFIG_SPIRAM_XIP_FROM_PSRAM
 
 ALIGN_VECTOR_TABLE = 0x40;
+
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+_ulp_hp_mem_resv_start = ULP_HP_MEM_START;
+_ulp_hp_mem_resv_end   = ULP_HP_MEM_END;
+#endif

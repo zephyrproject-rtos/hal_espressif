@@ -219,14 +219,21 @@ static inline void cache_ll_preload_set_strategy(uint32_t cache_level, cache_typ
  * @brief Preload cache (L1 unified)
  *
  * Starts preload and does not wait. Use cache_ll_preload_wait_done() to wait for completion.
+ *
+ * @param cache_level  level of the cache (CACHE_LL_LEVEL_EXT_MEM or CACHE_LL_LEVEL_ALL)
+ * @param type         see `cache_type_t`
+ * @param cache_id     id of the cache (unused; pass 0)
+ * @param vaddr        start virtual address of the preload region
+ * @param size         size of the preload region in bytes
+ * @param order        preload order, see `cache_preload_order_t`
  */
 __attribute__((always_inline))
-static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, bool ascending)
+static inline void cache_ll_preload(uint32_t cache_level, cache_type_t type, uint32_t cache_id, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 {
     (void)cache_id;
     (void)type;
     HAL_ASSERT(cache_level == CACHE_LL_LEVEL_EXT_MEM);
-    Cache_Start_Preload(vaddr, size, ascending ? 0 : 1);
+    Cache_Start_Preload(vaddr, size, order);
 }
 
 /**

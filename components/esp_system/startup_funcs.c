@@ -13,7 +13,6 @@
 #include "esp_check.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "esp_newlib.h"
 #include "esp_xt_wdt.h"
 #include "esp_cpu.h"
 #include "esp_private/startup_internal.h"
@@ -90,12 +89,6 @@ ESP_SYSTEM_INIT_FN(init_brownout, CORE, BIT(0), 105)
     return ret;
 }
 #endif
-
-ESP_SYSTEM_INIT_FN(init_newlib_time, CORE, BIT(0), 106)
-{
-    esp_libc_time_init();
-    return ESP_OK;
-}
 
 #if CONFIG_ESP_XT_WDT
 ESP_SYSTEM_INIT_FN(init_xt_wdt, CORE, BIT(0), 170)

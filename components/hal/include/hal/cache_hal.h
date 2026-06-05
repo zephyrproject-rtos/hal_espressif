@@ -156,9 +156,9 @@ uint32_t cache_hal_get_cache_line_size(uint32_t cache_level, cache_type_t type);
  * @param vaddr        Start virtual address of the region to preload
  * @param size         Size in bytes. Should be cache-line aligned; if not,
  *                     the actual preloaded length is rounded down to cache-line boundary.
- * @param ascending    true for ascending order, false for descending
+ * @param order        preload order
  */
-void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, bool ascending);
+void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, cache_preload_order_t order);
 
 /**
  * @brief Wait until cache preload started by cache_hal_preload() is done

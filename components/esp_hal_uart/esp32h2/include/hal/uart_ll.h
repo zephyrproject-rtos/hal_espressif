@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -87,6 +87,10 @@ typedef enum {
     UART_INTR_CMD_CHAR_DET     = (0x1 << 18),
     UART_INTR_WAKEUP           = (0x1 << 19),
 } uart_intr_t;
+
+typedef enum {
+    UART_LL_MEM_LP_MODE_SHUT_DOWN, // force memory low power
+} uart_ll_mem_lp_mode_t;
 
 /**
  * @brief Check if UART is enabled or disabled.
@@ -234,6 +238,62 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, soc_module_clk_t *source
         *source_clk = (soc_module_clk_t)UART_SCLK_XTAL;
         break;
     }
+}
+
+/**
+ * @brief  Force UART memory block powered on by software.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_power_on(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_force_pd = 0;
+    hw->mem_conf.mem_force_pu = 1;
+}
+
+/**
+ * @brief  Force UART memory block in low power by software.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_force_low_power(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_force_pu = 0;
+    hw->mem_conf.mem_force_pd = 1;
+}
+
+/**
+ * @brief  Control UART memory block by PMU logic.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_power_by_pmu(uart_port_t uart_num)
+{
+    uart_dev_t *hw = UART_LL_GET_HW(uart_num);
+    hw->mem_conf.mem_force_pd = 0;
+    hw->mem_conf.mem_force_pu = 0;
+}
+
+/**
+ * @brief  Set UART memory low power mode in low power stage.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ * @param  mode UART memory low power mode.
+ *
+ * @return None.
+ */
+FORCE_INLINE_ATTR void uart_ll_mem_set_low_power_mode(uart_port_t uart_num, uart_ll_mem_lp_mode_t mode)
+{
+    HAL_ASSERT(mode == UART_LL_MEM_LP_MODE_SHUT_DOWN);
+    (void)uart_num;
 }
 
 /**

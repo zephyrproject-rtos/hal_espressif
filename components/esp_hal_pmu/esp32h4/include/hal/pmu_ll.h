@@ -578,13 +578,6 @@ FORCE_INLINE_ATTR void pmu_ll_hp_set_memory_power_on_mask(pmu_dev_t *hw, uint32_
     hw->power.mem_mask.mem2_mask = (mem_mask & BIT(2)) ? 1 : 0;
 }
 
-FORCE_INLINE_ATTR void pmu_ll_hp_set_memory_power_off_mask(pmu_dev_t *hw, uint32_t mem0_pd_mask, uint32_t mem1_pd_mask, uint32_t mem2_pd_mask)
-{
-    hw->power.mem_mask.mem0_pd_mask = mem0_pd_mask;
-    hw->power.mem_mask.mem1_pd_mask = mem1_pd_mask;
-    hw->power.mem_mask.mem2_pd_mask = mem2_pd_mask;
-}
-
 FORCE_INLINE_ATTR void pmu_ll_hp_set_vdd_flash_tiel_enable(pmu_dev_t *hw, bool enable)
 {
     hw->power.vdd_flash.ldo_tiel_en = enable;
@@ -650,6 +643,11 @@ FORCE_INLINE_ATTR void pmu_ll_hp_clear_wakeup_intr_status(pmu_dev_t *hw)
 FORCE_INLINE_ATTR void pmu_ll_hp_clear_reject_intr_status(pmu_dev_t *hw)
 {
     hw->hp_ext.int_clr.soc_sleep_reject = 1;
+}
+
+FORCE_INLINE_ATTR uint32_t pmu_ll_hp_get_wakeup_enable(pmu_dev_t *hw)
+{
+    return hw->wakeup.cntl2;
 }
 
 FORCE_INLINE_ATTR uint32_t pmu_ll_hp_get_wakeup_cause(pmu_dev_t *hw)

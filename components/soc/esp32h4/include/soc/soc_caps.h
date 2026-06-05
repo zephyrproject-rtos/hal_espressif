@@ -31,8 +31,8 @@
 #define _SOC_CAPS_TARGET_IS_ESP32H4        1 // [gen_soc_caps:ignore]
 
 /*-------------------------- COMMON CAPS ---------------------------------------*/
-// #define SOC_ADC_SUPPORTED               1    // TODO: [ESP32H4] IDF-12368 IDF-12370
-// #define SOC_ANA_CMPR_SUPPORTED          1    // TODO: [ESP32H4] IDF-12395 big change!!
+#define SOC_ADC_SUPPORTED               1
+#define SOC_ANA_CMPR_SUPPORTED          1
 #define SOC_DEDICATED_GPIO_SUPPORTED    1
 #define SOC_UART_SUPPORTED              1
 #define SOC_UHCI_SUPPORTED              1
@@ -53,7 +53,7 @@
 #define SOC_ASYNC_MEMCPY_SUPPORTED      1
 #define SOC_USB_OTG_SUPPORTED           1
 #define SOC_USB_SERIAL_JTAG_SUPPORTED   1
-// #define SOC_TEMP_SENSOR_SUPPORTED       1    // TODO: [ESP32H4] IDF-12404
+#define SOC_TEMP_SENSOR_SUPPORTED       1
 // #define SOC_SUPPORTS_SECURE_DL_MODE     1
 #define SOC_EFUSE_KEY_PURPOSE_FIELD     1
 #define SOC_EFUSE_SUPPORTED             1
@@ -64,17 +64,17 @@
 #define SOC_GPSPI_SUPPORTED             1
 #define SOC_LEDC_SUPPORTED              1
 #define SOC_I2C_SUPPORTED               1
+#define SOC_RNG_SUPPORTED               1
 #define SOC_SYSTIMER_SUPPORTED          1
 // #define SOC_SUPPORT_COEXISTENCE         1    // TODO: [ESP32H4] IDF-12251 IDF-12252 IDF-12253
 #define SOC_AES_SUPPORTED               1
 #define SOC_SHA_SUPPORTED               1
-// #define SOC_HMAC_SUPPORTED              0    // TODO: [ESP32H4] IDF-12257
+#define SOC_HMAC_SUPPORTED              1
 #define SOC_ECC_SUPPORTED               1
 #define SOC_ECC_EXTENDED_MODES_SUPPORTED   1
-#define SOC_FLASH_ENC_SUPPORTED         1       // TODO: [ESP32H4] IDF-12261
-// #define SOC_SECURE_BOOT_SUPPORTED       1    // TODO: [ESP32H4] IDF-12262
-
-// #define SOC_BOD_SUPPORTED               1    // TODO: [ESP32H4] IDF-12295
+#define SOC_FLASH_ENC_SUPPORTED         1
+#define SOC_SECURE_BOOT_SUPPORTED       1
+#define SOC_BOD_SUPPORTED               1
 // #define SOC_APM_SUPPORTED               1    // TODO: [ESP32H4] IDF-12256
 #define SOC_PMU_SUPPORTED               1    // TODO: [ESP32H4] IDF-12286
 #define SOC_PAU_SUPPORTED               1
@@ -85,9 +85,11 @@
 #define SOC_REGI2C_SUPPORTED           1
 #define SOC_CLK_TREE_SUPPORTED          1
 #define SOC_ASSIST_DEBUG_SUPPORTED      1
+#define SOC_CPU_LOCKUP_DEBUG_SUPPORTED  1
 #define SOC_WDT_SUPPORTED               1
 #define SOC_RTC_WDT_SUPPORTED           1
 #define SOC_SPI_FLASH_SUPPORTED         1
+#define SOC_ECDSA_SUPPORTED             1
 #define SOC_SPIRAM_SUPPORTED            1
 #define SOC_LIGHT_SLEEP_SUPPORTED       1
 #define SOC_DEEP_SLEEP_SUPPORTED        1
@@ -110,46 +112,38 @@
 
 /*-------------------------- ADC CAPS -------------------------------*/
 /*!< SAR ADC Module*/
-// #define SOC_ADC_DIG_CTRL_SUPPORTED              1
-// #define SOC_ADC_DIG_IIR_FILTER_SUPPORTED        1
-// #define SOC_ADC_MONITOR_SUPPORTED               1
-// #define SOC_ADC_DIG_SUPPORTED_UNIT(UNIT)        1    //Digital controller supported ADC unit
-// #define SOC_ADC_DMA_SUPPORTED                   1
+#define SOC_ADC_DIG_CTRL_SUPPORTED              1
+#define SOC_ADC_DIG_IIR_FILTER_SUPPORTED        1
+#define SOC_ADC_MONITOR_SUPPORTED               1
+#define SOC_ADC_DMA_SUPPORTED                   1
 #define SOC_ADC_PERIPH_NUM                      (1U)
-#define SOC_ADC_CHANNEL_NUM(PERIPH_NUM)         (7)
-#define SOC_ADC_MAX_CHANNEL_NUM                 (7)
+#define SOC_ADC_CHANNEL_NUM(PERIPH_NUM)         (5)
 #define SOC_ADC_ATTEN_NUM                       (4)
 
 /*!< Digital */
-// #define SOC_ADC_DIGI_CONTROLLER_NUM             (1U)
-// #define SOC_ADC_PATT_LEN_MAX                    (8) /*!< Two pattern tables, each contains 4 items. Each item takes 1 byte */
-// #define SOC_ADC_DIGI_MAX_BITWIDTH               (12)
-// #define SOC_ADC_DIGI_MIN_BITWIDTH               (12)
-// #define SOC_ADC_DIGI_IIR_FILTER_NUM             (2)
-// #define SOC_ADC_DIGI_MONITOR_NUM                (2)
-// #define SOC_ADC_DIGI_RESULT_BYTES               (4)
-// #define SOC_ADC_DIGI_DATA_BYTES_PER_CONV        (4)
-/*!< F_sample = F_digi_con / 2 / interval. F_digi_con = 5M for now. 30 <= interval <= 4095 */
-// #define SOC_ADC_SAMPLE_FREQ_THRES_HIGH          83333
-// #define SOC_ADC_SAMPLE_FREQ_THRES_LOW           611
-
-/*!< RTC */
-// #define SOC_ADC_RTC_MIN_BITWIDTH                (12)
-// #define SOC_ADC_RTC_MAX_BITWIDTH                (12)
-
+#define SOC_ADC_PATT_LEN_MAX                    (8) /*!< Two pattern tables, each contains 4 items. Each item takes 1 byte */
+#define SOC_ADC_DIGI_MIN_BITWIDTH               (12)
+#define SOC_ADC_DIGI_MAX_BITWIDTH               (12)
+#define SOC_ADC_DIGI_MONITOR_NUM                (2)
+#define SOC_ADC_DIGI_RESULT_BYTES               (4)
+#define SOC_ADC_DIGI_DATA_BYTES_PER_CONV        (4)
 /*!< Calibration */
 // #define SOC_ADC_CALIBRATION_V1_SUPPORTED        (1) /*!< support HW offset calibration version 1*/
 // #define SOC_ADC_SELF_HW_CALI_SUPPORTED          (1) /*!< support HW offset self calibration */
 // #define SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED (1) /*!< support channel compensation to the HW offset calibration */
 
 /*!< Interrupt */
-// #define SOC_ADC_TEMPERATURE_SHARE_INTR          (1)
+#define SOC_ADC_TEMPERATURE_SHARE_INTR          (1)
 
 /*!< ADC power control is shared by PWDET */
-// #define SOC_ADC_SHARED_POWER                    1
+#define SOC_ADC_SHARED_POWER                    1
 
 /*-------------------------- APB BACKUP DMA CAPS -------------------------------*/
 #define SOC_APB_BACKUP_DMA              (0)
+
+/*------------------------- Analog Comparator CAPS ---------------------------*/
+#define SOC_ANA_CMPR_SUPPORT_ETM               (1)
+#define SOC_ANA_CMPR_SUPPORT_ETM_SCAN          (1)
 
 /*-------------------------- BROWNOUT CAPS -----------------------------------*/
 // #define SOC_BROWNOUT_RESET_SUPPORTED 1
@@ -222,6 +216,7 @@
 #define SOC_GPIO_SUPPORT_HP_PERIPH_PD_SLEEP_WAKEUP      (1)
 #define SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP               SOC_GPIO_SUPPORT_HP_PERIPH_PD_SLEEP_WAKEUP
 #define SOC_GPIO_HP_PERIPH_PD_SLEEP_WAKEABLE_MASK       (0ULL | BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5)
+#define SOC_RTC_GPIO_EDGE_WAKEUP_SUPPORTED              (1)
 
 // digital I/O pad powered by VDD3P3_CPU or VDD_SPI(GPIO_NUM_6~GPIO_NUM_39)
 #define SOC_GPIO_VALID_DIGITAL_IO_PAD_MASK  (SOC_GPIO_VALID_GPIO_MASK & ~((1ULL<<6) - 1))
@@ -291,7 +286,6 @@
 
 /*-------------------------- MMU CAPS ----------------------------------------*/
 #define SOC_MMU_PAGE_SIZE_CONFIGURABLE        (1)
-#define SOC_MMU_PAGE_SIZE_8KB_SUPPORTED       (1)
 #define SOC_MMU_PERIPH_NUM                    (1U)
 #define SOC_MMU_LINEAR_ADDRESS_REGION_NUM     (1U)
 #define SOC_MMU_DI_VADDR_SHARED               (1) /*!< D/I vaddr are shared */
@@ -359,6 +353,14 @@
 
 /*--------------------------- ECC CAPS ---------------------------------------*/
 #define SOC_ECC_CONSTANT_TIME_POINT_MUL           1
+#define SOC_ECC_SUPPORT_CURVE_P384      (1)
+
+/*--------------------------- ECDSA CAPS ---------------------------------------*/
+#define SOC_ECDSA_SUPPORT_EXPORT_PUBKEY     (1)
+#define SOC_ECDSA_SUPPORT_DETERMINISTIC_MODE   (1)
+#define SOC_ECDSA_SUPPORT_HW_DETERMINISTIC_LOOP (1)
+#define SOC_ECDSA_SUPPORT_CURVE_P384 (1)
+#define SOC_ECDSA_SUPPORT_CURVE_SPECIFIC_KEY_PURPOSES (1)  /*!< Support individual key purposes for different ECDSA curves (P192, P256, P384) */
 
 /*-------------------------- SPI CAPS ----------------------------------------*/
 #define SOC_SPI_PERIPH_NUM                  3
@@ -391,6 +393,7 @@
 
 /*--------------------------- WATCHDOG CAPS ---------------------------------------*/
 #define SOC_MWDT_SUPPORT_XTAL              (1)
+#define SOC_MWDT_SUPPORT_SLEEP_RETENTION   (1)
 
 /*-------------------------- TWAI CAPS ---------------------------------------*/
 #define SOC_TWAI_CONTROLLER_NUM             1U
@@ -407,21 +410,26 @@
 #define SOC_EFUSE_DIS_ICACHE 0
 #define SOC_EFUSE_BLOCK9_KEY_PURPOSE_QUIRK 1  // XTS-AES key purpose not supported for this block
 #define SOC_EFUSE_ECDSA_KEY 1
+#define SOC_EFUSE_ECDSA_KEY_P192 1
+#define SOC_EFUSE_ECDSA_KEY_P384 1
 #define SOC_EFUSE_XTS_AES_KEY_128 1
 #define SOC_EFUSE_XTS_AES_KEY_256 1
 
 /*-------------------------- Secure Boot CAPS----------------------------*/
-#define SOC_SECURE_BOOT_V2_RSA              1
+#define SOC_SECURE_BOOT_V2_RSA              0
 #define SOC_SECURE_BOOT_V2_ECC              1
 #define SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS   3
+#define SOC_EFUSE_SECURE_BOOT_P384_WR_DIS   1
 #define SOC_EFUSE_REVOKE_BOOT_KEY_DIGESTS   1
 #define SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY  1
 
 /*-------------------------- Flash Encryption CAPS----------------------------*/
 #define SOC_FLASH_ENCRYPTED_XTS_AES_BLOCK_MAX   (64)
-#define SOC_FLASH_ENCRYPTION_XTS_AES        1
-#define SOC_FLASH_ENCRYPTION_XTS_AES_128    1
-#define SOC_FLASH_ENCRYPTION_XTS_AES_256    1
+#define SOC_FLASH_ENCRYPTION_XTS_AES            1
+#define SOC_FLASH_ENCRYPTION_XTS_AES_OPTIONS    1
+#define SOC_FLASH_ENCRYPTION_XTS_AES_128        1
+#define SOC_FLASH_ENCRYPTION_XTS_AES_256        1
+#define SOC_FLASH_ENCRYPTION_XTS_AES_SUPPORT_PSEUDO_ROUND  1
 
 /*-------------------------- APM CAPS ----------------------------------------*/
 #define SOC_APM_CTRL_FILTER_SUPPORTED   1 /*!< Support for APM control filter */
@@ -463,7 +471,7 @@
 
 // TODO: IDF-12286 (inherit from verify code, need check)
 /*-------------------------- Power Management CAPS ----------------------------*/
-// #define SOC_PM_SUPPORT_BT_WAKEUP        (1)
+#define SOC_PM_SUPPORT_BT_WAKEUP        (1)
 #define SOC_PM_SUPPORT_EXT1_WAKEUP      (1)
 #define SOC_PM_SUPPORT_EXT1_WAKEUP_MODE_PER_PIN   (1) /*!<Supports one bit per pin to configure the EXT1 trigger level */
 #define SOC_PM_SUPPORT_TOUCH_WAKEUP     (1)
@@ -476,7 +484,7 @@
 #define SOC_PM_SUPPORT_TOP_PD           (1)
 #define SOC_PM_SUPPORT_HP_AON_PD        (1)
 #define SOC_PM_SUPPORT_MAC_BB_PD        (1)
-// #define SOC_PM_SUPPORT_RTC_PERIPH_PD    (1)      // TODO： [ESP32H4] PM-484
+#define SOC_PM_SUPPORT_RTC_PERIPH_PD    (1)
 
 // #define SOC_PM_SUPPORT_PMU_MODEM_STATE  (1)
 // /* macro redefine for pass esp_wifi headers md5sum check */
@@ -488,17 +496,23 @@
 #define SOC_PM_CPU_RETENTION_BY_SW          (1)
 #define SOC_PM_FPU_RETENTION_BY_SW          (1)
 #define SOC_PM_MODEM_RETENTION_BY_REGDMA    (1)
-#define SOC_PM_MODEM_CLK_CONF_RETENTION     (1)  /*!< In esp32H4, i2c lpcon is placed in top domain*/
 #define SOC_EXT_MEM_CACHE_TAG_IN_CPU_DOMAIN (1)
 
 #define SOC_PM_PAU_LINK_NUM                 (4)
 #define SOC_PM_PAU_REGDMA_LINK_CONFIGURABLE (1)
 #define SOC_PM_RETENTION_MODULE_NUM         (64)
 
+#define SOC_PM_TOP_DEPENDS_ON_RTC_PERIPH    (1) // In ESP32H4, RTC_PERIPH should be pd only together with TOP, otherwise there is some current leak.
+#define SOC_PM_BBPLL_PD_IN_MODEM_STATE      (1)
+#define SOC_PM_MODEM_LOCK_CLK_WORKAROUND    (1) // In ESP32H4, the modem lock will lock the xtalx2, bbpll and other xpd state during modem2active.
+
+#define SOC_PM_FLASH_KEEP_POWER_IN_LSLP     (1)  /*!<Keep flash on in light sleep to reduce wake latency*/
+
 /*-------------------------- CLOCK SUBSYSTEM CAPS ----------------------------------------*/
 #define SOC_CLK_RC_FAST_SUPPORT_CALIBRATION       (1)
 
 #define SOC_MODEM_CLOCK_IS_INDEPENDENT            (1)
+#define SOC_RNG_CLOCK_IS_INDEPENDENT              (1)
 
 #define SOC_CLK_XTAL32K_SUPPORTED                 (1)     /*!< Support to connect an external low frequency crystal */
 #define SOC_CLK_OSC_SLOW_SUPPORTED                (1)     /*!< Support to connect an external oscillator, not a crystal */
@@ -506,11 +520,14 @@
 #define SOC_CLK_LP_FAST_SUPPORT_XTAL_D2           (1)     /*!< Support XTAL_D2 clock as the LP_FAST clock source */
 
 #define SOC_RCC_IS_INDEPENDENT                    1       /*!< Reset and Clock Control is independent, thanks to the PCR registers */
-
+/*-------------------------- Memory CAPS --------------------------*/
+#define SOC_ASYNCHRONOUS_BUS_ERROR_MODE           (1)
 /*-------------------------- Temperature Sensor CAPS -------------------------------------*/
-// #define SOC_TEMPERATURE_SENSOR_SUPPORT_FAST_RC                (1)
-// #define SOC_TEMPERATURE_SENSOR_SUPPORT_XTAL                   (1)
-// #define SOC_TEMPERATURE_SENSOR_INTR_SUPPORT                   (1)
+#define SOC_TEMPERATURE_SENSOR_SUPPORT_FAST_RC                (1)
+#define SOC_TEMPERATURE_SENSOR_SUPPORT_XTAL                   (1)
+#define SOC_TEMPERATURE_SENSOR_INTR_SUPPORT                   (1)
+#define SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION         (1)
+#define SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN            (1)
 
 /*-------------------------- TOUCH SENSOR CAPS -------------------------------*/
 #define SOC_TOUCH_SENSOR_VERSION                    (3)     /*!< Hardware version of touch sensor */
@@ -527,7 +544,9 @@
 
 /*---------------------------------- Bluetooth CAPS ----------------------------------*/
 #define SOC_BLE_SUPPORTED                           (1)     /*!< Support Bluetooth Low Energy hardware */
-// #define SOC_BLE_MESH_SUPPORTED                      (1)     /*!< Support BLE MESH */
+#define SOC_BLE_MESH_SUPPORTED                      (1)     /*!< Support BLE MESH */
+#define SOC_BLE_ISO_SUPPORTED                       (1)     /*!< Support BLE ISO */
+#define SOC_BLE_AUDIO_SUPPORTED                     (1)     /*!< Support BLE Audio */
 #define SOC_ESP_NIMBLE_CONTROLLER                   (1)     /*!< Support BLE EMBEDDED controller V1 */
 #define SOC_BLE_50_SUPPORTED                        (1)     /*!< Support Bluetooth 5.0 */
 #define SOC_BLE_DEVICE_PRIVACY_SUPPORTED            (1)     /*!< Support BLE device privacy mode */
@@ -537,7 +556,6 @@
 #define SOC_BLE_CTE_SUPPORTED                       (1)     /*!< Support Bluetooth LE Constant Tone Extension (CTE) */
 #define SOC_BLE_SUBRATE_SUPPORTED                   (1)     /*!< Support Bluetooth LE Connection Subrating */
 #define SOC_BLE_PERIODIC_ADV_WITH_RESPONSE          (1)     /*!< Support Bluetooth LE Periodic Advertising with Response (PAwR) */
-#define SOC_BLE_ISO_SUPPORTED                       (1)     /*!< Support Bluetooth ISO */
 
 /*-------------------------- USB CAPS ----------------------------------------*/
 #define SOC_USB_OTG_PERIPH_NUM          (1U)

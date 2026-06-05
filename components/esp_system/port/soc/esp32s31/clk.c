@@ -23,7 +23,9 @@
 #include "hal/wdt_hal.h"
 #endif
 #include "esp_private/esp_sleep_internal.h"
+#include "esp_private/esp_modem_clock.h"
 #include "esp_private/periph_ctrl.h"
+#include "hal/clk_gate_ll.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/esp_pmu.h"
 #include "esp_rom_serial_output.h"
@@ -186,5 +188,13 @@ void rtc_clk_select_rtc_slow_clk(void)
  */
 __attribute__((weak)) void esp_perip_clk_init(void)
 {
+#if CONFIG_ESP_WIFI_ENABLED
+    soc_rtc_slow_clk_src_t rtc_slow_clk_src = rtc_clk_slow_src_get();
+    modem_clock_lpclk_src_t modem_lpclk_src = (modem_clock_lpclk_src_t)(
+                                                  (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) ? MODEM_CLOCK_LPCLK_SRC_XTAL32K
+                                                  : MODEM_CLOCK_LPCLK_SRC_RC_SLOW);
+    modem_clock_select_lp_clock_source(PERIPH_WIFI_MODULE, modem_lpclk_src, 0);
+#endif
 
+    periph_ll_clk_gate_set_default(esp_rom_get_reset_reason(0));
 }

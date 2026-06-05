@@ -14,14 +14,23 @@
 
 #include "sdkconfig.h"
 #include "ld.common"
+#include "ld.hp_mem_defs"
 
 #if !CONFIG_ESP32P4_SELECTS_REV_LESS_V3
 #define SRAM_START       0x4FF00000 + CONFIG_CACHE_L2_CACHE_SIZE
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+#define SRAM_END         ULP_HP_MEM_START
+#else
 #define SRAM_END         0x4FFAEFC0  /* 2nd stage bootloader iram_loader_seg start address */
+#endif
 #define SRAM_SIZE        SRAM_END - SRAM_START
 #else
 #define SRAM_LOW_START     0x4FF00000
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+#define SRAM_LOW_END       ULP_HP_MEM_START
+#else
 #define SRAM_LOW_END       0x4FF2CBD0  /* 2nd stage bootloader iram_loader_seg start address */
+#endif
 #define SRAM_LOW_SIZE      SRAM_LOW_END - SRAM_LOW_START
 
 /* If the cache size is less than 512KB, then there is a region of RAM
@@ -209,3 +218,8 @@ REGION_ALIAS("rtc_reserved_seg", lp_reserved_seg );
 #endif //#if CONFIG_SPIRAM_XIP_FROM_PSRAM
 
 ALIGN_VECTOR_TABLE = 0x40;
+
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+_ulp_hp_mem_resv_start = ULP_HP_MEM_START;
+_ulp_hp_mem_resv_end   = ULP_HP_MEM_END;
+#endif

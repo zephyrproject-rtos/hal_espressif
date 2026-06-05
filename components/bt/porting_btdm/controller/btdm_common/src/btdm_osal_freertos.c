@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "btdm_osal_freertos.h"
+#include "btdm_user_cfg.h"
 #include "btdm_mempool.h"
 
 #include "esp_mac.h"
@@ -48,7 +49,7 @@ struct btdm_intr_alloc_params {
     };
 };
 
-static const char *TAG = "TBTDM OSAL";
+static const char *TAG __attribute__((unused)) = "BTDM OSAL";
 
 struct btdm_mempool s_btdm_osal_ev_pool;
 static btdm_membuf_t *s_btdm_osal_ev_buf = NULL;
@@ -1147,7 +1148,7 @@ wr_btdm_osal_free(void *ptr)
     heap_caps_free(ptr);
 }
 
-#if !CONFIG_BTDM_CTRL_MULTI_LINK_ENABLED
+#if !CONFIG_BT_CTRL_MULTI_LINK_ENABLED
 void *
 wr_btdm_osal_mmgmt_block_malloc(uint32_t size)
 {
@@ -1180,7 +1181,7 @@ wr_btdm_osal_mmgmt_block_copy(void *dst, const void *src, uint16_t size)
     extern void r_ble_lll_mmgmt_block_copy(void *addr0, void *addr1, uint16_t size);
     r_ble_lll_mmgmt_block_copy((void *)dst, (void *)src, size);
 }
-#endif /* !CONFIG_BTDM_CTRL_MULTI_LINK_ENABLED */
+#endif /* !CONFIG_BT_CTRL_MULTI_LINK_ENABLED */
 
 /*
  ***************************************************************************************************
@@ -1208,15 +1209,16 @@ wr_btdm_osal_srand(uint32_t seed)
 int
 wr_btdm_osal_rand(void)
 {
-    // TODO: use esp_random
-    // return (int)esp_random();
-
+#if CONFIG_SOC_RNG_SUPPORTED
+    return (int)esp_random();
+#else
     static bool first = true;
 
     if (first) {
         uint8_t mac[6];
         uint32_t seed;
 
+        ESP_LOGW(TAG, "Hardware RNG not supported; using insecure software random instead.");
         first = false;
         btdm_osal_read_efuse_mac(mac);
         seed = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
@@ -1224,6 +1226,7 @@ wr_btdm_osal_rand(void)
     }
 
     return rand();
+#endif // CONFIG_SOC_RNG_SUPPORTED
 }
 
 /*

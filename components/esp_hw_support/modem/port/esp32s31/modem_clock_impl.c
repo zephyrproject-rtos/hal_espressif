@@ -11,17 +11,18 @@
 #include "esp_private/regi2c_ctrl.h"
 
 /* Clock dependency definitions */
-#define WIFI_CLOCK_DEPS                     ( MODEM_CLOCKS( WIFI_MAC, WIFI_APB, WIFI_BB, WIFI_BB_44M, COEXIST ) )
-#define BLE_CLOCK_DEPS                      ( MODEM_CLOCKS( BLE_MAC, BT_I154_COMMON_BB, ETM, COEXIST ) )
-#define IEEE802154_CLOCK_DEPS               ( MODEM_CLOCKS( 802154_MAC, BT_I154_COMMON_BB, ETM, COEXIST ) )
-#define COEXIST_CLOCK_DEPS                  ( MODEM_CLOCKS( COEXIST ) )
+#define WIFI_CLOCK_DEPS                     ( MODEM_CLOCKS( WIFI_MAC, WIFI_APB, WIFI_BB, WIFI_BB_44M, COEXIST, WIFI_BB_80X1, SOC_PLL_SOURCE_CG ) )
+#define BLE_CLOCK_DEPS                      ( MODEM_CLOCKS( BLE_MAC, BT_I154_COMMON_BB, ETM, COEXIST, WIFI_BB_80X1, SOC_PLL_SOURCE_CG ) )
+#define IEEE802154_CLOCK_DEPS               ( MODEM_CLOCKS( 802154_MAC, BT_I154_COMMON_BB, ETM, COEXIST, WIFI_BB_80X1, SOC_PLL_SOURCE_CG ) )
+#define COEXIST_CLOCK_DEPS                  ( MODEM_CLOCKS( COEXIST, SOC_PLL_SOURCE_CG ) )
 #define I2C_ANA_MST_CLOCK_DEPS              ( MODEM_CLOCKS( I2C_MASTER ) )
-#define PHY_CLOCK_DEPS                      ( MODEM_CLOCKS( MODEM_ADC_COMMON_FE, MODEM_PRIVATE_FE ) | I2C_ANA_MST_CLOCK_DEPS )
+#define PHY_CLOCK_DEPS                      ( MODEM_CLOCKS( MODEM_ADC_COMMON_FE, MODEM_PRIVATE_FE, SOC_PLL_SOURCE_CG ) | I2C_ANA_MST_CLOCK_DEPS )
 #define MODEM_ETM_CLOCK_DEPS                ( MODEM_CLOCKS( ETM ) )
-#define MODEM_ADC_COMMON_FE_CLOCK_DEPS      ( MODEM_CLOCKS( MODEM_ADC_COMMON_FE ) )
-#define PHY_CALIBRATION_WIFI_CLOCK_DEPS     ( MODEM_CLOCKS( WIFI_APB, WIFI_BB, WIFI_BB_44M ) )
-#define PHY_CALIBRATION_BT_I154_CLOCK_DEPS  ( MODEM_CLOCKS( WIFI_APB, WIFI_BB_44M, BT_I154_COMMON_BB ) )
+#define MODEM_ADC_COMMON_FE_CLOCK_DEPS      ( MODEM_CLOCKS( MODEM_ADC_COMMON_FE, SOC_PLL_SOURCE_CG ) )
+#define PHY_CALIBRATION_WIFI_CLOCK_DEPS     ( MODEM_CLOCKS( WIFI_APB, WIFI_BB, WIFI_BB_44M, WIFI_BB_80X1, SOC_PLL_SOURCE_CG ) )
+#define PHY_CALIBRATION_BT_I154_CLOCK_DEPS  ( MODEM_CLOCKS( WIFI_APB, WIFI_BB_44M, BT_I154_COMMON_BB, SOC_PLL_SOURCE_CG ) )
 #define PHY_CALIBRATION_CLOCK_DEPS          ( PHY_CALIBRATION_WIFI_CLOCK_DEPS | PHY_CALIBRATION_BT_I154_CLOCK_DEPS )
+
 
 uint32_t IRAM_ATTR modem_clock_get_module_deps(shared_periph_module_t module)
 {
@@ -61,7 +62,17 @@ static void IRAM_ATTR modem_clock_wifi_mac_configure(modem_clock_context_t *ctx,
 static void IRAM_ATTR modem_clock_wifi_bb_configure(modem_clock_context_t *ctx, bool enable)
 {
     if (enable || !(ctx->modem_status & MODEM_STATUS_WIFI_INITED)) {
+        if (enable) {
+            modem_syscon_ll_reset_wifibb(ctx->hal->syscon_dev);
+        }
         modem_syscon_ll_clk_wifibb_configure(ctx->hal->syscon_dev, enable);
+    }
+}
+
+static void IRAM_ATTR modem_clock_wifi_bb_80x1_configure(modem_clock_context_t *ctx, bool enable)
+{
+    if (enable || !(ctx->modem_status & MODEM_STATUS_WIFI_INITED)) {
+        modem_syscon_ll_enable_wifibb_80x1_clock(ctx->hal->syscon_dev, enable);
     }
 }
 
@@ -76,6 +87,11 @@ static esp_err_t IRAM_ATTR modem_clock_wifi_mac_check_enable(modem_clock_context
 static esp_err_t IRAM_ATTR modem_clock_wifi_bb_check_enable(modem_clock_context_t *ctx)
 {
     return modem_syscon_ll_wifibb_clock_is_enabled(ctx->hal->syscon_dev) ? ESP_OK : ESP_FAIL;
+}
+
+static esp_err_t IRAM_ATTR modem_clock_wifi_bb_80x1_check_enable(modem_clock_context_t *ctx)
+{
+    return modem_syscon_ll_wifibb_80x1_clock_is_enabled(ctx->hal->syscon_dev) ? ESP_OK : ESP_FAIL;
 }
 #endif
 #endif
@@ -169,6 +185,13 @@ static void IRAM_ATTR modem_clock_coex_configure(modem_clock_context_t *ctx, boo
     modem_lpcon_ll_enable_coex_clock(ctx->hal->lpcon_dev, enable);
 }
 
+#if SOC_MODEM_CLOCK_SOC_PLL_SOURCE_CG_SUPPORTED
+static void IRAM_ATTR modem_clock_soc_pll_source_cg_configure(modem_clock_context_t *ctx, bool enable)
+{
+    modem_clock_hal_enable_soc_pll_source_cg(ctx->hal, enable);
+}
+#endif
+
 static void IRAM_ATTR modem_clock_modem_adc_common_fe_configure(modem_clock_context_t *ctx, bool enable)
 {
     modem_clock_hal_enable_modem_common_fe_clock(ctx->hal, enable);
@@ -205,6 +228,13 @@ static esp_err_t IRAM_ATTR modem_clock_coex_check_enable(modem_clock_context_t *
     return modem_lpcon_ll_coex_clock_is_enabled(ctx->hal->lpcon_dev) ? ESP_OK : ESP_FAIL;
 }
 
+#if SOC_MODEM_CLOCK_SOC_PLL_SOURCE_CG_SUPPORTED
+static esp_err_t IRAM_ATTR modem_clock_soc_pll_source_cg_check_enable(modem_clock_context_t *ctx)
+{
+    return modem_clock_hal_soc_pll_source_cg_is_enabled(ctx->hal) ? ESP_OK : ESP_FAIL;
+}
+#endif
+
 static esp_err_t IRAM_ATTR modem_clock_modem_adc_common_fe_check_enable(modem_clock_context_t *ctx)
 {
     return modem_clock_hal_modem_common_fe_clock_is_enabled(ctx->hal) ? ESP_OK : ESP_FAIL;
@@ -240,6 +270,7 @@ static void IRAM_ATTR modem_clock_configure_impl(modem_clock_context_t *ctx, int
 
     void (*action)(struct modem_clock_context *, bool) =
         ( (dev_id == MODEM_CLOCK_MODEM_ADC_COMMON_FE)   ? modem_clock_modem_adc_common_fe_configure
+        : (dev_id == MODEM_CLOCK_SOC_PLL_SOURCE_CG)     ? modem_clock_soc_pll_source_cg_configure
         : (dev_id == MODEM_CLOCK_MODEM_PRIVATE_FE)      ? modem_clock_modem_private_fe_configure
         : (dev_id == MODEM_CLOCK_COEXIST)               ? modem_clock_coex_configure
         : (dev_id == MODEM_CLOCK_I2C_MASTER)            ? modem_clock_i2c_master_configure
@@ -250,6 +281,7 @@ static void IRAM_ATTR modem_clock_configure_impl(modem_clock_context_t *ctx, int
 #if SOC_WIFI_SUPPORTED
         : (dev_id == MODEM_CLOCK_WIFI_MAC)              ? modem_clock_wifi_mac_configure
         : (dev_id == MODEM_CLOCK_WIFI_BB)               ? modem_clock_wifi_bb_configure
+        : (dev_id == MODEM_CLOCK_WIFI_BB_80X1)          ? modem_clock_wifi_bb_80x1_configure
 #endif
         : (dev_id == MODEM_CLOCK_ETM)                   ? modem_clock_etm_configure
 #if SOC_BT_SUPPORTED
@@ -274,6 +306,7 @@ static esp_err_t IRAM_ATTR modem_clock_check_impl(modem_clock_context_t *ctx, in
 
     esp_err_t (*check_action)(struct modem_clock_context *) =
         ( (dev_id == MODEM_CLOCK_MODEM_ADC_COMMON_FE)   ? modem_clock_modem_adc_common_fe_check_enable
+        : (dev_id == MODEM_CLOCK_SOC_PLL_SOURCE_CG)     ? modem_clock_soc_pll_source_cg_check_enable
         : (dev_id == MODEM_CLOCK_MODEM_PRIVATE_FE)      ? modem_clock_modem_private_fe_check_enable
         : (dev_id == MODEM_CLOCK_COEXIST)               ? modem_clock_coex_check_enable
         : (dev_id == MODEM_CLOCK_I2C_MASTER)            ? modem_clock_i2c_master_check_enable
@@ -281,6 +314,7 @@ static esp_err_t IRAM_ATTR modem_clock_check_impl(modem_clock_context_t *ctx, in
         : (dev_id == MODEM_CLOCK_WIFI_BB_44M)           ? modem_clock_wifi_bb_44m_check_enable
         : (dev_id == MODEM_CLOCK_WIFI_MAC)              ? modem_clock_wifi_mac_check_enable
         : (dev_id == MODEM_CLOCK_WIFI_BB)               ? modem_clock_wifi_bb_check_enable
+        : (dev_id == MODEM_CLOCK_WIFI_BB_80X1)          ? modem_clock_wifi_bb_80x1_check_enable
         : (dev_id == MODEM_CLOCK_ETM)                   ? modem_clock_etm_check_enable
         : (dev_id == MODEM_CLOCK_BLE_MAC)               ? modem_clock_ble_mac_check_enable
         : (dev_id == MODEM_CLOCK_BT_I154_COMMON_BB)     ? modem_clock_ble_i154_bb_check_enable

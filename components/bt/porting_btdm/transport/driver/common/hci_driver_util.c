@@ -8,13 +8,17 @@
 #include "esp_log.h"
 #include "esp_hci_driver.h"
 #include "esp_hci_internal.h"
+#include "btdm_mempool.h"
 #include "common/hci_driver_util.h"
+#if UC_BT_CTRL_BLE_IS_ENABLE
+#include "ble_mbuf.h"
+#endif
 
 #define TAG                                              "HCI_UTIL"
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
 #define HCI_DRIVER_UTIL_BREDR_HCI_EVT_TX_POOL_NUM        4
 #define HCI_DRIVER_UTIL_BREDR_TX_POOL_NUM                \
-    (CONFIG_BT_CTRL_BR_EDR_ACLU_RX_BUF_NB_EFF + CONFIG_BT_CTRL_BR_EDR_SYNC_RX_BUF_NB_EFF + HCI_DRIVER_UTIL_BREDR_HCI_EVT_TX_POOL_NUM)
+    (UC_BR_EDR_ACLU_RX_BUF_NB + UC_BR_EDR_SYNC_RX_BUF_NB + HCI_DRIVER_UTIL_BREDR_HCI_EVT_TX_POOL_NUM)
 #else
 #define HCI_DRIVER_UTIL_BREDR_TX_POOL_NUM                0
 #endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
@@ -170,8 +174,9 @@ hci_driver_util_tx_list_dequeue(uint32_t max_tx_len, void **tx_data, bool *last_
     uint32_t data_len;
     hci_driver_util_tx_entry_t *tx_entry;
     hci_driver_packet_t *pkt = NULL;
+#if UC_BT_CTRL_BLE_IS_ENABLE
     struct ble_mbuf *om = NULL;
-    uint16_t out_off;
+#endif
     /* Check if there is any remaining data that hasn't been sent completely. If it has been completed,
      * free the corresponding memory. Therefore, the HCI TX entry needs to be sent one by one; multiple
      * entries cannot be sent together.
@@ -184,8 +189,10 @@ hci_driver_util_tx_list_dequeue(uint32_t max_tx_len, void **tx_data, bool *last_
         if (tx_entry->data_type == HCI_DRIVER_TYPE_ACL) {
             if (s_hci_driver_util_env.cur_tx_off >= data_len) {
                 if (tx_entry->data_source == HCI_DRIVER_LE_ACL) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
                     om = (struct ble_mbuf *)tx_entry->data;
                     ble_mbuf_free_chain(om);
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
                 }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
                 else {
@@ -194,10 +201,13 @@ hci_driver_util_tx_list_dequeue(uint32_t max_tx_len, void **tx_data, bool *last_
 #endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
             } else {
                 if (tx_entry->data_source == HCI_DRIVER_LE_ACL) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
+                    uint16_t out_off;
                     om = (struct ble_mbuf *)tx_entry->data;
                     om = ble_mbuf_off(om, s_hci_driver_util_env.cur_tx_off, &out_off);
                     tx_len = min(max_tx_len, om->om_len - out_off);
                     *tx_data = (void *)&om->om_data[out_off];
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
                 } else {
                     tx_len = min(max_tx_len, data_len - s_hci_driver_util_env.cur_tx_off);
                     *tx_data = &pkt->data[s_hci_driver_util_env.cur_tx_off];
@@ -206,7 +216,9 @@ hci_driver_util_tx_list_dequeue(uint32_t max_tx_len, void **tx_data, bool *last_
         } else if (tx_entry->data_type == HCI_DRIVER_TYPE_EVT) {
             if (s_hci_driver_util_env.cur_tx_off >= data_len) {
                 if (tx_entry->data_source == HCI_DRIVER_LE_EVT) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
                     r_ble_hci_trans_buf_free(tx_entry->data);
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
                 }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
                 else if (tx_entry->data_source == HCI_DRIVER_BREDR_EVT) {
@@ -307,7 +319,9 @@ hci_driver_util_deinit(void)
         next_entry = STAILQ_NEXT(tx_entry, next);
         if (tx_entry->data_type == HCI_DRIVER_TYPE_EVT) {
             if (tx_entry->data_source == HCI_DRIVER_LE_EVT) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
                 r_ble_hci_trans_buf_free(tx_entry->data);
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
             }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
             else if (tx_entry->data_source == HCI_DRIVER_BREDR_EVT) {
@@ -320,7 +334,9 @@ hci_driver_util_deinit(void)
             }
         } else if (tx_entry->data_type == HCI_DRIVER_TYPE_ACL) {
             if (tx_entry->data_source == HCI_DRIVER_LE_ACL) {
+#if UC_BT_CTRL_BLE_IS_ENABLE
                 ble_mbuf_free_chain((struct ble_mbuf *)tx_entry->data);
+#endif // #if UC_BT_CTRL_BLE_IS_ENABLE
             }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
             else {

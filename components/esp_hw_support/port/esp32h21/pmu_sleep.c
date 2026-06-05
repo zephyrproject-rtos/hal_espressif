@@ -22,6 +22,9 @@
 #include "esp_hw_log.h"
 #include "soc/regi2c_bias.h"
 #include "regi2c_ctrl.h"
+#if !SOC_APM_SUPPORTED
+#include "hal/apm_hal.h"
+#endif
 
 ESP_HW_LOG_ATTR_TAG(TAG, "pmu_sleep");
 
@@ -178,6 +181,7 @@ const pmu_sleep_config_t* pmu_sleep_config_default(
             analog_default.lp_sys[LP(SLEEP)].analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
             analog_default.lp_sys[LP(SLEEP)].analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
             analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
+            analog_default.lp_sys[LP(SLEEP)].analog.dcm_vset = 20;
         } else if (!(sleep_flags & PMU_SLEEP_PD_RC_FAST)) {
             analog_default.hp_sys.analog.drv_b = get_act_hp_drvb();
             analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
@@ -298,6 +302,13 @@ uint32_t pmu_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt, uint32_t lslp
 bool pmu_sleep_finish(bool dslp)
 {
     (void)dslp;
+
+#if !SOC_APM_SUPPORTED
+    apm_hal_enable_ctrl_filter_all(false);
+#else
+    ESP_STATIC_ASSERT(0, "TEE/APM retention need to be supported!"); //TODO: IDF-15711
+#endif
+
     return pmu_ll_hp_is_sleep_reject(PMU_instance()->hal->dev);
 }
 

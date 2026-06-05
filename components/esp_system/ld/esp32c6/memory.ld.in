@@ -14,6 +14,7 @@
 
 #include "sdkconfig.h"
 #include "ld.common"
+#include "ld.hp_mem_defs"
 
 #if !CONFIG_SECURE_ENABLE_TEE
 #define SRAM_SEG_START        (0x40800000)
@@ -22,8 +23,11 @@
 #define FLASH_SEG_OFFSET      (CONFIG_SECURE_TEE_IROM_SIZE + CONFIG_SECURE_TEE_DROM_SIZE)
 #endif // CONFIG_SECURE_ENABLE_TEE
 
-#define SRAM_SEG_END       0x4086E610  /* 2nd stage bootloader iram_loader_seg start address */
-#define SRAM_SEG_SIZE      SRAM_SEG_END - SRAM_SEG_START
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+#define SRAM_SEG_SIZE      ((ULP_HP_MEM_START) - (SRAM_SEG_START))
+#else
+#define SRAM_SEG_SIZE      ((SRAM_SEG_END) - (SRAM_SEG_START))
+#endif
 
 #if CONFIG_APP_BUILD_USE_FLASH_SECTIONS
 /*
@@ -161,3 +165,8 @@ REGION_ALIAS("dram_seg", sram_seg);
 
 ALIGN_VECTOR_TABLE = 0x100;
 OFFSET_TEE = 0x2e0;
+
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
+_ulp_hp_mem_resv_start = ULP_HP_MEM_START;
+_ulp_hp_mem_resv_end   = ULP_HP_MEM_END;
+#endif

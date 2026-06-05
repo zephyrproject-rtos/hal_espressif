@@ -39,6 +39,7 @@
 #include "soc/spi_mem_c_reg.h"
 #include "soc/spi1_mem_c_reg.h"
 #include "soc/clk_tree_defs.h"
+#include "hal/misc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,6 +48,7 @@ extern "C" {
 #define MSPI_LL_PERIPH_NUM                            4
 #define MSPI_TIMING_LL_MSPI_ID_0                      0
 #define MSPI_TIMING_LL_MSPI_ID_1                      1
+#define MSPI_TIMING_LL_FLASH_CORE_80M_CLK_DIV         6
 
 // PSRAM frequency should be constrained by AXI frequency to avoid FIFO underflow.
 #define MSPI_TIMING_LL_PSRAM_FREQ_AXI_CONSTRAINED     1
@@ -216,6 +218,25 @@ static inline void _mspi_timing_ll_set_flash_clk_src(uint32_t mspi_id, soc_perip
     HP_SYS_CLKRST.flash_ctrl0.reg_flash_clk_src_sel = clk_val;
 }
 
+/**
+ * Set MSPI Flash core clock
+ *
+ * @param spi_num       SPI0 / SPI1
+ * @param core_clk_mhz  core clock mhz
+ */
+__attribute__((always_inline))
+static inline void _mspi_timing_ll_set_flash_core_clock(int spi_num, uint32_t core_clk_mhz)
+{
+    HAL_ASSERT(spi_num == MSPI_TIMING_LL_MSPI_ID_0);
+    if (core_clk_mhz == 80) {
+        HAL_FORCE_MODIFY_U32_REG_FIELD(HP_SYS_CLKRST.flash_ctrl0, reg_flash_core_clk_div_num, (MSPI_TIMING_LL_FLASH_CORE_80M_CLK_DIV - 1));
+        HP_SYS_CLKRST.flash_ctrl0.reg_flash_core_clk_en = 1;
+    } else {
+        //ESP32S31 flash timing tuning is based on SPLL==480MHz, flash_core_clock==120MHz / 80MHz. We add assertion here to ensure this
+        HAL_ASSERT(false);
+    }
+}
+
 /*---------------------------------------------------------------
                     Misc
 ---------------------------------------------------------------*/
@@ -281,6 +302,46 @@ __attribute__((always_inline))
 static inline void mspi_ll_psram_enable_axi_access(uint8_t spi_num, bool enable)
 {
     SPIMEM2.mem_cache_fctrl.close_axi_inf_en = !enable;
+}
+
+/**
+ * @brief Hold all PSRAM pins
+ * Sets all PSRAM pins (pin_group0, dqs0, pin_group1, dqs1) to hold status
+ */
+__attribute__((always_inline))
+static inline void mspi_ll_psram_hold_all_pins(void)
+{
+    MSPI_IOMUX.psram_pin_group.pin_group0[0].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[1].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[2].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[3].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[4].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[5].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[6].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_group0[7].reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.dqs0.reg_psram_dqs_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_clk.reg_psram_pin_hold = 1;
+    MSPI_IOMUX.psram_pin_group.pin_cs.reg_psram_pin_hold = 1;
+}
+
+/**
+ * @brief Unhold all PSRAM pins
+ * Releases hold status for all PSRAM pins (pin_group0, dqs0, pin_group1, dqs1)
+ */
+__attribute__((always_inline))
+static inline void mspi_ll_psram_unhold_all_pins(void)
+{
+    MSPI_IOMUX.psram_pin_group.pin_group0[0].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[1].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[2].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[3].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[4].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[5].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[6].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_group0[7].reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.dqs0.reg_psram_dqs_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_clk.reg_psram_pin_hold = 0;
+    MSPI_IOMUX.psram_pin_group.pin_cs.reg_psram_pin_hold = 0;
 }
 
 #ifdef __cplusplus

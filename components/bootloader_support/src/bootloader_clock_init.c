@@ -137,15 +137,13 @@ __attribute__((weak)) void bootloader_clock_configure(void)
 #elif CONFIG_IDF_TARGET_ESP32H4
     // CLR ENA
     CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);                                      /* SWD */
-    // TODO [ESP32H4] IDF-12295
-    // CLEAR_PERI_REG_MASK(LP_ANA_LP_INT_ENA_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                /* BROWN_OUT */
+    CLEAR_PERI_REG_MASK(LP_ANA_LP_INT_ENA_REG, LP_ANA_BOD_MODE0_LP_INT_ENA);                                /* BROWN_OUT */
     CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_LP_WDT_INT_ENA);                                         /* WDT */
     CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_WAKEUP_INT_ENA);                                        /* SLP_REJECT */
     CLEAR_PERI_REG_MASK(PMU_HP_INT_ENA_REG, PMU_SOC_SLEEP_REJECT_INT_ENA);                                  /* SLP_WAKEUP */
     // SET CLR
     SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_SUPER_WDT_INT_CLR);                                        /* SWD */
-    // TODO [ESP32H4] IDF-12295
-    // SET_PERI_REG_MASK(LP_ANA_LP_INT_CLR_REG, LP_ANA_BOD_MODE0_LP_INT_CLR);                                  /* BROWN_OUT */
+    SET_PERI_REG_MASK(LP_ANA_LP_INT_CLR_REG, LP_ANA_BOD_MODE0_LP_INT_CLR);                                  /* BROWN_OUT */
     SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);                                           /* WDT */
     SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_WAKEUP_INT_CLR);                                          /* SLP_REJECT */
     SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_SLEEP_REJECT_INT_CLR);

@@ -38,6 +38,7 @@ if(NOT non_os_build)
                      "esp_gpio_reserve.c"
                      "sar_tsens_ctrl.c"
                      "sar_periph_ctrl_common.c"
+                     "io_mux.c"
                      "port/${target}/io_mux.c"
                      "port/${target}/esp_clk_tree.c"
                      "spi_bus_lock.c"
@@ -66,6 +67,7 @@ if(NOT non_os_build)
     endif()
     if(CONFIG_SOC_LIGHT_SLEEP_SUPPORTED)
         list(APPEND srcs "sleep_modem.c"
+                         "sleep_cache.c"
                          "sleep_modes.c"
                          "sleep_uart.c"
                          "sleep_console.c"
@@ -186,12 +188,6 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/include/soc/${target}")
     )
 endif()
 
-if(NOT CONFIG_ESP32P4_SELECTS_REV_LESS_V3 AND CONFIG_IDF_TARGET_ESP32P4)
-    if(CMAKE_C_COMPILER_ID MATCHES "Clang") # TODO: LLVM-478 IDF-14338
-        message(FATAL_ERROR "ESP32-P4 rev. 3.0 or higher is not supported in Clang-based toolchain")
-    endif()
-endif()
-
 if(${target} STREQUAL "esp32p4")
     # for mipi_csi_share_hw_ctrl.c
     list(APPEND priv_requires esp_hal_cam)
@@ -203,6 +199,8 @@ idf_component_register(SRCS ${srcs}
                        REQUIRES ${requires}
                        PRIV_REQUIRES "${priv_requires}"
                        LDFRAGMENTS linker.lf ldo/linker.lf mspi/linker.lf)
+
+idf_define_esp_err_codes(HEADERS include/esp_memprot_err.h)
 
 idf_build_get_property(target IDF_TARGET)
 add_subdirectory(port/${target})

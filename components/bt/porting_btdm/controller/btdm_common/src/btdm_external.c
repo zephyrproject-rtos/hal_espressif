@@ -9,12 +9,19 @@
 #include "btdm_external.h"
 
 extern const int8_t *bt_bb_get_tx_pwr_table(uint8_t *length);
+extern const int8_t *bt_bb_tx_pwr_table_get(uint8_t *length, uint8_t modem_cfg);
 
 const int8_t *
-wr_btdm_external_bb_get_tx_pwr_table(uint8_t *length)
+wr_btdm_external_bb_get_tx_pwr_table(uint8_t *length, uint8_t modem_cfg)
 {
     assert(length != NULL);
-    return bt_bb_get_tx_pwr_table(length);
+    assert (modem_cfg <= 2);
+    // TODO: replace with bt_bb_tx_pwr_table_get when all the targets(h4, s31, etc) support this API
+    if (modem_cfg == 2) { // BREDR
+        return bt_bb_tx_pwr_table_get(length, modem_cfg);
+    } else {
+        return bt_bb_get_tx_pwr_table(length);
+    }
 }
 
 /*

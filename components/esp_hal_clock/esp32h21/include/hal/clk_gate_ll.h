@@ -166,7 +166,7 @@ static inline void periph_ll_clk_gate_set_default(soc_reset_reason_t rst_reason,
 
         if (config->disable_assist_clk) {
             /* Disable ASSIST Debug module clock if PC recording is not used;
-             * stack guard may re-enable in esp_hw_stack_guard_init */
+             * stack guard may re-enable in esp_hw_debug_assist_init */
             PCR.assist_conf.assist_clk_en = 0;
         }
 

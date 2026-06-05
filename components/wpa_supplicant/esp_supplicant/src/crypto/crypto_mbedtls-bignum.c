@@ -125,7 +125,7 @@ static void p256_words_sub(u32 *a, const u32 *b)
 
 static void p256_words_swap(u32 *a, u32 *b)
 {
-    u32 tmp[P256_WORDS];
+    u32 tmp[P256_WORDS] = {0};
 
     os_memcpy(tmp, a, sizeof(tmp));
     os_memcpy(a, b, sizeof(tmp));
@@ -134,7 +134,7 @@ static void p256_words_swap(u32 *a, u32 *b)
 
 static void p256_words_mod(u32 *a, const u32 *n)
 {
-    u32 tmp[P256_WORDS];
+    u32 tmp[P256_WORDS] = {0};
 
     while (p256_words_cmp(a, n) >= 0) {
         size_t a_bits = p256_words_bitlen(a);
@@ -155,10 +155,10 @@ static int crypto_bignum_mulmod_secp256r1(const mbedtls_mpi *a,
                                           const mbedtls_mpi *mod,
                                           mbedtls_mpi *out)
 {
-    u32 a_words[P256_WORDS];
-    u32 b_words[P256_WORDS];
-    u32 b_mont[P256_WORDS];
-    u32 result[P256_WORDS];
+    u32 a_words[P256_WORDS] = {0};
+    u32 b_words[P256_WORDS] = {0};
+    u32 b_mont[P256_WORDS] = {0};
+    u32 result[P256_WORDS] = {0};
 
     if (!mpi_is_secp256r1_prime(mod) ||
             p256_words_from_mpi_reduced(a, a_words) != 0 ||
@@ -175,8 +175,8 @@ static int crypto_bignum_mulmod_secp256r1(const mbedtls_mpi *a,
 static int crypto_bignum_legendre_secp256r1(const mbedtls_mpi *a,
                                             const mbedtls_mpi *p)
 {
-    u32 A[P256_WORDS];
-    u32 N[P256_WORDS];
+    u32 A[P256_WORDS] = {0};
+    u32 N[P256_WORDS] = {0};
     unsigned int n_mod8;
     unsigned int a_mod4;
     unsigned int n_mod4;
@@ -551,8 +551,31 @@ int crypto_bignum_is_odd(const struct crypto_bignum *a)
 
 int crypto_bignum_rand(struct crypto_bignum *r, const struct crypto_bignum *m)
 {
+#if CONFIG_ESP_BRINGUP_BYPASS_RANDOM_SETTING
+    static u32 deterministic_counter = 1;
+    mbedtls_mpi det;
+    int ret;
+
+    if (mbedtls_mpi_cmp_int((const mbedtls_mpi *) m, 2) <= 0) {
+        return -1;
+    }
+
+    mbedtls_mpi_init(&det);
+    ret = mbedtls_mpi_lset(&det, deterministic_counter++);
+    if (ret == 0) {
+        ret = mbedtls_mpi_mod_mpi((mbedtls_mpi *) r, &det,
+                                  (const mbedtls_mpi *) m);
+    }
+    if (ret == 0 && mbedtls_mpi_cmp_int((mbedtls_mpi *) r, 0) == 0) {
+        ret = mbedtls_mpi_lset((mbedtls_mpi *) r, 1);
+    }
+    mbedtls_mpi_free(&det);
+
+    return ret ? -1 : 0;
+#else
     return ((mbedtls_mpi_random((mbedtls_mpi *) r, 0, (const mbedtls_mpi *) m,
                                 mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE) != 0) ? -1 : 0);
+#endif
 }
 
 static int mbedtls_bignum_legendre(const struct crypto_bignum *a,

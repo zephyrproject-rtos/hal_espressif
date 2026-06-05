@@ -15,6 +15,7 @@ bool peripheral_domain_pd_allowed(void)
 #if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
     const sleep_retention_module_bitmap_t inited_modules = sleep_retention_get_inited_modules();
     const sleep_retention_module_bitmap_t created_modules = sleep_retention_get_created_modules();
+    const sleep_retention_module_bitmap_t retained_modules = sleep_retention_get_retained_modules();
 
     sleep_retention_module_bitmap_t mask = RETENTION_MODULE_BITMAP_INIT(NULL);
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_SYS_PERIPH);
@@ -39,6 +40,10 @@ bool peripheral_domain_pd_allowed(void)
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_AXI_DMA_CH0);
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_AXI_DMA_CH1);
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_AXI_DMA_CH2);
+
+    // ESP32S31 supports LP_AHB_DMA sleep retention
+    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_LP_AHB_DMA_CH0);
+    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_LP_AHB_DMA_CH1);
 
     // ESP32S31 supports UART sleep retention
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_UART0);
@@ -82,16 +87,21 @@ bool peripheral_domain_pd_allowed(void)
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_MCPWM2);
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_MCPWM3);
 
-    // ESP32S31 supports PCNT sleep retention
-    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_PCNT0);
-    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_PCNT1);
-
     // ESP32S31 supports SDM sleep retention
     RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_SDM0);
 
+    // ESP32S31 supports LCDCAM sleep retention
+    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_LCDCAM);
+
+    // ESP32S31 supports JPEG sleep retention
+    RETENTION_MODULE_BITMAP_SET(&mask, SLEEP_RETENTION_MODULE_JPEG);
+
     const sleep_retention_module_bitmap_t peripheral_domain_inited_modules = sleep_retention_module_bitmap_and(inited_modules, mask);
     const sleep_retention_module_bitmap_t peripheral_domain_created_modules = sleep_retention_module_bitmap_and(created_modules, mask);
-    return sleep_retention_module_bitmap_eq(peripheral_domain_inited_modules, peripheral_domain_created_modules);
+    const sleep_retention_module_bitmap_t peripheral_domain_retained_modules = sleep_retention_module_bitmap_and(retained_modules, mask);
+    bool ic = sleep_retention_module_bitmap_eq(peripheral_domain_inited_modules, peripheral_domain_created_modules);
+    bool cr = sleep_retention_module_bitmap_eq(peripheral_domain_created_modules, peripheral_domain_retained_modules);
+    return ic && cr;
 #else
     return false;
 #endif

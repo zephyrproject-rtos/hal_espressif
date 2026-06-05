@@ -83,8 +83,8 @@ else()
         list(APPEND srcs "systick_etm.c")
     endif()
 
-    if(CONFIG_ESP_SYSTEM_HW_STACK_GUARD)
-        list(APPEND srcs "hw_stack_guard.c")
+    if(CONFIG_ESP_SYSTEM_HW_STACK_GUARD OR CONFIG_ESP_SYSTEM_HW_PC_RECORD OR CONFIG_SOC_CPU_LOCKUP_DEBUG_SUPPORTED)
+        list(APPEND srcs "debug_assist.c")
     endif()
 
     idf_component_register(SRCS "${srcs}"
