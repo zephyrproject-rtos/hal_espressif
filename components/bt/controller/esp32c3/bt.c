@@ -2082,7 +2082,7 @@ static void bt_controller_deinit_internal(void)
 #endif // CONFIG_BT_CTRL_LE_LOG_EN
 
     if (osi_funcs_p != NULL) {
-        free(osi_funcs_p);
+        esp_bt_free(osi_funcs_p);
         osi_funcs_p = NULL;
     }
 
