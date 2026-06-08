@@ -688,7 +688,7 @@ void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
 
 
 /* PHY calibration data handling functions */
-#ifdef CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE
+#if defined(CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE) && !defined(__ZEPHYR__)
 static const char* PHY_NAMESPACE = "phy";
 static const char* PHY_CAL_VERSION_KEY = "cal_version";
 static const char* PHY_CAL_MAC_KEY = "cal_mac";

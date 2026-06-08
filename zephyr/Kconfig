@@ -168,6 +168,21 @@ config ESP_PHY_ENABLED
 	bool
 	default y if (SOC_PHY_SUPPORTED)
 
+# RF calibration data persistence. The esp_phy code checks
+# CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE to decide whether to load and
+# store calibration data in NVS (partial calibration on warm boots) or run a
+# full calibration on every boot. This symbol is not user-facing; it is
+# derived from the generic RADIO_CAL feature so RADIO_CAL is the single knob.
+config ESP_PHY_CALIBRATION_AND_DATA_STORAGE
+	bool
+	default y if RADIO_CAL
+
+# Calibration intensity used when stored data is present: 0 = partial (the
+# fast warm-boot path), 1 = none, 2 = full.
+config ESP_PHY_CALIBRATION_MODE
+	int
+	default 0
+
 config SOC_XTAL_FREQ_MHZ
 	int
 	default XTAL_FREQ if SOC_SERIES_ESP32C2
