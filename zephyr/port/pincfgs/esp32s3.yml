@@ -181,6 +181,34 @@ spim3:
     sigo: spi3_cs2_out
     gpio: [[0, 21], [26, 48]]
 
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 21], [26, 48]]
+
+spis3:
+  miso:
+    sigo: spi3_q_out
+    gpio: [[0, 21], [26, 48]]
+  mosi:
+    sigi: spi3_d_in
+    gpio: [[0, 21], [26, 48]]
+  sclk:
+    sigi: spi3_clk_in
+    gpio: [[0, 21], [26, 48]]
+  csel:
+    sigi: spi3_cs0_in
+    gpio: [[0, 21], [26, 48]]
+
 ledc:
   ch0:
     sigo: ledc_ls_sig_out0

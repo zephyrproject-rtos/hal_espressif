@@ -100,6 +100,34 @@ spim3:
     sigo: vspics2_out
     gpio: [[0, 23], [25, 27], [32, 33]]
 
+spis2:
+  miso:
+    sigo: hspiq_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  mosi:
+    sigi: hspid_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+  sclk:
+    sigi: hspiclk_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+  csel:
+    sigi: hspics0_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+
+spis3:
+  miso:
+    sigo: vspiq_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  mosi:
+    sigi: vspid_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+  sclk:
+    sigi: vspiclk_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+  csel:
+    sigi: vspics0_in
+    gpio: [[0, 23], [25, 27], [32, 39]]
+
 i2c0:
   sda:
     sigi: i2cext0_sda_in

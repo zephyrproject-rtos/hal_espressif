@@ -133,6 +133,34 @@ spim3:
     sigo: spi3_cs_out
     gpio: [[0, 54]]
 
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 54]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 54]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 54]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 54]]
+
+spis3:
+  miso:
+    sigo: spi3_qo_out
+    gpio: [[0, 54]]
+  mosi:
+    sigi: spi3_d_in
+    gpio: [[0, 54]]
+  sclk:
+    sigi: spi3_ck_in
+    gpio: [[0, 54]]
+  csel:
+    sigi: spi3_cs_in
+    gpio: [[0, 54]]
+
 i2c0:
   sda:
     sigo: i2cext0_sda_out
