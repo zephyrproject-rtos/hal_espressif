@@ -33,6 +33,7 @@ ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
 
 build_elf_path = None
 baud_rate = None
+target_soc = None
 
 def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
     return subprocess.check_output(cmd, cwd=cwd, stderr=stderr)
@@ -42,13 +43,61 @@ def cmd_exec(cmd, cwd=None, shell=False):
     return subprocess.check_call(cmd, cwd=cwd, shell=shell)
 
 
-def get_esp_serial_port(module_path):
+def _normalize_chip(name):
+    return name.lower().replace('-', '')
+
+
+def get_esp_serial_port(module_path, skip_soc_match=False):
     try:
         import serial.tools.list_ports
         esptool_path = os.path.join(module_path, 'tools', 'esptool_py')
         sys.path.insert(0, esptool_path)
         import esptool
-        ports = list(sorted(p.device for p in serial.tools.list_ports.comports()))
+
+        # Probe native Espressif USB devices (VID 0x303A) first to avoid
+        # resetting unrelated serial adapters.
+        ESPRESSIF_VID = 0x303A
+        port_infos = sorted(serial.tools.list_ports.comports(),
+                            key=lambda p: (p.vid != ESPRESSIF_VID, p.device))
+
+        # Drop macOS nodes that block on open so neither the SoC-match probe
+        # nor the fallback below stalls on them. /dev/cu.* and /dev/tty.* are
+        # twins of the same device, so probe only the cu.* form.
+        if sys.platform == 'darwin':
+            port_infos = [p for p in port_infos
+                          if not p.device.startswith('/dev/tty.')
+                          and not p.device.endswith(
+                              ('Bluetooth-Incoming-Port', 'wlan-debug', 'cu.debug-console'))]
+
+        # When the build target is known, return the first port whose chip
+        # matches CONFIG_SOC instead of the first device that responds.
+        # Probing resets the board, so honor skip_soc_match to leave a
+        # running board untouched.
+        if target_soc and not skip_soc_match:
+            wanted = _normalize_chip(target_soc)
+            for info in port_infos:
+                try:
+                    esp = esptool.detect_chip(info.device, connect_attempts=2)
+                except Exception as e:
+                    log.dbg("{}: skipped ({})".format(info.device, e))
+                    continue
+                try:
+                    if _normalize_chip(esp.CHIP_NAME) == wanted:
+                        log.inf("Auto-selected {} for {}".format(info.device, target_soc))
+                        # Probing left the chip in the bootloader; reset it so
+                        # the application runs when the monitor attaches.
+                        try:
+                            esp.hard_reset()
+                        except Exception as e:
+                            log.dbg("hard reset after detection failed ({})".format(e))
+                        return info.device
+                finally:
+                    if esp._port:
+                        esp._port.close()
+            log.wrn("No port with a {} chip found; "
+                    "falling back to esptool auto-detection".format(target_soc))
+
+        ports = [info.device for info in port_infos]
         # high baud rate could cause the failure of creation of the connection
         esp = esptool.get_default_connected_device(serial_list=ports, port=None, connect_attempts=4,
                                                    initial_baud=115200)
@@ -89,6 +138,7 @@ def parse_runners_yaml():
 
     global build_elf_path
     global baud_rate
+    global target_soc
 
     build_dir = find_build_dir(None, True)
     domain = load_domains(build_dir).get_default_domain()
@@ -102,6 +152,14 @@ def parse_runners_yaml():
 
     # get build elf file path
     build_elf_path = Path(build_dir) / 'zephyr' / runners_yaml['config']['elf_file']
+
+    # get build target SoC to match the serial port during auto-detection
+    try:
+        build_conf = BuildConfiguration(build_dir)
+        target_soc = build_conf.get('CONFIG_SOC', None)
+    except Exception as e:
+        log.dbg("could not read CONFIG_SOC, SoC port matching disabled ({})".format(e))
+        target_soc = None
 
     # parse specific arguments for the tool
     yaml_args = runners_yaml['args']['esp32']
@@ -145,6 +203,10 @@ class Tools(WestCommand):
         group.add_argument('-n', '--eol', default='CRLF', help='EOL to use')
         group.add_argument('-d', '--enable-address-decoding', action='store_true',
                            help='Enable address decoding in the monitor')
+        group.add_argument('--no-soc-match', action='store_true',
+                           help='Skip the SoC-matching probe during port '
+                                'auto-detection. Probing resets each candidate '
+                                'board, so this leaves a running board untouched')
 
         return parser
 
@@ -175,7 +237,7 @@ class Tools(WestCommand):
         esp_port = args.port
         if not esp_port:
             # detect usb port using esptool
-            esp_port = get_esp_serial_port(module_path)
+            esp_port = get_esp_serial_port(module_path, skip_soc_match=args.no_soc_match)
 
         monitor_path = Path(module_path, "tools/idf_monitor/idf_monitor.py")
         cmd_path = Path(os.getcwd())
