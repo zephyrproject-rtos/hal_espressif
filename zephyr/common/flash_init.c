@@ -59,15 +59,12 @@ void esp_flash_config(void)
 
 	/*
 	 * Flash timing tuning must run right after spi_flash_init_chip_state()
-	 * and before esp_flash_app_init()/esp_flash_init_default_chip(),
-	 * matching ESP-IDF's mspi_init() sequence in cpu_start.c.
+	 * and before esp_flash_init_default_chip(), matching the mspi_init()
+	 * sequence.
 	 */
 #if SOC_SPI_MEM_SUPPORT_TIMING_TUNING
 	mspi_timing_flash_tuning();
 #endif
-
-	/* Switch to OS-aware functions for runtime flash operations */
-	esp_flash_app_init();
 
 	ret = esp_flash_init_default_chip();
 	if (ret != ESP_OK) {
