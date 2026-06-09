@@ -121,8 +121,7 @@ class Tools(WestCommand):
     def __init__(self):
         super().__init__(
             'espressif',
-            # Keep this in sync with the string in west-commands.yml.
-            'Espressif tools for west framework.',
+            '',
             dedent('''
             This interface allows having esp-idf monitor support.'''),
             accepts_unknown_args=False)
