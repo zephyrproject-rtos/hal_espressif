@@ -70,6 +70,20 @@ spim2:
     sigo: fspics5_out
     gpio: [[0, 10], [18, 20]]
 
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 10], [18, 20]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 10], [18, 20]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 10], [18, 20]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 10], [18, 20]]
+
 ledc:
   ch0:
     sigo: ledc_ls_sig_out0

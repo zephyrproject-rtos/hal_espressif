@@ -70,6 +70,20 @@ spim2:
     sigo: fspics5_out
     gpio: [[0, 21]]
 
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 21]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 21]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 21]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 21]]
+
 i2c0:
   sda:
     sigi: i2cext0_sda_in
