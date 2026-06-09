@@ -218,6 +218,11 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hal_timg/timer_hal.c
   )
 
+  zephyr_sources_ifdef(CONFIG_ESP32_SPI_TARGET
+    ../../components/esp_hal_gpspi/spi_slave_hal.c
+    ../../components/esp_hal_gpspi/spi_slave_hal_iram.c
+  )
+
   zephyr_sources_ifdef(CONFIG_ESP32_SPIM
     ../../components/esp_hal_gpspi/spi_hal.c
     ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c

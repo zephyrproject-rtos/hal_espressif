@@ -201,6 +201,13 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     ../../components/efuse/src/efuse_controller/keys/with_key_purposes/esp_efuse_api_key.c
   )
 
+  if(CONFIG_ESP32_SPI_TARGET)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_slave_hal.c
+      ../../components/esp_hal_gpspi/spi_slave_hal_iram.c
+      )
+  endif()
+
   if(CONFIG_ESP32_SPIM)
     zephyr_sources(
       ../../components/esp_hal_gpspi/spi_hal.c
