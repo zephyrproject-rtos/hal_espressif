@@ -444,8 +444,8 @@ esp_err_t spi_bus_remove_flash_device(esp_flash_t *chip)
     if (dev_handle) {
         spi_bus_lock_unregister_dev(dev_handle);
     }
-    free(chip->host);
-    free(chip);
+    heap_caps_free(chip->host);
+    heap_caps_free(chip);
     return ESP_OK;
 }
 

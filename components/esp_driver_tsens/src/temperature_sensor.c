@@ -190,7 +190,7 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
     ESP_RETURN_ON_FALSE(tsens->fsm == TEMP_SENSOR_FSM_INIT, ESP_ERR_INVALID_STATE, TAG, "tsens not in init state");
 
     if (s_tsens_attribute_copy) {
-        free(s_tsens_attribute_copy);
+        heap_caps_free(s_tsens_attribute_copy);
     }
     s_tsens_attribute_copy = NULL;
 
@@ -217,7 +217,7 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
 
     temperature_sensor_power_release();
 
-    free(tsens);
+    heap_caps_free(tsens);
     return ESP_OK;
 }
 

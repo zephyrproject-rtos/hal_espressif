@@ -480,7 +480,7 @@ static void regdma_link_destroy_wrapper(void *link, int entry, int depth)
     regdma_link_stats_t *stat = regdma_link_get_stats(link);
     stat->ref &= ~BIT(entry);
     if (stat->ref == 0) {
-        free(regdma_link_get_instance(link));
+        heap_caps_free(regdma_link_get_instance(link));
     }
 }
 
