@@ -106,7 +106,7 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
 
 err:
     if (scheme) {
-        free(scheme);
+        heap_caps_free(scheme);
     }
     return ret;
 }
@@ -115,10 +115,10 @@ esp_err_t adc_cali_delete_scheme_curve_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    free(handle->ctx);
+    heap_caps_free(handle->ctx);
     handle->ctx = NULL;
 
-    free(handle);
+    heap_caps_free(handle);
     handle = NULL;
 
     return ESP_OK;
