@@ -93,7 +93,9 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
     /* clear the interrupt */
     systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
     /* Call the upper layer handler */
-    (*s_alarm_handler)(arg);
+    if (s_alarm_handler != NULL) {
+        (*s_alarm_handler)(arg);
+    }
 #else
     static volatile uint32_t processed_by = NOT_USED;
     static volatile bool pending_alarm = false;
