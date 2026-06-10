@@ -448,7 +448,7 @@ esp_err_t emac_hal_ptp_start(emac_hal_context_t *hal, const emac_hal_ptp_config_
             increment_ns = (double)base_increment * 1.0e9 / (double)(1ULL << 31);
         }
         uint32_t base_addend = (uint32_t)((double)(1ULL << 32) *
-                                          config->ptp_clk_src_period_ns /
+                                          (double)config->ptp_clk_src_period_ns /
                                           increment_ns);
         emac_ll_set_ts_addend_val(hal->ptp_regs, base_addend);
         emac_ll_ts_addend_do_update(hal->ptp_regs);
