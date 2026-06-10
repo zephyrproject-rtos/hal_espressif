@@ -228,6 +228,12 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/hal/mmu_hal.c
       ../../components/spi_flash/flash_ops.c
       )
+
+    if (CONFIG_SPIRAM_FETCH_INSTRUCTIONS OR CONFIG_SPIRAM_RODATA)
+      zephyr_sources(
+        ../../components/esp_psram/xip_impl/mmu_psram_flash.c
+        )
+    endif()
   endif()
 
   zephyr_sources_ifdef(CONFIG_I2C_ESP32
