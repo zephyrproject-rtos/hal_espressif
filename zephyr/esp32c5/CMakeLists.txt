@@ -228,6 +228,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hal_mspi/spi_flash_hal.c
     ../../components/esp_hal_mspi/spi_flash_hal_iram.c
     ../../components/esp_hal_mspi/spi_flash_hal_gpspi.c
+    ../../components/esp_hal_mspi/${CONFIG_SOC_SERIES}/mspi_periph.c
     ../../components/spi_flash/esp_flash_api.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/spi_flash/flash_mmap.c
@@ -247,6 +248,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_hw_support/mspi/mspi_timing_tuning/mspi_timing_tuning.c
     ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
     ../../components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
+    ../../components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
     )
   endif()
 
