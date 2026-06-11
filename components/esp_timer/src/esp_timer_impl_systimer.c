@@ -5,7 +5,10 @@
  */
 
 #include <zephyr/sys/util.h>
-#include "sdkconfig.h"
+#include <zephyr/irq.h>
+#include <zephyr/device.h>
+#include <soc/soc.h>
+#include <soc.h>
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
@@ -23,6 +26,7 @@
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 /**
  * @file esp_timer_systimer.c
@@ -34,8 +38,6 @@
  *
  * @note systimer counter0 and alarm2 are adopted to implemented esp_timer
  */
-
-ESP_LOG_ATTR_TAG(TAG, "esp_timer_systimer");
 
 #define NOT_USED 0xBAD00FAD
 
@@ -91,7 +93,9 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
     /* clear the interrupt */
     systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
     /* Call the upper layer handler */
-    (*s_alarm_handler)(arg);
+    if (s_alarm_handler != NULL) {
+        (*s_alarm_handler)(arg);
+    }
 #else
     static volatile uint32_t processed_by = NOT_USED;
     static volatile bool pending_alarm = false;
@@ -185,40 +189,28 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    if (s_timer_interrupt_handle[0] != NULL) {
-        ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
-                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
-#if !SYSTIMER_LL_INT_LEVEL
-                    | ESP_INTR_FLAG_EDGE
+#if !SOC_SYSTIMER_INT_LEVEL
+#define ISR_FLAGS (ESP_INTR_FLAG_EDGE | ESP_INTR_FLAG_IRAM)
+#else
+#define ISR_FLAGS (ESP_INTR_FLAG_IRAM)
 #endif
-#if CONFIG_ESP_TIMER_IN_IRAM
-                    | ESP_INTR_FLAG_IRAM
-#endif
-                    ;
 
-    esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
-                                   &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
-        return err;
-    }
+    IRQ_CONNECT(DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, irq),
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, priority), timer_alarm_isr, NULL,
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, flags));
+    irq_matrix_enable(DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, irq),
+                DT_IRQ_BY_IDX(DT_NODELABEL(systimer0), 0, source));
 
     if (s_alarm_handler == NULL) {
-        s_alarm_handler = alarm_handler;
-        systimer_hal_enable_alarm_int(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
+	    s_alarm_handler = alarm_handler;
+	    /* TODO: if SYSTIMER is used for anything else, access to SYSTIMER_INT_ENA_REG has to be
+	     * protected by a shared spinlock. Since this code runs as part of early startup, this
+	     * is practically not an issue.
+	     */
+	    systimer_hal_enable_alarm_int(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
-    }
-
-    return err;
+    return 0;
 }
 
 void esp_timer_impl_deinit(void)
