@@ -70,6 +70,7 @@ struct wifi_adapter_msgq {
 struct wifi_task {
     struct k_thread thread;
     k_thread_stack_t *stack;
+    struct k_work cleanup_work;
 };
 
 #ifdef CONFIG_PM
@@ -116,6 +117,20 @@ static void *IRAM_ATTR wifi_zalloc_wrapper(size_t size)
 static void esp_wifi_free(void *mem)
 {
     esp_wifi_free_func(mem);
+}
+
+static void wifi_task_cleanup_work(struct k_work *work)
+{
+    struct wifi_task *t = CONTAINER_OF(work, struct wifi_task, cleanup_work);
+
+    k_thread_join(&t->thread, K_FOREVER);
+    if (t->thread.custom_data) {
+        esp_wifi_free_func(t->thread.custom_data);
+    }
+
+    k_thread_stack_free(t->stack);
+    k_object_release(&t->thread);
+    esp_wifi_free_func(t);
 }
 
 wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
@@ -436,14 +451,22 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 
 static void task_delete_wrapper(void *handle)
 {
-    if (handle == NULL) {
-        return;
-    }
-
-    k_tid_t tid = (k_tid_t)handle;
+    k_tid_t tid = handle ? (k_tid_t)handle : k_current_get();
     struct wifi_task *t = CONTAINER_OF(tid, struct wifi_task, thread);
 
+    if (tid == k_current_get()) {
+        k_work_init(&t->cleanup_work, wifi_task_cleanup_work);
+        k_work_submit(&t->cleanup_work);
+        k_thread_abort(k_current_get());
+        CODE_UNREACHABLE;
+    }
+
     k_thread_abort(tid);
+
+    if (tid->custom_data) {
+        esp_wifi_free(tid->custom_data);
+    }
+    
     k_thread_stack_free(t->stack);
     k_object_release(tid);
     esp_wifi_free(t);
