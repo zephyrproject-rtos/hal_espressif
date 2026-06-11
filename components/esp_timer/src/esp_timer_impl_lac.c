@@ -254,7 +254,12 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
         return ESP_ERR_INVALID_STATE;
     }
 
-    int isr_flags = 0;
+    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
+                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
+#if CONFIG_ESP_TIMER_IN_IRAM
+                    | ESP_INTR_FLAG_IRAM
+#endif
+                    ;
 
     esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
                                    &timer_alarm_isr, NULL,
