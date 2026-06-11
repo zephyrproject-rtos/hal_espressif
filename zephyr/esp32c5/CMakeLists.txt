@@ -326,6 +326,7 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
+      ../../components/esp_psram/system_layer/esp_psram_mspi.c
       ../../components/esp_hw_support/esp_memory_utils.c
       ../../components/esp_hw_support/esp_gpio_reserve.c
       )

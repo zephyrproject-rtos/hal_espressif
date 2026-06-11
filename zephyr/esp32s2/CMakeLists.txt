@@ -223,6 +223,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
+      ../../components/esp_psram/system_layer/esp_psram_mspi.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
       ../../components/esp_hw_support/esp_gpio_reserve.c
       ../../components/hal/mmu_hal.c
