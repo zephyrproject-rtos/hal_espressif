@@ -250,6 +250,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     zephyr_compile_definitions(CONFIG_SPIRAM_OCCUPY_NO_HOST)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
+      ../../components/esp_psram/system_layer/esp_psram_mspi.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_quad.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cache_sram_mmu.c
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_extram_cache.c
