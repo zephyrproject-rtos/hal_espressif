@@ -101,18 +101,21 @@ void phy_improve_rx_special(bool enable)
 }
 #endif
 
+__attribute__((weak))
 esp_err_t esp_phy_load_cal_data_from_nvs(esp_phy_calibration_data_t *out_cal_data)
 {
 	ARG_UNUSED(out_cal_data);
 	return ESP_OK;
 }
 
+__attribute__((weak))
 esp_err_t esp_phy_store_cal_data_to_nvs(const esp_phy_calibration_data_t *cal_data)
 {
 	ARG_UNUSED(cal_data);
 	return ESP_OK;
 }
 
+__attribute__((weak))
 esp_err_t esp_phy_erase_cal_data_in_nvs(void)
 {
 	return ESP_OK;
