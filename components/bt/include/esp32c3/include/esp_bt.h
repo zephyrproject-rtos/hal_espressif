@@ -383,8 +383,12 @@ typedef void (* esp_bt_hci_tl_callback_t) (void *arg, uint8_t status);
 
 /* Zephyr hardcoded values that those not require Kconfig */
 #define CONFIG_BT_CTRL_MODE_EFF 1
+#ifndef CONFIG_BT_CTRL_SLEEP_MODE_EFF
 #define CONFIG_BT_CTRL_SLEEP_MODE_EFF 0
+#endif
+#ifndef CONFIG_BT_CTRL_SLEEP_CLOCK_EFF
 #define CONFIG_BT_CTRL_SLEEP_CLOCK_EFF 0
+#endif
 #define CONFIG_BT_LE_50_FEATURES_SUPPORTED 1
 #define CONFIG_BT_CTRL_HCI_TL_EFF 1
 

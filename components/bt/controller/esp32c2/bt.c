@@ -38,30 +38,22 @@
 #include "ble_priv.h"
 #include "esp_intr_alloc.h"
 #include "esp_sleep.h"
-#include "esp_pm.h"
+#include "esp_private/sleep_modem.h"
 #ifdef CONFIG_ESP_PHY_ENABLED
 #include "esp_phy_init.h"
 #endif
 #include "soc/syscon_reg.h"
 #include "soc/modem_clkrst_reg.h"
+#include "soc/dport_access.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/critical_section.h"
 #include "esp_private/esp_clk_tree_common.h"
 #include "bt_osi_mem.h"
-
-#if CONFIG_TICKLESS_KERNEL
-#include "esp_private/sleep_modem.h"
-#endif // CONFIG_TICKLESS_KERNEL
 #include "esp_private/esp_modem_clock.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
-
-#include "esp_private/periph_ctrl.h"
-#include "esp_private/esp_clk_tree_common.h"
-#include "esp_sleep.h"
-
-#include "soc/syscon_reg.h"
-#include "soc/dport_access.h"
+#include <zephyr/pm/policy.h>
 
 #include "hal/efuse_ll.h"
 #include "soc/rtc.h"
@@ -167,9 +159,9 @@ extern uint32_t r_os_cputime_get32(void);
 extern uint32_t r_os_cputime_ticks_to_usecs(uint32_t ticks);
 extern void r_ble_lll_rfmgmt_set_sleep_cb(void *s_cb, void *w_cb, void *s_arg, void *w_arg, uint32_t us_to_enabled);
 extern void r_ble_rtc_wake_up_state_clr(void);
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
 extern void esp_ble_set_wakeup_overhead(uint32_t overhead);
-#endif /* CONFIG_TICKLESS_KERNEL */
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
 #if CONFIG_ESP32_BT_LE_LL_PEER_SCA_SET_ENABLE
 extern void r_ble_ll_customize_peer_sca_set(uint16_t peer_sca);
 #endif  // CONFIG_ESP32_BT_LE_LL_PEER_SCA_SET_ENABLE
@@ -231,7 +223,7 @@ static void esp_bt_ctrl_log_partition_get_and_erase_first_block(void);
 #endif // CONFIG_ESP32_BT_LE_CONTROLLER_LOG_ENABLED
 #if CONFIG_TICKLESS_KERNEL
 static bool esp_bt_check_wakeup_by_bt(void);
-#endif // CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
 #if (CONFIG_BT_CONTROLLER_ONLY) && (CONFIG_ESP32_BT_LE_SM_SC) && (!CONFIG_ESP32_BT_LE_CRYPTO_STACK_MBEDTLS)
 #include "tinycrypt/ecc.h"
 static int ecc_rand_func(uint8_t *dst, unsigned int len);
@@ -539,10 +531,11 @@ void __wrap_esp_panic_handler (void *info)
 
 /* This variable tells if BLE is running */
 static bool s_ble_active = false;
-#ifdef CONFIG_PM_ENABLE
-static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock = NULL;
+#if CONFIG_PM
+DEFINE_CRIT_SECTION_LOCK_STATIC(s_pm_lock);
+static uint32_t s_pm_lock_refcnt;
+#endif /* CONFIG_PM */
 #define BTDM_MIN_TIMER_UNCERTAINTY_US      (200)
-#endif // CONFIG_PM_ENABLE
 #ifdef CONFIG_XTAL_FREQ_26
 #define MAIN_XTAL_FREQ_HZ                 (26000000)
 static DRAM_ATTR uint32_t s_bt_lpclk_freq = 40000;
@@ -614,6 +607,30 @@ static uint32_t IRAM_ATTR osi_random_wrapper(void)
 
 static K_KERNEL_STACK_DEFINE(bt_task_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE);
 static struct k_thread bt_task_thread;
+
+#if CONFIG_PM
+static void esp_bt_pm_policy_state_lock_get(void)
+{
+	esp_os_enter_critical(&s_pm_lock);
+
+	if (s_pm_lock_refcnt++ == 0) {
+		pm_policy_state_all_lock_get();
+	}
+
+	esp_os_exit_critical(&s_pm_lock);
+}
+
+static void esp_bt_pm_policy_state_lock_put(void)
+{
+	esp_os_enter_critical(&s_pm_lock);
+
+	if (s_pm_lock_refcnt > 0 && --s_pm_lock_refcnt == 0) {
+		pm_policy_state_all_lock_put();
+	}
+
+	esp_os_exit_critical(&s_pm_lock);
+}
+#endif /* CONFIG_PM */
 
 static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status)
 {
@@ -733,11 +750,13 @@ void controller_sleep_cb(uint32_t enable_tick, void *arg)
     if (!s_ble_active) {
         return;
     }
-#ifdef CONFIG_PM_ENABLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
     r_ble_rtc_wake_up_state_clr();
-    esp_pm_lock_release(s_pm_lock);
-#endif // CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
     esp_phy_disable(PHY_MODEM_BT);
+#if CONFIG_PM
+    esp_bt_pm_policy_state_lock_put();
+#endif /* CONFIG_PM */
     s_ble_active = false;
 }
 
@@ -747,53 +766,40 @@ void controller_wakeup_cb(void *arg)
     if (s_ble_active) {
         return;
     }
-#ifdef CONFIG_PM_ENABLE
-    esp_pm_config_t pm_config;
-    esp_pm_lock_acquire(s_pm_lock);
-    esp_pm_get_configuration(&pm_config);
-    assert(esp_rom_get_cpu_ticks_per_us() == pm_config.max_freq_mhz);
-#endif //CONFIG_PM_ENABLE
+#if CONFIG_PM
+    esp_bt_pm_policy_state_lock_get();
+#endif /* CONFIG_PM */
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
+    r_ble_rtc_wake_up_state_clr();
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
     params = (bt_wakeup_params_t *)arg;
     esp_phy_enable(PHY_MODEM_BT);
     if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_RC_SLOW) {
         params->rtc_freq = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED) / 5;
     }
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
     params->bt_wakeup = esp_bt_check_wakeup_by_bt();
-#endif // CONFIG_TICKLESS_KERNEL
-    // need to check if need to call pm lock here
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
     s_ble_active = true;
 }
 
-#if CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
 static bool esp_bt_check_wakeup_by_bt(void)
 {
    return (esp_sleep_get_wakeup_causes() & BIT(ESP_SLEEP_WAKEUP_BT));
 }
-#endif // CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
 
 esp_err_t controller_sleep_init(modem_clock_lpclk_src_t slow_clk_src)
 {
     esp_err_t rc = 0;
-#ifdef CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     ESP_LOGW(NIMBLE_PORT_LOG_TAG, "BLE modem sleep is enabled\n");
     r_ble_lll_rfmgmt_set_sleep_cb(controller_sleep_cb, controller_wakeup_cb, 0, 0, 500 + BLE_RTC_DELAY_US);
-
-#ifdef CONFIG_PM_ENABLE
     if (slow_clk_src == MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL) {
         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_ON);
     } else {
         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_AUTO);
-    }
-#endif // CONFIG_PM_ENABLE
-
-#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
-
-    // enable light sleep
-#ifdef CONFIG_PM_ENABLE
-    rc = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "bt", &s_pm_lock);
-    if (rc != ESP_OK) {
-        goto error;
     }
 #if CONFIG_TICKLESS_KERNEL
     esp_sleep_enable_bt_wakeup();
@@ -803,7 +809,8 @@ esp_err_t controller_sleep_init(modem_clock_lpclk_src_t slow_clk_src)
     if (rc != ESP_OK) {
         goto error;
     }
-#endif // CONFIG_TICKLESS_KERNEL
+#endif /* CONFIG_TICKLESS_KERNEL */
+
     return rc;
 
 error:
@@ -811,30 +818,18 @@ error:
     esp_sleep_disable_bt_wakeup();
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(esp_ble_set_wakeup_overhead);
 #endif /* CONFIG_TICKLESS_KERNEL */
-    /*lock should release first and then delete*/
-    if (s_pm_lock != NULL) {
-        esp_pm_lock_delete(s_pm_lock);
-        s_pm_lock = NULL;
-    }
-#endif //CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
     return rc;
 }
 
 void controller_sleep_deinit(void)
 {
-#ifdef CONFIG_TICKLESS_KERNEL
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL
     r_ble_rtc_wake_up_state_clr();
     esp_sleep_disable_bt_wakeup();
     esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_AUTO);
-#endif // CONFIG_TICKLESS_KERNEL
-#ifdef CONFIG_PM_ENABLE
-#if CONFIG_TICKLESS_KERNEL
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(esp_ble_set_wakeup_overhead);
-#endif // CONFIG_TICKLESS_KERNEL
-    /*lock should release first and then delete*/
-    esp_pm_lock_delete(s_pm_lock);
-    s_pm_lock = NULL;
-#endif //CONFIG_PM_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE && CONFIG_TICKLESS_KERNEL */
 }
 
 static void esp_bt_rtc_slow_clk_select(modem_clock_lpclk_src_t slow_clk_src)
@@ -1114,9 +1109,9 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode)
         return ESP_FAIL;
     }
     if (!s_ble_active) {
-#if CONFIG_PM_ENABLE
-        esp_pm_lock_acquire(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_get();
+#endif /* CONFIG_PM */
         // init phy
         esp_phy_enable(PHY_MODEM_BT);
         s_ble_active = true;
@@ -1148,9 +1143,9 @@ error:
 #endif
     if (s_ble_active) {
         esp_phy_disable(PHY_MODEM_BT);
-#if CONFIG_PM_ENABLE
-        esp_pm_lock_release(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_put();
+#endif /* CONFIG_PM */
         s_ble_active = false;
     }
     return ret;
@@ -1168,9 +1163,9 @@ esp_err_t esp_bt_controller_disable(void)
     ble_stack_disable();
     if (s_ble_active) {
         esp_phy_disable(PHY_MODEM_BT);
-#if CONFIG_PM_ENABLE
-        esp_pm_lock_release(s_pm_lock);
-#endif  // CONFIG_PM_ENABLE
+#if CONFIG_PM
+        esp_bt_pm_policy_state_lock_put();
+#endif /* CONFIG_PM */
         s_ble_active = false;
     }
 #if CONFIG_SW_COEXIST_ENABLE
