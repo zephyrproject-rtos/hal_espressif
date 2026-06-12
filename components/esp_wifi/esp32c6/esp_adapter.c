@@ -63,8 +63,8 @@ LOG_MODULE_REGISTER(esp32c6_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 static void esp_wifi_free(void *mem);
 
 struct wifi_adapter_msgq {
-	struct k_msgq msgq;
-	void *buffer;
+    struct k_msgq msgq;
+    void *buffer;
 };
 
 struct wifi_task {
@@ -121,16 +121,16 @@ static void esp_wifi_free(void *mem)
 
 static void wifi_task_cleanup_work(struct k_work *work)
 {
-	struct wifi_task *t = CONTAINER_OF(work, struct wifi_task, cleanup_work);
+    struct wifi_task *t = CONTAINER_OF(work, struct wifi_task, cleanup_work);
 
-	k_thread_join(&t->thread, K_FOREVER);
-	if (t->thread.custom_data) {
-		esp_wifi_free_func(t->thread.custom_data);
-	}
+    k_thread_join(&t->thread, K_FOREVER);
+    if (t->thread.custom_data) {
+        esp_wifi_free_func(t->thread.custom_data);
+    }
 
-	k_thread_stack_free(t->stack);
-	k_object_release(&t->thread);
-	esp_wifi_free_func(t);
+    k_thread_stack_free(t->stack);
+    k_object_release(&t->thread);
+    esp_wifi_free_func(t);
 }
 
 wifi_static_queue_t *wifi_create_queue(int queue_len, int item_size)
@@ -452,24 +452,25 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 
 static void task_delete_wrapper(void *handle)
 {
-	k_tid_t tid = handle ? (k_tid_t)handle : k_current_get();
-	struct wifi_task *t = CONTAINER_OF(tid, struct wifi_task, thread);
+    k_tid_t tid = handle ? (k_tid_t)handle : k_current_get();
+    struct wifi_task *t = CONTAINER_OF(tid, struct wifi_task, thread);
 
-	if (tid == k_current_get()) {
-		k_work_init(&t->cleanup_work, wifi_task_cleanup_work);
-		k_work_submit(&t->cleanup_work);
-		return;
-	}
+    if (tid == k_current_get()) {
+        k_work_init(&t->cleanup_work, wifi_task_cleanup_work);
+        k_work_submit(&t->cleanup_work);
+        k_thread_abort(k_current_get());
+        CODE_UNREACHABLE;
+    }
 
-	k_thread_abort(tid);
+    k_thread_abort(tid);
 
-	if (tid->custom_data) {
-		esp_wifi_free(tid->custom_data);
-	}
+    if (tid->custom_data) {
+        esp_wifi_free(tid->custom_data);
+    }
     
-	k_thread_stack_free(t->stack);
-	k_object_release(tid);
-	esp_wifi_free(t);
+    k_thread_stack_free(t->stack);
+    k_object_release(tid);
+    esp_wifi_free(t);
 }
 
 static void task_delay_wrapper(uint32_t ticks)
