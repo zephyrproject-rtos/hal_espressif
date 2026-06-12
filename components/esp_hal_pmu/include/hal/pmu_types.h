@@ -55,6 +55,15 @@ typedef enum {
     PMU_HP_PD_HPMEM = 2,
     PMU_HP_PD_CPU = 3,
 } pmu_hp_power_domain_t;
+#elif SOC_IS(ESP32S31)
+typedef enum {
+    PMU_HP_PD_TOP = 0,      /*!< Power domain of digital top */
+    PMU_HP_PD_HPALIVE,
+    PMU_HP_PD_MODEMPWR,
+    PMU_HP_PD_HPCPU,
+    PMU_HP_PD_HPCNNT,
+    PMU_HP_PD_MODEM
+} pmu_hp_power_domain_t;
 #else
 typedef enum {
     PMU_HP_PD_TOP = 0,      /*!< Power domain of digital top */
