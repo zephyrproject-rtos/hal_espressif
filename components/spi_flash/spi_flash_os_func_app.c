@@ -35,6 +35,21 @@ K_MUTEX_DEFINE(s_spi1_flash_mutex);
 #endif  //  #if SPI_FLASH_CACHE_NO_DISABLE
 
 /*
+ * Bounce buffer used when reading into a destination that the flash host
+ * cannot reach directly (e.g. PSRAM). The read is chunked through this
+ * internal-RAM buffer instead of allocating one from the heap, so the SPI
+ * flash path has no runtime heap dependency. The chunk size trades RAM for
+ * the number of read iterations.
+ */
+#ifndef CONFIG_ESP32_FLASH_BOUNCE_BUFFER_SIZE
+#define CONFIG_ESP32_FLASH_BOUNCE_BUFFER_SIZE 256
+#endif
+static uint8_t s_flash_bounce_buf[CONFIG_ESP32_FLASH_BOUNCE_BUFFER_SIZE]
+	__attribute__((aligned(4)));
+
+K_MUTEX_DEFINE(s_flash_bounce_mutex);
+
+/*
  * OS functions providing delay service and arbitration among chips, and with the cache.
  *
  * The cache needs to be disabled when chips on the SPI1 bus is under operation, hence these functions need to be put
@@ -64,6 +79,31 @@ static inline void on_spi_released(app_func_arg_t* ctx);
 static inline void on_spi_acquired(app_func_arg_t* ctx);
 static inline void on_spi_yielded(app_func_arg_t* ctx);
 static inline bool on_spi_check_yield(app_func_arg_t* ctx);
+
+/* Static pool of per-chip OS function contexts (one per SPI flash host). */
+static app_func_arg_t s_os_func_data[SOC_SPI_PERIPH_NUM];
+static bool s_os_func_data_used[SOC_SPI_PERIPH_NUM];
+
+static app_func_arg_t *alloc_os_func_data(void)
+{
+    for (int i = 0; i < SOC_SPI_PERIPH_NUM; i++) {
+        if (!s_os_func_data_used[i]) {
+            s_os_func_data_used[i] = true;
+            return &s_os_func_data[i];
+        }
+    }
+    return NULL;
+}
+
+static void free_os_func_data(void *data)
+{
+    for (int i = 0; i < SOC_SPI_PERIPH_NUM; i++) {
+        if (&s_os_func_data[i] == data) {
+            s_os_func_data_used[i] = false;
+            return;
+        }
+    }
+}
 
 #if !SPI_FLASH_CACHE_NO_DISABLE
 IRAM_ATTR static void cache_enable(void* arg)
@@ -212,30 +252,23 @@ static esp_err_t delay_us(void *arg, uint32_t us)
 
 static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
 {
-    /* Allocate temporary internal buffer for the actual read. If the preferred
-     * size doesn't fit in free memory, halve the request and retry so we
-     * degrade gracefully under memory pressure instead of failing outright.
-     * Zephyr's libc heap doesn't expose a "largest free block" query, so we
-     * use exponential backoff down to a minimum of 64 bytes.
+    /* Hand out the static internal-RAM bounce buffer. The read is chunked to
+     * its size, so larger reads simply take more iterations. The mutex
+     * serializes concurrent flash reads that need a bounce buffer.
      */
-    void* ret = NULL;
-    size_t read_chunk_size = (reqest_size + 3) & ~3;
+    (void)arg;
+    k_mutex_lock(&s_flash_bounce_mutex, K_FOREVER);
 
-    while (ret == NULL && read_chunk_size >= 64) {
-        ret = k_malloc(read_chunk_size);
-        if (ret == NULL) {
-            read_chunk_size = (read_chunk_size / 2) & ~3;
-        }
-    }
-
-    ESP_LOGV(TAG, "allocate temp buffer: %p (%d)", ret, read_chunk_size);
-    *out_size = (ret != NULL ? read_chunk_size : 0);
-    return ret;
+    *out_size = MIN(reqest_size & ~3, sizeof(s_flash_bounce_buf));
+    ESP_LOGV(TAG, "using static bounce buffer: %p (%d)", s_flash_bounce_buf, *out_size);
+    return s_flash_bounce_buf;
 }
 
 static void release_buffer_malloc(void* arg, void *temp_buf)
 {
-    k_free(temp_buf);
+    (void)arg;
+    (void)temp_buf;
+    k_mutex_unlock(&s_flash_bounce_mutex);
 }
 
 #ifndef __ZEPHYR__
@@ -326,7 +359,7 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
         return ESP_ERR_INVALID_ARG;
     }
 
-    chip->os_func_data = k_malloc(sizeof(app_func_arg_t));
+    chip->os_func_data = alloc_os_func_data();
     if (chip->os_func_data == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -361,7 +394,7 @@ esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip, spi_bus_lock_dev_hand
     if (chip->os_func_data) {
         // SPI bus lock is possibly not used on SPI1 bus
         *out_dev_handle = ((app_func_arg_t*)chip->os_func_data)->dev_lock;
-        k_free(chip->os_func_data);
+        free_os_func_data(chip->os_func_data);
     }
     chip->os_func = NULL;
     chip->os_func_data = NULL;

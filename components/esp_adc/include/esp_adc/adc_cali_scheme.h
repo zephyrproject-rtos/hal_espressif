@@ -15,6 +15,20 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Opaque storage for one calibration scheme.
+ *
+ * The caller (the ADC driver) provides one of these per channel and passes its
+ * address to adc_cali_create_scheme_*(). The scheme implementation carves its
+ * scheme object and characteristics out of this buffer, so no heap is used.
+ * The buffer is sized to hold the largest scheme plus its characteristics
+ * across all supported calibration schemes.
+ */
+typedef struct {
+    void *_align;
+    uint8_t bytes[64];
+} adc_cali_scheme_storage_t;
+
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
 /*---------------------------------------------------------------
             Curve Fitting Calibration Scheme
@@ -41,7 +55,7 @@ typedef struct {
  *        - ESP_ERR_NO_MEM:        No enough memory
  *        - ESP_ERR_NOT_SUPPORTED: Scheme required eFuse bits not burnt
  */
-esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_config_t *config, adc_cali_handle_t *ret_handle);
+esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_config_t *config, void *storage, adc_cali_handle_t *ret_handle);
 
 /**
  * @brief Delete the Curve Fitting calibration scheme handle
@@ -98,7 +112,7 @@ typedef struct {
  *        - ESP_ERR_NO_MEM:        No enough memory
  *        - ESP_ERR_NOT_SUPPORTED: Scheme required eFuse bits not burnt
  */
-esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, adc_cali_handle_t *ret_handle);
+esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, void *storage, adc_cali_handle_t *ret_handle);
 
 /**
  * @brief Delete the Line Fitting calibration scheme handle
