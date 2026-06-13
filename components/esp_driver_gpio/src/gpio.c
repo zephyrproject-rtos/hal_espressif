@@ -36,10 +36,6 @@ extern uint32_t esp_core_id(void);
 #define GPIO_ENTER_CRITICAL()    esp_os_enter_critical(&gpio_context.gpio_spinlock)
 #define GPIO_EXIT_CRITICAL()     esp_os_exit_critical(&gpio_context.gpio_spinlock)
 
-#define MALLOC_CAP_INTERNAL 0
-#define MALLOC_CAP_DEFAULT 0
-#define heap_caps_calloc(n, size, caps) k_calloc(n, size)
-
 static inline uint64_t esp_gpio_reserve(uint64_t mask) { (void)mask; return 0; }
 static inline void esp_gpio_revoke(uint64_t mask) { (void)mask; }
 static inline bool esp_gpio_is_reserved(uint64_t mask) { (void)mask; return false; }
@@ -524,6 +520,7 @@ esp_err_t gpio_reset_pin(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
+#ifndef __ZEPHYR__
 static inline void IRAM_ATTR gpio_isr_loop(uint32_t status, const uint32_t gpio_num_start)
 {
     while (status) {
@@ -648,6 +645,7 @@ esp_err_t gpio_uninstall_isr_service(void)
     k_free(gpio_isr_func_free);
     return ESP_OK;
 }
+#endif /* __ZEPHYR__ */
 
 static void gpio_isr_register_on_core_static(void *param)
 {

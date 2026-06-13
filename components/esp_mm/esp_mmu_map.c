@@ -116,6 +116,49 @@ typedef struct {
 
 static mmu_ctx_t s_mmu_ctx;
 
+/**
+ * Static pool of mem_block_t, replacing dynamic allocation.
+ *
+ * Each region needs 2 sentinel blocks (dummy head and tail). The rest are
+ * actual mappings: PSRAM mapping done once at init plus any runtime flash
+ * mmap windows. Pool access is serialised by s_mmu_ctx.mutex, so no extra
+ * locking is needed here.
+ */
+#ifndef CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS
+#define CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS 8
+#endif
+
+#define MMU_BLOCK_POOL_SIZE \
+    (SOC_MMU_LINEAR_ADDRESS_REGION_NUM * 2 + CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS)
+
+static mem_block_t s_mem_block_pool[MMU_BLOCK_POOL_SIZE];
+static bool s_mem_block_used[MMU_BLOCK_POOL_SIZE];
+
+static mem_block_t *s_mem_block_alloc(void)
+{
+    for (int i = 0; i < MMU_BLOCK_POOL_SIZE; i++) {
+        if (!s_mem_block_used[i]) {
+            s_mem_block_used[i] = true;
+            memset(&s_mem_block_pool[i], 0, sizeof(mem_block_t));
+            return &s_mem_block_pool[i];
+        }
+    }
+    ESP_LOGW(TAG, "mmu mapping pool exhausted (%d blocks); increase CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS",
+             MMU_BLOCK_POOL_SIZE);
+    return NULL;
+}
+
+static void s_mem_block_free(mem_block_t *block)
+{
+    if (block == NULL) {
+        return;
+    }
+    int idx = block - s_mem_block_pool;
+    if (idx >= 0 && idx < MMU_BLOCK_POOL_SIZE) {
+        s_mem_block_used[idx] = false;
+    }
+}
+
 #if ENABLE_PADDR_CHECK
 static bool s_is_enclosed(uint32_t block_start, uint32_t block_end, uint32_t new_block_start, uint32_t new_block_size);
 static bool s_is_overlapped(uint32_t block_start, uint32_t block_end, uint32_t new_block_start, uint32_t new_block_size);
@@ -527,7 +570,7 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
     mem_region_t *found_region = &s_mmu_ctx.mem_regions[found_region_id];
 
     if (TAILQ_EMPTY(&found_region->mem_block_head)) {
-        dummy_head = (mem_block_t *)heap_caps_calloc(1, sizeof(mem_block_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        dummy_head = s_mem_block_alloc();
         ESP_GOTO_ON_FALSE(dummy_head, ESP_ERR_NO_MEM, err, TAG, "no mem");
 
         dummy_head->laddr_start = found_region->free_head;
@@ -537,7 +580,7 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
         dummy_head->caps = caps;
         TAILQ_INSERT_HEAD(&found_region->mem_block_head, dummy_head, entries);
 
-        dummy_tail = (mem_block_t *)heap_caps_calloc(1, sizeof(mem_block_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        dummy_tail = s_mem_block_alloc();
         ESP_GOTO_ON_FALSE(dummy_tail, ESP_ERR_NO_MEM, err, TAG, "no mem");
 
         dummy_tail->laddr_start = found_region->end;
@@ -593,7 +636,7 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
     }
 #endif //#if ENABLE_PADDR_CHECK
 
-    new_block = (mem_block_t *)heap_caps_calloc(1, sizeof(mem_block_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    new_block = s_mem_block_alloc();
     ESP_GOTO_ON_FALSE(new_block, ESP_ERR_NO_MEM, err, TAG, "no mem");
 
     //Reserve this block as it'll be mapped
@@ -690,15 +733,15 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
 
 err:
     if (new_block) {
-        k_free(new_block);
+        s_mem_block_free(new_block);
     }
     if (dummy_tail) {
         TAILQ_REMOVE(&found_region->mem_block_head, dummy_tail, entries);
-        k_free(dummy_tail);
+        s_mem_block_free(dummy_tail);
     }
     if (dummy_head) {
         TAILQ_REMOVE(&found_region->mem_block_head, dummy_head, entries);
-        k_free(dummy_head);
+        s_mem_block_free(dummy_head);
     }
     k_mutex_unlock(&s_mmu_ctx.mutex);
 
@@ -789,7 +832,7 @@ esp_err_t esp_mmu_unmap(void *ptr)
 
     //do unmap
     s_do_unmapping(mem_block->vaddr_start, mem_block->size);
-    k_free(found_block);
+    s_mem_block_free(found_block);
 
     k_mutex_unlock(&s_mmu_ctx.mutex);
 

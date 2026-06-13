@@ -42,7 +42,14 @@ static int s_deltaT = INT_MIN; // unused number
 static int s_temperature_regval_2_celsius(temperature_sensor_handle_t tsens, uint8_t regval);
 #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
 
+/*
+ * Static storage replacing the heap. The attribute copy is a fixed-size sorted
+ * table; the sensor object is a single instance, since there is one temperature
+ * sensor peripheral and install is guarded against a second call.
+ */
+static temperature_sensor_attribute_t s_tsens_attribute_storage[TEMPERATURE_SENSOR_ATTR_RANGE_NUM];
 static temperature_sensor_attribute_t *s_tsens_attribute_copy;
+static temperature_sensor_obj_t s_tsens_obj;
 
 static int inline accuracy_compare(const void *p1, const void *p2)
 {
@@ -51,8 +58,7 @@ static int inline accuracy_compare(const void *p1, const void *p2)
 
 static esp_err_t temperature_sensor_attribute_table_sort(void)
 {
-    s_tsens_attribute_copy = (temperature_sensor_attribute_t *)heap_caps_malloc(sizeof(temperature_sensor_attributes), TEMPERATURE_SENSOR_MEM_ALLOC_CAPS);
-    ESP_RETURN_ON_FALSE(s_tsens_attribute_copy != NULL, ESP_ERR_NO_MEM, TAG, "No space for s_tsens_attribute_copy");
+    s_tsens_attribute_copy = s_tsens_attribute_storage;
     for (int i = 0 ; i < TEMPERATURE_SENSOR_ATTR_RANGE_NUM; i++) {
         s_tsens_attribute_copy[i] = temperature_sensor_attributes[i];
     }
@@ -132,9 +138,8 @@ esp_err_t temperature_sensor_install(const temperature_sensor_config_t *tsens_co
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE((tsens_config && ret_tsens), ESP_ERR_INVALID_ARG, TAG, "Invalid argument");
     ESP_RETURN_ON_FALSE((s_tsens_attribute_copy == NULL), ESP_ERR_INVALID_STATE, TAG, "Already installed");
-    temperature_sensor_handle_t tsens = NULL;
-    tsens = (temperature_sensor_obj_t *) heap_caps_calloc(1, sizeof(temperature_sensor_obj_t), MALLOC_CAP_DEFAULT);
-    ESP_RETURN_ON_FALSE((tsens != NULL), ESP_ERR_NO_MEM, TAG, "no mem for temp sensor");
+    temperature_sensor_handle_t tsens = &s_tsens_obj;
+    memset(tsens, 0, sizeof(temperature_sensor_obj_t));
     if (tsens->clk_src == 0) {
         tsens->clk_src = TEMPERATURE_SENSOR_CLK_SRC_DEFAULT;
     } else {
@@ -189,9 +194,6 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
     ESP_RETURN_ON_FALSE((tsens != NULL), ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     ESP_RETURN_ON_FALSE(tsens->fsm == TEMP_SENSOR_FSM_INIT, ESP_ERR_INVALID_STATE, TAG, "tsens not in init state");
 
-    if (s_tsens_attribute_copy) {
-        free(s_tsens_attribute_copy);
-    }
     s_tsens_attribute_copy = NULL;
 
 #if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
@@ -217,7 +219,6 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
 
     temperature_sensor_power_release();
 
-    free(tsens);
     return ESP_OK;
 }
 

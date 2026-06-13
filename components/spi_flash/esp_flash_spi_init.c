@@ -5,6 +5,7 @@
  */
 
 #include "sdkconfig.h"
+#include <string.h>
 #include "driver/gpio.h"
 #include "esp_rom_gpio.h"
 #include "esp_rom_efuse.h"
@@ -355,6 +356,43 @@ static void deinit_gpspi_clock(esp_flash_t *chip)
 #endif // !CONFIG_IDF_TARGET_ESP32
 }
 
+/*
+ * Static pool of external-flash device instances, replacing the heap. Each
+ * slot bundles a chip and its host so they are reserved and released together.
+ * spi_bus_add_flash_device is on-demand and bounded by the number of SPI
+ * peripherals, so SOC_SPI_PERIPH_NUM slots are always enough.
+ */
+typedef struct {
+    esp_flash_t chip;
+    memspi_host_inst_t host;
+    bool used;
+} spi_flash_dev_slot_t;
+
+static spi_flash_dev_slot_t s_spi_flash_dev_pool[SOC_SPI_PERIPH_NUM];
+
+static spi_flash_dev_slot_t *s_spi_flash_dev_alloc(void)
+{
+    for (int i = 0; i < SOC_SPI_PERIPH_NUM; i++) {
+        if (!s_spi_flash_dev_pool[i].used) {
+            s_spi_flash_dev_pool[i].used = true;
+            memset(&s_spi_flash_dev_pool[i].chip, 0, sizeof(esp_flash_t));
+            memset(&s_spi_flash_dev_pool[i].host, 0, sizeof(memspi_host_inst_t));
+            return &s_spi_flash_dev_pool[i];
+        }
+    }
+    return NULL;
+}
+
+static void s_spi_flash_dev_free(esp_flash_t *chip)
+{
+    for (int i = 0; i < SOC_SPI_PERIPH_NUM; i++) {
+        if (&s_spi_flash_dev_pool[i].chip == chip) {
+            s_spi_flash_dev_pool[i].used = false;
+            return;
+        }
+    }
+}
+
 esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_device_config_t *config)
 {
     if (out_chip == NULL) {
@@ -367,24 +405,18 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
     memspi_host_inst_t *host = NULL;
     esp_err_t ret = ESP_OK;
 
-    uint32_t caps = MALLOC_CAP_DEFAULT;
-    if (config->host_id == SPI1_HOST) caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
-
-    chip = (esp_flash_t*)heap_caps_malloc(sizeof(esp_flash_t), caps);
-    if (!chip) {
+    spi_flash_dev_slot_t *slot = s_spi_flash_dev_alloc();
+    if (!slot) {
         ret = ESP_ERR_NO_MEM;
         goto fail;
     }
 
-    host = (memspi_host_inst_t*)heap_caps_malloc(sizeof(memspi_host_inst_t), caps);
+    chip = &slot->chip;
+    host = &slot->host;
     *chip = (esp_flash_t) {
         .read_mode = config->io_mode,
         .host = (spi_flash_host_inst_t*)host,
     };
-    if (!host) {
-        ret = ESP_ERR_NO_MEM;
-        goto fail;
-    }
 
     int dev_id;
     spi_bus_lock_dev_handle_t dev_handle;
@@ -444,8 +476,7 @@ esp_err_t spi_bus_remove_flash_device(esp_flash_t *chip)
     if (dev_handle) {
         spi_bus_lock_unregister_dev(dev_handle);
     }
-    free(chip->host);
-    free(chip);
+    s_spi_flash_dev_free(chip);
     return ESP_OK;
 }
 

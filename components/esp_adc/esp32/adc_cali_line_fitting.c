@@ -5,6 +5,7 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 #include "sdkconfig.h"
 #include "assert.h"
 #include "esp_types.h"
@@ -151,8 +152,18 @@ typedef struct {
     adc_cali_line_fitting_efuse_val_t efuse_val;    ///< Type of calibration value used in characterization
 } cali_chars_line_fitting_t;
 
+/*
+ * Caller-owned storage replacing the heap. The driver provides one
+ * adc_cali_scheme_storage_t per channel; the scheme and its characteristics
+ * are carved out of it, so no dynamic allocation is needed.
+ */
+typedef struct {
+    adc_cali_scheme_t scheme;
+    cali_chars_line_fitting_t chars;
+} adc_cali_scheme_slot_t;
+
 /* ------------------------- Public API ------------------------------------- */
-esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, adc_cali_handle_t *ret_handle)
+esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, void *storage, adc_cali_handle_t *ret_handle)
 {
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(config && config, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
@@ -160,11 +171,14 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
     ESP_RETURN_ON_FALSE(config->atten < SOC_ADC_ATTEN_NUM, ESP_ERR_INVALID_ARG, TAG, "invalid ADC attenuation");
     ESP_RETURN_ON_FALSE(((config->bitwidth >= ADC_LL_RTC_MIN_BITWIDTH && config->bitwidth <= ADC_LL_RTC_MAX_BITWIDTH) || config->bitwidth == ADC_BITWIDTH_DEFAULT), ESP_ERR_INVALID_ARG, TAG, "invalid bitwidth");
 
-    adc_cali_scheme_t *scheme = (adc_cali_scheme_t *)heap_caps_calloc(1, sizeof(adc_cali_scheme_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(scheme, ESP_ERR_NO_MEM, TAG, "no mem for adc calibration scheme");
+    ESP_RETURN_ON_FALSE(storage, ESP_ERR_INVALID_ARG, TAG, "no storage for adc calibration scheme");
+    _Static_assert(sizeof(adc_cali_scheme_slot_t) <= sizeof(adc_cali_scheme_storage_t),
+                   "adc_cali_scheme_storage_t too small for line fitting scheme");
 
-    cali_chars_line_fitting_t *chars = (cali_chars_line_fitting_t *)heap_caps_calloc(1, sizeof(cali_chars_line_fitting_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_GOTO_ON_FALSE(chars, ESP_ERR_NO_MEM, err, TAG, "no memory for the calibration characteristics");
+    adc_cali_scheme_slot_t *slot = (adc_cali_scheme_slot_t *)storage;
+    memset(slot, 0, sizeof(adc_cali_scheme_slot_t));
+    adc_cali_scheme_t *scheme = &slot->scheme;
+    cali_chars_line_fitting_t *chars = &slot->chars;
 
     //Check eFuse if enabled to do so
     if (check_efuse_tp() && EFUSE_TP_ENABLED) {
@@ -205,9 +219,7 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
     return ESP_OK;
 
 err:
-    if (scheme) {
-        free(scheme);
-    }
+    memset(slot, 0, sizeof(adc_cali_scheme_slot_t));
     return ret;
 }
 
@@ -230,11 +242,7 @@ esp_err_t adc_cali_delete_scheme_line_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    free(handle->ctx);
     handle->ctx = NULL;
-
-    free(handle);
-    handle = NULL;
 
     return ESP_OK;
 }

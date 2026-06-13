@@ -55,10 +55,51 @@ extern char _rodata_reserved_end;
 /* 0x1000000, 16MB */
 #define FLASH_MMAP_ADDR_24BIT_MAX  (BIT(24))
 
+#ifndef CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS
+#define CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS 8
+#endif
+
+#define MMAP_BLOCK_POOL_SIZE CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS
+
 typedef struct mmap_block_t {
     uint32_t *vaddr_list;
     int list_num;
+    uint32_t vaddr_storage[MMAP_BLOCK_POOL_SIZE];
 } mmap_block_t;
+
+/*
+ * Static pools replacing the heap allocations. The vaddr list is embedded in
+ * each block (one entry per concurrent mmu mapping). The paddr scratch is only
+ * used transiently inside spi_flash_mmap_pages and never escapes the call.
+ */
+static mmap_block_t s_mmap_block_pool[MMAP_BLOCK_POOL_SIZE];
+static bool s_mmap_block_used[MMAP_BLOCK_POOL_SIZE];
+static int s_mmap_paddr_scratch[MMAP_BLOCK_POOL_SIZE][2];
+
+static mmap_block_t *s_mmap_block_alloc(void)
+{
+    for (int i = 0; i < MMAP_BLOCK_POOL_SIZE; i++) {
+        if (!s_mmap_block_used[i]) {
+            s_mmap_block_used[i] = true;
+            memset(&s_mmap_block_pool[i], 0, sizeof(mmap_block_t));
+            return &s_mmap_block_pool[i];
+        }
+    }
+    ESP_LOGW("flash_mmap", "mmap handle pool exhausted (%d); increase CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS",
+             MMAP_BLOCK_POOL_SIZE);
+    return NULL;
+}
+
+static void s_mmap_block_free(mmap_block_t *block)
+{
+    if (block == NULL) {
+        return;
+    }
+    int idx = block - s_mmap_block_pool;
+    if (idx >= 0 && idx < MMAP_BLOCK_POOL_SIZE) {
+        s_mmap_block_used[idx] = false;
+    }
+}
 
 
 esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory,
@@ -76,18 +117,13 @@ esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t m
     mmap_block_t *block = NULL;
     uint32_t *vaddr_list = NULL;
 
-    block = heap_caps_calloc(1, sizeof(mmap_block_t), MALLOC_CAP_INTERNAL);
+    block = s_mmap_block_alloc();
     if (!block) {
         ret = ESP_ERR_NO_MEM;
         goto err;
     }
 
-    vaddr_list = heap_caps_calloc(1, 1 * sizeof(uint32_t), MALLOC_CAP_INTERNAL);
-    if (!vaddr_list) {
-        ret = ESP_ERR_NO_MEM;
-        goto err;
-    }
-
+    vaddr_list = block->vaddr_storage;
     block->vaddr_list = vaddr_list;
 
     if (memory == SPI_FLASH_MMAP_INST) {
@@ -118,11 +154,8 @@ esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t m
     return ESP_OK;
 
 err:
-    if (vaddr_list) {
-        k_free(vaddr_list);
-    }
     if (block) {
-        k_free(block);
+        s_mmap_block_free(block);
     }
     return ret;
 }
@@ -191,24 +224,22 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     int successful_cnt = 0;
 
     int block_num = s_find_non_contiguous_block_nums(pages, page_count);
-    int (*paddr_blocks)[2] = k_calloc(block_num, sizeof(int[2]));
-    if (!paddr_blocks) {
+    if (block_num > MMAP_BLOCK_POOL_SIZE) {
+        ESP_LOGW("flash_mmap", "need %d mmap blocks but pool is %d; increase CONFIG_ESP32_FLASH_MMU_MAX_MAPPINGS",
+                 block_num, MMAP_BLOCK_POOL_SIZE);
         return ESP_ERR_NO_MEM;
     }
+    int (*paddr_blocks)[2] = s_mmap_paddr_scratch;
     s_merge_contiguous_pages(pages, page_count, block_num, paddr_blocks);
     s_pages_to_bytes(paddr_blocks, block_num);
 
-    block = heap_caps_calloc(1, sizeof(mmap_block_t), MALLOC_CAP_INTERNAL);
+    block = s_mmap_block_alloc();
     if (!block) {
         ret = ESP_ERR_NO_MEM;
         goto err;
     }
 
-    vaddr_list = heap_caps_calloc(1, block_num * sizeof(uint32_t), MALLOC_CAP_INTERNAL);
-    if (!vaddr_list) {
-        ret = ESP_ERR_NO_MEM;
-        goto err;
-    }
+    vaddr_list = block->vaddr_storage;
 
     if (memory == SPI_FLASH_MMAP_INST) {
         caps = MMU_MEM_CAP_EXEC | MMU_MEM_CAP_32BIT;
@@ -242,20 +273,15 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     *out_ptr = (void *)vaddr_list[0];
     *out_handle = (uint32_t)block;
 
-    k_free(paddr_blocks);
     return ESP_OK;
 
 err:
     for (int i = 0; i < successful_cnt; i++) {
         esp_mmu_unmap((void *)vaddr_list[i]);
     }
-    if (vaddr_list) {
-        k_free(vaddr_list);
-    }
     if (block) {
-        k_free(block);
+        s_mmap_block_free(block);
     }
-    k_free(paddr_blocks);
     return ret;
 }
 
@@ -272,8 +298,7 @@ void spi_flash_munmap(spi_flash_mmap_handle_t handle)
         }
     }
 
-    k_free(block->vaddr_list);
-    k_free(block);
+    s_mmap_block_free(block);
 }
 
 

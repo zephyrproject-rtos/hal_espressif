@@ -66,8 +66,18 @@ static esp_err_t check_valid(const adc_cali_curve_fitting_config_t *config);
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage);
 
+/*
+ * Caller-owned storage replacing the heap. The driver provides one
+ * adc_cali_scheme_storage_t per channel; the scheme and its characteristics
+ * are carved out of it, so no dynamic allocation is needed.
+ */
+typedef struct {
+    adc_cali_scheme_t scheme;
+    cali_chars_curve_fitting_t chars;
+} adc_cali_scheme_slot_t;
+
 /* ------------------------- Public API ------------------------------------- */
-esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_config_t *config, adc_cali_handle_t *ret_handle)
+esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_config_t *config, void *storage, adc_cali_handle_t *ret_handle)
 {
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(config && ret_handle, ESP_ERR_INVALID_ARG, TAG, "invalid arg: null pointer");
@@ -80,11 +90,14 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
     ESP_RETURN_ON_FALSE((adc_encoding_version >= ESP_EFUSE_ADC_CALIB_VER_MIN) &&
                         (adc_encoding_version <= ESP_EFUSE_ADC_CALIB_VER_MAX), ESP_ERR_NOT_SUPPORTED, TAG, "Calibration required eFuse bits not burnt");
 
-    adc_cali_scheme_t *scheme = (adc_cali_scheme_t *)heap_caps_calloc(1, sizeof(adc_cali_scheme_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(scheme, ESP_ERR_NO_MEM, TAG, "no mem for adc calibration scheme");
+    ESP_RETURN_ON_FALSE(storage, ESP_ERR_INVALID_ARG, TAG, "no storage for adc calibration scheme");
+    _Static_assert(sizeof(adc_cali_scheme_slot_t) <= sizeof(adc_cali_scheme_storage_t),
+                   "adc_cali_scheme_storage_t too small for curve fitting scheme");
 
-    cali_chars_curve_fitting_t *chars = (cali_chars_curve_fitting_t *)heap_caps_calloc(1, sizeof(cali_chars_curve_fitting_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_GOTO_ON_FALSE(chars, ESP_ERR_NO_MEM, err, TAG, "no memory for the calibration characteristics");
+    adc_cali_scheme_slot_t *slot = (adc_cali_scheme_slot_t *)storage;
+    memset(slot, 0, sizeof(adc_cali_scheme_slot_t));
+    adc_cali_scheme_t *scheme = &slot->scheme;
+    cali_chars_curve_fitting_t *chars = &slot->chars;
 
     scheme->raw_to_voltage = cali_raw_to_voltage;
     scheme->ctx = chars;
@@ -103,23 +116,13 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
     *ret_handle = scheme;
 
     return ESP_OK;
-
-err:
-    if (scheme) {
-        free(scheme);
-    }
-    return ret;
 }
 
 esp_err_t adc_cali_delete_scheme_curve_fitting(adc_cali_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
-    free(handle->ctx);
     handle->ctx = NULL;
-
-    free(handle);
-    handle = NULL;
 
     return ESP_OK;
 }
