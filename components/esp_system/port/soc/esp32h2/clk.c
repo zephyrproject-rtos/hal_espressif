@@ -47,7 +47,7 @@ void esp_rtc_init(void)
     recalib_bbpll();
 #endif
 
-#if !CONFIG_IDF_ENV_FPGA && !CONFIG_BOOTLOADER_MCUBOOT
+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
     pmu_init();
 #endif
 }

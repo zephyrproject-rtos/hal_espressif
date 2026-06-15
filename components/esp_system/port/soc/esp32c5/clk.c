@@ -47,8 +47,8 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
 
 void esp_rtc_init(void)
 {
-#if !CONFIG_IDF_ENV_FPGA && !CONFIG_BOOTLOADER_MCUBOOT
-    pmu_init();
+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
+	pmu_init();
 #endif
 }
 
