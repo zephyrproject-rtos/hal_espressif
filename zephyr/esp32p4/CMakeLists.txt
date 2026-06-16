@@ -211,6 +211,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hal_mspi/spi_flash_hal.c
     ../../components/esp_hal_mspi/spi_flash_hal_iram.c
     ../../components/esp_hal_mspi/spi_flash_hal_gpspi.c
+    ../../components/esp_hal_mspi/${CONFIG_SOC_SERIES}/mspi_periph.c
     ../../components/spi_flash/esp_flash_api.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/spi_flash/flash_mmap.c
