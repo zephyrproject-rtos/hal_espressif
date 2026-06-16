@@ -123,7 +123,6 @@ void ana_clock_glitch_reset_config(bool enable)
 	(void)enable;
 }
 
-#if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/pmu_reg.h"
 #include "soc/rtc.h"
 #include "soc/lp_clkrst_reg.h"
@@ -134,10 +133,14 @@ void ana_clock_glitch_reset_config(bool enable)
 #include "pmu_param.h"
 
 /*
- * Custom bootloader_clock_configure() for ESP32-C5 simple boot mode.
+ * Custom bootloader_clock_configure() for the ESP32-C5 bootloader stage.
  *
- * In simple boot mode, we enable PLL and switch CPU clock source so that
- * flash can run at higher speeds. The ROM bootloader leaves CPU on XTAL.
+ * The bootloader (simple boot or MCUboot) enables PLL and switches the CPU
+ * clock source so that flash can run at higher speeds. The ROM bootloader
+ * leaves the CPU on XTAL. The default weak bootloader_clock_configure()
+ * skips this on a software reset, which would leave the BBPLL un-brought-up
+ * and hang the application clock driver's REGI2C re-calibration; this
+ * override always brings the PLL up so a software reboot recovers cleanly.
  *
  * Cannot use rtc_clk_init() or REGI2C_WRITE/REGI2C_WRITE_MASK here
  * because without BOOTLOADER_BUILD they go through
@@ -276,4 +279,3 @@ void bootloader_clock_configure(void)
 	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_WAKEUP_INT_CLR);
 	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_SLEEP_REJECT_INT_CLR);
 }
-#endif /* CONFIG_ESP_SIMPLE_BOOT */

@@ -84,7 +84,6 @@ void ana_clock_glitch_reset_config(bool enable)
 	(void)enable;
 }
 
-#if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -148,5 +147,4 @@ void bootloader_clock_configure(void)
 	REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
 	REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
 }
-#endif /* CONFIG_ESP_SIMPLE_BOOT */
 
