@@ -86,7 +86,6 @@ void ana_clock_glitch_reset_config(bool enable)
 	(void)enable;
 }
 
-#if defined(CONFIG_ESP_SIMPLE_BOOT) || defined(CONFIG_MCUBOOT)
 #include "soc/pmu_reg.h"
 #include "soc/lp_system_reg.h"
 #include "soc/chip_revision.h"
@@ -189,7 +188,6 @@ void bootloader_clock_configure(void)
 	SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_SUPER_WDT_INT_CLR);
 	SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);
 }
-#endif /* CONFIG_ESP_SIMPLE_BOOT || CONFIG_MCUBOOT */
 
 #include "esp_sleep.h"
 __attribute__((weak)) esp_err_t esp_sleep_pd_config(esp_sleep_pd_domain_t domain,

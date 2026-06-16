@@ -104,7 +104,6 @@ void ana_clock_glitch_reset_config(bool enable)
 	(void)enable;
 }
 
-#if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/rtc.h"
 #include "soc/lp_clkrst_reg.h"
 #include "soc/regi2c_pmu.h"
@@ -112,6 +111,15 @@ void ana_clock_glitch_reset_config(bool enable)
 #include "modem/modem_lpcon_struct.h"
 #include "pmu_param.h"
 
+/*
+ * Custom bootloader_clock_configure() for the ESP32-H2 bootloader stage.
+ *
+ * The bootloader (simple boot or MCUboot) brings up the PLL and switches
+ * the CPU clock source. The default weak bootloader_clock_configure() skips
+ * this on a software reset, which would leave the BBPLL un-brought-up and
+ * hang the application clock driver's REGI2C re-calibration; this override
+ * always brings the PLL up so a software reboot recovers cleanly.
+ */
 void bootloader_clock_configure(void)
 {
 	esp_rom_output_tx_wait_idle(0);
@@ -184,4 +192,3 @@ void bootloader_clock_configure(void)
 	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_WAKEUP_INT_CLR);
 	SET_PERI_REG_MASK(PMU_HP_INT_CLR_REG, PMU_SOC_SLEEP_REJECT_INT_CLR);
 }
-#endif /* CONFIG_ESP_SIMPLE_BOOT */

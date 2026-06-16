@@ -117,7 +117,6 @@ void ana_clock_glitch_reset_config(bool enable)
 	(void)enable;
 }
 
-#if defined(CONFIG_ESP_SIMPLE_BOOT)
 #include "soc/pmu_reg.h"
 #include "soc/lp_clkrst_reg.h"
 #include "soc/regi2c_dig_reg.h"
@@ -131,11 +130,17 @@ void ana_clock_glitch_reset_config(bool enable)
 #include "pmu_param.h"
 
 /*
- * Custom bootloader_clock_configure() for ESP32-C6 simple boot mode.
+ * Custom bootloader_clock_configure() for ESP32-C6 bootloader stage.
  *
- * In simple boot mode, we need to enable PLL and switch CPU clock source
- * so that flash can run at 80MHz (requires 480MHz PLL with divider 6).
- * The ROM bootloader leaves CPU running on XTAL (40MHz).
+ * The bootloader (simple boot or MCUboot) must enable PLL and switch the
+ * CPU clock source so flash can run at 80MHz (requires 480MHz PLL with
+ * divider 6). The ROM bootloader leaves the CPU running on XTAL (40MHz).
+ *
+ * The default weak bootloader_clock_configure() skips this on a software
+ * reset (RESET_REASON_CPU0_SW), which would leave the CPU on XTAL with the
+ * BBPLL not brought up. The application clock driver would then try to
+ * re-calibrate the BBPLL over REGI2C and hang. This override always brings
+ * the PLL up, so a software reboot recovers cleanly.
  */
 void bootloader_clock_configure(void)
 {
@@ -214,4 +219,3 @@ void bootloader_clock_configure(void)
 	SET_PERI_REG_MASK(LP_ANALOG_PERI_LP_ANA_LP_INT_CLR_REG, LP_ANALOG_PERI_LP_ANA_BOD_MODE0_LP_INT_CLR);
 	SET_PERI_REG_MASK(LP_WDT_INT_CLR_REG, LP_WDT_LP_WDT_INT_CLR);
 }
-#endif /* CONFIG_ESP_SIMPLE_BOOT */
