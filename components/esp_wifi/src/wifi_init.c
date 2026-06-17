@@ -5,8 +5,6 @@
  */
 
 #include <zephyr/kernel.h>
-#include <zephyr/pm/policy.h>
-#include "esp_private/critical_section.h"
 
 #include <esp_event.h>
 #include <esp_wifi.h>
@@ -48,8 +46,7 @@
 static bool s_wifi_inited = false;
 
 #ifdef CONFIG_PM
-DEFINE_CRIT_SECTION_LOCK_STATIC(s_pm_lock);
-static uint32_t s_pm_lock_refcnt;
+static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
 #endif
 
 #if (CONFIG_ESP_WIFI_RX_BA_WIN > CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM)
@@ -110,26 +107,6 @@ wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
 }
 
 static const char *TAG = "wifi_init";
-
-#if CONFIG_PM
-static void esp_wifi_pm_policy_state_lock_get(void)
-{
-    esp_os_enter_critical(&s_pm_lock);
-    if (s_pm_lock_refcnt++ == 0) {
-        pm_policy_state_all_lock_get();
-    }
-    esp_os_exit_critical(&s_pm_lock);
-}
-
-static void esp_wifi_pm_policy_state_lock_put(void)
-{
-    esp_os_enter_critical(&s_pm_lock);
-    if (s_pm_lock_refcnt > 0 && --s_pm_lock_refcnt == 0) {
-        pm_policy_state_all_lock_put();
-    }
-    esp_os_exit_critical(&s_pm_lock);
-}
-#endif
 
 static void esp_wifi_set_log_level(void)
 {
@@ -247,6 +224,12 @@ static esp_err_t wifi_deinit_internal(void)
         ESP_LOGE(TAG, "Failed to deinit Wi-Fi driver (0x%x)", err);
         return err;
     }
+#ifdef CONFIG_PM
+    if (s_wifi_modem_sleep_lock) {
+        esp_pm_lock_delete(s_wifi_modem_sleep_lock);
+        s_wifi_modem_sleep_lock = NULL;
+    }
+#endif
 
 #ifdef CONFIG_ESP_PHY_ENABLED
     esp_wifi_power_domain_off();
@@ -481,6 +464,17 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
 #endif
 
+#ifdef CONFIG_PM
+        if (s_wifi_modem_sleep_lock == NULL) {
+            result = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "wifi",
+                                        &s_wifi_modem_sleep_lock);
+            if (result != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to create pm lock (0x%x)", result);
+                goto _deinit;
+            }
+        }
+#endif
+
         result = esp_supplicant_init();
         if (result != ESP_OK) {
             ESP_LOGE(TAG, "Failed to init supplicant (0x%x)", result);
@@ -551,12 +545,14 @@ esp_err_t esp_wifi_disconnect(void)
 #ifdef CONFIG_PM
 void wifi_apb80m_request(void)
 {
-    esp_wifi_pm_policy_state_lock_get();
+    assert(s_wifi_modem_sleep_lock);
+    esp_pm_lock_acquire(s_wifi_modem_sleep_lock);
 }
 
 void wifi_apb80m_release(void)
 {
-    esp_wifi_pm_policy_state_lock_put();
+    assert(s_wifi_modem_sleep_lock);
+    esp_pm_lock_release(s_wifi_modem_sleep_lock);
 }
 #endif
 
