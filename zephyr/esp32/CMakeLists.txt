@@ -289,6 +289,8 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
+      ../common/pm_impl_zephyr.c
+      ../common/pm_locks_zephyr.c
       ../../components/esp_hw_support/sleep_gpio.c
       ../../components/esp_hw_support/sleep_event.c
       ../../components/esp_driver_gpio/src/gpio.c
