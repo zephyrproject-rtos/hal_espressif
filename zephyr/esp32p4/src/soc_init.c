@@ -19,6 +19,10 @@
 #include "soc/assist_debug_reg.h"
 #include "soc/lp_wdt_reg.h"
 #include "soc/regi2c_bias.h"
+#include "soc/regi2c_cpll.h"
+#include "soc/regi2c_syspll.h"
+#include "soc/chip_revision.h"
+#include "hal/efuse_hal.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "esp_rom_regi2c.h"
@@ -29,6 +33,20 @@ void soc_hw_init(void)
 {
 	_regi2c_ctrl_ll_master_enable_clock(true);
 	regi2c_ctrl_ll_master_configure_clock();
+
+	if (!ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 1)) {
+		/*
+		 * On ESP32-P4 ECO0 (rev < v1.0) the power-on-reset CPLL and
+		 * SYSPLL frequencies are very high, which can starve the bias
+		 * during early boot. Lower their output dividers before the
+		 * regulators are brought up. The lowest supported silicon is
+		 * v1.3, so this never runs on supported parts; it is kept to
+		 * match the reference boot sequence for v0.x silicon.
+		 */
+		REGI2C_WRITE_MASK(I2C_CPLL, I2C_CPLL_OC_DIV_7_0, 6);
+		REGI2C_WRITE_MASK(I2C_SYSPLL, I2C_SYSPLL_OC_DIV_7_0, 8);
+		esp_rom_delay_us(100);
+	}
 
 	REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1, 10);
 	REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1_PVT, 10);
@@ -159,10 +177,11 @@ void bootloader_clock_configure(void)
 	}
 	pmu_ll_hp_set_regulator_xpd(&PMU, PMU_MODE_HP_ACTIVE, false);
 
-	/* Upscale CPU to CONFIG_BOOTLOADER_CPU_CLK_FREQ_MHZ (100 MHz on
-	 * ECO >= 3.0), matching ESP-IDF rtc_clk_cpu_freq_to_cpll_mhz():
-	 *   CPLL = 400 MHz, cpu_div = 4 -> CPU = 100 MHz
-	 *   mem_div = 1, sys_div = 1, apb_div = 1
+	/* Upscale CPU to CONFIG_BOOTLOADER_CPU_CLK_FREQ_MHZ, mirroring the
+	 * reference rtc_clk_cpu_freq_to_cpll_mhz() with cpu_div = 4:
+	 *   rev >= v3.0: CPLL = 400 MHz -> CPU = 100 MHz
+	 *   rev <  v3.0: CPLL = 360 MHz -> CPU =  90 MHz
+	 * In both cases mem_div = sys_div = apb_div = 1.
 	 * Upscaling order: APB -> SYS -> MEM -> CPU -> src switch.
 	 */
 	clk_ll_apb_set_divider(1);
@@ -176,9 +195,16 @@ void bootloader_clock_configure(void)
 	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_CPLL);
 	esp_rom_set_cpu_ticks_per_us(CONFIG_BOOTLOADER_CPU_CLK_FREQ_MHZ);
 
-	/* MSPI flash: SPLL (480MHz) with core clock at 80MHz */
-	_mspi_timing_ll_set_flash_clk_src(0, FLASH_CLK_SRC_SPLL);
-	_mspi_timing_ll_set_flash_core_clock(0, 80);
+	/*
+	 * MSPI flash: SPLL (480 MHz) with core clock at 80 MHz. On ECO0
+	 * (rev < v1.0) the reference bootloader skips MSPI clock init and
+	 * keeps flash on the ROM default, because the SPLL is unstable on
+	 * that silicon; mirror that here.
+	 */
+	if (ESP_CHIP_REV_ABOVE(chip_version, 1)) {
+		_mspi_timing_ll_set_flash_clk_src(0, FLASH_CLK_SRC_SPLL);
+		_mspi_timing_ll_set_flash_core_clock(0, 80);
+	}
 
 	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_SUPER_WDT_INT_ENA);
 	CLEAR_PERI_REG_MASK(LP_WDT_INT_ENA_REG, LP_WDT_LP_WDT_INT_ENA);
