@@ -19,6 +19,7 @@
 #include "esp_attr.h"
 
 #include <zephyr/kernel.h>
+#include <esp_os.h>
 
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 #include "hal/temperature_sensor_ll.h"
@@ -113,10 +114,10 @@ static void phy_track_pll_internal(void)
 
 static void phy_track_pll_timer_callback(void* arg)
 {
-    struct k_mutex *phy_lock = phy_get_lock();
-    k_mutex_lock(phy_lock, K_FOREVER);
+    esp_os_mutex_t phy_lock = phy_get_lock();
+    esp_os_mutex_lock(phy_lock, ESP_OS_FOREVER);
     phy_track_pll_internal();
-    k_mutex_unlock(phy_lock);
+    esp_os_mutex_unlock(phy_lock);
 }
 
 void phy_track_pll_init(void)

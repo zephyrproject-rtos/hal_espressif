@@ -5,6 +5,7 @@
  */
 
 #include <stdlib.h>
+#include <esp_os.h>
 #include <ctype.h>
 #include "sdkconfig.h"
 #include "esp_types.h"
@@ -117,7 +118,7 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t r
         return err;
     }
 
-    rtc_isr_handler_t* item = k_malloc(sizeof(*item));
+    rtc_isr_handler_t* item = esp_os_malloc(sizeof(*item));
     if (item == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -158,7 +159,7 @@ esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
             if (it->flags & RTC_INTR_FLAG_IRAM) {
                 s_rtc_isr_noniram_hook_relieve(it->mask);
             }
-            k_free(it);
+            esp_os_free(it);
             break;
         }
         prev = it;

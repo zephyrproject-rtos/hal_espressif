@@ -13,6 +13,7 @@
 #include "esp_hci_driver.h"
 #include "esp_bt.h"
 #include <zephyr/kernel.h>
+#include <esp_os.h>
 
 typedef struct {
     hci_driver_forward_fn *forward_cb;
@@ -40,7 +41,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
     if (data_type == HCI_DRIVER_TYPE_ACL) {
         om = (struct os_mbuf *)data;
         buf_len = length + 1;
-        buf = k_malloc(buf_len);
+        buf = esp_os_malloc(buf_len);
         /* TODO: If there is no memory, should handle it in the controller. */
         assert(buf);
         buf[0] = HCI_DRIVER_TYPE_ACL;
@@ -48,7 +49,7 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
         os_mbuf_free_chain(om);
     } else if (data_type == HCI_DRIVER_TYPE_EVT) {
         buf_len = length + 1;
-        buf = k_malloc(buf_len);
+        buf = esp_os_malloc(buf_len);
         /* TODO: If there is no memory, should handle it in the controller. */
         assert(buf != NULL);
         buf[0] = HCI_DRIVER_TYPE_EVT;
@@ -56,16 +57,16 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
         r_ble_hci_trans_buf_free(data);
     } else if (data_type == HCI_DRIVER_TYPE_ISO) {
         buf_len = length + 1;
-        buf = k_malloc(buf_len);
+        buf = esp_os_malloc(buf_len);
         /* TODO: If there is no memory, should handle it in the controller. */
         assert(buf);
         buf[0] = HCI_DRIVER_TYPE_ISO;
         memcpy(&buf[1], data, length);
-        k_free(data);
+        esp_os_free(data);
     }
 
     rc = s_hci_driver_vhci_env.forward_cb(data_type, buf, buf_len, HCI_DRIVER_DIR_C2H);
-    k_free(buf);
+    esp_os_free(buf);
 
     return rc;
 }

@@ -55,6 +55,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
+#include <esp_os.h>
 
 #include "soc/dport_access.h"
 
@@ -607,8 +608,6 @@ static uint32_t IRAM_ATTR osi_random_wrapper(void)
     return esp_random();
 }
 
-static K_KERNEL_STACK_DEFINE(bt_task_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE);
-static struct k_thread bt_task_thread;
 
 static void coex_schm_status_bit_set_wrapper(uint32_t type, uint32_t status)
 {
@@ -627,23 +626,20 @@ static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status)
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth,
                                 void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    k_tid_t tid;
+    esp_os_thread_t tid;
 
-    tid = k_thread_create(&bt_task_thread, bt_task_stack,
-                          K_KERNEL_STACK_SIZEOF(bt_task_stack),
-                          (k_thread_entry_t)task_func, param, NULL, NULL,
-                          K_PRIO_COOP(prio), 0, K_NO_WAIT);
+    tid = esp_os_thread_create((esp_os_thread_entry_t)task_func, param,
+                               stack_depth, K_PRIO_COOP(prio), name);
     if (tid == NULL) {
         return 0;
     }
-    k_thread_name_set(tid, name);
-    *(k_tid_t *)task_handle = tid;
+    *(void **)task_handle = tid;
     return 1;
 }
 
 static void task_delete_wrapper(void *task_handle)
 {
-    k_thread_abort((k_tid_t)task_handle);
+    esp_os_thread_delete((esp_os_thread_t)task_handle);
 }
 
 static int esp_ecc_gen_key_pair(uint8_t *pub, uint8_t *priv)

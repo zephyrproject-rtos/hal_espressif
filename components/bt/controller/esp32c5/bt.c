@@ -52,6 +52,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
+#include <esp_os.h>
 
 #include "hal/efuse_hal.h"
 #include "soc/rtc.h"
@@ -427,7 +428,7 @@ void esp_bt_read_ctrl_log_from_flash(bool output)
         return;
     }
 
-    unsigned int key = irq_lock();
+    unsigned int key = esp_os_irq_lock();
     esp_panic_handler_feed_wdts();
     r_ble_log_async_output_dump_all(true);
     esp_bt_controller_log_deinit();
@@ -455,7 +456,7 @@ void esp_bt_read_ctrl_log_from_flash(bool output)
     }
 
     esp_rom_printf(":DUMP_END]\r\n");
-    irq_unlock(key);
+    esp_os_irq_unlock(key);
     esp_partition_munmap(mmap_handle);
     err = esp_bt_controller_log_init();
     assert(err == ESP_OK);
@@ -555,29 +556,24 @@ static void coex_schm_status_bit_clear_wrapper(uint32_t type, uint32_t status)
 #endif // CONFIG_SW_COEXIST_ENABLE
 }
 
-static K_KERNEL_STACK_DEFINE(bt_task_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE);
-static struct k_thread bt_task_thread;
 
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth,
                                 void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    k_tid_t tid;
+    esp_os_thread_t tid;
 
-    tid = k_thread_create(&bt_task_thread, bt_task_stack,
-                          K_KERNEL_STACK_SIZEOF(bt_task_stack),
-                          (k_thread_entry_t)task_func, param, NULL, NULL,
-                          K_PRIO_COOP(prio), 0, K_NO_WAIT);
+    tid = esp_os_thread_create((esp_os_thread_entry_t)task_func, param,
+                               stack_depth, K_PRIO_COOP(prio), name);
     if (tid == NULL) {
         return 0;
     }
-    k_thread_name_set(tid, name);
-    *(k_tid_t *)task_handle = tid;
+    *(void **)task_handle = tid;
     return 1;
 }
 
 static void task_delete_wrapper(void *task_handle)
 {
-    k_thread_abort((k_tid_t)task_handle);
+    esp_os_thread_delete((esp_os_thread_t)task_handle);
 }
 
 static int esp_ecc_gen_key_pair(uint8_t *pub, uint8_t *priv)
@@ -1524,7 +1520,7 @@ static void esp_bt_controller_log_interface(uint32_t len, const uint8_t *addr, u
 #if CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
     esp_bt_controller_log_storage(len, addr, end);
 #else // !CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
-    unsigned int key = irq_lock();
+    unsigned int key = esp_os_irq_lock();
     esp_panic_handler_feed_wdts();
 
     if (len && addr) {
@@ -1535,7 +1531,7 @@ static void esp_bt_controller_log_interface(uint32_t len, const uint8_t *addr, u
     }
     if (end) { esp_rom_printf("\n"); }
 
-    irq_unlock(key);
+    esp_os_irq_unlock(key);
 #endif // CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
 }
 #endif // !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
@@ -1549,12 +1545,12 @@ void esp_ble_controller_log_dump_all(bool output)
 #if CONFIG_BT_LE_CONTROLLER_LOG_STORAGE_ENABLE
     esp_bt_read_ctrl_log_from_flash(output);
 #elif !CONFIG_BT_LE_CONTROLLER_LOG_SPI_OUT_ENABLED
-    unsigned int key = irq_lock();
+    unsigned int key = esp_os_irq_lock();
     esp_panic_handler_feed_wdts();
     BT_ASSERT_PRINT("\r\n[DUMP_START:");
     r_ble_log_async_output_dump_all(output);
     BT_ASSERT_PRINT(":DUMP_END]\r\n");
-    irq_unlock(key);
+    esp_os_irq_unlock(key);
 #endif
 }
 #endif /* CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2 */

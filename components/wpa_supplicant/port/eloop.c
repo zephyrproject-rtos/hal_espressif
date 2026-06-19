@@ -20,6 +20,7 @@
 #include "esp_wifi_driver.h"
 #include "rom/ets_sys.h"
 #include <zephyr/sys/atomic.h>
+#include <esp_os.h>
 #include <stdint.h>
 
 bool current_task_is_wifi_task(void);
@@ -65,7 +66,7 @@ static atomic_t eloop_lifecycle_busy = ATOMIC_INIT(0);
 static void eloop_lifecycle_lock(void)
 {
     while (!atomic_cas(&eloop_lifecycle_busy, 0, 1)) {
-        k_msleep(1);
+        esp_os_sleep_ms(1);
     }
 }
 
@@ -951,7 +952,7 @@ void eloop_destroy(void)
                        (unsigned int)atomic_get(&eloop.dispatch_count), wait_warn_loops * wait_step_ms);
             wait_loops = 0;
         }
-        k_msleep(wait_step_ms);
+        esp_os_sleep_ms(wait_step_ms);
     }
 
 #ifdef ELOOP_DEBUG

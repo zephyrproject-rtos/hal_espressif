@@ -24,6 +24,7 @@
 #include "sdkconfig.h"
 
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <esp_os.h>
 
 #ifdef CONFIG_ESP_TIMER_PROFILING
 #define WITH_PROFILING 1
@@ -89,11 +90,10 @@ static LIST_HEAD(esp_inactive_timer_list, esp_timer) s_inactive_timers[ESP_TIMER
 };
 #endif
 
-K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
-// task used to dispatch timer callbacks
-static struct k_thread s_timer_task;
+/* handle for the timer dispatch task */
+static esp_os_thread_t s_timer_task_handle;
 /* counting semaphore used to notify the timer task from ISR */
-static struct k_sem s_timer_semaphore;
+static esp_os_sem_t s_timer_semaphore;
 static bool s_timer_task_created = false;
 
 /* lock key for critical sections */
@@ -116,7 +116,7 @@ esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
             args->dispatch_method < 0 || args->dispatch_method >= ESP_TIMER_MAX) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_timer_handle_t result = (esp_timer_handle_t) k_calloc(1, sizeof(*result));
+    esp_timer_handle_t result = (esp_timer_handle_t) esp_os_calloc(1, sizeof(*result));
     if (result == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -326,11 +326,11 @@ esp_err_t esp_timer_stop_blocking(esp_timer_handle_t timer, uint32_t timeout_tic
          */
 
         // In ISR context: do not wait to avoid blocking
-        if (k_is_in_isr()) {
+        if (esp_os_is_in_isr()) {
             return ESP_ERR_NOT_FINISHED;
         }
 
-        if (k_current_get() == &s_timer_task) {
+        if (esp_os_thread_current() == s_timer_task_handle) {
             /*
              * Called from the esp_timer task context (i.e., the callback owner is a TASK-dispatch timer).
              * Concurrency model:
@@ -356,15 +356,15 @@ esp_err_t esp_timer_stop_blocking(esp_timer_handle_t timer, uint32_t timeout_tic
             return ESP_ERR_NOT_FINISHED;
         }
 
-        int64_t start_time = k_uptime_get();
+        int64_t start_time = esp_os_uptime_ms();
         while (is_callback_running(timer, dispatch_method)) {
-            if (timeout_ticks != K_FOREVER.ticks) {
-                int64_t elapsed = k_uptime_get() - start_time;
-                if (elapsed >= k_ticks_to_ms_floor64(timeout_ticks)) {
+            if (timeout_ticks != ESP_OS_TICKS_FOREVER) {
+                int64_t elapsed = esp_os_uptime_ms() - start_time;
+                if (elapsed >= esp_os_ticks_to_ms(timeout_ticks)) {
                     return ESP_ERR_TIMEOUT;
                 }
             }
-            k_sleep(K_MSEC(1));
+            esp_os_sleep_ms(1);
         }
     }
 
@@ -512,7 +512,7 @@ static bool timer_process_alarm(esp_timer_dispatch_t dispatch_method)
             // It is handled only by ESP_TIMER_TASK (see esp_timer_delete()).
             // All the ESP_TIMER_ISR timers which should be deleted are moved by esp_timer_delete() to the ESP_TIMER_TASK list.
             // We want to free memory of the timer in a task context instead of an isr context.
-            k_free(it);
+            esp_os_free(it);
             it = NULL;
         } else {
             it->flags |= FL_CALLBACK_IS_RUNNING;
@@ -568,8 +568,8 @@ static void timer_task(void *p1, void *p2, void *p3)
     ARG_UNUSED(p3);
 
     while (true) {
-        k_sem_take(&s_timer_semaphore, K_FOREVER);
-        // all deferred events are processed at a time
+        esp_os_sem_take(s_timer_semaphore, ESP_OS_FOREVER);
+        /* all deferred events are processed at a time */
         timer_process_alarm(ESP_TIMER_TASK);
     }
 }
@@ -577,7 +577,7 @@ static void timer_task(void *p1, void *p2, void *p3)
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
 {
-    __ASSERT(k_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
+    __ASSERT(esp_os_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
     s_isr_dispatch_need_yield = true;
 }
 #endif
@@ -595,7 +595,7 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void *arg)
 #endif
 
     if (isr_timers_processed == false) {
-        k_sem_give(&s_timer_semaphore);
+        esp_os_sem_give(s_timer_semaphore);
     }
 }
 
@@ -611,13 +611,11 @@ static esp_err_t init_timer_task(void)
         ESP_EARLY_LOGE(TAG, "Task is already initialized");
         err = ESP_ERR_INVALID_STATE;
     } else {
-        k_sem_init(&s_timer_semaphore, 0, 1);
+        s_timer_semaphore = esp_os_sem_create(0, 1);
 
-        k_thread_create(&s_timer_task, timer_task_stack,
-                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
-                        timer_task, NULL, NULL, NULL,
-                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
-        k_thread_name_set(&s_timer_task, "esp_timer");
+        s_timer_task_handle = esp_os_thread_create(
+            (esp_os_thread_entry_t)timer_task, NULL, CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
+            K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), "esp_timer");
         s_timer_task_created = true;
     }
     return err;
@@ -626,7 +624,7 @@ static esp_err_t init_timer_task(void)
 static void deinit_timer_task(void)
 {
     if (s_timer_task_created) {
-        k_thread_abort(&s_timer_task);
+        esp_os_thread_delete(s_timer_task_handle);
         s_timer_task_created = false;
     }
 }
@@ -734,7 +732,7 @@ esp_err_t esp_timer_dump(FILE* stream)
      * slightly more and the output will be truncated if that is not enough.
      */
     size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
-    char* print_buf = k_calloc(1, buf_size + 1);
+    char* print_buf = esp_os_calloc(1, buf_size + 1);
     if (print_buf == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -767,7 +765,7 @@ esp_err_t esp_timer_dump(FILE* stream)
         fputs(print_buf, stream);
     }
 
-    k_free(print_buf);
+    esp_os_free(print_buf);
     return ESP_OK;
 }
 

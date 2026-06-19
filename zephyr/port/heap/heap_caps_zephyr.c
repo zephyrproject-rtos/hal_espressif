@@ -7,10 +7,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr/kernel.h>
 #include <zephyr/sys/math_extras.h>
 #include <esp_attr.h>
 #include <esp_heap_caps.h>
+#include <esp_os.h>
 
 static esp_alloc_failed_hook_t alloc_failed_callback;
 
@@ -42,7 +42,7 @@ Routine to allocate a bit of memory with certain capabilities. caps is a bitfiel
 static void *heap_caps_malloc_base( size_t size, uint32_t caps)
 {
 
-    void *ptr = k_malloc(size);
+    void *ptr = esp_os_malloc(size);
 
     if (!ptr && size > 0) {
         heap_caps_alloc_failed(size, caps, __func__);
@@ -75,7 +75,7 @@ void *heap_caps_malloc_prefer( size_t size, size_t num, ... )
 
 static void *heap_caps_realloc_base( void *ptr, size_t size, uint32_t caps)
 {
-    ptr = k_realloc(ptr, size);
+    ptr = esp_os_realloc(ptr, size);
 
     if (ptr == NULL && size > 0) {
         heap_caps_alloc_failed(size, caps, __func__);
@@ -101,7 +101,7 @@ void *heap_caps_realloc_prefer( void *ptr, size_t size, size_t num, ... )
 
 void heap_caps_free( void *ptr)
 {
-    k_free(ptr);
+    esp_os_free(ptr);
 }
 
 static void *heap_caps_calloc_base( size_t n, size_t size, uint32_t caps)
@@ -112,7 +112,7 @@ static void *heap_caps_calloc_base( size_t n, size_t size, uint32_t caps)
         return NULL;
     }
 
-    return k_calloc(n, size);
+    return esp_os_calloc(n, size);
 }
 
 void *heap_caps_calloc( size_t n, size_t size, uint32_t caps)
@@ -198,7 +198,7 @@ size_t heap_caps_get_allocated_size( void *ptr )
 
 void *heap_caps_aligned_alloc(size_t alignment, size_t size, uint32_t caps)
 {
-    void *ptr = k_aligned_alloc(alignment, size);
+    void *ptr = esp_os_aligned_alloc(alignment, size);
 
     if (!ptr && size > 0) {
         heap_caps_alloc_failed(size, caps, __func__);

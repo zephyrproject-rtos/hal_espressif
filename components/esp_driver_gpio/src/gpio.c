@@ -5,6 +5,7 @@
  */
 
 #include <esp_types.h>
+#include <esp_os.h>
 #include "esp_err.h"
 #include <zephyr/kernel.h>
 #include <soc.h>
@@ -38,7 +39,7 @@ extern uint32_t esp_core_id(void);
 
 #define MALLOC_CAP_INTERNAL 0
 #define MALLOC_CAP_DEFAULT 0
-#define heap_caps_calloc(n, size, caps) k_calloc(n, size)
+#define heap_caps_calloc(n, size, caps) esp_os_calloc(n, size)
 
 static inline uint64_t esp_gpio_reserve(uint64_t mask) { (void)mask; return 0; }
 static inline void esp_gpio_revoke(uint64_t mask) { (void)mask; }
@@ -593,7 +594,7 @@ esp_err_t gpio_install_isr_service(int intr_alloc_flags)
             // isr service already installed, free allocated resource
             GPIO_EXIT_CRITICAL();
             ret = ESP_ERR_INVALID_STATE;
-            k_free(isr_func);
+            esp_os_free(isr_func);
         }
     }
 
@@ -645,7 +646,7 @@ esp_err_t gpio_uninstall_isr_service(void)
     gpio_context.isr_core_id = GPIO_ISR_CORE_ID_UNINIT;
     GPIO_EXIT_CRITICAL();
     esp_intr_free(gpio_isr_handle_free);
-    k_free(gpio_isr_func_free);
+    esp_os_free(gpio_isr_func_free);
     return ESP_OK;
 }
 

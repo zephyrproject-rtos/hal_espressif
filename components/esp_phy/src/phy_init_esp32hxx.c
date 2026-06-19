@@ -5,6 +5,7 @@
  */
 
 #include "esp_attr.h"
+#include <esp_os.h>
 #include <zephyr/kernel.h>
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
@@ -28,7 +29,7 @@
 static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
 
 extern void phy_version_print(void);
-K_MUTEX_DEFINE(s_phy_access_lock);
+ESP_OS_MUTEX_DEFINE(s_phy_access_lock);
 
 /* Reference count of enabling PHY */
 static bool s_phy_is_enabled = false;
@@ -58,13 +59,13 @@ esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem) {
         return ESP_ERR_INVALID_ARG;
     }
     uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_phy_access_lock, ESP_OS_FOREVER);
     *used_time = s_phy_rf_used_info[index].used_time;
     if (s_phy_rf_used_info[index].disabled_time < s_phy_rf_used_info[index].enabled_time) {
         // phy is being used
         *used_time += esp_timer_get_time() - s_phy_rf_used_info[index].enabled_time;
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    esp_os_mutex_unlock(s_phy_access_lock);
     return ESP_OK;
 }
 
@@ -73,7 +74,7 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
         return ESP_ERR_INVALID_ARG;
     }
     uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_phy_access_lock, ESP_OS_FOREVER);
     if (s_phy_rf_used_info[index].enabled_time > s_phy_rf_used_info[index].disabled_time) {
         // phy is being used
         s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
@@ -81,7 +82,7 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
         s_phy_rf_used_info[index].enabled_time = s_phy_rf_used_info[index].disabled_time;
     }
     s_phy_rf_used_info[index].used_time = 0;
-    k_mutex_unlock(&s_phy_access_lock);
+    esp_os_mutex_unlock(s_phy_access_lock);
     return ESP_OK;
 }
 #endif
@@ -100,7 +101,7 @@ void IRAM_ATTR phy_exit_critical(uint32_t level)
 
 void esp_phy_enable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_phy_access_lock, ESP_OS_FOREVER);
     if (phy_get_modem_flag() == 0) {
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
         modem_clock_module_enable(PERIPH_PHY_MODULE);
@@ -132,12 +133,12 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(true, modem);
 #endif
-    k_mutex_unlock(&s_phy_access_lock);
+    esp_os_mutex_unlock(s_phy_access_lock);
 }
 
 void esp_phy_disable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_phy_access_lock, ESP_OS_FOREVER);
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(false, modem);
 #endif
@@ -155,10 +156,10 @@ void esp_phy_disable(esp_phy_modem_t modem)
         modem_clock_module_disable(PERIPH_PHY_MODULE);
 #endif
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    esp_os_mutex_unlock(s_phy_access_lock);
 }
 
-struct k_mutex *phy_get_lock(void)
+esp_os_mutex_t phy_get_lock(void)
 {
-    return &s_phy_access_lock;
+    return s_phy_access_lock;
 }

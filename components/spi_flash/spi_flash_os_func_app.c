@@ -5,6 +5,7 @@
  */
 
 #include <stdarg.h>
+#include <esp_os.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 #include "esp_attr.h"
@@ -31,7 +32,7 @@
 static const char TAG[] __attribute__((unused)) = "spi_flash";
 
 #if SPI_FLASH_CACHE_NO_DISABLE
-K_MUTEX_DEFINE(s_spi1_flash_mutex);
+ESP_OS_MUTEX_DEFINE(s_spi1_flash_mutex);
 #endif  //  #if SPI_FLASH_CACHE_NO_DISABLE
 
 /*
@@ -128,7 +129,7 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
     //use the lock to disable the cache and interrupts before using the SPI bus
     ret = acquire_spi_bus_lock(arg);
 #elif SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    esp_os_mutex_lock(s_spi1_flash_mutex, ESP_OS_FOREVER);
 #else
     //directly disable the cache and interrupts when lock is not used
     cache_disable(NULL);
@@ -163,7 +164,7 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
 #if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
     ret = release_spi_bus_lock(arg);
 #elif SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_unlock(&s_spi1_flash_mutex);
+    esp_os_mutex_unlock(s_spi1_flash_mutex);
 #else
     cache_enable(NULL);
 #endif
@@ -190,14 +191,14 @@ static esp_err_t spi_flash_os_check_yield(void *arg, uint32_t chip_status, uint3
 
 static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
 {
-    /* k_sleep requires an active thread context. Skip the yield if the
+    /* Sleeping requires an active thread context. Skip the yield if the
      * kernel is not yet running (e.g. early boot flash erase recovery).
      */
-    if (!k_is_pre_kernel()) {
+    if (!esp_os_is_pre_kernel()) {
 #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
-        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
+        esp_os_sleep_ticks(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS);
 #else
-        k_sleep(K_MSEC(1));
+        esp_os_sleep_ms(1);
 #endif
     }
     on_spi_yielded((app_func_arg_t*)arg);
@@ -222,7 +223,7 @@ static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
     size_t read_chunk_size = (reqest_size + 3) & ~3;
 
     while (ret == NULL && read_chunk_size >= 64) {
-        ret = k_malloc(read_chunk_size);
+        ret = esp_os_malloc(read_chunk_size);
         if (ret == NULL) {
             read_chunk_size = (read_chunk_size / 2) & ~3;
         }
@@ -235,7 +236,7 @@ static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
 
 static void release_buffer_malloc(void* arg, void *temp_buf)
 {
-    k_free(temp_buf);
+    esp_os_free(temp_buf);
 }
 
 #ifndef __ZEPHYR__
@@ -326,7 +327,7 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
         return ESP_ERR_INVALID_ARG;
     }
 
-    chip->os_func_data = k_malloc(sizeof(app_func_arg_t));
+    chip->os_func_data = esp_os_malloc(sizeof(app_func_arg_t));
     if (chip->os_func_data == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -361,7 +362,7 @@ esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip, spi_bus_lock_dev_hand
     if (chip->os_func_data) {
         // SPI bus lock is possibly not used on SPI1 bus
         *out_dev_handle = ((app_func_arg_t*)chip->os_func_data)->dev_lock;
-        k_free(chip->os_func_data);
+        esp_os_free(chip->os_func_data);
     }
     chip->os_func = NULL;
     chip->os_func_data = NULL;

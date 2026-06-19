@@ -23,6 +23,7 @@
  */
 
 #include "os.h"
+#include <esp_os.h>
 #include <stdlib.h>
 #include "esp_system.h"
 #include "utils/common.h"
@@ -35,9 +36,9 @@ int os_get_time(struct os_time *t)
 		return -1;
 	}
 
-	int64_t now = k_uptime_ticks();
+	int64_t now = esp_os_uptime_ticks();
 	t->sec = now / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-	t->usec = k_ticks_to_us_floor64(now);
+	t->usec = esp_os_ticks_to_us(now);
 
 	return 0;
 }
@@ -56,17 +57,17 @@ int os_get_random(unsigned char *buf, size_t len)
 void os_sleep(os_time_t sec, os_time_t usec)
 {
     if (sec) {
-        k_sleep(K_SECONDS(sec));
+        esp_os_sleep_sec(sec);
     }
     if (usec) {
-        k_sleep(K_USEC(usec));
+        esp_os_sleep_us(usec);
     }
 }
 
 char *z_strdup(const char *s)
 {
     size_t size = strlen(s) + 1;
-    char *p = k_malloc(size);
+    char *p = esp_os_malloc(size);
     if (p) {
         memcpy(p, s, size);
     }
