@@ -6,7 +6,26 @@ if(CONFIG_SOC_SERIES_ESP32P4)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
   zephyr_compile_definitions_ifndef(typeof typeof=__typeof__)
-  zephyr_compile_definitions(CONFIG_ESP_REV_MIN_FULL=500)
+
+  # Derive the hal revision macros from CONFIG_SOC_ESP32P4_REV_MIN_FULL, the
+  # minimum supported chip revision in major * 100 + minor format. That symbol
+  # is defined in this module's Kconfig from the board-selected
+  # SOC_ESP32P4_REV_* symbols, with an unconditional default, so it is always
+  # set for an ESP32-P4 build.
+  set(esp32p4_rev_min_full ${CONFIG_SOC_ESP32P4_REV_MIN_FULL})
+
+  zephyr_compile_definitions(CONFIG_ESP_REV_MIN_FULL=${esp32p4_rev_min_full})
+  zephyr_compile_definitions(CONFIG_ESP32P4_REV_MIN_FULL=${esp32p4_rev_min_full})
+
+  # Revisions below v3.0 use a hardware-incompatible code path in the hal,
+  # gated by CONFIG_ESP32P4_SELECTS_REV_LESS_V3, and a different register
+  # layout (hw_ver1 vs hw_ver3).
+  if(esp32p4_rev_min_full LESS 300)
+    zephyr_compile_definitions(CONFIG_ESP32P4_SELECTS_REV_LESS_V3=1)
+    set(esp32p4_hw_ver_dir hw_ver1)
+  else()
+    set(esp32p4_hw_ver_dir hw_ver3)
+  endif()
 
   if(CONFIG_MCUBOOT)
     zephyr_compile_options(-fdump-rtl-expand)
@@ -134,7 +153,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/soc/include
     ../../components/soc/${CONFIG_SOC_SERIES}/ld
     ../../components/soc/${CONFIG_SOC_SERIES}/register
-    ../../components/soc/${CONFIG_SOC_SERIES}/register/hw_ver3
+    ../../components/soc/${CONFIG_SOC_SERIES}/register/${esp32p4_hw_ver_dir}
     ../../components/spi_flash/include
     ../../components/spi_flash/include/esp_private
     ../../components/ulp/lp_core/include
@@ -149,17 +168,33 @@ if(CONFIG_SOC_SERIES_ESP32P4)
   )
 
   if(NOT CONFIG_SOC_ESP32P4_LPCORE)
+    # Revision-specific ROM symbol set: pre-v3 silicon uses the eco0_4
+    # scripts, v3.x uses the default ones.
+    if(esp32p4_rev_min_full LESS 300)
+      zephyr_link_libraries(
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.rvfp.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.newlib.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.libc.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.libgcc.ld
+      )
+    else()
+      zephyr_link_libraries(
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.rvfp.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.libgcc.ld
+      )
+    endif()
+
+    # ROM scripts shared by all revisions.
     zephyr_link_libraries(
-      -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/${CONFIG_SOC_SERIES}.rom.alias.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.api.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.rvfp.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.newlib.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.version.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libc.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libc-suboptimal_for_misaligned_mem.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.libgcc.ld
-      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/rom.wdt.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/src/linker/esp32p4.rom.alias.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.api.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.version.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/esp32p4/ld/esp32p4.rom.libc-suboptimal_for_misaligned_mem.ld
+      -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_hal_wdt/esp32p4/rom.wdt.ld
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/riscv/ld/rom.api.ld
     )
   endif()
