@@ -31,8 +31,9 @@ strrchr = 0x4fc0031c;
 strsep = 0x4fc00320;
 strspn = 0x4fc00324;
 strtok_r = 0x4fc00328;
-longjmp = 0x4fc00330;
-setjmp = 0x4fc00334;
+/* ZEPHYR: Keep PROVIDE for these symbols: */
+PROVIDE ( longjmp = 0x4fc00330 );
+PROVIDE ( setjmp = 0x4fc00334 );
 abs = 0x4fc00338;
 div = 0x4fc0033c;
 labs = 0x4fc00340;

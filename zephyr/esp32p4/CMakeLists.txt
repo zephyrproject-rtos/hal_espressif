@@ -421,6 +421,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_rom/patches/esp_rom_efuse.c
     ../../components/esp_rom/patches/esp_rom_gpio.c
     ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/regi2c_impl.c
+    ../../components/esp_rom/patches/esp_rom_clic.c
     ../../components/esp_rom/patches/esp_rom_print.c
     ../../components/esp_rom/patches/esp_rom_serial_output.c
     ../../components/esp_rom/patches/esp_rom_spiflash.c
