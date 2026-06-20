@@ -7,15 +7,14 @@
 Espressif west extension for serial port monitor logging.'''
 
 import os
-import platform
 import subprocess
 import sys
-import yaml
 from pathlib import Path
-
 from textwrap import dedent
+
+import yaml
 from west.commands import WestCommand
-from west.configuration import config
+
 from west import log
 
 # This relies on this file being in hal_espressif/west/tools.py
@@ -25,8 +24,7 @@ ZEPHYR_BASE = Path(os.environ.get('ZEPHYR_BASE', THIS_ZEPHYR))
 
 sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts", "west_commands"))
 
-from build_helpers import load_domains
-from build_helpers import is_zephyr_build, find_build_dir  # noqa: E402
+from build_helpers import find_build_dir, load_domains  # noqa: E402
 from runners.core import BuildConfiguration  # noqa: E402
 
 ESP_IDF_REMOTE = "https://github.com/zephyrproject-rtos/hal_espressif"
@@ -86,25 +84,23 @@ def get_esp_serial_port(module_path, skip_soc_match=False):
                 try:
                     esp = esptool.detect_chip(info.device, connect_attempts=2)
                 except Exception as e:
-                    log.dbg("{}: skipped ({})".format(info.device, e))
+                    log.dbg(f"{info.device}: skipped ({e})")
                     continue
                 try:
                     if _normalize_chip(esp.CHIP_NAME) == wanted:
-                        log.inf("Auto-selected {} for {}".format(info.device, target_soc))
+                        log.inf(f"Auto-selected {info.device} for {target_soc}")
                         # Probing left the chip in the bootloader; reset it so
                         # the application runs when the monitor attaches.
                         try:
                             esp.hard_reset()
                         except Exception as e:
-                            log.dbg("hard reset after detection failed ({})".format(e))
+                            log.dbg(f"hard reset after detection failed ({e})")
                         return info.device
                 finally:
                     if esp._port:
                         esp._port.close()
             log.wrn(
-                "No port with a {} chip found; falling back to esptool auto-detection".format(
-                    target_soc
-                )
+                f"No port with a {target_soc} chip found; falling back to esptool auto-detection"
             )
 
         ports = [info.device for info in port_infos]
@@ -123,7 +119,7 @@ def get_esp_serial_port(module_path, skip_soc_match=False):
 
         return serial_port
     except Exception as e:
-        log.die("Error detecting ESP serial port: {}".format(e))
+        log.die(f"Error detecting ESP serial port: {e}")
         return None
 
 
@@ -138,13 +134,13 @@ def parse_runners_yaml():
         # Load runners.yaml and convert to Python object.
 
         try:
-            with open(path, 'r') as f:
+            with open(path) as f:
                 content = yaml.safe_load(f.read())
         except Exception as e:
-            log.die("runners.yaml file open error: {}".format(e))
+            log.die(f"runners.yaml file open error: {e}")
 
         if not content.get('runners'):
-            log.wrn("no pre-configured runners in {}; this probably won't work".format(path))
+            log.wrn(f"no pre-configured runners in {path}; this probably won't work")
 
         return content
 
@@ -170,7 +166,7 @@ def parse_runners_yaml():
         build_conf = BuildConfiguration(build_dir)
         target_soc = build_conf.get('CONFIG_SOC', None)
     except Exception as e:
-        log.dbg("could not read CONFIG_SOC, SoC port matching disabled ({})".format(e))
+        log.dbg(f"could not read CONFIG_SOC, SoC port matching disabled ({e})")
         target_soc = None
 
     # parse specific arguments for the tool
