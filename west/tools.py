@@ -231,9 +231,7 @@ class Tools(WestCommand):
     def do_run(self, args, unknown_args):
         forward_logging_to_west(self, "esp_monitor")
 
-        module_path = (
-            Path(os.getenv("ZEPHYR_BASE")).absolute() / r".." / "modules" / "hal" / "espressif"
-        )
+        module_path = ZEPHYR_BASE.absolute() / r".." / "modules" / "hal" / "espressif"
 
         if not module_path.exists():
             _logger.error('cannot find espressif hal in $ZEPHYR_BASE/../modules/hal/ path')
