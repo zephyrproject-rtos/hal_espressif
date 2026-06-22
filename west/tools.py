@@ -35,14 +35,6 @@ baud_rate = None
 target_soc = None
 
 
-def cmd_check(cmd, cwd=None, stderr=subprocess.STDOUT):
-    return subprocess.check_output(cmd, cwd=cwd, stderr=stderr)
-
-
-def cmd_exec(cmd, cwd=None, shell=False):
-    return subprocess.check_call(cmd, cwd=cwd, shell=shell)
-
-
 def _normalize_chip(name):
     return name.lower().replace('-', '')
 
@@ -271,4 +263,4 @@ class Tools(WestCommand):
         if not args.enable_address_decoding:
             cmd.append("-d")
 
-        cmd_exec(cmd, cwd=cmd_path)
+        subprocess.check_call(cmd, cwd=cmd_path)
