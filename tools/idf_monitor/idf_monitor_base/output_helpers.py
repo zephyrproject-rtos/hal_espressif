@@ -17,10 +17,6 @@ import subprocess
 import sys
 from typing import BinaryIO, Callable, Optional, Union  # noqa: F401
 
-from west.commands import WestCommand
-from west.configuration import config
-from west import log
-
 # This relies on this file being in hal_espressif/tools/idf_monitor_base/output_helpers.py
 # If you move this file, you'll break it, so be careful.
 from pathlib import Path
