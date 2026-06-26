@@ -318,8 +318,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
 
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR
     ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_periph.c
-    ../../components/esp_hal_touch_sens/touch_sensor_legacy_hal.c
-    ../../components/esp_hal_touch_sens/esp32s2/touch_sensor_legacy_hal.c
+    ../../components/esp_hal_touch_sens/touch_sens_hal.c
     )
 
   if (CONFIG_ESP32_TEMP)
