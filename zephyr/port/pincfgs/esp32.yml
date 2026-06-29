@@ -384,7 +384,7 @@ pcnt1:
 
 pcnt2:
   ch0sig:
-    sigi: pcnt_sig_ch0_in3
+    sigi: pcnt_sig_ch0_in2
     gpio: [[0, 23], [25, 27], [32, 39]]
   ch0ctrl:
     sigi: pcnt_ctrl_ch0_in2
