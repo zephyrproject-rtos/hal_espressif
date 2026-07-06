@@ -469,6 +469,11 @@ if(CONFIG_SOC_SERIES_ESP32)
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
       )
+
+    zephyr_link_libraries_ifdef(CONFIG_WIFI_ESP32_MESH
+      mesh
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32
+      )
   endif()
 
   ## BT definitions
@@ -683,6 +688,10 @@ if(CONFIG_SOC_SERIES_ESP32)
       ${ESP_SUPPLICANT_SRCS}
       ${TLS_SRCS}
       ${CRYPTO_SRCS}
+      )
+
+    zephyr_sources_ifdef(CONFIG_WIFI_ESP32_MESH
+      ../../components/esp_wifi/src/mesh_event.c
       )
 
     zephyr_compile_definitions(

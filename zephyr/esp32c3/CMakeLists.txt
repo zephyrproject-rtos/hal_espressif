@@ -678,6 +678,10 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ${CRYPTO_SRCS}
       )
 
+    zephyr_sources_ifdef(CONFIG_WIFI_ESP32_MESH
+      ../../components/esp_wifi/src/mesh_event.c
+      )
+
     zephyr_compile_definitions(
       __ets__
       ESP_SUPPLICANT

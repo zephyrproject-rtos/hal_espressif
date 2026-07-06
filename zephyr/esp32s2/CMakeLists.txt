@@ -458,6 +458,10 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../port/stubs/wifi_compat_stubs.c
       )
 
+    zephyr_sources_ifdef(CONFIG_WIFI_ESP32_MESH
+      ../../components/esp_wifi/src/mesh_event.c
+      )
+
     set(WPA_SUPPLICANT_COMPONENT_DIR "../../components/wpa_supplicant")
     set(WPA_SUPPLICANT_SRCS "${WPA_SUPPLICANT_COMPONENT_DIR}/port/os_xtensa.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/port/eloop.c"
@@ -704,6 +708,11 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       gcc
         -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s2
     )
+
+    zephyr_link_libraries_ifdef(CONFIG_WIFI_ESP32_MESH
+      mesh
+        -L${CMAKE_CURRENT_SOURCE_DIR}/../blobs/lib/esp32s2
+      )
 
   endif() ## CONFIG_WIFI_ESP32
 
