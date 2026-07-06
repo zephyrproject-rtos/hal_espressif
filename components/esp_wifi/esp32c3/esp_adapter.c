@@ -418,6 +418,15 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
         return 0;
     }
 
+    /*
+     * Clamp blob task priorities to the valid Zephyr preemptible range. Values
+     * above the range all collapse to the lowest preemptible priority, so their
+     * relative order is not preserved.
+     */
+    if (prio >= CONFIG_NUM_PREEMPT_PRIORITIES) {
+        prio = CONFIG_NUM_PREEMPT_PRIORITIES - 1;
+    }
+
     t->stack = k_thread_stack_alloc(stack_size,
                                     IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
     if (t->stack == NULL) {
