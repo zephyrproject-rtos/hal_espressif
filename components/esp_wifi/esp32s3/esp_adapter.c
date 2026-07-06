@@ -462,8 +462,7 @@ static int32_t task_get_max_priority_wrapper(void)
 
 static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, void *event_data, size_t event_data_size, uint32_t ticks_to_wait)
 {
-	esp_wifi_event_handler(event_base, event_id, event_data, event_data_size, ticks_to_wait);
-	return 0;
+	return esp_event_post(event_base, event_id, event_data, event_data_size, ticks_to_wait);
 }
 
 static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
