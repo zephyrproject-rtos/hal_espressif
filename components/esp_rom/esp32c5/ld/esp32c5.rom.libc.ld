@@ -17,10 +17,9 @@
  Group libc
  ***************************************/
 
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( longjmp = 0x40000580 );
-PROVIDE ( setjmp = 0x40000584 );
-/*******************************************/
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x40000580; */
+/* setjmp  = 0x40000584; */
 
 /* Functions */
 esp_rom_newlib_init_common_mutexes = 0x400004b4;
