@@ -45,7 +45,8 @@ div = 0x40001464;
 labs = 0x40001470;
 ldiv = 0x4000147c;
 qsort = 0x40001488;
-rand_r = 0x40001494;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* rand_r = 0x40001494; */
 utoa = 0x400014b8;
 itoa = 0x400014c4;
 /* Data (.data, .bss, .rodata) */
