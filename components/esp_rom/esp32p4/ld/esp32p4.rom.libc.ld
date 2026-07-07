@@ -3,10 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( longjmp = 0x4fc00330 );
-PROVIDE ( setjmp = 0x4fc00334 );
-/*******************************************/
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x4fc00330; */
+/* setjmp  = 0x4fc00334; */
 
 /* Functions */
 esp_rom_newlib_init_common_mutexes = 0x4fc00264;

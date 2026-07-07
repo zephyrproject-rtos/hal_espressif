@@ -64,12 +64,12 @@ strsep = 0x501001dc;
 strspn = 0x501001e0;
 strtok_r = 0x501001e4;
 strupr = 0x501001e8;
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( longjmp = 0x501001ec );
-PROVIDE ( setjmp = 0x501001f0 );
-PROVIDE ( atoi = 0x50100208 );
-PROVIDE ( atol = 0x5010020c );
-/*******************************************/
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x501001ec; */
+/* setjmp  = 0x501001f0; */
+/* atoi    = 0x50100208; */
+/* atol    = 0x5010020c; */
+
 abs = 0x501001f4;
 div = 0x501001f8;
 labs = 0x501001fc;
