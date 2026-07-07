@@ -15,25 +15,23 @@
  * multiple files to make it compatible with picolibc.
  */
 
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( atoi = 0x400014d0 );
-PROVIDE ( atol = 0x400014dc );
-PROVIDE ( strdup = 0x40001380 );
-PROVIDE ( strndup = 0x400013ec );
-PROVIDE ( rand_r = 0x40001494 );
-PROVIDE ( rand = 0x400014a0 );
-PROVIDE ( srand = 0x400014ac );
-PROVIDE ( strtol = 0x400014e8 );
-PROVIDE ( strtoul = 0x400014f4 );
-PROVIDE ( longjmp = 0x40001440 );
-PROVIDE ( setjmp = 0x4000144c );
-/*******************************************/
-
-PROVIDE( fflush = 0x40001500 );
-PROVIDE( _fflush_r = 0x4000150c );
-PROVIDE( _fwalk = 0x40001518 );
-PROVIDE( _fwalk_reent = 0x40001524 );
-PROVIDE( __swbuf_r = 0x40001548 );
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* atoi    = 0x400014d0; */
+/* atol    = 0x400014dc; */
+/* strdup  = 0x40001380; */
+/* strndup = 0x400013ec; */
+/* rand_r  = 0x40001494; */
+/* rand    = 0x400014a0; */
+/* srand   = 0x400014ac; */
+/* strtol  = 0x400014e8; */
+/* strtoul = 0x400014f4; */
+/* longjmp = 0x40001440; */
+/* setjmp  = 0x4000144c; */
+/* fflush       = 0x40001500; */
+/* _fflush_r    = 0x4000150c; */
+/* _fwalk       = 0x40001518; */
+/* _fwalk_reent = 0x40001524; */
+/* __swbuf_r    = 0x40001548; */
 __swbuf = 0x40001554;
 toupper = 0x40001314;
 tolower = 0x40001320;
