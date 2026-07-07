@@ -33,6 +33,17 @@ if(CONFIG_ESP_USB_SERIAL_JTAG_ENABLED OR CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG)
   zephyr_compile_definitions(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=1)
 endif()
 
+# Console serial port number for ROM output functions. Derived here from
+# the console selection so the value does not depend on a hal Kconfig
+# default that references symbols defined outside the hal. -1 selects a
+# USB Serial JTAG console, for which the ROM UART tx_wait_idle/flush
+# helpers are skipped (there is no UART TX to drain).
+if(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG OR NOT DEFINED CONFIG_ESP_CONSOLE_UART_NUM)
+  zephyr_compile_definitions(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=-1)
+else()
+  zephyr_compile_definitions(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=${CONFIG_ESP_CONSOLE_UART_NUM})
+endif()
+
 zephyr_sources_ifdef(
   CONFIG_CRYPTO_ESP32
   ../components/esp_hal_security/aes_hal.c
