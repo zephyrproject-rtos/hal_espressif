@@ -25,8 +25,10 @@ isprint = 0x40007980;
 ispunct = 0x40007994;
 labs = 0x40000648;
 ldiv = 0x40000650;
-PROVIDE ( longjmp = 0x400005a4 );
-PROVIDE ( setjmp = 0x40000540 );
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x400005a4; */
+/* setjmp  = 0x40000540; */
+
 memccpy = 0x4001ab00;
 memchr = 0x4001ab24;
 memcmp = 0x4001ab40;
@@ -51,6 +53,8 @@ strrchr = 0x40008040;
 strsep = 0x4000806c;
 strspn = 0x4001aebc;
 strstr = 0x4001aee8;
-PROVIDE ( __strtok_r = 0x4001af18 );
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __strtok_r = 0x4001af18; */
+
 strtok_r = 0x4001af7c;
 toascii = 0x4001af90;
