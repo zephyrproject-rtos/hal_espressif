@@ -31,9 +31,10 @@ strrchr = 0x40000554;
 strsep = 0x40000558;
 strspn = 0x4000055c;
 strtok_r = 0x40000560;
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( longjmp = 0x40000568 );
-PROVIDE ( setjmp = 0x4000056c );
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x40000568; */
+/* setjmp  = 0x4000056c; */
+
 abs = 0x40000570;
 div = 0x40000574;
 labs = 0x40000578;
