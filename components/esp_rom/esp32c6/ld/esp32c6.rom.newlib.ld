@@ -19,29 +19,30 @@
  Group newlib
  ***************************************/
 
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( strdup = 0x40000530 );
-PROVIDE ( strndup = 0x40000554 );
-PROVIDE ( rand = 0x40000590 );
-PROVIDE ( srand = 0x40000594 );
-PROVIDE ( rand_r = 0x4000058c );
-PROVIDE ( atoi = 0x400005a0 );
-PROVIDE ( atol = 0x400005a4 );
-PROVIDE ( strtol = 0x400005a8 );
-PROVIDE ( strtoul = 0x400005ac );
-PROVIDE ( fflush = 0x400005b0 );
-PROVIDE ( _fflush_r = 0x400005b4 );
-PROVIDE ( _fwalk = 0x400005b8 );
-PROVIDE ( _fwalk_reent = 0x400005bc );
-PROVIDE ( __swbuf_r = 0x400005c8 );
-/*******************************************/
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* strdup       = 0x40000530; */
+/* strndup      = 0x40000554; */
+/* rand         = 0x40000590; */
+/* srand        = 0x40000594; */
+/* rand_r       = 0x4000058c; */
+/* atoi         = 0x400005a0; */
+/* atol         = 0x400005a4; */
+/* strtol       = 0x400005a8; */
+/* strtoul      = 0x400005ac; */
+/* fflush       = 0x400005b0; */
+/* _fflush_r    = 0x400005b4; */
+/* _fwalk       = 0x400005b8; */
+/* _fwalk_reent = 0x400005bc; */
+/* __swbuf_r    = 0x400005c8; */
 
 /* Functions */
-_isatty_r = 0x400004d4;
-__smakebuf_r = 0x400005c0;
-__swhatbuf_r = 0x400005c4;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* _isatty_r = 0x400004d4; */
+/* __smakebuf_r = 0x400005c0; */
+/* __swhatbuf_r = 0x400005c4; */
 __swbuf = 0x400005cc;
-__swsetup_r = 0x400005d0;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swsetup_r = 0x400005d0; */
 toupper = 0x4000050c;
 tolower = 0x40000510;
 isalnum = 0x400004dc;
