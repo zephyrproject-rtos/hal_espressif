@@ -32,10 +32,9 @@ strsep = 0x40000540;
 strspn = 0x40000544;
 strtok_r = 0x40000548;
 
-/* ZEPHYR: Keep PROVIDE for these symbols: */
-PROVIDE ( longjmp = 0x40000550 );
-PROVIDE ( setjmp = 0x40000554 );
-/*******************************************/
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x40000550; */
+/* setjmp  = 0x40000554; */
 
 abs = 0x40000558;
 div = 0x4000055c;
@@ -48,8 +47,9 @@ __match = 0x400005dc;
 __hexnan = 0x400005e0;
 __hexdig_fun = 0x400005e4;
 __gethex = 0x400005e8;
-_Balloc = 0x400005ec;
-_Bfree = 0x400005f0;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* _Balloc = 0x400005ec; */
+/* _Bfree = 0x400005f0; */
 __multadd = 0x400005f4;
 __s2b = 0x400005f8;
 __hi0bits = 0x400005fc;
