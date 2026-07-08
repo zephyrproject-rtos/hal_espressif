@@ -421,7 +421,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     src/soc_random.c
   )
 
-  zephyr_sources_ifdef(CONFIG_ESP_ENABLE_PVT
+  zephyr_sources_ifdef(CONFIG_SOC_ESP32_ENABLE_PVT
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_pvt.c
     )
 
