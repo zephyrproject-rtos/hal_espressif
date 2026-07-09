@@ -7,6 +7,7 @@
 #include <assert.h>
 #include "soc_init.h"
 #include <soc/soc.h>
+#include <soc/rtc.h>
 #include "hal/clk_tree_ll.h"
 #include "hal/brownout_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
@@ -125,6 +126,8 @@ void bootloader_clock_configure(void)
 	esp_rom_output_tx_wait_idle(0);
 
 	clk_ll_xtal_store_freq_mhz(SOC_XTAL_FREQ_40M);
+
+	rtc_clk_8m_enable(true);
 
 	clk_ll_cpll_enable();
 
