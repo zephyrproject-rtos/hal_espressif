@@ -15,6 +15,7 @@
 
 #define esp_wifi_malloc_func(_size)         k_malloc(_size)
 #define esp_wifi_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
+#define esp_wifi_realloc_func(_ptr, _size)  k_realloc(_ptr, _size)
 #define esp_wifi_free_func(_mem)            k_free(_mem)
 
 #define os_wpa_malloc_func(_size)         k_malloc(_size)
@@ -38,6 +39,11 @@ static inline void* esp_wifi_calloc_func(size_t _nmemb, size_t _size)
 		memset(p, 0, _nmemb * _size);
 	}
 	return p;
+}
+
+static inline void* esp_wifi_realloc_func(void *_ptr, size_t _size)
+{
+	return shared_multi_heap_realloc(SMH_REG_ATTR_EXTERNAL, _ptr, _size);
 }
 
 static inline void esp_wifi_free_func(void *_mem)
@@ -79,6 +85,7 @@ static inline void os_wpa_free_func(void *_mem)
 
 #define esp_wifi_malloc_func(_size)         malloc(_size)
 #define esp_wifi_calloc_func(_nmemb, _size) calloc(_nmemb, _size)
+#define esp_wifi_realloc_func(_ptr, _size)  realloc(_ptr, _size)
 #define esp_wifi_free_func(_mem)            free(_mem)
 
 #define os_wpa_malloc_func(_size)         malloc(_size)

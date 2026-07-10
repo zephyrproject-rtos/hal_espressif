@@ -90,8 +90,13 @@ IRAM_ATTR void *wifi_malloc(size_t size)
 
 IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
 {
-    LOG_ERR("%s not yet supported", __func__);
-    return NULL;
+    void *p = esp_wifi_realloc_func(ptr, size);
+
+    if (p == NULL) {
+        LOG_ERR("memory allocation failed");
+    }
+
+    return p;
 }
 
 IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
@@ -409,8 +414,31 @@ static uint32_t queue_msg_waiting_wrapper(void *handle)
 
 static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait_for, int clear_on_exit, int wait_for_all_bits, uint32_t block_time_tick)
 {
-    /* TODO: implement properly using Zephyr event objects */
-    return 0;
+    struct k_event *ev = event;
+    k_timeout_t timeout = (block_time_tick == UINT32_MAX) ?
+                  K_FOREVER : K_TICKS(block_time_tick);
+    uint32_t events;
+
+    if (ev == NULL) {
+        return 0;
+    }
+
+    /*
+     * The blob follows the clear-on-exit convention: leave other bits
+     * untouched and clear only the matched bits after they are satisfied.
+     * Wait without resetting the whole mask, then clear the matched bits.
+     */
+    if (wait_for_all_bits) {
+        events = k_event_wait_all(ev, bits_to_wait_for, false, timeout);
+    } else {
+        events = k_event_wait(ev, bits_to_wait_for, false, timeout);
+    }
+
+    if (clear_on_exit && events != 0) {
+        k_event_clear(ev, events);
+    }
+
+    return events;
 }
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
@@ -516,8 +544,7 @@ static int64_t IRAM_ATTR wifi_esp_timer_get_time_wrapper(void)
 
 static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
 {
-    LOG_ERR("%s not yet supported", __func__);
-    return NULL;
+    return heap_caps_realloc(ptr, size, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 }
 
 static void *IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
@@ -532,22 +559,39 @@ static void *IRAM_ATTR zalloc_internal_wrapper(size_t size)
 
 void *xEventGroupCreate(void)
 {
-    LOG_ERR("EventGroup not supported!");
-    return NULL;
+    struct k_event *ev = wifi_malloc(sizeof(*ev));
+
+    if (ev == NULL) {
+        return NULL;
+    }
+
+    k_event_init(ev);
+    return ev;
 }
 
 void vEventGroupDelete(void *grp)
 {
+    if (grp != NULL) {
+        esp_wifi_free(grp);
+    }
 }
 
 uint32_t xEventGroupSetBits(void *ptr, uint32_t data)
 {
-    return 0;
+    if (ptr == NULL) {
+        return 0;
+    }
+
+    return k_event_post((struct k_event *)ptr, data);
 }
 
 uint32_t xEventGroupClearBits(void *ptr, uint32_t data)
 {
-    return 0;
+    if (ptr == NULL) {
+        return 0;
+    }
+
+    return k_event_clear((struct k_event *)ptr, data);
 }
 
 void task_delay(uint32_t ticks)
@@ -621,7 +665,13 @@ int32_t nvs_set_blob(uint32_t handle, const char *key, const void *value,
 int32_t nvs_get_blob(uint32_t handle, const char *key, void *out_value,
              size_t *length)
 {
-    return 0;
+    /*
+     * No NVS backing store: report the key as absent so the caller (the mesh
+     * stack reads its saved layer/assoc state through here) starts from a
+     * clean state. Returning ESP_OK would make it treat the uninitialised
+     * output as valid saved state. 0x1102 is ESP_ERR_NVS_NOT_FOUND.
+     */
+    return 0x1102;
 }
 
 int32_t nvs_erase_key(uint32_t handle, const char *key)

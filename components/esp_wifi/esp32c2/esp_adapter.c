@@ -21,6 +21,7 @@ LOG_MODULE_REGISTER(esp32c2_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
 #include "esp_mac.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 #include "esp_heap_adapter.h"
 #include "esp_private/wifi_os_adapter.h"
 #include "esp_private/wifi.h"
@@ -70,11 +71,13 @@ IRAM_ATTR void *wifi_malloc(size_t size)
 
 IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
 {
-    ARG_UNUSED(ptr);
-    ARG_UNUSED(size);
+    void *p = esp_wifi_realloc_func(ptr, size);
 
-    LOG_ERR("%s not yet supported", __func__);
-    return NULL;
+    if (p == NULL) {
+        LOG_ERR("memory allocation failed");
+    }
+
+    return p;
 }
 
 IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
@@ -404,8 +407,14 @@ static uint32_t queue_msg_waiting_wrapper(void *handle)
 
 static void *event_group_create_wrapper(void)
 {
-    LOG_ERR("EventGroup not supported!");
-    return NULL;
+    struct k_event *ev = wifi_malloc(sizeof(*ev));
+
+    if (ev == NULL) {
+        return NULL;
+    }
+
+    k_event_init(ev);
+    return ev;
 }
 
 static void event_group_delete_wrapper(void *event)
@@ -431,13 +440,31 @@ static uint32_t event_group_clear_bits_wrapper(void *event, uint32_t bits)
 
 static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait_for, int clear_on_exit, int wait_for_all_bits, uint32_t block_time_tick)
 {
-    ARG_UNUSED(event);
-    ARG_UNUSED(bits_to_wait_for);
-    ARG_UNUSED(clear_on_exit);
-    ARG_UNUSED(wait_for_all_bits);
-    ARG_UNUSED(block_time_tick);
+    struct k_event *ev = event;
+    k_timeout_t timeout = (block_time_tick == UINT32_MAX) ?
+                  K_FOREVER : K_TICKS(block_time_tick);
+    uint32_t events;
 
-    return 0;
+    if (ev == NULL) {
+        return 0;
+    }
+
+    /*
+     * The blob follows the clear-on-exit convention: leave other bits
+     * untouched and clear only the matched bits after they are satisfied.
+     * Wait without resetting the whole mask, then clear the matched bits.
+     */
+    if (wait_for_all_bits) {
+        events = k_event_wait_all(ev, bits_to_wait_for, false, timeout);
+    } else {
+        events = k_event_wait(ev, bits_to_wait_for, false, timeout);
+    }
+
+    if (clear_on_exit && events != 0) {
+        k_event_clear(ev, events);
+    }
+
+    return events;
 }
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
@@ -548,11 +575,7 @@ static int get_time_wrapper(void *t)
 
 static void *IRAM_ATTR realloc_internal_wrapper(void *ptr, size_t size)
 {
-    ARG_UNUSED(ptr);
-    ARG_UNUSED(size);
-
-    LOG_ERR("%s not yet supported", __func__);
-    return NULL;
+    return heap_caps_realloc(ptr, size, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 }
 
 static void *IRAM_ATTR calloc_internal_wrapper(size_t n, size_t size)
@@ -873,11 +896,13 @@ int32_t nvs_set_blob(uint32_t handle, const char *key, const void *value, size_t
 
 int32_t nvs_get_blob(uint32_t handle, const char *key, void *out_value, size_t *length)
 {
-    ARG_UNUSED(handle);
-    ARG_UNUSED(key);
-    ARG_UNUSED(out_value);
-    ARG_UNUSED(length);
-    return 0;
+    /*
+     * No NVS backing store: report the key as absent so the caller (the mesh
+     * stack reads its saved layer/assoc state through here) starts from a
+     * clean state. Returning ESP_OK would make it treat the uninitialised
+     * output as valid saved state. 0x1102 is ESP_ERR_NVS_NOT_FOUND.
+     */
+    return 0x1102;
 }
 
 int32_t nvs_erase_key(uint32_t handle, const char *key)
