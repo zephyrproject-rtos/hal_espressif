@@ -170,6 +170,7 @@ blob_filters:
     - coexist
     - core
     - espnow
+    - mesh
     - net80211
     - phy
     - pp
@@ -222,6 +223,7 @@ blob_filters:
     - coexist
     - core
     - espnow
+    - mesh
     - net80211
     - phy
     - pp
@@ -231,6 +233,7 @@ blob_filters:
     - coexist
     - core
     - espnow
+    - mesh
     - net80211
     - phy
     - pp
