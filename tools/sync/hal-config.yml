@@ -17,7 +17,10 @@ components:
   - esp_coex
   - esp_common
   - esp_driver_dac
+  - esp_driver_dma
   - esp_driver_gpio
+  - esp_driver_gptimer
+  - esp_driver_mcpwm
   - esp_driver_touch_sens
   - esp_driver_tsens
   - esp_event
@@ -110,7 +113,10 @@ exclude:
   - esp_coex/test_apps
   - esp_common/test_apps
   - esp_driver_dac/test_apps
+  - esp_driver_dma/test_apps
   - esp_driver_gpio/test_apps
+  - esp_driver_gptimer/test_apps
+  - esp_driver_mcpwm/test_apps
   - esp_driver_touch_sens/test_apps
   - esp_driver_tsens/test_apps
   - esp_event/host_test

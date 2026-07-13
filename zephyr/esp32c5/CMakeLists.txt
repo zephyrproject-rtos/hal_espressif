@@ -314,8 +314,11 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       )
 
     if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_include_directories(
+        ../../components/esp_driver_dma/src
+        )
       zephyr_sources(
-        ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
+        ../../components/esp_driver_dma/${CONFIG_SOC_SERIES}/gdma_retention.c
         )
     endif()
   endif()
@@ -467,8 +470,11 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       ../../components/esp_hal_timg/timer_hal.c
       )
     if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_include_directories(
+        ../../components/esp_driver_gptimer/src
+        )
       zephyr_sources(
-        ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
+        ../../components/esp_driver_gptimer/${CONFIG_SOC_SERIES}/timer_retention.c
         )
     endif()
   endif()
@@ -490,8 +496,11 @@ if(CONFIG_SOC_SERIES_ESP32C5)
       ../../components/esp_hal_mcpwm/mcpwm_hal.c
       )
     if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_include_directories(
+        ../../components/esp_driver_mcpwm/src
+        )
       zephyr_sources(
-        ../../components/esp_hal_mcpwm/${CONFIG_SOC_SERIES}/mcpwm_periph.c
+        ../../components/esp_driver_mcpwm/${CONFIG_SOC_SERIES}/mcpwm_retention.c
         )
     endif()
   endif()
