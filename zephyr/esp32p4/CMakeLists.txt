@@ -51,6 +51,8 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_common/include
     ../../components/esp_driver_gpio/include
     ../../components/esp_event/include
+    ../../components/esp_hal_ana_cmpr/include
+    ../../components/esp_hal_ana_cmpr/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_ana_conv/include
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_clock/include
@@ -512,6 +514,11 @@ if(CONFIG_SOC_SERIES_ESP32P4)
 
   zephyr_sources_ifdef(CONFIG_PCNT_ESP32
     ../../components/esp_hal_pcnt/pcnt_hal.c
+    )
+
+  zephyr_sources_ifdef(CONFIG_COMPARATOR_ESP32_ANA_CMPR
+    ../../components/esp_hal_ana_cmpr/${CONFIG_SOC_SERIES}/ana_cmpr_periph.c
+    ../../components/esp_driver_gpio/src/gpio.c
     )
 
   zephyr_sources_ifdef(CONFIG_SDHC_ESP32
