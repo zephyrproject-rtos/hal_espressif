@@ -564,6 +564,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS
       ../port/stubs/wifi_stubs.c
       ../port/stubs/esp_now_stubs.c
+      ../port/stubs/mesh_stubs.c
       ../port/stubs/phy_stubs.c
       )
 

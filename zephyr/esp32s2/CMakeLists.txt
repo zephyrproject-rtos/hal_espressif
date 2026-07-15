@@ -686,6 +686,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../port/stubs/phy_stubs.c
       ../port/stubs/wifi_stubs.c
       ../port/stubs/esp_now_stubs.c
+      ../port/stubs/mesh_stubs.c
       )
 
     if (CONFIG_ESP32_SW_COEXIST_ENABLE)
