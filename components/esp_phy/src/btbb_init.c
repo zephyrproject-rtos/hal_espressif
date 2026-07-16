@@ -5,6 +5,7 @@
  */
 
 #include <stdint.h>
+#include <esp_os.h>
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_private/btbb.h"
@@ -13,7 +14,7 @@
 
 #define BTBB_ENABLE_VERSION_PRINT 1
 
-K_MUTEX_DEFINE(s_btbb_access_lock);
+ESP_OS_MUTEX_DEFINE(s_btbb_access_lock);
 /* Reference count of enabling BT BB */
 static uint8_t s_btbb_access_ref = 0;
 
@@ -93,29 +94,29 @@ static esp_err_t btbb_sleep_retention_enable(void)
 
 void esp_btbb_enable(void)
 {
-    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_btbb_access_lock, ESP_OS_FOREVER);
     if (s_btbb_access_ref == 0) {
         bt_bb_v2_init_cmplx(BTBB_ENABLE_VERSION_PRINT);
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
         esp_err_t err = btbb_sleep_retention_enable();
         if (err != ESP_OK) {
             btbb_sleep_retention_disable();
-            k_mutex_unlock(&s_btbb_access_lock);
+            esp_os_mutex_unlock(s_btbb_access_lock);
             return;
         }
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     }
     s_btbb_access_ref++;
-    k_mutex_unlock(&s_btbb_access_lock);
+    esp_os_mutex_unlock(s_btbb_access_lock);
 }
 
 void esp_btbb_disable(void)
 {
-    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
+    esp_os_mutex_lock(s_btbb_access_lock, ESP_OS_FOREVER);
     if (s_btbb_access_ref && (--s_btbb_access_ref == 0)) {
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
         btbb_sleep_retention_disable();
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
     }
-    k_mutex_unlock(&s_btbb_access_lock);
+    esp_os_mutex_unlock(s_btbb_access_lock);
 }

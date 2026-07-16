@@ -5,6 +5,7 @@
  */
 
 #include <zephyr/sys/util.h>
+#include <esp_os.h>
 #include <inttypes.h>
 #include <string.h>
 #include "sys/lock.h"
@@ -30,7 +31,7 @@ static const char *TAG = "cache";
 
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_spinlock);
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-K_MUTEX_DEFINE(s_mutex);
+ESP_OS_MUTEX_DEFINE(s_mutex);
 #endif
 
 void esp_cache_sync_ops_enter_critical_section(void)
@@ -47,7 +48,7 @@ void esp_cache_sync_ops_exit_critical_section(void)
 static void s_c2m_ops(uint32_t vaddr, size_t size)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr()) {
+    if (!esp_os_is_in_isr()) {
         bool valid = true;
         size_t offset = 0;
         while (offset < size) {
@@ -75,8 +76,8 @@ static void s_c2m_ops(uint32_t vaddr, size_t size)
 static void s_acquire_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr() && !k_is_pre_kernel()) {
-        k_mutex_lock(&s_mutex, K_FOREVER);
+    if (!esp_os_is_in_isr() && !esp_os_is_pre_kernel()) {
+        esp_os_mutex_lock(s_mutex, ESP_OS_FOREVER);
         ESP_LOGD(TAG, "mutex is taken");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
@@ -86,8 +87,8 @@ static void s_acquire_mutex_from_task_context(void)
 static void s_release_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr() && !k_is_pre_kernel()) {
-        k_mutex_unlock(&s_mutex);
+    if (!esp_os_is_in_isr() && !esp_os_is_pre_kernel()) {
+        esp_os_mutex_unlock(s_mutex);
         ESP_LOGD(TAG, "mutex is free");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS

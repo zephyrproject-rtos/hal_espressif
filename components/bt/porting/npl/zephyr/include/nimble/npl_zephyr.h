@@ -12,8 +12,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <zephyr/kernel.h>
 #include <esp_timer.h>
+#include <esp_os.h>
 #include "sdkconfig.h"
 
 #define BLE_NPL_USE_ESP_TIMER (1)
@@ -29,7 +29,7 @@ typedef struct {
 typedef void ble_npl_event_fn(struct ble_npl_event *ev);
 
 struct ble_npl_event_zephyr {
-    void *_node;  /* Reserved for k_fifo linking - must be first */
+    void *_node;  /* Reserved for FIFO linking - must be first */
     struct ble_npl_event *parent;  /* Back-pointer to parent ble_npl_event */
     bool queued;
     ble_npl_event_fn *fn;
@@ -37,7 +37,7 @@ struct ble_npl_event_zephyr {
 };
 
 struct ble_npl_eventq_zephyr {
-    struct k_fifo q;
+    esp_os_fifo_t q;
 };
 
 struct ble_npl_callout_zephyr {
@@ -47,11 +47,11 @@ struct ble_npl_callout_zephyr {
 };
 
 struct ble_npl_mutex_zephyr {
-    struct k_mutex handle;
+    esp_os_mutex_t handle;
 };
 
 struct ble_npl_sem_zephyr {
-    struct k_sem handle;
+    esp_os_sem_t handle;
 };
 
 typedef void ble_npl_event_fn_zephyr(struct ble_npl_event_zephyr *ev);

@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
+#include <esp_os.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -107,8 +108,7 @@ typedef struct {
 
 /* bt queue */
 struct bt_queue_t {
-    struct k_msgq queue;
-    void *pool;
+    esp_os_queue_t handle;
 };
 
 /* OSI function */
@@ -340,7 +340,7 @@ static const struct osi_funcs_t osi_funcs_ro = {
 #endif /* CONFIG_BTDM_CTRL_HLI */
     ._task_create = task_create_wrapper,
     ._task_delete = task_delete_wrapper,
-    ._is_in_isr = k_is_in_isr,
+    ._is_in_isr = esp_os_is_in_isr,
     ._cause_sw_intr_to_core = cause_sw_intr_to_core_wrapper,
     ._malloc = malloc_internal_wrapper,
     ._malloc_internal = malloc_internal_wrapper,
@@ -415,8 +415,6 @@ static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONT
 static esp_os_spinlock_t global_int_lock = ESP_OS_SPINLOCK_INIT;
 
 // BT library uses a single task
-K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
-static struct k_thread bt_task_handle;
 
 // measured average low power clock period in micro seconds
 static DRAM_ATTR uint32_t btdm_lpcycle_us = 0;
@@ -431,7 +429,7 @@ static DRAM_ATTR uint8_t btdm_lpclk_sel = ESP_BT_SLEEP_CLOCK_MAIN_XTAL;
 #endif /* CONFIG_BTDM_CTRL_LPCLK_SEL_EXT_32K_XTAL */
 #endif /* #ifdef CONFIG_BTDM_CTRL_MODEM_SLEEP_MODE_ORIG */
 
-static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
+static DRAM_ATTR esp_os_sem_t s_wakeup_req_sem = NULL;
 #ifdef CONFIG_PM
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr;
 static DRAM_ATTR esp_pm_lock_handle_t s_pm_lock;
@@ -519,8 +517,8 @@ static void IRAM_ATTR interrupt_l3_restore(void)
 
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
-    irq_disable(n);
-    irq_connect_dynamic(n, Xthal_intlevel[n], f, arg, 0);
+    esp_os_irq_disable(n);
+    esp_os_irq_connect(n, Xthal_intlevel[n], f, arg, 0);
 }
 
 static void intr_on(unsigned int mask)
@@ -532,51 +530,46 @@ static void intr_on(unsigned int mask)
         ++pos;
     }
 
-    irq_enable(pos);
+    esp_os_irq_enable(pos);
 }
 
 static void IRAM_ATTR task_yield_from_isr(void)
 {
-    k_yield();
+    esp_os_thread_yield();
 }
 
 static void *semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    struct k_sem *sem = (struct k_sem *)esp_bt_malloc_func(sizeof(struct k_sem));
+    esp_os_sem_t sem = esp_os_sem_create(init, max);
 
     if (sem == NULL) {
         LOG_ERR("semaphore malloc failed");
         return NULL;
     }
 
-    k_sem_init(sem, init, max);
     return sem;
 }
 
 static void semphr_delete_wrapper(void *semphr)
 {
-    esp_bt_free(semphr);
+    esp_os_sem_delete(semphr);
 }
 
 static int32_t IRAM_ATTR semphr_take_from_isr_wrapper(void *semphr, void *hptw)
 {
     int *hpt = (int *)hptw;
-    int ret = k_sem_take((struct k_sem *)semphr, K_NO_WAIT);
+    int ret = esp_os_sem_take(semphr, ESP_OS_NO_WAIT);
 
     *hpt = 0;
 
-    if (ret == 0) {
-        return 1;
-    }
-
-    return 0;
+    return ret == 0 ? 1 : 0;
 }
 
 static int32_t IRAM_ATTR semphr_give_from_isr_wrapper(void *semphr, void *hptw)
 {
     int *hpt = (int *)hptw;
 
-    k_sem_give((struct k_sem *)semphr);
+    esp_os_sem_give(semphr);
 
     *hpt = 0;
     return 1;
@@ -584,59 +577,43 @@ static int32_t IRAM_ATTR semphr_give_from_isr_wrapper(void *semphr, void *hptw)
 
 static int32_t semphr_take_wrapper(void *semphr, uint32_t block_time_ms)
 {
-    int ret = 0;
+    uint32_t timeout = (block_time_ms == OSI_FUNCS_TIME_BLOCKING) ? ESP_OS_FOREVER : block_time_ms;
 
-    if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
-    } else {
-        ret = k_sem_take((struct k_sem *)semphr, K_MSEC(block_time_ms));
-    }
-
-    if (ret == 0) {
-        return 1;
-    }
-
-    return 0;
+    return esp_os_sem_take(semphr, timeout) == 0 ? 1 : 0;
 }
 
 static int32_t semphr_give_wrapper(void *semphr)
 {
-    k_sem_give((struct k_sem *)semphr);
+    esp_os_sem_give(semphr);
     return 1;
 }
 
 static void *mutex_create_wrapper(void)
 {
-    struct k_mutex *my_mutex = (struct k_mutex *)esp_bt_malloc_func(sizeof(struct k_mutex));
+    esp_os_mutex_t mutex = esp_os_mutex_create();
 
-    if (my_mutex == NULL) {
+    if (mutex == NULL) {
         LOG_ERR("mutex malloc failed");
         return NULL;
     }
 
-    k_mutex_init(my_mutex);
-
-    return my_mutex;
+    return mutex;
 }
 
 static void mutex_delete_wrapper(void *mutex)
 {
-    esp_bt_free(mutex);
+    esp_os_mutex_delete(mutex);
 }
 
 static int32_t mutex_lock_wrapper(void *mutex)
 {
-    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
-
-    k_mutex_lock(my_mutex, K_FOREVER);
+    esp_os_mutex_lock(mutex, ESP_OS_FOREVER);
     return 0;
 }
 
 static int32_t mutex_unlock_wrapper(void *mutex)
 {
-    struct k_mutex *my_mutex = (struct k_mutex *)mutex;
-
-    k_mutex_unlock(my_mutex);
+    esp_os_mutex_unlock(mutex);
     return 0;
 }
 
@@ -649,15 +626,14 @@ static void *queue_create_wrapper(uint32_t queue_len, uint32_t item_size)
         return NULL;
     }
 
-    queue->pool = (uint8_t *)esp_bt_malloc_func(queue_len * item_size * sizeof(uint8_t));
+    queue->handle = esp_os_queue_create(queue_len, item_size);
 
-    if (queue->pool == NULL) {
+    if (queue->handle == NULL) {
         LOG_ERR("queue pool malloc failed");
         esp_bt_free(queue);
         return NULL;
     }
 
-    k_msgq_init(&queue->queue, queue->pool, item_size, queue_len);
     return queue;
 }
 
@@ -666,7 +642,7 @@ static void queue_delete_wrapper(void *queue)
     struct bt_queue_t *q = (struct bt_queue_t *)queue;
 
     if (q != NULL) {
-        esp_bt_free(q->pool);
+        esp_os_queue_delete(q->handle);
         esp_bt_free(q);
     }
 }
@@ -766,78 +742,47 @@ static int32_t IRAM_ATTR queue_recv_from_isr_hlevel_wrapper(void *queue, void *i
 static int32_t queue_send_wrapper(void *queue, void *item, uint32_t block_time_ms)
 {
     struct bt_queue_t *q = (struct bt_queue_t *)queue;
-    int res = 0;
+    uint32_t timeout = (block_time_ms == OSI_FUNCS_TIME_BLOCKING) ? ESP_OS_FOREVER : block_time_ms;
 
-    if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        res = k_msgq_put(&q->queue, item, K_FOREVER);
-    } else {
-        res = k_msgq_put(&q->queue, item, K_MSEC(block_time_ms));
-    }
-
-    if (res == 0) {
-        return 1;
-    }
-
-    return 0;
+    return esp_os_queue_send(q->handle, item, timeout) == 0 ? 1 : 0;
 }
 
 static int32_t IRAM_ATTR queue_send_from_isr_wrapper(void *queue, void *item, void *hptw)
 {
     struct bt_queue_t *q = (struct bt_queue_t *)queue;
     int *hpt = (int *)hptw;
-    int ret = k_msgq_put(&q->queue, item, K_NO_WAIT);
+    int ret = esp_os_queue_send(q->handle, item, ESP_OS_NO_WAIT);
 
     *hpt = 0;
 
-    if (ret == 0) {
-        return 1;
-    }
-
-    return 0;
+    return ret == 0 ? 1 : 0;
 }
 
 static int32_t queue_recv_wrapper(void *queue, void *item, uint32_t block_time_ms)
 {
     struct bt_queue_t *q = (struct bt_queue_t *)queue;
-    int ret = 0;
+    uint32_t timeout = (block_time_ms == OSI_FUNCS_TIME_BLOCKING) ? ESP_OS_FOREVER : block_time_ms;
 
-    if (block_time_ms == OSI_FUNCS_TIME_BLOCKING) {
-        ret = k_msgq_get(&q->queue, item, K_FOREVER);
-    } else {
-        ret = k_msgq_get(&q->queue, item, K_MSEC(block_time_ms));
-    }
-
-    if (ret == 0) {
-        return 1;
-    }
-
-    return 0;
+    return esp_os_queue_recv(q->handle, item, timeout) == 0 ? 1 : 0;
 }
 
 static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *hptw)
 {
     struct bt_queue_t *q = (struct bt_queue_t *)queue;
     int *hpt = (int *)hptw;
-    int ret = k_msgq_get(&q->queue, item, K_NO_WAIT);
+    int ret = esp_os_queue_recv(q->handle, item, ESP_OS_NO_WAIT);
 
     *hpt = 0;
 
-    if (ret == 0) {
-        return 1;
-    }
-
-    return 0;
+    return ret == 0 ? 1 : 0;
 }
 #endif /* CONFIG_BTDM_CTRL_HLI */
 
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, stack_depth,
-                      (k_thread_entry_t)task_func, param, NULL, NULL,
-                      K_PRIO_COOP(prio), K_INHERIT_PERMS, K_NO_WAIT);
-
-    k_thread_name_set(tid, name);
+    esp_os_thread_t tid = esp_os_thread_create((esp_os_thread_entry_t)task_func, param,
+                      stack_depth, K_PRIO_COOP(prio), name);
 
     *(int32_t *)task_handle = (int32_t)tid;
 
@@ -847,10 +792,8 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 static void task_delete_wrapper(void *task_handle)
 {
     if (task_handle != NULL) {
-        k_thread_abort((k_tid_t)task_handle);
+        esp_os_thread_delete((esp_os_thread_t)task_handle);
     }
-
-    k_object_release(&bt_task_handle);
 }
 
 static int IRAM_ATTR cause_sw_intr_to_core_wrapper(int core_id, int intr_no)

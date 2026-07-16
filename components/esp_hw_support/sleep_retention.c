@@ -7,24 +7,24 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <zephyr/kernel.h>
+#include <esp_os.h>
 
 /* Zephyr lock compatibility */
-typedef struct k_mutex *_lock_t;
-static struct k_mutex _retention_mutex;
+typedef esp_os_mutex_t _lock_t;
+static esp_os_mutex_t _retention_mutex;
 static bool _retention_mutex_init = false;
 #define _lock_init_recursive(lock) do { \
-    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
-    *(lock) = &_retention_mutex; \
+    if (!_retention_mutex_init) { _retention_mutex = esp_os_mutex_create(); _retention_mutex_init = true; } \
+    *(lock) = _retention_mutex; \
 } while(0)
 #define _lock_close_recursive(lock) do { \
     *(lock) = NULL; \
 } while(0)
 #define _lock_acquire_recursive(lock) do { \
-    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
-    k_mutex_lock(&_retention_mutex, K_FOREVER); \
+    if (!_retention_mutex_init) { _retention_mutex = esp_os_mutex_create(); _retention_mutex_init = true; } \
+    esp_os_mutex_lock(_retention_mutex, ESP_OS_FOREVER); \
 } while(0)
-#define _lock_release_recursive(lock) k_mutex_unlock(&_retention_mutex)
+#define _lock_release_recursive(lock) esp_os_mutex_unlock(_retention_mutex)
 
 #include "esp_err.h"
 #include "esp_attr.h"

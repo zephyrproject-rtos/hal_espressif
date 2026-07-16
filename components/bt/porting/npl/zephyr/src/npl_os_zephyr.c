@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "nimble/nimble_npl.h"
-#include <zephyr/kernel.h>
+#include <esp_os.h>
 #include "nimble/npl_zephyr.h"
 
 /* Zephyr: soc_caps.h must be included before os_mempool.h to define SOC_ESP_NIMBLE_CONTROLLER */
@@ -56,12 +56,12 @@ static ble_npl_count_info_t g_ctrl_npl_info = {
 
 bool IRAM_ATTR npl_zephyr_os_started(void)
 {
-    return (k_is_pre_kernel() == false);
+    return (esp_os_is_pre_kernel() == false);
 }
 
 void *IRAM_ATTR npl_zephyr_get_current_task_id(void)
 {
-    return k_current_get();
+    return esp_os_thread_current();
 }
 
 void IRAM_ATTR npl_zephyr_event_init(struct ble_npl_event *ev, ble_npl_event_fn *fn, void *arg)
@@ -101,11 +101,11 @@ void npl_zephyr_eventq_init(struct ble_npl_eventq *evq)
         eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
         BLE_LL_ASSERT(eventq);
         memset(eventq, 0, sizeof(*eventq));
-        k_fifo_init(&eventq->q);
+        eventq->q = esp_os_fifo_create();
     } else {
         eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
         /* Drain any remaining events */
-        while (k_fifo_get(&eventq->q, K_NO_WAIT) != NULL) {
+        while (esp_os_fifo_get(eventq->q, ESP_OS_NO_WAIT) != NULL) {
             ;
         }
     }
@@ -118,6 +118,7 @@ void npl_zephyr_eventq_deinit(struct ble_npl_eventq *evq)
     if (!eventq) {
         return;
     }
+    esp_os_fifo_delete(eventq->q);
     bt_osi_mem_free(eventq);
     evq->eventq = NULL;
 }
@@ -134,7 +135,7 @@ void IRAM_ATTR npl_zephyr_callout_mem_reset(struct ble_npl_callout *co)
 
 static inline bool IRAM_ATTR in_isr(void)
 {
-    return k_is_in_isr();
+    return esp_os_is_in_isr();
 }
 
 struct ble_npl_event *IRAM_ATTR npl_zephyr_eventq_get(struct ble_npl_eventq *evq,
@@ -146,9 +147,9 @@ struct ble_npl_event *IRAM_ATTR npl_zephyr_eventq_get(struct ble_npl_eventq *evq
 
     if (in_isr()) {
         BLE_LL_ASSERT(tmo == 0);
-        event = k_fifo_get(&eventq->q, K_NO_WAIT);
+        event = esp_os_fifo_get(eventq->q, ESP_OS_NO_WAIT);
     } else {
-        event = k_fifo_get(&eventq->q, K_MSEC(tmo));
+        event = esp_os_fifo_get(eventq->q, tmo);
     }
 
     if (event) {
@@ -169,7 +170,7 @@ void IRAM_ATTR npl_zephyr_eventq_put(struct ble_npl_eventq *evq, struct ble_npl_
     }
 
     event->queued = true;
-    k_fifo_put(&eventq->q, event);
+    esp_os_fifo_put(eventq->q, event);
 }
 
 void IRAM_ATTR npl_zephyr_eventq_put_to_front(struct ble_npl_eventq *evq, struct ble_npl_event *ev)
@@ -182,7 +183,7 @@ void IRAM_ATTR npl_zephyr_eventq_put_to_front(struct ble_npl_eventq *evq, struct
     }
 
     event->queued = true;
-    k_queue_prepend(&eventq->q._queue, event);
+    esp_os_fifo_put_to_front(eventq->q, event);
 }
 
 void IRAM_ATTR npl_zephyr_eventq_remove(struct ble_npl_eventq *evq, struct ble_npl_event *ev)
@@ -194,7 +195,7 @@ void IRAM_ATTR npl_zephyr_eventq_remove(struct ble_npl_eventq *evq, struct ble_n
         return;
     }
 
-    if (k_queue_remove(&eventq->q._queue, event)) {
+    if (esp_os_fifo_remove(eventq->q, event)) {
         event->queued = false;
     }
 }
@@ -207,7 +208,7 @@ ble_npl_error_t npl_zephyr_mutex_init(struct ble_npl_mutex *mu)
         mu->mutex = bt_osi_mem_malloc_internal(sizeof(struct ble_npl_mutex_zephyr));
         mutex = mu->mutex;
         BLE_LL_ASSERT(mutex);
-        k_mutex_init(&mutex->handle);
+        mutex->handle = esp_os_mutex_create();
     }
 
     return BLE_NPL_OK;
@@ -221,6 +222,7 @@ ble_npl_error_t npl_zephyr_mutex_deinit(struct ble_npl_mutex *mu)
         return BLE_NPL_INVALID_PARAM;
     }
 
+    esp_os_mutex_delete(mutex->handle);
     bt_osi_mem_free((void *)mutex);
     mu->mutex = NULL;
 
@@ -236,7 +238,7 @@ void IRAM_ATTR npl_zephyr_event_run(struct ble_npl_event *ev)
 bool IRAM_ATTR npl_zephyr_eventq_is_empty(struct ble_npl_eventq *evq)
 {
     struct ble_npl_eventq_zephyr *eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
-    return k_fifo_is_empty(&eventq->q);
+    return esp_os_fifo_is_empty(eventq->q);
 }
 
 bool IRAM_ATTR npl_zephyr_event_is_queued(struct ble_npl_event *ev)
@@ -270,7 +272,7 @@ ble_npl_error_t IRAM_ATTR npl_zephyr_mutex_pend(struct ble_npl_mutex *mu, ble_np
         BLE_LL_ASSERT(0);
     }
 
-    rc = k_mutex_lock(&mutex->handle, K_MSEC(timeout));
+    rc = esp_os_mutex_lock(mutex->handle, timeout);
 
     return rc == 0 ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
 }
@@ -287,7 +289,7 @@ ble_npl_error_t IRAM_ATTR npl_zephyr_mutex_release(struct ble_npl_mutex *mu)
         BLE_LL_ASSERT(0);
     }
 
-    k_mutex_unlock(&mutex->handle);
+    esp_os_mutex_unlock(mutex->handle);
 
     return BLE_NPL_OK;
 }
@@ -300,7 +302,7 @@ ble_npl_error_t npl_zephyr_sem_init(struct ble_npl_sem *sem, uint16_t tokens)
         sem->sem = bt_osi_mem_malloc_internal(sizeof(struct ble_npl_sem_zephyr));
         semaphore = sem->sem;
         BLE_LL_ASSERT(semaphore);
-        k_sem_init(&semaphore->handle, tokens, 128);
+        semaphore->handle = esp_os_sem_create(tokens, 128);
     }
 
     return BLE_NPL_OK;
@@ -314,6 +316,7 @@ ble_npl_error_t npl_zephyr_sem_deinit(struct ble_npl_sem *sem)
         return BLE_NPL_INVALID_PARAM;
     }
 
+    esp_os_sem_delete(semaphore->handle);
     bt_osi_mem_free((void *)semaphore);
 
     sem->sem = NULL;
@@ -332,9 +335,9 @@ ble_npl_error_t IRAM_ATTR npl_zephyr_sem_pend(struct ble_npl_sem *sem, ble_npl_t
 
     if (in_isr()) {
         BLE_LL_ASSERT(timeout == 0);
-        rc = k_sem_take(&semaphore->handle, K_NO_WAIT);
+        rc = esp_os_sem_take(semaphore->handle, ESP_OS_NO_WAIT);
     } else {
-        rc = k_sem_take(&semaphore->handle, K_MSEC(timeout));
+        rc = esp_os_sem_take(semaphore->handle, timeout);
     }
 
     return rc == 0 ? BLE_NPL_OK : BLE_NPL_TIMEOUT;
@@ -348,7 +351,7 @@ ble_npl_error_t IRAM_ATTR npl_zephyr_sem_release(struct ble_npl_sem *sem)
         return BLE_NPL_INVALID_PARAM;
     }
 
-    k_sem_give(&semaphore->handle);
+    esp_os_sem_give(semaphore->handle);
 
     return BLE_NPL_OK;
 }
@@ -456,7 +459,7 @@ void npl_zephyr_callout_deinit(struct ble_npl_callout *co)
 uint16_t IRAM_ATTR npl_zephyr_sem_get_count(struct ble_npl_sem *sem)
 {
     struct ble_npl_sem_zephyr *semaphore = sem->sem;
-    return k_sem_count_get(&semaphore->handle);
+    return esp_os_sem_count(semaphore->handle);
 }
 
 ble_npl_error_t IRAM_ATTR npl_zephyr_callout_reset(struct ble_npl_callout *co, ble_npl_time_t ticks)
@@ -582,7 +585,7 @@ uint32_t IRAM_ATTR npl_zephyr_time_ticks_to_ms32(ble_npl_time_t ticks)
 
 void IRAM_ATTR npl_zephyr_time_delay(ble_npl_time_t ticks)
 {
-    k_sleep(K_TICKS(ticks));
+    esp_os_sleep_ticks(ticks);
 }
 
 uint32_t IRAM_ATTR npl_zephyr_hw_enter_critical(void)

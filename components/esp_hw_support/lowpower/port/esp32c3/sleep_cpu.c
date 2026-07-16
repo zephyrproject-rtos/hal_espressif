@@ -5,6 +5,7 @@
  */
 
 #include <stddef.h>
+#include <esp_os.h>
 #include <string.h>
 #include <inttypes.h>
 #include <sys/lock.h>
@@ -25,7 +26,7 @@
 static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
 {
     (void)caps;
-    void *ptr = k_aligned_alloc(alignment, n * size);
+    void *ptr = esp_os_aligned_alloc(alignment, n * size);
     if (ptr) {
         memset(ptr, 0, n * size);
     }
@@ -34,7 +35,7 @@ static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t 
 
 static inline void heap_caps_free(void *ptr)
 {
-    k_free(ptr);
+    esp_os_free(ptr);
 }
 
 #define MALLOC_CAP_RETENTION 0

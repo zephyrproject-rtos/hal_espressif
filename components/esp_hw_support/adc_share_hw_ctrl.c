@@ -18,6 +18,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include <esp_os.h>
 
 #include <esp_types.h>
 #include "sdkconfig.h"
@@ -127,21 +128,21 @@ int IRAM_ATTR adc_get_hw_calibration_chan_compens(adc_unit_t adc_n, adc_channel_
 /*---------------------------------------------------------------
             ADC Hardware Locks
 ---------------------------------------------------------------*/
-K_MUTEX_DEFINE(adc1_lock);
-K_MUTEX_DEFINE(adc2_lock);
+ESP_OS_MUTEX_DEFINE(adc1_lock);
+ESP_OS_MUTEX_DEFINE(adc2_lock);
 
-#define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
-#define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
-#define ADC_LOCK_TRY_ACQUIRE(lock) ((k_mutex_lock(lock, K_NO_WAIT) == 0) ? 0 : -1)
+#define ADC_LOCK_ACQUIRE(lock) do { esp_os_mutex_lock(lock, ESP_OS_FOREVER); } while(0)
+#define ADC_LOCK_RELEASE(lock) do { esp_os_mutex_unlock(lock); } while(0)
+#define ADC_LOCK_TRY_ACQUIRE(lock) ((esp_os_mutex_lock(lock, ESP_OS_NO_WAIT) == 0) ? 0 : -1)
 
 esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        ADC_LOCK_ACQUIRE(&adc1_lock);
+        ADC_LOCK_ACQUIRE(adc1_lock);
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        ADC_LOCK_ACQUIRE(&adc2_lock);
+        ADC_LOCK_ACQUIRE(adc2_lock);
     }
 
     return ESP_OK;
@@ -150,13 +151,13 @@ esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 esp_err_t adc_lock_release(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_2) {
-        ESP_RETURN_ON_FALSE((adc2_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
-        ADC_LOCK_RELEASE(&adc2_lock);
+        ESP_RETURN_ON_FALSE((esp_os_mutex_lock_count(adc2_lock) != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+        ADC_LOCK_RELEASE(adc2_lock);
     }
 
     if (adc_unit == ADC_UNIT_1) {
-        ESP_RETURN_ON_FALSE((adc1_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
-        ADC_LOCK_RELEASE(&adc1_lock);
+        ESP_RETURN_ON_FALSE((esp_os_mutex_lock_count(adc1_lock) != 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
+        ADC_LOCK_RELEASE(adc1_lock);
     }
 
     return ESP_OK;
@@ -165,13 +166,13 @@ esp_err_t adc_lock_release(adc_unit_t adc_unit)
 esp_err_t adc_lock_try_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        if (ADC_LOCK_TRY_ACQUIRE(&adc1_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(adc1_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        if (ADC_LOCK_TRY_ACQUIRE(&adc2_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(adc2_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }

@@ -5,6 +5,7 @@
  */
 
 #include "esp_efuse.h"
+#include <esp_os.h>
 #include "esp_efuse_utility.h"
 #include "soc/efuse_periph.h"
 #include "assert.h"
@@ -20,9 +21,9 @@ ESP_LOG_ATTR_TAG(TAG, "efuse");
 #else
 #include <string.h>
 #include <zephyr/kernel.h>
-K_MUTEX_DEFINE(s_efuse_lock);
-#define EFUSE_LOCK_ACQUIRE_RECURSIVE() k_mutex_lock(&s_efuse_lock, K_FOREVER)
-#define EFUSE_LOCK_RELEASE_RECURSIVE() k_mutex_unlock(&s_efuse_lock)
+ESP_OS_MUTEX_DEFINE(s_efuse_lock);
+#define EFUSE_LOCK_ACQUIRE_RECURSIVE() esp_os_mutex_lock(s_efuse_lock, ESP_OS_FOREVER)
+#define EFUSE_LOCK_RELEASE_RECURSIVE() esp_os_mutex_unlock(s_efuse_lock)
 #endif
 
 static int s_batch_writing_mode = 0;

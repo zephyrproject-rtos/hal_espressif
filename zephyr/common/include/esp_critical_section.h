@@ -42,10 +42,9 @@
 
 #pragma once
 
-#include <zephyr/kernel.h>
-#include <zephyr/irq.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/atomic.h>
+#include <esp_os.h>
 #include "esp_cpu.h"
 
 #ifdef __cplusplus
@@ -71,7 +70,7 @@ typedef struct {
 
 static ALWAYS_INLINE void esp_critical_section_enter(esp_critical_section_t *l)
 {
-    unsigned int flags = arch_irq_lock();
+    unsigned int flags = esp_os_arch_irq_lock();
 
 #ifdef CONFIG_SMP
     atomic_val_t me = (atomic_val_t)esp_cpu_get_core_id();
@@ -98,7 +97,7 @@ static ALWAYS_INLINE void esp_critical_section_enter(esp_critical_section_t *l)
      */
     while (!atomic_cas(&l->owner_cpu, ESP_CRITICAL_SECTION_UNOWNED, me)) {
         /* Busy-wait. Interrupts are off on this CPU; the holding
-         * CPU will release soon. arch_spin_relax() is a no-op on
+         * CPU will release soon. A CPU relax hint is a no-op on
          * current hal_espressif targets, so it is omitted here.
          */
     }
@@ -125,7 +124,7 @@ static ALWAYS_INLINE void esp_critical_section_exit(esp_critical_section_t *l)
      */
     if (l->count == 0) {
         __ASSERT(false, "esp_critical_section_exit: unpaired exit on %p", l);
-        k_panic();
+        esp_os_panic();
         return;
     }
 
@@ -139,11 +138,11 @@ static ALWAYS_INLINE void esp_critical_section_exit(esp_critical_section_t *l)
          * writes we made while holding the lock.
          */
         atomic_set(&l->owner_cpu, ESP_CRITICAL_SECTION_UNOWNED);
-        arch_irq_unlock(flags);
+        esp_os_arch_irq_unlock(flags);
     }
 #else
     if (--l->count == 0) {
-        arch_irq_unlock(l->saved_irq_key);
+        esp_os_arch_irq_unlock(l->saved_irq_key);
     }
 #endif
 }

@@ -5,6 +5,7 @@
  */
 
 #include <stddef.h>
+#include <esp_os.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
@@ -35,7 +36,7 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 static bool s_modem_sleep = false;
 static uint8_t s_modem_prepare_ref = 0;
-K_MUTEX_DEFINE(s_modem_prepare_lock);
+ESP_OS_MUTEX_DEFINE(s_modem_prepare_lock);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 
 #if CONFIG_MAC_BB_PD
@@ -327,24 +328,24 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 void sleep_modem_register_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                          mac_bb_power_up_cb_t pu_cb)
 {
-    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
+    esp_os_mutex_lock(s_modem_prepare_lock, ESP_OS_FOREVER);
     if (s_modem_prepare_ref++ == 0) {
         esp_register_mac_bb_pd_callback(pd_cb);
         esp_register_mac_bb_pu_callback(pu_cb);
     }
-    k_mutex_unlock(&s_modem_prepare_lock);
+    esp_os_mutex_unlock(s_modem_prepare_lock);
 }
 
 void sleep_modem_unregister_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                            mac_bb_power_up_cb_t pu_cb)
 {
-    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
+    esp_os_mutex_lock(s_modem_prepare_lock, ESP_OS_FOREVER);
     assert(s_modem_prepare_ref);
     if (--s_modem_prepare_ref == 0) {
         esp_unregister_mac_bb_pd_callback(pd_cb);
         esp_unregister_mac_bb_pu_callback(pu_cb);
     }
-    k_mutex_unlock(&s_modem_prepare_lock);
+    esp_os_mutex_unlock(s_modem_prepare_lock);
 }
 
 /**

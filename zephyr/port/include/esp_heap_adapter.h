@@ -6,21 +6,23 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
-#include <zephyr/kernel.h>
 #include <zephyr/multi_heap/shared_multi_heap.h>
+#include <esp_os.h>
 
 /* Select heap to be used for WiFi adapter and WPA supplicant */
 #if defined(CONFIG_ESP_WIFI_HEAP_SYSTEM)
 
-#define esp_wifi_malloc_func(_size)         k_malloc(_size)
-#define esp_wifi_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
-#define esp_wifi_free_func(_mem)            k_free(_mem)
+#define esp_wifi_malloc_func(_size)         esp_os_malloc(_size)
+#define esp_wifi_calloc_func(_nmemb, _size) esp_os_calloc(_nmemb, _size)
+#define esp_wifi_free_func(_mem)            esp_os_free(_mem)
 
-#define os_wpa_malloc_func(_size)         k_malloc(_size)
-#define os_wpa_realloc_func(_ptr, _size)  k_realloc(_ptr, _size)
-#define os_wpa_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
-#define os_wpa_free_func(_mem)            k_free(_mem)
+#define os_wpa_malloc_func(_size)         esp_os_malloc(_size)
+#define os_wpa_realloc_func(_ptr, _size)  esp_os_realloc(_ptr, _size)
+#define os_wpa_calloc_func(_nmemb, _size) esp_os_calloc(_nmemb, _size)
+#define os_wpa_free_func(_mem)            esp_os_free(_mem)
 
 #elif defined(CONFIG_ESP_WIFI_HEAP_SPIRAM)
 
@@ -43,7 +45,7 @@ static inline void* esp_wifi_calloc_func(size_t _nmemb, size_t _size)
 static inline void esp_wifi_free_func(void *_mem)
 {
 	if (esp_ptr_in_dram(_mem)) {
-		k_free(_mem);
+		esp_os_free(_mem);
 	} else {
 		shared_multi_heap_free(_mem);
 	}
@@ -91,10 +93,10 @@ static inline void os_wpa_free_func(void *_mem)
 /* Select heap to be used for BLE adapter */
 #if defined(CONFIG_ESP_BT_HEAP_SYSTEM)
 
-#define esp_bt_malloc_func(_size) k_malloc(_size)
-#define esp_bt_calloc_func(_nmemb, _size) k_calloc(_nmemb, _size)
-#define esp_bt_realloc_func(_ptr, _size) k_realloc(_ptr, _size)
-#define esp_bt_free_func(_mem)    k_free(_mem)
+#define esp_bt_malloc_func(_size) esp_os_malloc(_size)
+#define esp_bt_calloc_func(_nmemb, _size) esp_os_calloc(_nmemb, _size)
+#define esp_bt_realloc_func(_ptr, _size) esp_os_realloc(_ptr, _size)
+#define esp_bt_free_func(_mem)    esp_os_free(_mem)
 
 #elif defined(CONFIG_ESP_BT_HEAP_SPIRAM)
 

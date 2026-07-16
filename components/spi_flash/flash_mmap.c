@@ -5,6 +5,7 @@
  */
 
 #include <stdlib.h>
+#include <esp_os.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -119,10 +120,10 @@ esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t m
 
 err:
     if (vaddr_list) {
-        k_free(vaddr_list);
+        esp_os_free(vaddr_list);
     }
     if (block) {
-        k_free(block);
+        esp_os_free(block);
     }
     return ret;
 }
@@ -191,7 +192,7 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     int successful_cnt = 0;
 
     int block_num = s_find_non_contiguous_block_nums(pages, page_count);
-    int (*paddr_blocks)[2] = k_calloc(block_num, sizeof(int[2]));
+    int (*paddr_blocks)[2] = esp_os_calloc(block_num, sizeof(int[2]));
     if (!paddr_blocks) {
         return ESP_ERR_NO_MEM;
     }
@@ -242,7 +243,7 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     *out_ptr = (void *)vaddr_list[0];
     *out_handle = (uint32_t)block;
 
-    k_free(paddr_blocks);
+    esp_os_free(paddr_blocks);
     return ESP_OK;
 
 err:
@@ -250,12 +251,12 @@ err:
         esp_mmu_unmap((void *)vaddr_list[i]);
     }
     if (vaddr_list) {
-        k_free(vaddr_list);
+        esp_os_free(vaddr_list);
     }
     if (block) {
-        k_free(block);
+        esp_os_free(block);
     }
-    k_free(paddr_blocks);
+    esp_os_free(paddr_blocks);
     return ret;
 }
 
@@ -272,8 +273,8 @@ void spi_flash_munmap(spi_flash_mmap_handle_t handle)
         }
     }
 
-    k_free(block->vaddr_list);
-    k_free(block);
+    esp_os_free(block->vaddr_list);
+    esp_os_free(block);
 }
 
 

@@ -5,6 +5,7 @@
  */
 
 #include <stdlib.h>
+#include <esp_os.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -43,7 +44,7 @@ static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
 static uint32_t s_flash_op_cache_state[2];
 
 #ifndef CONFIG_MCUBOOT
-K_MUTEX_DEFINE(s_flash_op_mutex);
+ESP_OS_MUTEX_DEFINE(s_flash_op_mutex);
 
 void spi_flash_init_lock(void)
 {
@@ -51,12 +52,12 @@ void spi_flash_init_lock(void)
 
 void spi_flash_op_lock(void)
 {
-    k_mutex_lock(&s_flash_op_mutex, K_FOREVER);
+    esp_os_mutex_lock(s_flash_op_mutex, ESP_OS_FOREVER);
 }
 
 void spi_flash_op_unlock(void)
 {
-    k_mutex_unlock(&s_flash_op_mutex);
+    esp_os_mutex_unlock(s_flash_op_mutex);
 }
 #endif /* !CONFIG_MCUBOOT */
 

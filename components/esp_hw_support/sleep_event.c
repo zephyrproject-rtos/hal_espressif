@@ -5,6 +5,7 @@
  */
 
 #include <stddef.h>
+#include <esp_os.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 
@@ -27,7 +28,7 @@ esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id,
     if (event_cb_conf == NULL || event_id >= SLEEP_EVENT_CB_INDEX_NUM) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)k_malloc(sizeof(esp_sleep_event_cb_config_t));
+    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)esp_os_malloc(sizeof(esp_sleep_event_cb_config_t));
     if (new_config == NULL) {
         return ESP_ERR_NO_MEM; /* Memory allocation failed */
     }
@@ -36,7 +37,7 @@ esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id,
     esp_sleep_event_cb_config_t **current_ptr = &(g_sleep_event_cbs_config.sleep_event_cb_config[event_id]);
     while (*current_ptr != NULL) {
         if (((*current_ptr)->cb) == (event_cb_conf->cb)) {
-            k_free(new_config);
+            esp_os_free(new_config);
             esp_os_exit_critical(&s_sleep_event_mutex);
             return ESP_FAIL;
         }
@@ -63,7 +64,7 @@ esp_err_t esp_sleep_unregister_event_callback(esp_sleep_event_cb_index_t event_i
         if (((*current_ptr)->cb) == cb) {
             esp_sleep_event_cb_config_t *temp = *current_ptr;
             *current_ptr = (*current_ptr)->next;
-            k_free(temp);
+            esp_os_free(temp);
             break;
         }
         current_ptr = &((*current_ptr)->next);

@@ -13,6 +13,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/init.h>
 #include <zephyr/logging/log.h>
+#include <esp_os.h>
 LOG_MODULE_REGISTER(esp32s2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 #include "esp_attr.h"
@@ -29,6 +30,15 @@ LOG_MODULE_REGISTER(esp32s2_coex_adapter, CONFIG_WIFI_LOG_LEVEL);
 
 #define OSI_FUNCS_TIME_BLOCKING  0xffffffff
 
+static uint32_t coex_block_time_ms(uint32_t block_time_tick)
+{
+    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
+        return ESP_OS_FOREVER;
+    }
+
+    return (uint32_t)esp_os_ticks_to_ms(block_time_tick);
+}
+
 bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 {
 #ifdef CONFIG_IDF_ENV_FPGA
@@ -40,7 +50,7 @@ bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 
 void *esp_coex_common_spin_lock_create_wrapper(void)
 {
-    unsigned int *wifi_spin_lock = (unsigned int *)k_malloc(sizeof(unsigned int));
+    unsigned int *wifi_spin_lock = (unsigned int *)esp_os_malloc(sizeof(unsigned int));
     if (wifi_spin_lock == NULL) {
         LOG_ERR("spin_lock_create_wrapper allocation failed");
         return NULL;
@@ -54,7 +64,7 @@ uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *wifi_int_mux)
 {
     unsigned int *int_mux = (unsigned int *)wifi_int_mux;
 
-    *int_mux = irq_lock();
+    *int_mux = esp_os_irq_lock();
     return 0;
 }
 
@@ -62,53 +72,39 @@ void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *wifi_int_mux, uint32_t 
 {
     unsigned int *key = (unsigned int *)wifi_int_mux;
 
-    irq_unlock(*key);
+    esp_os_irq_unlock(*key);
 }
 
 void IRAM_ATTR esp_coex_common_task_yield_from_isr_wrapper(void)
 {
-    k_yield();
+    esp_os_thread_yield();
 }
 
 void *esp_coex_common_semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    struct k_sem *sem = (struct k_sem *)k_malloc(sizeof(struct k_sem));
+    esp_os_sem_t sem = esp_os_sem_create(init, max);
 
     if (sem == NULL) {
         LOG_ERR("semphr_create_wrapper allocation failed");
         return NULL;
     }
 
-    k_sem_init(sem, init, max);
-
     return (void *)sem;
 }
 
 void esp_coex_common_semphr_delete_wrapper(void *semphr)
 {
-    k_free(semphr);
+    esp_os_sem_delete(semphr);
 }
 
 int32_t esp_coex_common_semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
 {
-    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        int ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
-        if (ret == 0) {
-            return 1;
-        }
-    } else {
-        int ret = k_sem_take((struct k_sem *)semphr, K_TICKS(block_time_tick));
-
-        if (ret == 0) {
-            return 1;
-        }
-    }
-    return 0;
+    return esp_os_sem_take(semphr, coex_block_time_ms(block_time_tick)) == 0 ? 1 : 0;
 }
 
 int32_t esp_coex_common_semphr_give_wrapper(void *semphr)
 {
-    k_sem_give((struct k_sem *)semphr);
+    esp_os_sem_give(semphr);
     return 1;
 }
 
@@ -134,7 +130,7 @@ void IRAM_ATTR esp_coex_common_timer_arm_us_wrapper(void *ptimer, uint32_t us, b
 
 void *IRAM_ATTR esp_coex_common_malloc_internal_wrapper(size_t size)
 {
-    return k_malloc(size);
+    return esp_os_malloc(size);
 }
 
 uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
@@ -149,51 +145,42 @@ uint32_t esp_coex_common_clk_slowclk_cal_get_wrapper(void)
 
 static int IRAM_ATTR esp_coex_is_in_isr_wrapper(void)
 {
-    return k_is_in_isr();
+    return esp_os_is_in_isr();
 }
 
 static void *esp_coex_internal_semphr_create_wrapper(uint32_t max, uint32_t init)
 {
-    struct k_sem *sem = (struct k_sem *)k_malloc(sizeof(struct k_sem));
+    esp_os_sem_t sem = esp_os_sem_create(init, max);
 
     if (sem == NULL) {
         LOG_ERR("internal_semphr_create_wrapper allocation failed");
         return NULL;
     }
 
-    k_sem_init(sem, init, max);
-
     return (void *)sem;
 }
 
 static void esp_coex_internal_semphr_delete_wrapper(void *semphr)
 {
-    k_free(semphr);
+    esp_os_sem_delete(semphr);
 }
 
 static int32_t IRAM_ATTR esp_coex_internal_semphr_take_from_isr_wrapper(void *semphr, void *hptw)
 {
     int *hpt = (int *)hptw;
-    int ret = k_sem_take((struct k_sem *)semphr, K_NO_WAIT);
-
-    if (ret == 0) {
-        if (hpt) {
-            *hpt = 0;
-        }
-        return 1;
-    }
+    int ret = esp_os_sem_take(semphr, ESP_OS_NO_WAIT);
 
     if (hpt) {
         *hpt = 0;
     }
-    return 0;
+    return ret == 0 ? 1 : 0;
 }
 
 static int32_t IRAM_ATTR esp_coex_internal_semphr_give_from_isr_wrapper(void *semphr, void *hptw)
 {
     int *hpt = (int *)hptw;
 
-    k_sem_give((struct k_sem *)semphr);
+    esp_os_sem_give(semphr);
 
     if (hpt) {
         *hpt = 0;
@@ -204,24 +191,12 @@ static int32_t IRAM_ATTR esp_coex_internal_semphr_give_from_isr_wrapper(void *se
 
 static int32_t esp_coex_internal_semphr_take_wrapper(void *semphr, uint32_t block_time_tick)
 {
-    if (block_time_tick == OSI_FUNCS_TIME_BLOCKING) {
-        int ret = k_sem_take((struct k_sem *)semphr, K_FOREVER);
-        if (ret == 0) {
-            return 1;
-        }
-    } else {
-        int ret = k_sem_take((struct k_sem *)semphr, K_TICKS(block_time_tick));
-
-        if (ret == 0) {
-            return 1;
-        }
-    }
-    return 0;
+    return esp_os_sem_take(semphr, coex_block_time_ms(block_time_tick)) == 0 ? 1 : 0;
 }
 
 static int32_t esp_coex_internal_semphr_give_wrapper(void *semphr)
 {
-    k_sem_give((struct k_sem *)semphr);
+    esp_os_sem_give(semphr);
     return 1;
 }
 
@@ -245,7 +220,7 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._semphr_give = esp_coex_internal_semphr_give_wrapper,
     ._is_in_isr = esp_coex_is_in_isr_wrapper,
     ._malloc_internal =  esp_coex_common_malloc_internal_wrapper,
-    ._free = k_free,
+    ._free = esp_os_free,
     ._esp_timer_get_time = esp_timer_get_time,
     ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
     ._timer_done = esp_coex_common_timer_done_wrapper,
