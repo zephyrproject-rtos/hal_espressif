@@ -36,7 +36,12 @@
 /* __swbuf_r    = 0x40000474; */
 
 /* Functions */
-__swbuf = 0x40000478;
+/* The ROM implementation routes through syscall_table_ptr,
+ * which this port never installs, and would fault on a NULL
+ * pointer if a libc build ever referenced it. Keep the
+ * compiled libc version instead.
+ * __swbuf = 0x40000478;
+ */
 toupper = 0x400003b8;
 tolower = 0x400003bc;
 isalnum = 0x40000388;

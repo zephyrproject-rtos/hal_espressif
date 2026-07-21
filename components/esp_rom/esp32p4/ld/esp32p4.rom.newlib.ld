@@ -40,6 +40,7 @@
 /* _isatty_r = 0x4fc00294; */
 /* __smakebuf_r = 0x4fc00380; */
 /* __swhatbuf_r = 0x4fc00384; */
-__swbuf = 0x4fc0038c;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf = 0x4fc0038c; */
 /* Zephyr: reentrant ROM call, provided by the selected libc */
 /* __swsetup_r = 0x4fc00390; */

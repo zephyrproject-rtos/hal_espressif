@@ -15,7 +15,12 @@ strncmp = 0x4000123c;
 strlen = 0x40001248;
 strstr = 0x40001254;
 bzero = 0x40001260;
-sbrk = 0x40001278;
+/* The ROM implementation routes through syscall_table_ptr,
+ * which this port never installs, and would fault on a NULL
+ * pointer if a libc build ever referenced it. Keep the
+ * compiled libc version instead.
+ * sbrk = 0x40001278;
+ */
 isascii = 0x4000129c;
 isblank = 0x400012a8;
 iscntrl = 0x400012b4;

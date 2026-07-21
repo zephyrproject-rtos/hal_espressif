@@ -43,7 +43,8 @@
 /* Zephyr: reentrant ROM call, provided by the selected libc */
 /* __swbuf_r = 0x400005c0; */
 
-__swbuf = 0x400005c4;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf = 0x400005c4; */
 /* Zephyr: reentrant ROM call, provided by the selected libc */
 /* __swsetup_r = 0x400005c8; */
 toupper = 0x40000504;
