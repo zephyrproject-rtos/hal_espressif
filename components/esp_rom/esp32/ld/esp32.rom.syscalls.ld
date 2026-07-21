@@ -61,6 +61,11 @@ PROVIDE ( _write_r = 0x4000bd70 );
 close = 0x40001778;
 open = 0x4000178c;
 read = 0x400017dc;
-sbrk = 0x400017f4;
+/* The ROM implementations below route through
+ * syscall_table_ptr, which this port never installs, and
+ * would fault on a NULL pointer if a libc build ever
+ * referenced them. Keep the compiled libc versions instead.
+ */
+/* sbrk = 0x400017f4; */
 times = 0x40001808;
 write = 0x4000181c;

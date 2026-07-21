@@ -13,7 +13,12 @@ memset = 0x4fc00268;
 strlen = 0x4fc00288;
 strstr = 0x4fc0028c;
 bzero = 0x4fc00290;
-sbrk = 0x4fc00298;
+/* The ROM implementations below route through
+ * syscall_table_ptr, which this port never installs, and
+ * would fault on a NULL pointer if a libc build ever
+ * referenced them. Keep the compiled libc versions instead.
+ */
+/* sbrk = 0x4fc00298; */
 isalnum = 0x4fc0029c;
 isalpha = 0x4fc002a0;
 isascii = 0x4fc002a4;

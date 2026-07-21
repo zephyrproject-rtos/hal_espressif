@@ -32,7 +32,8 @@
 /* _fwalk       = 0x40001518; */
 /* _fwalk_reent = 0x40001524; */
 /* __swbuf_r    = 0x40001548; */
-__swbuf = 0x40001554;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf = 0x40001554; */
 toupper = 0x40001314;
 tolower = 0x40001320;
 isalnum = 0x40001284;
