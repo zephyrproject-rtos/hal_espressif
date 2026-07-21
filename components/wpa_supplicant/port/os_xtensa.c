@@ -35,9 +35,10 @@ int os_get_time(struct os_time *t)
 		return -1;
 	}
 
-	int64_t now = k_uptime_ticks();
-	t->sec = now / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-	t->usec = k_ticks_to_us_floor64(now);
+	uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+
+	t->sec = now_us / USEC_PER_SEC;
+	t->usec = now_us % USEC_PER_SEC;
 
 	return 0;
 }
