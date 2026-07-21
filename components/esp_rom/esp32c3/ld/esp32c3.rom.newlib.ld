@@ -50,5 +50,11 @@ strcoll = 0x400003e8;
 strlwr = 0x400003f4;
 strncasecmp = 0x400003f8;
 strupr = 0x40000418;
-hmac_md5_vector = 0x40000620;
-hmac_md5 = 0x40000624;
+/* The ROM hmac_md5 implementations call the ROM malloc, which
+ * dispatches through syscall_table_ptr. That table is never
+ * installed in this port, so any call faults on a NULL pointer.
+ * The supplicant builds its own hmac_md5/hmac_md5_vector from
+ * src/crypto/md5.c, which must win the link instead.
+ * hmac_md5_vector = 0x40000620;
+ * hmac_md5 = 0x40000624;
+ */
