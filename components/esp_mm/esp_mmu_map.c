@@ -10,6 +10,7 @@
 #include <sys/queue.h>
 #include <inttypes.h>
 #include <zephyr/kernel.h>
+#include <zephyr/arch/cpu.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -281,7 +282,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
     *out_len = 0;
 
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     size_t max = 0;
 
     for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
@@ -293,7 +294,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     }
 
     *out_len = max;
-    irq_unlock(key);
+    arch_irq_unlock(key);
 
     return ESP_OK;
 }
