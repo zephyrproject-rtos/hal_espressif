@@ -613,11 +613,24 @@ static esp_err_t init_timer_task(void)
     } else {
         k_sem_init(&s_timer_semaphore, 0, 1);
 
-        k_thread_create(&s_timer_task, timer_task_stack,
+        /* Pin to the configured core (create suspended, pin, then start) to keep
+         * the timer task on the same core as the Wi-Fi/BLE stacks it serves.
+         */
+        k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
                         CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
                         timer_task, NULL, NULL, NULL,
-                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
+                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0,
+                        IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
         k_thread_name_set(&s_timer_task, "esp_timer");
+
+#if defined(CONFIG_SMP)
+#ifdef CONFIG_SCHED_CPU_MASK
+        k_thread_cpu_pin(tid, CONFIG_ESP_TIMER_TASK_AFFINITY);
+#endif
+        k_thread_start(tid);
+#else
+        ARG_UNUSED(tid);
+#endif
         s_timer_task_created = true;
     }
     return err;

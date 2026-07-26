@@ -245,14 +245,14 @@ config ESP_TIMER_IMPL_SYSTIMER
 	default y
 	depends on !SOC_SERIES_ESP32
 
-menu "Wi-Fi config"
-
 choice ESP_WIFI_TASK_CORE_ID
-	prompt "WiFi Task Core ID"
+	prompt "WiFi task CPU core affinity"
 	depends on SOC_SERIES_ESP32S3
 	default ESP_WIFI_TASK_PINNED_TO_CORE_0
 	help
-	  Pinned WiFi task to core 0 or core 1.
+	  Pin the WiFi task to a specific CPU core to ensure it and the WiFi
+	  interrupt handler run on the same core. This is required because the
+	  WiFi blob assumes task and interrupt share a core.
 
 config ESP_WIFI_TASK_PINNED_TO_CORE_0
 	bool "Core 0"
@@ -262,13 +262,14 @@ config ESP_WIFI_TASK_PINNED_TO_CORE_1
 
 endchoice # ESP_WIFI_TASK_CORE_ID
 
-endmenu # Wi-Fi config
-
 if BT_ESP32
 
 config ESP32_BT_CTLR_PINNED_TO_CORE
-	int
+	int "CPU core for Bluetooth controller task"
 	default 0
+	range 0 1
+	help
+	  Pin the Bluetooth controller task to this CPU core.
 
 endif
 
