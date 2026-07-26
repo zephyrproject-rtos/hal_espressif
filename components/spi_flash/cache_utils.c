@@ -37,6 +37,31 @@
 
 ESP_LOG_ATTR_TAG(TAG, "cache");
 
+#if defined(CONFIG_SMP)
+/*
+ * A flash operation suspends the cache, so no core may execute flash-mapped
+ * (XIP) code while it runs. Under SMP that has to be enforced on the peer core
+ * as well, whatever the cache topology. soc_mp_pause_others() takes a global
+ * pause lock (the outermost lock, before any flash/cache lock) and parks the
+ * other core in IRAM for the duration. The SoC's smp support provides the
+ * real implementation; the weak no-ops below keep SMP builds of SoCs without
+ * a peer stall linking.
+ */
+void IRAM_ATTR __weak soc_mp_pause_others(void)
+{
+}
+
+void IRAM_ATTR __weak soc_mp_resume_others(void)
+{
+}
+
+#define SPI_FLASH_PAUSE_OTHERS()    soc_mp_pause_others()
+#define SPI_FLASH_RESUME_OTHERS()   soc_mp_resume_others()
+#else
+#define SPI_FLASH_PAUSE_OTHERS()
+#define SPI_FLASH_RESUME_OTHERS()
+#endif
+
 static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
 
 // Used only on ROM impl. in idf, this param unused, cache status hold by hal
@@ -62,6 +87,13 @@ void spi_flash_op_unlock(void)
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
+    /* Park the peer first, so the pause lock is the outermost lock. The locks
+     * taken below are cross-core, and a core that blocks on one of them does so
+     * with interrupts disabled, which would leave it unable to answer the stall
+     * request. A core can never be parked while holding them for the same
+     * reason: they are only ever taken with interrupts already off.
+     */
+    SPI_FLASH_PAUSE_OTHERS();
     esp_os_enter_critical(&s_intr_saved_state);
     esp_intr_noniram_disable();
     spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
@@ -72,6 +104,7 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
     spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
     esp_intr_noniram_enable();
     esp_os_exit_critical(&s_intr_saved_state);
+    SPI_FLASH_RESUME_OTHERS();
 }
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
