@@ -312,26 +312,26 @@ i2s1:
 
 twai0:
   tx:
-    sigo: twai0_tx_out
+    sigo: twai0_tx
     gpio: [[0, 54]]
   rx:
-    sigi: twai0_rx_in
+    sigi: twai0_rx
     gpio: [[0, 54]]
 
 twai1:
   tx:
-    sigo: twai1_tx_out
+    sigo: twai1_tx
     gpio: [[0, 54]]
   rx:
-    sigi: twai1_rx_in
+    sigi: twai1_rx
     gpio: [[0, 54]]
 
 twai2:
   tx:
-    sigo: twai2_tx_out
+    sigo: twai2_tx
     gpio: [[0, 54]]
   rx:
-    sigi: twai2_rx_in
+    sigi: twai2_rx
     gpio: [[0, 54]]
 
 smi:
