@@ -1356,3 +1356,8 @@ uint8_t esp_wifi_op_class_supported_internal(uint8_t op_class, uint8_t min_chan,
 	ARG_UNUSED(non_pref_channels);
 	return 0;
 }
+
+bool current_task_is_wifi_task(void)
+{
+	return false;
+}
