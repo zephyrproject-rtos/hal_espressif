@@ -219,7 +219,7 @@ static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
      * use exponential backoff down to a minimum of 64 bytes.
      */
     void* ret = NULL;
-    size_t read_chunk_size = (reqest_size + 3) & ~3;
+    size_t read_chunk_size = MAX((reqest_size + 3) & ~3, 64);
 
     while (ret == NULL && read_chunk_size >= 64) {
         ret = k_malloc(read_chunk_size);
