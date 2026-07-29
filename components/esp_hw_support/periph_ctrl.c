@@ -445,6 +445,13 @@ void non_shared_periph_module_enable(int periph)
         emac_ll_reset_register(0);
         break;
 #endif
+#if SOC_EMAC_IEEE1588V2_SUPPORTED
+#ifdef ESP32_EMAC_PTP_MODULE
+    case ESP32_EMAC_PTP_MODULE:
+        emac_ll_clock_enable_ptp(NULL, EMAC_PTP_CLK_SRC_DEFAULT, true);
+        break;
+#endif
+#endif
 #endif
 #ifdef ESP32_LP_UART0_MODULE
     case ESP32_LP_UART0_MODULE:
@@ -773,6 +780,13 @@ void non_shared_periph_module_disable(int periph)
     case ESP32_EMAC_MODULE:
         emac_ll_enable_bus_clock(0, false);
         break;
+#endif
+#if SOC_EMAC_IEEE1588V2_SUPPORTED
+#ifdef ESP32_EMAC_PTP_MODULE
+    case ESP32_EMAC_PTP_MODULE:
+        emac_ll_clock_enable_ptp(NULL, EMAC_PTP_CLK_SRC_DEFAULT, false);
+        break;
+#endif
 #endif
 #endif
 #ifdef ESP32_LP_UART0_MODULE
