@@ -39,12 +39,6 @@ uart1:
   cts:
     sigi: u1cts_in
     gpio: [[0, 23], [25, 27], [32, 39]]
-  dtr:
-    sigo: u1dtr_out
-    gpio: [[0, 23], [25, 27], [32, 39]]
-  dsr:
-    sigi: u1dsr_in
-    gpio: [[0, 23], [25, 27], [32, 39]]
 
 uart2:
   tx:
