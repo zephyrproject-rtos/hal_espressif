@@ -67,4 +67,6 @@ add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S2 esp32s2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S3 esp32s3)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S31 esp32s31)
 
+add_subdirectory(port/bootloader)
+
 endif() # CONFIG_HAS_ESPRESSIF_HAL
