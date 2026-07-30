@@ -452,7 +452,6 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/spi_flash/cache_utils.c
     ../common/esp_restart.c
     ../common/flash_init.c
-    ../port/bootloader/bootloader_flash.c
     ../port/heap/heap_caps_zephyr.c
     src/soc_flash_init.c
     src/soc_init.c

@@ -198,19 +198,6 @@ void bootloader_enable_wp(void);
  */
 void bootloader_spi_flash_reset(void);
 
-#ifdef __ZEPHYR__
-/**
- * Zephyr-specific flash ROM function wrappers.
- * These are implemented in zephyr/port/bootloader/bootloader_flash.c
- */
-esp_err_t esp_rom_flash_read(size_t src_addr, void *dest, size_t size, bool allow_decrypt);
-esp_err_t esp_rom_flash_write(size_t dest_addr, void *src, size_t size, bool write_encrypted);
-esp_err_t esp_rom_flash_erase_sector(size_t sector);
-esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size);
-const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size);
-void esp_rom_flash_unmmap(const void *mapping);
-#endif /* __ZEPHYR__ */
-
 #ifdef __cplusplus
 }
 #endif
