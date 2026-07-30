@@ -255,7 +255,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
     ../../components/esp_hw_support/port/regdma_link.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
@@ -298,6 +297,12 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     src/soc_init.c
     src/soc_random.c
   )
+
+  if (NOT CONFIG_MCUBOOT)
+    zephyr_sources(
+      ../../components/esp_hw_support/regi2c_ctrl.c
+      )
+  endif()
 
   zephyr_sources_ifdef(CONFIG_UART_ESP32
     ../../components/esp_hal_uart/uart_hal.c

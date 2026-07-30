@@ -390,7 +390,6 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
@@ -430,6 +429,12 @@ if(CONFIG_SOC_SERIES_ESP32)
     src/soc_init.c
     src/soc_random.c
   )
+
+  if (NOT CONFIG_MCUBOOT)
+    zephyr_sources(
+      ../../components/esp_hw_support/regi2c_ctrl.c
+      )
+  endif()
 
   ## shared WIFI/BT resources
   if (CONFIG_BT OR CONFIG_WIFI_ESP32)

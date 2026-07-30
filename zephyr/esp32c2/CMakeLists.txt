@@ -287,7 +287,6 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-    ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
@@ -330,6 +329,12 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     src/soc_init.c
     src/soc_random.c
   )
+
+  if (NOT CONFIG_MCUBOOT)
+    zephyr_sources(
+      ../../components/esp_hw_support/regi2c_ctrl.c
+      )
+  endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 

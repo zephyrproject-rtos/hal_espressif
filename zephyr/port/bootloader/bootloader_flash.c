@@ -9,5 +9,7 @@
  * Application runtime flash I/O uses esp_flash_* via flash_esp32.c.
  *
  */
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
 #define NON_OS_BUILD 1
+#endif
 #include "../../../components/bootloader_support/bootloader_flash/src/bootloader_flash.c"
