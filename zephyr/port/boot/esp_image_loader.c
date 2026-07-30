@@ -86,13 +86,13 @@ static const char *TAG = "boot";
 static int load_segment(const struct flash_area *fap, uint32_t data_addr,
                         uint32_t data_len, uint32_t load_addr)
 {
-    const uint32_t *data = (const uint32_t *)esp_rom_flash_mmap((fap->fa_off + data_addr), data_len);
+    const uint32_t *data = (const uint32_t *)bootloader_mmap((fap->fa_off + data_addr), data_len);
     if (!data) {
         ESP_EARLY_LOGE(TAG, "%s: Bootloader mmap failed", __func__);
         return -1;
     }
     memcpy((void *)load_addr, data, data_len);
-    esp_rom_flash_unmmap(data);
+    bootloader_munmap(data);
     return 0;
 }
 
@@ -112,11 +112,11 @@ void esp_app_image_load(int image_index, int slot,
     ESP_EARLY_LOGI(TAG, "Loading image %d - slot %d from flash, area id: %d",
     image_index, slot, area_id);
 
-    const uint32_t *data = (const uint32_t *)esp_rom_flash_mmap((fap->fa_off + hdr_offset),
+    const uint32_t *data = (const uint32_t *)bootloader_mmap((fap->fa_off + hdr_offset),
                                                              sizeof(esp_image_load_header_t));
     esp_image_load_header_t load_header = {0};
     memcpy((void *)&load_header, data, sizeof(esp_image_load_header_t));
-    esp_rom_flash_unmmap(data);
+    bootloader_munmap(data);
 
     if (load_header.header_magic != ESP_LOAD_HEADER_MAGIC) {
         ESP_EARLY_LOGE(TAG, "Load header magic verification failed. Aborting");
