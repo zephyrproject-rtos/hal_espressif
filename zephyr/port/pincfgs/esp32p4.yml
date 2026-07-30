@@ -254,6 +254,53 @@ mcpwm0:
     sigi: pwm0_cap2_in
     gpio: [[0, 54]]
 
+mcpwm1:
+  out0a:
+    sigo: pwm1_ch0_a_out
+    gpio: [[0, 54]]
+  out0b:
+    sigo: pwm1_ch0_b_out
+    gpio: [[0, 54]]
+  out1a:
+    sigo: pwm1_ch1_a_out
+    gpio: [[0, 54]]
+  out1b:
+    sigo: pwm1_ch1_b_out
+    gpio: [[0, 54]]
+  out2a:
+    sigo: pwm1_ch2_a_out
+    gpio: [[0, 54]]
+  out2b:
+    sigo: pwm1_ch2_b_out
+    gpio: [[0, 54]]
+  sync0:
+    sigi: pwm1_sync0_in
+    gpio: [[0, 54]]
+  sync1:
+    sigi: pwm1_sync1_in
+    gpio: [[0, 54]]
+  sync2:
+    sigi: pwm1_sync2_in
+    gpio: [[0, 54]]
+  fault0:
+    sigi: pwm1_f0_in
+    gpio: [[0, 54]]
+  fault1:
+    sigi: pwm1_f1_in
+    gpio: [[0, 54]]
+  fault2:
+    sigi: pwm1_f2_in
+    gpio: [[0, 54]]
+  cap0:
+    sigi: pwm1_cap0_in
+    gpio: [[0, 54]]
+  cap1:
+    sigi: pwm1_cap1_in
+    gpio: [[0, 54]]
+  cap2:
+    sigi: pwm1_cap2_in
+    gpio: [[0, 54]]
+
 i2s0:
   o_bck:
     sigo: i2s0_o_bck_out
