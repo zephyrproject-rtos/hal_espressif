@@ -8,9 +8,13 @@
 
 #include <zephyr/kernel.h>
 
-/* Regulatory domain data - required by blob */
-const void *regdomain_table = NULL;
-const void *regulatory_data = NULL;
+/*
+ * Regulatory domain data required by the Wi-Fi blob. Provided as weak NULL
+ * fallbacks so a soc that compiles the real esp_wifi_regulatory.c tables
+ * overrides them with valid data.
+ */
+const void *__attribute__((weak)) regdomain_table;
+const void *__attribute__((weak)) regulatory_data;
 
 void __attribute__((weak)) pm_beacon_offset_funcs_empty_init(void)
 {

@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "sdkconfig.h"
+#include "esp_task.h"
 
 #include "../../../controller/esp32c6/esp_bt_cfg.h"
 #include "hal/efuse_hal.h"

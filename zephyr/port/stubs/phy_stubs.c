@@ -24,6 +24,18 @@ uint32_t phy_get_rf_cal_version(void)
 	return 0;
 }
 
+void set_bb_wdg(bool busy_chk, bool srch_chk, uint16_t max_busy, uint16_t max_srch,
+		bool rst_en, bool int_en, bool clr)
+{
+	ARG_UNUSED(busy_chk);
+	ARG_UNUSED(srch_chk);
+	ARG_UNUSED(max_busy);
+	ARG_UNUSED(max_srch);
+	ARG_UNUSED(rst_en);
+	ARG_UNUSED(int_en);
+	ARG_UNUSED(clr);
+}
+
 void phy_set_wifi_mode_only(bool wifi_only)
 {
 	ARG_UNUSED(wifi_only);
