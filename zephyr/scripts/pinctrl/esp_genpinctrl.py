@@ -48,22 +48,6 @@ file_out_head = (
  * For example, `I2C0_SCL_GPIO1` corresponds to the `SCL` signal of `I2C0`
  * mapped to `GPIO1`.
  *
- * @code{.dts}
- * #include <zephyr/dt-bindings/pinctrl/{soc}-pinctrl.h>
- *
- * &pinctrl {
- *     uart0_default: uart0_default {
- *         group1 {
- *             pinmux = <UART0_TX_GPIO21>;
- *         };
- *         group2 {
- *             pinmux = <UART0_RX_GPIO20>;
- *             bias-pull-up;
- *         };
- *     };
- * };
- * @endcode
- *
  * @{
  */
 

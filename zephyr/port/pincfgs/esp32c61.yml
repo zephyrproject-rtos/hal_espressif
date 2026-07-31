@@ -1,0 +1,245 @@
+# Copyright (c) 2026 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+# Notes:
+# - ESP32-C61 has 30 GPIO pads (GPIO0-GPIO29)
+# - GPIO15-GPIO21 are the MSPI flash pads (CS0, MISO, WP, VDD_SPI, HD,
+#   CLK, MOSI) and are excluded from the peripheral mux ranges
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 14], [22, 29]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 14], [22, 29]]
+  rts:
+    sigo: u0rts_out
+    gpio: [[0, 14], [22, 29]]
+  cts:
+    sigi: u0cts_in
+    gpio: [[0, 14], [22, 29]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 14], [22, 29]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 14], [22, 29]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 14], [22, 29]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 14], [22, 29]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 14], [22, 29]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 14], [22, 29]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 14], [22, 29]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 14], [22, 29]]
+
+uart2:
+  tx:
+    sigo: u2txd_out
+    gpio: [[0, 14], [22, 29]]
+  rx:
+    sigi: u2rxd_in
+    gpio: [[0, 14], [22, 29]]
+  rts:
+    sigo: u2rts_out
+    gpio: [[0, 14], [22, 29]]
+  cts:
+    sigi: u2cts_in
+    gpio: [[0, 14], [22, 29]]
+  dtr:
+    sigo: u2dtr_out
+    gpio: [[0, 14], [22, 29]]
+  dsr:
+    sigi: u2dsr_in
+    gpio: [[0, 14], [22, 29]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 14], [22, 29]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 14], [22, 29]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 14], [22, 29]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 14], [22, 29]]
+  csel1:
+    sigo: fspics1_out
+    gpio: [[0, 14], [22, 29]]
+  csel2:
+    sigo: fspics2_out
+    gpio: [[0, 14], [22, 29]]
+  csel3:
+    sigo: fspics3_out
+    gpio: [[0, 14], [22, 29]]
+  csel4:
+    sigo: fspics4_out
+    gpio: [[0, 14], [22, 29]]
+  csel5:
+    sigo: fspics5_out
+    gpio: [[0, 14], [22, 29]]
+  hd:
+    sigi: fspihd_in
+    sigo: fspihd_out
+    gpio: [[0, 14], [22, 29]]
+  wp:
+    sigi: fspiwp_in
+    sigo: fspiwp_out
+    gpio: [[0, 14], [22, 29]]
+
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 14], [22, 29]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 14], [22, 29]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 14], [22, 29]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 14], [22, 29]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 14], [22, 29]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 14], [22, 29]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 14], [22, 29]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 14], [22, 29]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 14], [22, 29]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 14], [22, 29]]
+
+i2c0:
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 14], [22, 29]]
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 14], [22, 29]]
+
+i2s:
+  mclk:
+    sigi: i2s_mclk_in
+    sigo: i2s_mclk_out
+    gpio: [[0, 14], [22, 29]]
+  i_bck:
+    sigi: i2si_bck_in
+    sigo: i2si_bck_out
+    gpio: [[0, 14], [22, 29]]
+  i_ws:
+    sigi: i2si_ws_in
+    sigo: i2si_ws_out
+    gpio: [[0, 14], [22, 29]]
+  i_sd:
+    sigi: i2si_sd_in
+    gpio: [[0, 14], [22, 29]]
+  o_bck:
+    sigi: i2so_bck_in
+    sigo: i2so_bck_out
+    gpio: [[0, 14], [22, 29]]
+  o_ws:
+    sigi: i2so_ws_in
+    sigo: i2so_ws_out
+    gpio: [[0, 14], [22, 29]]
+  o_sd:
+    sigo: i2so_sd_out
+    gpio: [[0, 14], [22, 29]]
+  o_sd1:
+    sigo: i2so_sd1_out
+    gpio: [[0, 14], [22, 29]]
+
+antsel:
+  ant0:
+    sigo: ant_sel0
+    gpio: [[0, 14], [22, 29]]
+  ant1:
+    sigo: ant_sel1
+    gpio: [[0, 14], [22, 29]]
+  ant2:
+    sigo: ant_sel2
+    gpio: [[0, 14], [22, 29]]
+  ant3:
+    sigo: ant_sel3
+    gpio: [[0, 14], [22, 29]]
+  ant4:
+    sigo: ant_sel4
+    gpio: [[0, 14], [22, 29]]
+  ant5:
+    sigo: ant_sel5
+    gpio: [[0, 14], [22, 29]]
+  ant6:
+    sigo: ant_sel6
+    gpio: [[0, 14], [22, 29]]
+  ant7:
+    sigo: ant_sel7
+    gpio: [[0, 14], [22, 29]]
+  ant8:
+    sigo: ant_sel8
+    gpio: [[0, 14], [22, 29]]
+  ant9:
+    sigo: ant_sel9
+    gpio: [[0, 14], [22, 29]]
+  ant10:
+    sigo: ant_sel10
+    gpio: [[0, 14], [22, 29]]
+  ant11:
+    sigo: ant_sel11
+    gpio: [[0, 14], [22, 29]]
+  ant12:
+    sigo: ant_sel12
+    gpio: [[0, 14], [22, 29]]
+  ant13:
+    sigo: ant_sel13
+    gpio: [[0, 14], [22, 29]]
+  ant14:
+    sigo: ant_sel14
+    gpio: [[0, 14], [22, 29]]
+  ant15:
+    sigo: ant_sel15
+    gpio: [[0, 14], [22, 29]]
+
+clkout:
+  out1:
+    sigo: clk_out_out1
+    gpio: [[0, 14], [22, 29]]
+  out2:
+    sigo: clk_out_out2
+    gpio: [[0, 14], [22, 29]]
+  out3:
+    sigo: clk_out_out3
+    gpio: [[0, 14], [22, 29]]
+
+sdio:
+  int:
+    sigo: sdio_tohost_int_out
+    gpio: [[0, 14], [22, 29]]

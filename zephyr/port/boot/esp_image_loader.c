@@ -18,6 +18,7 @@
 	!defined(CONFIG_SOC_SERIES_ESP32C3) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32C5) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32C6) &&	\
+	!defined(CONFIG_SOC_SERIES_ESP32C61) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32H2) &&	\
 	!defined(CONFIG_SOC_SERIES_ESP32P4)
 #include "soc/dport_reg.h"
@@ -32,6 +33,7 @@
 #include "soc/gpio_periph.h"
 #include "soc/rtc_periph.h"
 #if !defined(CONFIG_SOC_SERIES_ESP32C5) && !defined(CONFIG_SOC_SERIES_ESP32C6) && \
+	!defined(CONFIG_SOC_SERIES_ESP32C61) && \
 	!defined(CONFIG_SOC_SERIES_ESP32H2) && !defined(CONFIG_SOC_SERIES_ESP32P4)
 #include "soc/rtc_cntl_reg.h"
 #endif
@@ -58,6 +60,9 @@
 #define LP_RTC_PREFIX "LP"
 #elif CONFIG_SOC_SERIES_ESP32C6
 #include "esp32c6/rom/uart.h"
+#define LP_RTC_PREFIX "LP"
+#elif CONFIG_SOC_SERIES_ESP32C61
+#include "esp32c61/rom/uart.h"
 #define LP_RTC_PREFIX "LP"
 #elif CONFIG_SOC_SERIES_ESP32H2
 #include "esp32h2/rom/uart.h"

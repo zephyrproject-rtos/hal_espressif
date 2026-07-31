@@ -16,6 +16,7 @@
 #include <hal/efuse_hal.h>
 #include "esp_private/spi_flash_os.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
 #if CONFIG_SOC_SERIES_ESP32S3
 #include <esp32s3/opi_flash_private.h>
 #endif

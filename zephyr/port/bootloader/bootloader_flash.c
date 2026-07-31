@@ -124,6 +124,8 @@ esp_err_t bootloader_flash_erase_range(uint32_t start_addr, uint32_t size)
 #include "esp32p4/rom/opi_flash.h"
 #elif CONFIG_IDF_TARGET_ESP32C5
 #include "esp32c5/rom/opi_flash.h"
+#elif CONFIG_IDF_TARGET_ESP32C61
+#include "esp32c61/rom/opi_flash.h"
 #endif
 #include "esp_flash_chips/spi_flash_defs.h"
 

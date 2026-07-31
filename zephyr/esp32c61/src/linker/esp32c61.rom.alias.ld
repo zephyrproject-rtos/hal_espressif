@@ -1,0 +1,13 @@
+/* Aliases used on Zephyr environment */
+
+PROVIDE ( esp_rom_uart_tx_one_char = uart_tx_one_char );
+PROVIDE ( esp_rom_uart_rx_one_char = uart_rx_one_char );
+PROVIDE ( esp_rom_uart_tx_wait_idle = uart_tx_wait_idle );
+PROVIDE ( esp_rom_intr_matrix_set = intr_matrix_set );
+PROVIDE ( esp_rom_ets_set_user_start = ets_set_user_start );
+PROVIDE ( esp_rom_ets_printf = ets_printf );
+PROVIDE ( esp_rom_ets_delay_us = ets_delay_us );
+PROVIDE ( esp_rom_cache_set_idrom_mmu_size = Cache_Set_IDROM_MMU_Size );
+PROVIDE ( esp_rom_Cache_Invalidate_Addr = Cache_Invalidate_Addr );
+PROVIDE ( esp_rom_gpio_matrix_in = rom_gpio_matrix_in );
+PROVIDE ( esp_rom_gpio_matrix_out = rom_gpio_matrix_out );
