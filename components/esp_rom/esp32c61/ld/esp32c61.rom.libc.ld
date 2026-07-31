@@ -8,7 +8,12 @@ memset = 0x400004b8;
 strlen = 0x400004d8;
 strstr = 0x400004dc;
 bzero = 0x400004e0;
-sbrk = 0x400004e8;
+/* The ROM implementations below route through
+ * syscall_table_ptr, which this port never installs, and
+ * would fault on a NULL pointer if a libc build ever
+ * referenced them. Keep the compiled libc versions instead.
+ */
+/* sbrk = 0x400004e8; */
 isascii = 0x400004f4;
 isblank = 0x400004f8;
 iscntrl = 0x400004fc;
@@ -31,8 +36,9 @@ strrchr = 0x4000056c;
 strsep = 0x40000570;
 strspn = 0x40000574;
 strtok_r = 0x40000578;
-longjmp = 0x40000580;
-setjmp = 0x40000584;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x40000580; */
+/* setjmp  = 0x40000584; */
 abs = 0x40000588;
 div = 0x4000058c;
 labs = 0x40000590;

@@ -34,15 +34,13 @@
  */
 #define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
-#define MHZ (1000000)
-
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
 ESP_LOG_ATTR_TAG(TAG, "clk");
 
 void esp_rtc_init(void)
 {
-#if !CONFIG_IDF_ENV_FPGA
+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
     pmu_init();
 #endif
 }

@@ -389,7 +389,7 @@ static uint32_t rtc_clk_ahb_freq_get(void)
 
 uint32_t rtc_clk_apb_freq_get(void)
 {
-    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ;
+    return rtc_clk_ahb_freq_get() / clk_ll_apb_get_divider() * MHZ(1);
 }
 
 void rtc_dig_clk8m_enable(void)

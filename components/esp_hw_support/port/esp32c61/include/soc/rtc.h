@@ -47,7 +47,9 @@ extern "C" {
  * - rtc_time: reading RTC counter, conversion between counter values and time
  */
 
-#define MHZ (1000000)
+#ifndef MHZ
+#define MHZ(x) ((x) * 1000000UL)
+#endif
 
 #define OTHER_BLOCKS_POWERUP        1
 #define OTHER_BLOCKS_WAIT           1
