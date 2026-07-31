@@ -9,6 +9,7 @@
 #include "esp32c5/rom/rtc.h"
 #include <soc/soc.h>
 #include "soc/lp_analog_peri_reg.h"
+#include "soc/regi2c_saradc.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/brownout_ll.h"
 #include "hal/regi2c_ctrl_ll.h"
@@ -44,15 +45,6 @@ void soc_hw_init(void)
 	 */
 	axi_icm_ll_reset_with_core_reset(true);
 
-	/* In 80MHz flash mode, ROM sets the mspi module clk divider to 2, fix it here */
-#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
-	mspi_timing_ll_set_core_clock(0, 80);
-	esp_rom_spiflash_config_clk(1, 0);
-	esp_rom_spiflash_config_clk(1, 1);
-	esp_rom_spiflash_fix_dummylen(0, 1);
-	esp_rom_spiflash_fix_dummylen(1, 1);
-#endif
-
 	/* Enable analog I2C master clock */
 	_regi2c_ctrl_ll_master_enable_clock(true);
 	regi2c_ctrl_ll_master_configure_clock();
@@ -79,10 +71,31 @@ void ana_bod_reset_config(bool enable)
 	brownout_ll_ana_reset_enable(enable);
 }
 
+void ana_power_glitch_reset_config(bool enable)
+{
+	/* Only the VDDPST power glitch is detected */
+	SET_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_PERIF_I2C_RSTB);
+	SET_PERI_REG_MASK(PMU_RF_PWC_REG, PMU_XPD_PERIF_I2C);
+	REGI2C_WRITE_MASK(I2C_SAR_ADC, POWER_GLITCH_XPD_VDET_PERIF, 0);
+	REGI2C_WRITE_MASK(I2C_SAR_ADC, POWER_GLITCH_XPD_VDET_XTAL, 0);
+	REGI2C_WRITE_MASK(I2C_SAR_ADC, POWER_GLITCH_XPD_VDET_PLL, 0);
+
+	REG_SET_FIELD(LP_ANA_FIB_ENABLE_REG, LP_ANA_ANA_FIB_PWR_GLITCH_ENA, 0);
+	if (enable) {
+		REG_SET_FIELD(LP_ANA_POWER_GLITCH_CNTL_REG,
+			      LP_ANA_PWR_GLITCH_RESET_ENA,
+			      LP_ANA_PWR_GLITCH_RESET_ENA_V);
+	} else {
+		REG_SET_FIELD(LP_ANA_POWER_GLITCH_CNTL_REG,
+			      LP_ANA_PWR_GLITCH_RESET_ENA, 0);
+	}
+}
+
 void ana_reset_config(void)
 {
 	ana_super_wdt_reset_config(true);
 	ana_bod_reset_config(true);
+	ana_power_glitch_reset_config(true);
 }
 
 void super_wdt_auto_feed(void)
@@ -168,10 +181,12 @@ void bootloader_clock_configure(void)
 	regi2c_ctrl_ll_master_force_enable_clock(true);
 
 	/* Set tuning parameters for RC_FAST and RC_SLOW clocks
-	 * (matches ESP-IDF rtc_clk_init).
+	 * following the vendor clock init sequence.
 	 */
-	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ, 172);
-	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_SCK_DCAP, 128);
+	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ,
+		      RTC_CNTL_CK8M_DFREQ_DEFAULT);
+	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_SCK_DCAP,
+			  RTC_CNTL_SCK_DCAP_DEFAULT);
 	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_RTC_DREG, 1);
 	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_ENIF_DIG_DREG, 1);
 	REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_RTC_REG, 0);
@@ -259,6 +274,22 @@ void bootloader_clock_configure(void)
 	clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL_F160M);
 	clk_ll_bus_update();
 	esp_rom_set_cpu_ticks_per_us(160);
+
+	/* Point the MSPI function clock at the SPLL and set the 80 MHz core
+	 * clock the image header divider works from. This must happen after
+	 * the SPLL is up; the ROM leaves the clock on a different source.
+	 */
+	_mspi_timing_ll_set_flash_clk_src(MSPI_TIMING_LL_MSPI_ID_0,
+					  FLASH_CLK_SRC_SPLL);
+	mspi_timing_ll_set_core_clock(MSPI_TIMING_LL_MSPI_ID_0,
+				      MSPI_TIMING_LL_CORE_CLOCK_MHZ_DEFAULT);
+#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
+	/* In 80MHz flash mode, ROM sets the mspi module clk divider to 2 */
+	esp_rom_spiflash_config_clk(1, 0);
+	esp_rom_spiflash_config_clk(1, 1);
+	esp_rom_spiflash_fix_dummylen(0, 1);
+	esp_rom_spiflash_fix_dummylen(1, 1);
+#endif
 
 	/* Keep RC_FAST running so RNG has an entropy source during boot */
 	rtc_clk_8m_enable(true);
