@@ -38,6 +38,10 @@ if SOC_SERIES_ESP32C6
 rsource "../components/soc/esp32c6/include/soc/Kconfig.soc_caps.in"
 endif
 
+if SOC_SERIES_ESP32C61
+rsource "../components/soc/esp32c61/include/soc/Kconfig.soc_caps.in"
+endif
+
 if SOC_SERIES_ESP32H2
 rsource "../components/soc/esp32h2/include/soc/Kconfig.soc_caps.in"
 endif
@@ -171,6 +175,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x0005 if SOC_SERIES_ESP32C3
 	default 0x0017 if SOC_SERIES_ESP32C5
 	default 0x000D if SOC_SERIES_ESP32C6
+	default 0x0014 if SOC_SERIES_ESP32C61
 	default 0x0010 if SOC_SERIES_ESP32H2
 	default 0x0012 if SOC_SERIES_ESP32P4
 
@@ -226,6 +231,10 @@ config IDF_TARGET_ESP32C5
 config IDF_TARGET_ESP32C6
 	bool
 	default y if SOC_SERIES_ESP32C6
+
+config IDF_TARGET_ESP32C61
+	bool
+	default y if SOC_SERIES_ESP32C61
 
 config IDF_TARGET_ESP32H2
 	bool

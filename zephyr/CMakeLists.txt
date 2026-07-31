@@ -51,7 +51,7 @@ zephyr_sources_ifdef(
   ../components/soc/dport_access_common.c
   )
 
-if(CONFIG_SOC_SERIES_ESP32C5 OR CONFIG_SOC_SERIES_ESP32C6 OR CONFIG_SOC_SERIES_ESP32H2 OR CONFIG_SOC_SERIES_ESP32P4)
+if(CONFIG_SOC_SERIES_ESP32C5 OR CONFIG_SOC_SERIES_ESP32C6 OR CONFIG_SOC_SERIES_ESP32C61 OR CONFIG_SOC_SERIES_ESP32H2 OR CONFIG_SOC_SERIES_ESP32P4)
   zephyr_sources(../components/esp_hal_security/apm_hal.c)
 endif()
 
@@ -59,6 +59,7 @@ add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32 esp32)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C2 esp32c2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C3 esp32c3)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C5 esp32c5)
+add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C61 esp32c61)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32C6 esp32c6)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32H2 esp32h2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32P4 esp32p4)

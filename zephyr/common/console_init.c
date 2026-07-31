@@ -10,7 +10,6 @@
 #include "soc/io_mux_reg.h"
 #include "soc/gpio_periph.h"
 #include "soc/gpio_sig_map.h"
-#include "hal/clk_gate_ll.h"
 #include "hal/gpio_hal.h"
 #include "soc/rtc.h"
 #if CONFIG_SOC_SERIES_ESP32S2
