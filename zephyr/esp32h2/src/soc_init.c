@@ -10,6 +10,7 @@
 #include <soc/soc.h>
 #include "soc/lp_analog_peri_reg.h"
 #include "hal/clk_tree_ll.h"
+#include "hal/mspi_ll.h"
 #include "hal/brownout_ll.h"
 #include "soc/system_reg.h"
 #include "soc/assist_debug_reg.h"
@@ -128,11 +129,14 @@ void bootloader_clock_configure(void)
 	MODEM_LPCON.rst_conf.rst_i2c_mst = 0;
 
 	/* Set tuning parameters for RC_FAST, RC_SLOW and RC32K clocks
-	 * (matches ESP-IDF rtc_clk_init).
+	 * following the vendor clock init sequence.
 	 */
-	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ, 172);
-	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_OC_SCK_DCAP, 128);
-	REG_SET_FIELD(LP_CLKRST_RC32K_CNTL_REG, LP_CLKRST_RC32K_DFREQ, 700);
+	REG_SET_FIELD(LP_CLKRST_FOSC_CNTL_REG, LP_CLKRST_FOSC_DFREQ,
+		      RTC_CNTL_CK8M_DFREQ_DEFAULT);
+	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_OC_SCK_DCAP,
+			  RTC_CNTL_SCK_DCAP_DEFAULT);
+	REG_SET_FIELD(LP_CLKRST_RC32K_CNTL_REG, LP_CLKRST_RC32K_DFREQ,
+		      RTC_CNTL_RC32K_DFREQ_DEFAULT);
 	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_EN_I2C_RTC_DREG, 0);
 	REGI2C_WRITE_MASK(I2C_PMU, I2C_PMU_EN_I2C_DIG_DREG, 0);
 
@@ -173,6 +177,11 @@ void bootloader_clock_configure(void)
 	esp_rom_set_cpu_ticks_per_us(CLK_LL_PLL_96M_FREQ_MHZ);
 
 	clk_ll_xtal_store_freq_mhz(SOC_XTAL_FREQ_32M);
+
+	/* Raise the mspi flash clock source now that the bbpll is up, as
+	 * the vendor bootloader does once the pll is available.
+	 */
+	_mspi_timing_ll_set_flash_clk_src(0, FLASH_CLK_SRC_PLL_F64M);
 
 	/* Keep RC_FAST running so RNG has an entropy source during boot */
 	rtc_clk_8m_enable(true);
