@@ -249,7 +249,7 @@ if(CONFIG_SOC_SERIES_ESP32C6)
     )
   endif()
 
-  zephyr_sources_ifdef(CONFIG_ESPRESSIF_RMT
+  zephyr_sources_ifdef(CONFIG_PULSE_IO_ESP32_RMT
     ../../components/esp_hal_rmt/rmt_hal.c
     ../../components/esp_hal_gpio/gpio_hal.c
     ../../components/esp_driver_gpio/src/gpio.c
