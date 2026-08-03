@@ -149,7 +149,7 @@ def generate_partition_table_dtsi(flash_size_mb, flash_offset_kb, scheme, scheme
 
         output.append("")
         output.append(f"\t\t{name.replace('-', '_')}_partition: partition@{current_offset:x} {{")
-        output.append(f"\t\t\tcompatible = \"zephyr,mapped-partitions\";")
+        output.append(f"\t\t\tcompatible = \"zephyr,mapped-partition\";")
         output.append(f"\t\t\tlabel = \"{label}\";")
         output.append(f"\t\t\treg = <0x{current_offset:X} DT_SIZE_K({int(size_kb)})>;")
         output.append("\t\t};")
