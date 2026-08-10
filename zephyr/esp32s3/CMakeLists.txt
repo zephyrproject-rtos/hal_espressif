@@ -387,6 +387,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
   endif()
 
+  # Sources needed by MCUboot bootloader images and Simple Boot app images
   if (CONFIG_MCUBOOT OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_include_directories(
       ../../components/esp_rom/${CONFIG_SOC_SERIES}
@@ -405,85 +406,87 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       )
   endif()
 
+  # Sources needed by MCUboot both bootloader/app images and Simple Boot app images
   zephyr_sources(
-    ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
     ../../components/esp_driver_gpio/src/rtc_io.c
-    ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
-    ../../components/esp_hal_ana_conv/temperature_sensor_hal.c
     ../../components/esp_hal_clock/${CONFIG_SOC_SERIES}/clk_tree_hal.c
     ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
-    ../../components/esp_hal_gpio/rtc_io_hal.c
     ../../components/esp_hal_systimer/systimer_hal.c
     ../../components/esp_hal_wdt/wdt_hal_iram.c
-    ../../components/esp_hal_wdt/xt_wdt_hal.c
-    ../../components/esp_hw_support/adc_share_hw_ctrl.c
-    ../../components/esp_hw_support/clk_ctrl_os.c
-    ../../components/esp_hw_support/cpu.c
     ../../components/esp_hw_support/esp_clk.c
-    ../../components/esp_hw_support/esp_memory_utils.c
-    ../../components/esp_hw_support/hw_random.c
-    ../../components/esp_hw_support/mac_addr.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/mspi_timing_tuning.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_by_mspi_delay.c
     ../../components/esp_hw_support/periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/cpu_region_protect.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_clk_tree.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/esp_cpu_intr.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/io_mux.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_init.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_sleep.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_time.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
-    ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-    ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
-    ../../components/esp_hw_support/rtc_module.c
-    ../../components/esp_hw_support/sar_tsens_ctrl.c
     ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_hw_support/sleep_cache.c
-    ../../components/esp_mm/esp_cache_msync.c
-    ../../components/esp_mm/esp_cache_utils.c
-    ../../components/esp_mm/esp_mmu_map.c
-    ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
-    ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
-    ../../components/esp_rom/patches/esp_rom_cache_writeback_esp32s3.S
-    ../../components/esp_rom/patches/esp_rom_crc.c
-    ../../components/esp_rom/patches/esp_rom_efuse.c
-    ../../components/esp_rom/patches/esp_rom_gpio.c
-    ../../components/esp_rom/patches/esp_rom_longjmp.S
-    ../../components/esp_rom/patches/esp_rom_print.c
-    ../../components/esp_rom/patches/esp_rom_serial_output.c
-    ../../components/esp_rom/patches/esp_rom_spiflash.c
     ../../components/esp_rom/patches/esp_rom_sys.c
-    ../../components/esp_system/esp_err.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
-    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
-    ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
-    ../../components/esp_timer/src/esp_timer.c
-    ../../components/esp_timer/src/esp_timer_impl_common.c
-    ../../components/esp_timer/src/esp_timer_impl_systimer.c
-    ../../components/esp_timer/src/esp_timer_init.c
-    ../../components/esp_timer/src/ets_timer_legacy.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
     ../../components/hal/cache_hal.c
     ../../components/hal/efuse_hal.c
     ../../components/hal/mmu_hal.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
-    ../common/esp_restart.c
     ../common/flash_init.c
-    ../port/heap/heap_caps_zephyr.c
     src/soc_flash_init.c
     src/soc_init.c
     src/soc_random.c
   )
 
+  # Sources needed by Simple Boot app and MCUboot compatible app (not required by MCUboot bootloader)
   if (NOT CONFIG_MCUBOOT)
     zephyr_sources(
+      ../../components/bootloader_support/bootloader_flash/src/bootloader_flash_config_${CONFIG_SOC_SERIES}.c
+      ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/temperature_sensor_periph.c
+      ../../components/esp_hal_ana_conv/temperature_sensor_hal.c
+      ../../components/esp_hal_gpio/rtc_io_hal.c
+      ../../components/esp_hal_wdt/xt_wdt_hal.c
+      ../../components/esp_hw_support/adc_share_hw_ctrl.c
+      ../../components/esp_hw_support/clk_ctrl_os.c
+      ../../components/esp_hw_support/cpu.c
+      ../../components/esp_hw_support/esp_memory_utils.c
+      ../../components/esp_hw_support/hw_random.c
+      ../../components/esp_hw_support/mac_addr.c
+      ../../components/esp_hw_support/mspi/mspi_timing_tuning/mspi_timing_tuning.c
+      ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
+      ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_by_mspi_delay.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/io_mux.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/rtc_clk_init.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
+      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
+      ../../components/esp_hal_ana_conv/adc_hal_common.c
+      ../../components/esp_hw_support/rtc_module.c
+      ../../components/esp_hw_support/sar_tsens_ctrl.c
+      ../../components/esp_hw_support/sleep_cache.c
       ../../components/esp_hw_support/regi2c_ctrl.c
+      ../../components/esp_mm/esp_cache_msync.c
+      ../../components/esp_mm/esp_cache_utils.c
+      ../../components/esp_mm/esp_mmu_map.c
+      ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
+      ../../components/esp_rom/patches/esp_rom_cache_esp32s2_esp32s3.c
+      ../../components/esp_rom/patches/esp_rom_cache_writeback_esp32s3.S
+      ../../components/esp_rom/patches/esp_rom_crc.c
+      ../../components/esp_rom/patches/esp_rom_efuse.c
+      ../../components/esp_rom/patches/esp_rom_gpio.c
+      ../../components/esp_rom/patches/esp_rom_longjmp.S
+      ../../components/esp_rom/patches/esp_rom_print.c
+      ../../components/esp_rom/patches/esp_rom_serial_output.c
+      ../../components/esp_rom/patches/esp_rom_spiflash.c
+      ../../components/esp_system/esp_err.c
+      ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
+      ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/system_internal.c
+      ../../components/esp_timer/src/esp_timer.c
+      ../../components/esp_timer/src/esp_timer_impl_common.c
+      ../../components/esp_timer/src/esp_timer_impl_systimer.c
+      ../../components/esp_timer/src/esp_timer_init.c
+      ../../components/esp_timer/src/ets_timer_legacy.c
+      ../common/esp_restart.c
+      ../port/heap/heap_caps_zephyr.c
       )
   endif()
 
