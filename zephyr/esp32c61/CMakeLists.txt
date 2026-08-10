@@ -370,6 +370,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     ../../components/esp_hw_support/sleep_modes.c
     ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/regi2c_impl.c
     ../../components/esp_rom/patches/esp_rom_sys.c
+    ../../components/esp_rom/patches/esp_rom_serial_output.c
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/clk.c
     ../../components/hal/${CONFIG_SOC_SERIES}/efuse_hal.c
     ../../components/hal/efuse_hal.c
@@ -417,7 +418,6 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/esp_rom/patches/esp_rom_efuse.c
       ../../components/esp_rom/patches/esp_rom_gpio.c
       ../../components/esp_rom/patches/esp_rom_print.c
-      ../../components/esp_rom/patches/esp_rom_serial_output.c
       ../../components/esp_rom/patches/esp_rom_spiflash.c
       ../../components/esp_system/esp_err.c
       ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/reset_reason.c
