@@ -7,12 +7,14 @@
 #include <stdint.h>
 #include <string.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/irq.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #include <inttypes.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "esp_intr_alloc.h"
 #include "esp_cache.h"
 #include "esp_heap_caps.h"
 #include "hal/mspi_ll.h"
@@ -63,17 +65,23 @@ static void PSRAM_ISR_ATTR mspi_psram_isr_handler(void *arg, uint32_t intr_event
 #if !MSPI_LL_INTR_SHARED
 /**
  * For PSRAM/FLASH separate MSPI chips, register a PSRAM standalone ISR
+ *
+ * The source and the handler are both known at build time, so the psram0
+ * devicetree node carries the interrupt and this is a plain static connect,
+ * visible afterwards in build/zephyr/isr_intlist.txt.
  */
-__attribute__((__unused__)) static intr_handle_t s_mspi_psram_intr_handle = NULL;
+#define PSRAM_NODE DT_NODELABEL(psram0)
 
-static void PSRAM_ISR_ATTR mspi_psram_isr_handler_wrapper(void *arg)
+static bool s_mspi_psram_intr_installed;
+
+static void PSRAM_ISR_ATTR mspi_psram_isr_handler_wrapper(const void *arg)
 {
     uint32_t intr_events = psram_ctrlr_ll_get_intr_raw(PSRAM_CTRLR_LL_MSPI_ID_SYSTEM);
     psram_ctrlr_ll_clear_intr(PSRAM_CTRLR_LL_MSPI_ID_SYSTEM, intr_events);
 
     ESP_DRAM_LOGE(TAG, "MSPI PSRAM error, intr_events: 0x%" PRIx32, intr_events);
 
-    mspi_psram_isr_handler(arg, intr_events);
+    mspi_psram_isr_handler((void *)arg, intr_events);
 
     abort();
 }
@@ -89,13 +97,11 @@ esp_err_t esp_psram_mspi_register_isr(void)
     };
     ret = esp_mspi_register_isr(&isr);
 #else
-    ret = esp_intr_alloc(mspi_hw_info.instances[PSRAM_CTRLR_LL_MSPI_ID_SYSTEM].irq,
-                         PSRAM_ISR_FLAGS,
-                         mspi_psram_isr_handler_wrapper,
-                         NULL,
-                         &s_mspi_psram_intr_handle);
-
-    ESP_RETURN_ON_ERROR(ret, TAG, "Failed to allocate MSPI psram interrupt");
+    IRQ_CONNECT(DT_IRQN(PSRAM_NODE), IRQ_DEFAULT_PRIORITY, mspi_psram_isr_handler_wrapper, NULL,
+                PSRAM_ISR_FLAGS);
+    irq_enable(DT_IRQN(PSRAM_NODE));
+    s_mspi_psram_intr_installed = true;
+    ret = ESP_OK;
 
     psram_ctrlr_ll_clear_intr(PSRAM_CTRLR_LL_MSPI_ID_SYSTEM, PSRAM_CTRLR_LL_EVENT_MASK);
     psram_ctrlr_ll_enable_intr(PSRAM_CTRLR_LL_MSPI_ID_SYSTEM, PSRAM_CTRLR_LL_EVENT_MASK, true);
@@ -113,13 +119,17 @@ esp_err_t esp_psram_mspi_unregister_isr(void)
     ESP_RETURN_ON_ERROR(ret, TAG, "Failed to unregister MSPI psram interrupt");
 #else
 
-    if (s_mspi_psram_intr_handle == NULL) {
+    if (!s_mspi_psram_intr_installed) {
         ESP_EARLY_LOGE(TAG, "MSPI psram interrupt not registered");
         return ESP_ERR_INVALID_STATE;
     }
 
-    ret = esp_intr_free(s_mspi_psram_intr_handle);
-    ESP_RETURN_ON_ERROR(ret, TAG, "Failed to free MSPI psram interrupt");
+    /* The table slot stays claimed by IRQ_CONNECT; masking the line is all that
+     * can be undone, and all that unregistering needs.
+     */
+    irq_disable(DT_IRQN(PSRAM_NODE));
+    s_mspi_psram_intr_installed = false;
+    ret = ESP_OK;
 #endif
 
     return ESP_OK;
