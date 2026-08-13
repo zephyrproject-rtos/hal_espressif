@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <esp_rom_sys.h>
 
@@ -53,33 +54,46 @@ static inline void esp_log_level_set(const char *tag, esp_log_level_t level)
     (void)level;
 }
 
-/* Normal logging - printk, gated by ESP_HAL_LOG_LEVEL */
+/* Boot-stage code may run before the flash cache is mapped, where
+ * entering the Zephyr logging path can fetch flash-resident code.
+ * Print through the ROM routines until the kernel is up.
+ */
+#define ESP_LOG_PRINT(...)                   \
+    do {                                     \
+        if (k_is_pre_kernel()) {             \
+            esp_rom_printf(__VA_ARGS__);     \
+        } else {                             \
+            printk(__VA_ARGS__);             \
+        }                                    \
+    } while (0)
+
+/* Normal logging - gated by ESP_HAL_LOG_LEVEL */
 #if ESP_HAL_LOG_LEVEL >= 1
-#define ESP_LOGE(tag, fmt, ...) printk("E (%s): " fmt "\n", (tag), ##__VA_ARGS__)
+#define ESP_LOGE(tag, fmt, ...) ESP_LOG_PRINT("E (%s): " fmt "\n", (tag), ##__VA_ARGS__)
 #else
 #define ESP_LOGE(tag, fmt, ...) _ESP_LOG_NOOP(tag, fmt, ##__VA_ARGS__)
 #endif
 
 #if ESP_HAL_LOG_LEVEL >= 2
-#define ESP_LOGW(tag, fmt, ...) printk("W (%s): " fmt "\n", (tag), ##__VA_ARGS__)
+#define ESP_LOGW(tag, fmt, ...) ESP_LOG_PRINT("W (%s): " fmt "\n", (tag), ##__VA_ARGS__)
 #else
 #define ESP_LOGW(tag, fmt, ...) _ESP_LOG_NOOP(tag, fmt, ##__VA_ARGS__)
 #endif
 
 #if ESP_HAL_LOG_LEVEL >= 3
-#define ESP_LOGI(tag, fmt, ...) printk("I (%s): " fmt "\n", (tag), ##__VA_ARGS__)
+#define ESP_LOGI(tag, fmt, ...) ESP_LOG_PRINT("I (%s): " fmt "\n", (tag), ##__VA_ARGS__)
 #else
 #define ESP_LOGI(tag, fmt, ...) _ESP_LOG_NOOP(tag, fmt, ##__VA_ARGS__)
 #endif
 
 #if ESP_HAL_LOG_LEVEL >= 4
-#define ESP_LOGD(tag, fmt, ...) printk("D (%s): " fmt "\n", (tag), ##__VA_ARGS__)
+#define ESP_LOGD(tag, fmt, ...) ESP_LOG_PRINT("D (%s): " fmt "\n", (tag), ##__VA_ARGS__)
 #else
 #define ESP_LOGD(tag, fmt, ...) _ESP_LOG_NOOP(tag, fmt, ##__VA_ARGS__)
 #endif
 
 #if ESP_HAL_LOG_LEVEL >= 5
-#define ESP_LOGV(tag, fmt, ...) printk("V (%s): " fmt "\n", (tag), ##__VA_ARGS__)
+#define ESP_LOGV(tag, fmt, ...) ESP_LOG_PRINT("V (%s): " fmt "\n", (tag), ##__VA_ARGS__)
 #else
 #define ESP_LOGV(tag, fmt, ...) _ESP_LOG_NOOP(tag, fmt, ##__VA_ARGS__)
 #endif

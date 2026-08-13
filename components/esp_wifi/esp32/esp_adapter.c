@@ -606,11 +606,6 @@ uint32_t esp_get_free_heap_size(void)
     return 10000;
 }
 
-unsigned long random(void)
-{
-    return sys_rand32_get();
-}
-
 int32_t nvs_set_i8(uint32_t handle, const char *key, int8_t value)
 {
     return 0;
@@ -989,7 +984,7 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._nvs_erase_key = nvs_erase_key,
     ._get_random = os_get_random,
     ._get_time = get_time_wrapper,
-    ._random = random,
+    ._random = os_random,
     ._log_write = esp_log_write_wrapper,
     ._log_writev = esp_log_writev_wrapper,
     ._log_timestamp = k_uptime_get_32,
