@@ -19,7 +19,6 @@
 #include "esp_attr.h"
 #include "esp_rom_sys.h"
 #include "bootloader_flash.h"
-#include "esp_intr_alloc.h"
 #include "hal/brownout_hal.h"
 #include "hal/brownout_ll.h"
 #include "sdkconfig.h"
