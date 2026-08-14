@@ -207,6 +207,11 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_ESP32_SPI_TARGET
+    ../../components/esp_hal_gpspi/spi_slave_hal.c
+    ../../components/esp_hal_gpspi/spi_slave_hal_iram.c
+    )
+
   if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(
     ../../components/esp_mm/esp_mmu_map.c
