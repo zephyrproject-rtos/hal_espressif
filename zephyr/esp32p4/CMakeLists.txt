@@ -85,6 +85,8 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hal_parlio/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_pmu/include
     ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_ppa/include
+    ../../components/esp_hal_ppa/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_regi2c/include
     ../../components/esp_hal_regi2c/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_rmt/include
