@@ -7,6 +7,7 @@ if(CONFIG_MCUBOOT_ESPRESSIF)
 endif()
 
 zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT BOOTLOADER_BUILD)
+zephyr_compile_definitions_ifdef(CONFIG_MCUBOOT NON_OS_BUILD)
 zephyr_compile_definitions_ifdef(CONFIG_ESP_PLATFORM ESP_PLATFORM)
 
 # SOC_MMU_PAGE_SIZE is used by ESP-IDF code without CONFIG_ prefix
@@ -65,5 +66,11 @@ add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32H2 esp32h2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32P4 esp32p4)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S2 esp32s2)
 add_subdirectory_ifdef(CONFIG_SOC_SERIES_ESP32S3 esp32s3)
+
+add_subdirectory(port/bootloader)
+
+if(CONFIG_MCUBOOT)
+  add_subdirectory(port/boot)
+endif()
 
 endif() # CONFIG_HAS_ESPRESSIF_HAL

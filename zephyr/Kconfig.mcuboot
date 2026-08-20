@@ -1,0 +1,67 @@
+# Copyright (c) 2026 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+if MCUBOOT
+
+config SECURE_FLASH_ENC_ENABLED
+	bool "Espressif hardware flash encryption in MCUboot"
+	help
+	  Enable hardware-assisted flash encryption in the MCUboot bootloader.
+	  Typically set via sysbuild (SB_CONFIG_MCUBOOT_ESP_FLASH_ENCRYPTION).
+
+if SECURE_FLASH_ENC_ENABLED
+
+choice SECURE_FLASH_ENCRYPTION_MODE
+	prompt "Flash encryption usage mode"
+	default SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT
+	help
+	  Development mode allows UART re-flash with encryption (testing only).
+	  Release mode is intended for production.
+
+config SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT
+	bool "Development (NOT SECURE)"
+
+config SECURE_FLASH_ENCRYPTION_MODE_RELEASE
+	bool "Release"
+	depends on !ESP32_EFUSE_VIRTUAL
+
+endchoice
+
+choice SECURE_FLASH_ENCRYPTION_KEYSIZE
+	prompt "XTS-AES key size"
+	default SECURE_FLASH_ENCRYPTION_AES128
+	depends on SOC_FLASH_ENCRYPTION_XTS_AES_OPTIONS
+	help
+	  Key size for hardware flash encryption.
+
+config SECURE_FLASH_ENCRYPTION_AES128_DERIVED
+	bool "AES-128 derived"
+	depends on SOC_FLASH_ENCRYPTION_XTS_AES_128_DERIVED
+
+config SECURE_FLASH_ENCRYPTION_AES128
+	bool "AES-128 (256-bit key)"
+	depends on SOC_FLASH_ENCRYPTION_XTS_AES_128
+	depends on SOC_EFUSE_XTS_AES_KEY_128
+
+config SECURE_FLASH_ENCRYPTION_AES256
+	bool "AES-256 (512-bit key)"
+	depends on SOC_FLASH_ENCRYPTION_XTS_AES_256
+	depends on SOC_EFUSE_XTS_AES_KEY_256
+
+endchoice
+
+config SECURE_FLASH_REQUIRE_ALREADY_ENABLED
+	bool "Require flash encryption already enabled in eFuse"
+	help
+	  Refuse to boot if flash encryption is not already enabled.
+
+config SECURE_BOOT_FLASH_ENC_KEYS_BURN_TOGETHER
+	bool "Burn Secure Boot and Flash Encryption keys together"
+	default y if SOC_EFUSE_CONSISTS_OF_ONE_KEY_BLOCK
+	help
+	  On SoCs with a single eFuse key block, Secure Boot and Flash
+	  Encryption keys must be burned together.
+
+endif # SECURE_FLASH_ENC_ENABLED
+
+endif # MCUBOOT

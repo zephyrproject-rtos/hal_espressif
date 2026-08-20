@@ -357,4 +357,8 @@ config ESP_SLEEP_MSPI_NEED_ALL_IO_PU
 
 endmenu # Sleep config
 
+if MCUBOOT
+rsource "Kconfig.mcuboot"
+endif
+
 endif # SOC_FAMILY_ESPRESSIF_ESP32
