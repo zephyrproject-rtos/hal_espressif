@@ -8,6 +8,7 @@
 #include "esp_attr.h"
 #include <stdint.h>
 #include <zephyr/kernel.h>
+#include <zephyr/arch/cpu.h>
 #include <zephyr/sys/__assert.h>
 #include "esp_private/critical_section.h"
 #include "hal/regi2c_ctrl.h"
@@ -18,9 +19,9 @@ uint8_t regi2c_ctrl_read_reg(uint8_t block, uint8_t host_id, uint8_t reg_add)
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     uint8_t value = regi2c_impl_read(block, host_id, reg_add);
-    irq_unlock(key);
+    arch_irq_unlock(key);
     REGI2C_CLOCK_DISABLE();
     return value;
 }
@@ -29,9 +30,9 @@ uint8_t regi2c_ctrl_read_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_ad
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     uint8_t value = regi2c_impl_read_mask(block, host_id, reg_add, msb, lsb);
-    irq_unlock(key);
+    arch_irq_unlock(key);
     REGI2C_CLOCK_DISABLE();
     return value;
 }
@@ -40,9 +41,9 @@ void regi2c_ctrl_write_reg(uint8_t block, uint8_t host_id, uint8_t reg_add, uint
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     regi2c_impl_write(block, host_id, reg_add, data);
-    irq_unlock(key);
+    arch_irq_unlock(key);
     REGI2C_CLOCK_DISABLE();
 }
 
@@ -50,9 +51,9 @@ void regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add,
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     regi2c_impl_write_mask(block, host_id, reg_add, msb, lsb, data);
-    irq_unlock(key);
+    arch_irq_unlock(key);
     REGI2C_CLOCK_DISABLE();
 }
 

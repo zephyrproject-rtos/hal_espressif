@@ -101,6 +101,11 @@ void esp_cache_freeze_caches_disable_interrupts(void)
      * - disable non-iram interrupt on current core
      * - current core call cache freeze
      * - external access from other cores will hang on cache
+     *
+     * Freezing stalls the other core on its next cache access rather than
+     * faulting it, so unlike the flash-write path this does not need to park
+     * the peer. Keep it that way: parking here would take the pause lock
+     * below s_spinlock and invert the order used by the flash path.
      */
     esp_intr_noniram_disable();
     esp_cache_freeze_ext_mem_cache();

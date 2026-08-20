@@ -464,11 +464,21 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 		return 0;
 	}
 
+	/* The blob assumes its task and interrupt share a core, so pin the task to
+	 * the configured core (create suspended, pin, then start) instead of letting
+	 * the scheduler float it.
+	 */
 	k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
-				      prio, K_INHERIT_PERMS, K_NO_WAIT);
+				      prio, K_INHERIT_PERMS,
+				      IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
 
 	k_thread_name_set(tid, name);
+
+#if defined(CONFIG_SMP)
+	k_thread_cpu_pin(tid, IS_ENABLED(CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_1) ? 1 : 0);
+	k_thread_start(tid);
+#endif
 
 	*(int32_t *)task_handle = (int32_t)tid;
 	return 1;

@@ -833,11 +833,23 @@ static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, vo
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
+    ARG_UNUSED(core_id);
+
+    /* The controller asserts its task runs on the configured core, so pin it
+     * (create suspended, pin, then start) instead of letting the scheduler
+     * float it.
+     */
     k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, stack_depth,
                       (k_thread_entry_t)task_func, param, NULL, NULL,
-                      K_PRIO_COOP(prio), K_INHERIT_PERMS, K_NO_WAIT);
+                      K_PRIO_COOP(prio), K_INHERIT_PERMS,
+                      IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
 
     k_thread_name_set(tid, name);
+
+#if defined(CONFIG_SMP)
+    k_thread_cpu_pin(tid, CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE);
+    k_thread_start(tid);
+#endif
 
     *(int32_t *)task_handle = (int32_t)tid;
 
