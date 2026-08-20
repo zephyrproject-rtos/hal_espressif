@@ -128,7 +128,13 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
     //use the lock to disable the cache and interrupts before using the SPI bus
     ret = acquire_spi_bus_lock(arg);
 #elif SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    /* k_mutex_lock requires an active thread context. Skip the lock if the
+     * kernel is not yet running (esp_flash_config() runs pre-kernel, where
+     * execution is single-threaded and no arbitration is needed).
+     */
+    if (!k_is_pre_kernel()) {
+        k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    }
 #else
     //directly disable the cache and interrupts when lock is not used
     cache_disable(NULL);
@@ -163,7 +169,10 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
 #if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
     ret = release_spi_bus_lock(arg);
 #elif SPI_FLASH_CACHE_NO_DISABLE
-    k_mutex_unlock(&s_spi1_flash_mutex);
+    /* See spi1_start: no lock is taken pre-kernel. */
+    if (!k_is_pre_kernel()) {
+        k_mutex_unlock(&s_spi1_flash_mutex);
+    }
 #else
     cache_enable(NULL);
 #endif
