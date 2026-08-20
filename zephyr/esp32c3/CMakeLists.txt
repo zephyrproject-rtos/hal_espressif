@@ -579,6 +579,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wps.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wpa3.c"
       "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_owe.c"
+      "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_wifi_sta_pmksa_cache.c"
       )
     if(CONFIG_ESP32_WIFI_SOFTAP_SUPPORT)
         set(ESP_SUPPLICANT_SRCS ${ESP_SUPPLICANT_SRCS} "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_hostap.c")
