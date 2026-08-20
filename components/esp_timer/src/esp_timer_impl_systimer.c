@@ -5,7 +5,10 @@
  */
 
 #include <zephyr/sys/util.h>
-#include "sdkconfig.h"
+#include <zephyr/irq.h>
+#include <zephyr/device.h>
+#include <soc/soc.h>
+#include <soc.h>
 #include "esp_timer_impl.h"
 #include "esp_err.h"
 #include "esp_timer.h"
@@ -23,6 +26,7 @@
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 /**
  * @file esp_timer_systimer.c
@@ -35,8 +39,6 @@
  * @note systimer counter0 and alarm2 are adopted to implemented esp_timer
  */
 
-ESP_LOG_ATTR_TAG(TAG, "esp_timer_systimer");
-
 #define NOT_USED 0xBAD00FAD
 
 /* Interrupt handle returned by the interrupt allocator */
@@ -45,7 +47,9 @@ ESP_LOG_ATTR_TAG(TAG, "esp_timer_systimer");
 #else
 #define ISR_HANDLERS (1)
 #endif
+#ifndef __ZEPHYR__
 static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
+#endif
 
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
@@ -85,13 +89,15 @@ void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigne
     esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
-static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
+static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(const void *arg)
 {
 #if ISR_HANDLERS == 1
     /* clear the interrupt */
     systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
     /* Call the upper layer handler */
-    (*s_alarm_handler)(arg);
+    if (s_alarm_handler != NULL) {
+        (*s_alarm_handler)((void *)arg);
+    }
 #else
     static volatile uint32_t processed_by = NOT_USED;
     static volatile bool pending_alarm = false;
@@ -110,7 +116,7 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
                 systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
                 esp_os_exit_critical_isr(&s_time_update_lock);
 
-                (*s_alarm_handler)(arg);
+                (*s_alarm_handler)((void *)arg);
 
                 esp_os_enter_critical_isr(&s_time_update_lock);
                 /* Another alarm could have occurred while were handling the previous alarm.
@@ -183,42 +189,57 @@ esp_err_t esp_timer_impl_early_init(void)
     return ESP_OK;
 }
 
+/*
+ * esp_timer runs on the ESPTIMER alarm comparator (SYSTIMER_ALARM_ESPTIMER),
+ * whose interrupt-matrix source is SYSTIMER_TARGET2 - distinct from the OS-tick
+ * source (SYSTIMER_TARGET0) owned by esp32_sys_timer.c via systimer0. When the
+ * SoC devicetree gives esp_timer a dedicated node on its own CPU interrupt line
+ * (systimer1), connect there so the two never share a source or a CPU line and
+ * no CONFIG_SHARED_INTERRUPTS is required; otherwise fall back to systimer0.
+ */
+#if DT_NODE_EXISTS(DT_NODELABEL(systimer1))
+#define ESP_TIMER_SYSTIMER_NODE DT_NODELABEL(systimer1)
+#else
+#define ESP_TIMER_SYSTIMER_NODE DT_NODELABEL(systimer0)
+#endif
+
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    if (s_timer_interrupt_handle[0] != NULL) {
-        ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
-                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
-#if !SYSTIMER_LL_INT_LEVEL
-                    | ESP_INTR_FLAG_EDGE
-#endif
+/*
+ * Only claim ESP_INTR_FLAG_IRAM when timer_alarm_isr is actually placed in
+ * IRAM (ESP_TIMER_IRAM_ATTR == IRAM_ATTR, i.e. CONFIG_ESP_TIMER_IN_IRAM).
+ * Otherwise the Zephyr connect path (z_soc_irq_validate) rejects an IRAM flag
+ * on a flash-resident ISR.
+ */
 #if CONFIG_ESP_TIMER_IN_IRAM
-                    | ESP_INTR_FLAG_IRAM
+#define ESP_TIMER_ISR_IRAM_FLAG ESP_INTR_FLAG_IRAM
+#else
+#define ESP_TIMER_ISR_IRAM_FLAG 0
 #endif
-                    ;
+#if !SOC_SYSTIMER_INT_LEVEL
+#define ISR_FLAGS (ESP_INTR_FLAG_EDGE | ESP_TIMER_ISR_IRAM_FLAG)
+#else
+#define ISR_FLAGS (ESP_TIMER_ISR_IRAM_FLAG)
+#endif
 
-    esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
-                                   &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
-        return err;
-    }
+    /*
+     * The esp_timer node is a level-2 leaf under its INTMUX aggregator: connect
+     * at the multilevel-encoded IRQ. The SoC backend decodes (source, CPU line)
+     * and routes the interrupt matrix on enable. ISR_FLAGS carries EDGE|IRAM.
+     */
+    IRQ_CONNECT(DT_IRQN(ESP_TIMER_SYSTIMER_NODE), 0, timer_alarm_isr, NULL, ISR_FLAGS);
+    irq_enable(DT_IRQN(ESP_TIMER_SYSTIMER_NODE));
 
     if (s_alarm_handler == NULL) {
         s_alarm_handler = alarm_handler;
+        /* TODO: if SYSTIMER is used for anything else, access to SYSTIMER_INT_ENA_REG has to be
+         * protected by a shared spinlock. Since this code runs as part of early startup, this
+         * is practically not an issue.
+         */
         systimer_hal_enable_alarm_int(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
-    }
-
-    return err;
+    return 0;
 }
 
 void esp_timer_impl_deinit(void)
@@ -226,6 +247,7 @@ void esp_timer_impl_deinit(void)
     systimer_ll_enable_alarm(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER, false);
     /* TODO: may need a spinlock, see the note related to SYSTIMER_INT_ENA_REG in systimer_hal_init */
     systimer_ll_enable_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER, false);
+#ifndef __ZEPHYR__
     for (unsigned i = 0; i < ISR_HANDLERS; i++) {
         if (s_timer_interrupt_handle[i] != NULL) {
             esp_intr_disable(s_timer_interrupt_handle[i]);
@@ -233,6 +255,9 @@ void esp_timer_impl_deinit(void)
             s_timer_interrupt_handle[i] = NULL;
         }
     }
+#else
+    irq_disable(DT_IRQN(ESP_TIMER_SYSTIMER_NODE));
+#endif
     s_alarm_handler = NULL;
 }
 
