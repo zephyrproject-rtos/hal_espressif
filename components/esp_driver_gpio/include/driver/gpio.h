@@ -10,11 +10,11 @@
 #include <stdbool.h>
 #include "sdkconfig.h"
 #include "esp_err.h"
-#include "esp_intr_alloc.h"
 #include "soc/soc_caps.h"
 #include "hal/gpio_types.h"
 #include "esp_rom_gpio.h"
 #include "driver/gpio_etm.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #ifdef __cplusplus
 extern "C" {

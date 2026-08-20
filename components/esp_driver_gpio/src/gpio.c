@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/kernel.h>
+#include <zephyr/irq.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+
 #include <esp_types.h>
 #include "esp_err.h"
-#include <zephyr/kernel.h>
 #include <soc.h>
 #include "sdkconfig.h"
 #include "driver/gpio.h"
@@ -21,6 +24,8 @@
 #include "esp_private/io_mux.h"
 #include "esp_private/critical_section.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_rom_gpio.h"
+#include "esp_cpu.h"
 
 #if (SOC_RTCIO_PIN_COUNT > 0)
 #include "hal/rtc_io_hal.h"
@@ -269,20 +274,20 @@ int gpio_get_level(gpio_num_t gpio_num)
 }
 
 #if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
-static esp_err_t gpio_hysteresis_enable(gpio_num_t gpio_num)
+__attribute__((unused)) static esp_err_t gpio_hysteresis_enable(gpio_num_t gpio_num)
 {
     gpio_hal_hysteresis_soft_enable(gpio_context.gpio_hal, gpio_num, true);
     return ESP_OK;
 }
 
-static esp_err_t gpio_hysteresis_disable(gpio_num_t gpio_num)
+__attribute__((unused)) static esp_err_t gpio_hysteresis_disable(gpio_num_t gpio_num)
 {
     gpio_hal_hysteresis_soft_enable(gpio_context.gpio_hal, gpio_num, false);
     return ESP_OK;
 }
 
 #if SOC_GPIO_SUPPORT_PIN_HYS_CTRL_BY_EFUSE
-static esp_err_t gpio_hysteresis_by_efuse(gpio_num_t gpio_num)
+__attribute__((unused)) static esp_err_t gpio_hysteresis_by_efuse(gpio_num_t gpio_num)
 {
     gpio_hal_hysteresis_from_efuse(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
@@ -358,6 +363,7 @@ esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
     return ret;
 }
 
+#ifndef __ZEPHYR__
 esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
 {
     uint64_t gpio_pin_mask = (pGPIOConfig->pin_bit_mask);
@@ -652,6 +658,7 @@ esp_err_t gpio_uninstall_isr_service(void)
 static void gpio_isr_register_on_core_static(void *param)
 {
     gpio_isr_alloc_t *p = (gpio_isr_alloc_t *)param;
+
     //We need to check the return value.
     p->ret = esp_intr_alloc(p->source, p->intr_alloc_flags, p->fn, p->arg, p->handle);
 }
@@ -774,6 +781,7 @@ esp_err_t gpio_get_drive_capability(gpio_num_t gpio_num, gpio_drive_cap_t *stren
 
     return ret;
 }
+#endif /* __ZEPHYR__ */
 
 esp_err_t gpio_hold_en(gpio_num_t gpio_num)
 {
@@ -1109,6 +1117,7 @@ esp_err_t gpio_wakeup_disable_on_hp_periph_powerdown_sleep(gpio_num_t gpio_num)
 }
 #endif // SOC_GPIO_SUPPORT_HP_PERIPH_PD_SLEEP_WAKEUP
 
+#ifndef __ZEPHYR__
 esp_err_t gpio_get_io_config(gpio_num_t gpio_num, gpio_io_config_t *out_io_config)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
@@ -1174,6 +1183,7 @@ esp_err_t gpio_dump_io_configuration(FILE *out_stream, uint64_t io_bit_mask)
     fprintf(out_stream, "=================IO DUMP End=================\n");
     return ESP_OK;
 }
+#endif /* __ZEPHYR__ */
 
 esp_err_t gpio_func_sel(gpio_num_t gpio_num, uint32_t func)
 {
