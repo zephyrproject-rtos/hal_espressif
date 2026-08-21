@@ -209,11 +209,10 @@ static void *wifi_thread_semphr_get_wrapper(void)
 		sem = (struct k_sem *)wifi_malloc(sizeof(struct k_sem));
 		if (sem == NULL) {
 			LOG_ERR("wifi_thread_semphr_get_wrapper allocation failed");
+			return NULL;
 		}
 		k_sem_init(sem, 0, 1);
-		if (sem) {
-			k_thread_custom_data_set(sem);
-		}
+		k_thread_custom_data_set(sem);
 	}
 	return (void *)sem;
 }
