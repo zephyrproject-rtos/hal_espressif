@@ -25,6 +25,7 @@
 #include "hal/timer_ll.h"
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #include <zephyr/irq.h>
+#include <zephyr/devicetree.h>
 
 /**
  * @file esp_timer_lac.c
@@ -251,14 +252,22 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
     /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
     esp_timer_impl_early_init();
 
-    IRQ_CONNECT(INTR_SOURCE_LACT, 1, timer_alarm_isr, NULL, ESP_INTR_FLAG_IRAM);
+    /*
+     * Connect at the multilevel-encoded IRQ from the lact devicetree node, not
+     * at INTR_SOURCE_LACT. The latter is a raw interrupt-matrix source (17 for
+     * TG0), and irq_get_level() reads a bare 17 as level 1 - i.e. as CPU line
+     * 17 - so the ISR would be planted directly in that line's slot, colliding
+     * with whatever the generator placed there.
+     */
+    IRQ_CONNECT(DT_IRQN(DT_NODELABEL(lact)), IRQ_DEFAULT_PRIORITY, timer_alarm_isr, NULL,
+                ESP_INTR_FLAG_IRAM);
 
     if (s_alarm_handler == NULL) {
         s_alarm_handler = alarm_handler;
         /* In theory, this needs a shared spinlock with the timer group driver.
-        * However since esp_timer_impl_init is called early at startup, this
-        * will not cause issues in practice.
-        */
+         * However since esp_timer_impl_init is called early at startup, this
+         * will not cause issues in practice.
+         */
         REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
         esp_os_enter_critical_safe(&s_time_update_lock);
         lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
@@ -269,7 +278,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
     }
 
-    irq_enable(INTR_SOURCE_LACT);
+    irq_enable(DT_IRQN(DT_NODELABEL(lact)));
 
     return 0;
 }
@@ -288,7 +297,7 @@ void esp_timer_impl_deinit(void)
         }
     }
 #else
-    irq_disable(INTR_SOURCE_LACT);
+    irq_disable(DT_IRQN(DT_NODELABEL(lact)));
 #endif
     s_alarm_handler = NULL;
     PERIPH_RCC_RELEASE_ATOMIC(PERIPH_LACT, ref_count) {

@@ -222,11 +222,6 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 #define ISR_FLAGS (ESP_TIMER_ISR_IRAM_FLAG)
 #endif
 
-    /*
-     * The esp_timer node is a level-2 leaf under its INTMUX aggregator: connect
-     * at the multilevel-encoded IRQ. The SoC backend decodes (source, CPU line)
-     * and routes the interrupt matrix on enable. ISR_FLAGS carries EDGE|IRAM.
-     */
     IRQ_CONNECT(DT_IRQN(ESP_TIMER_SYSTIMER_NODE), 0, timer_alarm_isr, NULL, ISR_FLAGS);
 
     if (s_alarm_handler == NULL) {
