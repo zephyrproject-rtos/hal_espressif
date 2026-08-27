@@ -393,10 +393,18 @@ if(CONFIG_SOC_SERIES_ESP32H2)
     endif()
   endif()
 
-  zephyr_sources_ifdef(CONFIG_I2S_ESP32
-    ../../components/esp_hal_i2s/i2s_hal.c
-    ../../components/hal/hal_utils.c
-    )
+  if(CONFIG_I2S_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_i2s/i2s_hal.c
+      ../../components/hal/hal_utils.c
+      )
+
+    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hal_i2s/${CONFIG_SOC_SERIES}/i2s_periph.c
+        )
+    endif()
+  endif()
 
   if (CONFIG_ADC_ESP32)
     zephyr_include_directories(
