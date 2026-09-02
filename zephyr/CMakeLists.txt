@@ -44,12 +44,9 @@ else()
   zephyr_compile_definitions(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=${CONFIG_ESP_CONSOLE_UART_NUM})
 endif()
 
-zephyr_sources_ifdef(
-  CONFIG_CRYPTO_ESP32
-  ../components/esp_hal_security/aes_hal.c
-  ../components/esp_hal_security/sha_hal.c
-  ../components/soc/dport_access_common.c
-  )
+zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32 ../components/soc/dport_access_common.c)
+zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32_AES ../components/esp_hal_security/aes_hal.c)
+zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32_SHA ../components/esp_hal_security/sha_hal.c)
 
 if(CONFIG_SOC_SERIES_ESP32C5 OR CONFIG_SOC_SERIES_ESP32C6 OR CONFIG_SOC_SERIES_ESP32C61 OR CONFIG_SOC_SERIES_ESP32H2 OR CONFIG_SOC_SERIES_ESP32P4)
   zephyr_sources(../components/esp_hal_security/apm_hal.c)
