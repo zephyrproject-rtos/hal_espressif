@@ -638,9 +638,41 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     if(CONFIG_ESP32_WIFI_ENABLE_SAE_PK)
       set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/sae_pk.c"
+        )
+    endif()
+
+    # The BSS table and scan handling are shared by SAE-PK and by the
+    # 802.11k/v/r roaming code, so add them once for whichever is enabled.
+    if(CONFIG_ESP32_WIFI_ENABLE_SAE_PK OR CONFIG_ESP32_WIFI_11KV_SUPPORT OR
+       CONFIG_ESP32_WIFI_11R_SUPPORT)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/bss.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/scan.c"
         "${WPA_SUPPLICANT_COMPONENT_DIR}/esp_supplicant/src/esp_scan.c"
+        )
+    endif()
+
+    if(CONFIG_ESP32_WIFI_RRM_SUPPORT)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/rrm.c"
+        )
+    endif()
+
+    if(CONFIG_ESP32_WIFI_WNM_SUPPORT)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/wnm_sta.c"
+        )
+    endif()
+
+    if(CONFIG_ESP32_WIFI_MBO_SUPPORT)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/common/mbo.c"
+        )
+    endif()
+
+    if(CONFIG_ESP32_WIFI_11R_SUPPORT)
+      set(WPA_SUPPLICANT_SRCS ${WPA_SUPPLICANT_SRCS}
+        "${WPA_SUPPLICANT_COMPONENT_DIR}/src/rsn_supp/wpa_ft.c"
         )
     endif()
 
@@ -801,6 +833,12 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_ENABLE_SAE_PK CONFIG_SAE_PK)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SOFTAP_SAE_SUPPORT CONFIG_SAE)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_WPA3_COMPATIBLE CONFIG_WPA3_COMPAT)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_11KV_SUPPORT CONFIG_IEEE80211KV)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_RRM_SUPPORT CONFIG_RRM)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_WNM_SUPPORT CONFIG_WNM)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBO_SUPPORT CONFIG_MBO)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_11R_SUPPORT CONFIG_IEEE80211R)
+    zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SCAN_CACHE CONFIG_ESP_WIFI_SCAN_CACHE)
 
   endif()
 

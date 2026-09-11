@@ -1334,3 +1334,25 @@ uint8_t *esp_wifi_sta_get_ie(u8 *bssid, uint8_t elem_id)
 	ARG_UNUSED(elem_id);
 	return NULL;
 }
+
+typedef void (*scan_done_cb_t)(void *arg, ETS_STATUS status);
+
+int esp_wifi_promiscuous_scan_start(wifi_scan_config_t *config, scan_done_cb_t cb)
+{
+	ARG_UNUSED(config);
+	ARG_UNUSED(cb);
+	return -1;
+}
+
+uint8_t esp_wifi_op_class_supported_internal(uint8_t op_class, uint8_t min_chan, uint8_t max_chan,
+					     uint8_t inc, uint8_t bw,
+					     channel_bitmap_t *non_pref_channels)
+{
+	ARG_UNUSED(op_class);
+	ARG_UNUSED(min_chan);
+	ARG_UNUSED(max_chan);
+	ARG_UNUSED(inc);
+	ARG_UNUSED(bw);
+	ARG_UNUSED(non_pref_channels);
+	return 0;
+}
