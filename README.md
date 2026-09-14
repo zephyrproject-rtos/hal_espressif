@@ -15,6 +15,7 @@ system libraries.
 - ESP32-C6
 - ESP32-H2
 - ESP32-P4
+- ESP32-S31
 
 ## Repository Structure
 

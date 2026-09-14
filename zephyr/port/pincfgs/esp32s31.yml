@@ -1,0 +1,657 @@
+# Copyright (c) 2026 Espressif Systems (Shanghai) Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+# Notes:
+# - ESP32-S31 has 62 GPIO pads (0-61); GPIO29 and GPIO41 are reserved
+# - Some pads may be reserved for flash/PSRAM depending on package
+
+uart0:
+  tx:
+    sigo: u0txd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rx:
+    sigi: u0rxd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rts:
+    sigo: u0rts_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cts:
+    sigi: u0cts_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dtr:
+    sigo: u0dtr_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dsr:
+    sigi: u0dsr_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+uart1:
+  tx:
+    sigo: u1txd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rx:
+    sigi: u1rxd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rts:
+    sigo: u1rts_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cts:
+    sigi: u1cts_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dtr:
+    sigo: u1dtr_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dsr:
+    sigi: u1dsr_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+uart2:
+  tx:
+    sigo: u2txd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rx:
+    sigi: u2rxd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rts:
+    sigo: u2rts_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cts:
+    sigi: u2cts_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dtr:
+    sigo: u2dtr_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dsr:
+    sigi: u2dsr_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+spim2:
+  miso:
+    sigi: fspiq_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  mosi:
+    sigo: fspid_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sclk:
+    sigo: fspiclk_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  csel:
+    sigo: fspics0_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  miso_io0:
+    sigo: fspid_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  miso_io1:
+    sigi: fspiq_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  wp_io2:
+    sigo: fspiwp_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  hold_io3:
+    sigo: fspihd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+spim3:
+  miso:
+    sigi: spi3_q_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  mosi:
+    sigo: spi3_d_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sclk:
+    sigo: spi3_ck_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  csel:
+    sigo: spi3_cs_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+spis2:
+  miso:
+    sigo: fspiq_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  mosi:
+    sigi: fspid_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sclk:
+    sigi: fspiclk_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  csel:
+    sigi: fspics0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+spis3:
+  miso:
+    sigo: spi3_qo_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  mosi:
+    sigi: spi3_d_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sclk:
+    sigi: spi3_ck_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  csel:
+    sigi: spi3_cs_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+i2c0:
+  scl:
+    sigi: i2cext0_scl_in
+    sigo: i2cext0_scl_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sda:
+    sigi: i2cext0_sda_in
+    sigo: i2cext0_sda_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+i2c1:
+  scl:
+    sigi: i2cext1_scl_in
+    sigo: i2cext1_scl_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sda:
+    sigi: i2cext1_sda_in
+    sigo: i2cext1_sda_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+ledc:
+  ch0:
+    sigo: ledc_ls_sig_out0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1:
+    sigo: ledc_ls_sig_out1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch2:
+    sigo: ledc_ls_sig_out2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch3:
+    sigo: ledc_ls_sig_out3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch4:
+    sigo: ledc_ls_sig_out4
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch5:
+    sigo: ledc_ls_sig_out5
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch6:
+    sigo: ledc_ls_sig_out6
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch7:
+    sigo: ledc_ls_sig_out7
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+twai0:
+  rx:
+    sigi: twai0_rx
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  tx:
+    sigo: twai0_tx
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+twai1:
+  rx:
+    sigi: twai1_rx
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  tx:
+    sigo: twai1_tx
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+mcpwm0:
+  out0a:
+    sigo: pwm0_out0a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out0b:
+    sigo: pwm0_out0b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1a:
+    sigo: pwm0_out1a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1b:
+    sigo: pwm0_out1b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2a:
+    sigo: pwm0_out2a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2b:
+    sigo: pwm0_out2b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync0:
+    sigi: pwm0_sync0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync1:
+    sigi: pwm0_sync1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync2:
+    sigi: pwm0_sync2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault0:
+    sigi: pwm0_f0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault1:
+    sigi: pwm0_f1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault2:
+    sigi: pwm0_f2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap0:
+    sigi: pwm0_cap0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap1:
+    sigi: pwm0_cap1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap2:
+    sigi: pwm0_cap2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+mcpwm1:
+  out0a:
+    sigo: pwm1_out0a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out0b:
+    sigo: pwm1_out0b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1a:
+    sigo: pwm1_out1a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1b:
+    sigo: pwm1_out1b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2a:
+    sigo: pwm1_out2a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2b:
+    sigo: pwm1_out2b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync0:
+    sigi: pwm1_sync0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync1:
+    sigi: pwm1_sync1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync2:
+    sigi: pwm1_sync2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault0:
+    sigi: pwm1_f0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault1:
+    sigi: pwm1_f1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault2:
+    sigi: pwm1_f2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap0:
+    sigi: pwm1_cap0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap1:
+    sigi: pwm1_cap1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap2:
+    sigi: pwm1_cap2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+pcnt0:
+  ch0sig:
+    sigi: pcnt0_sig_ch0_in0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch0ctrl:
+    sigi: pcnt0_ctrl_ch0_in0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1sig:
+    sigi: pcnt0_sig_ch1_in0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1ctrl:
+    sigi: pcnt0_ctrl_ch1_in0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+pcnt1:
+  ch0sig:
+    sigi: pcnt0_sig_ch0_in1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch0ctrl:
+    sigi: pcnt0_ctrl_ch0_in1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1sig:
+    sigi: pcnt0_sig_ch1_in1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1ctrl:
+    sigi: pcnt0_ctrl_ch1_in1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+pcnt2:
+  ch0sig:
+    sigi: pcnt0_sig_ch0_in2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch0ctrl:
+    sigi: pcnt0_ctrl_ch0_in2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1sig:
+    sigi: pcnt0_sig_ch1_in2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1ctrl:
+    sigi: pcnt0_ctrl_ch1_in2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+pcnt3:
+  ch0sig:
+    sigi: pcnt0_sig_ch0_in3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch0ctrl:
+    sigi: pcnt0_ctrl_ch0_in3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1sig:
+    sigi: pcnt0_sig_ch1_in3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1ctrl:
+    sigi: pcnt0_ctrl_ch1_in3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+rmt:
+  out0:
+    sigo: rmt_sig_out0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1:
+    sigo: rmt_sig_out1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2:
+    sigo: rmt_sig_out2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out3:
+    sigo: rmt_sig_out3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  in0:
+    sigi: rmt_sig_in0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  in1:
+    sigi: rmt_sig_in1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  in2:
+    sigi: rmt_sig_in2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  in3:
+    sigi: rmt_sig_in3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+i2s0:
+  mclk:
+    sigi: i2s0_mclk_in
+    sigo: i2s0_mclk_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_bck:
+    sigi: i2s0i_bck_in
+    sigo: i2s0i_bck_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_ws:
+    sigi: i2s0i_ws_in
+    sigo: i2s0i_ws_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_bck:
+    sigi: i2s0o_bck_in
+    sigo: i2s0o_bck_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_ws:
+    sigi: i2s0o_ws_in
+    sigo: i2s0o_ws_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_sd:
+    sigi: i2s0i_sd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_sd:
+    sigo: i2s0o_sd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_sd1:
+    sigi: i2s0i_sd1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_sd2:
+    sigi: i2s0i_sd2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_sd3:
+    sigi: i2s0i_sd3_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_sd1:
+    sigo: i2s0o_sd1_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+i2s1:
+  mclk:
+    sigi: i2s1_mclk_in
+    sigo: i2s1_mclk_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_bck:
+    sigi: i2s1i_bck_in
+    sigo: i2s1i_bck_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_ws:
+    sigi: i2s1i_ws_in
+    sigo: i2s1i_ws_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_bck:
+    sigi: i2s1o_bck_in
+    sigo: i2s1o_bck_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_ws:
+    sigi: i2s1o_ws_in
+    sigo: i2s1o_ws_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  i_sd:
+    sigi: i2s1i_sd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  o_sd:
+    sigo: i2s1o_sd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+ledc1:
+  ch0:
+    sigo: ledc1_ls_sig_out0
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch1:
+    sigo: ledc1_ls_sig_out1
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch2:
+    sigo: ledc1_ls_sig_out2
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch3:
+    sigo: ledc1_ls_sig_out3
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch4:
+    sigo: ledc1_ls_sig_out4
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch5:
+    sigo: ledc1_ls_sig_out5
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch6:
+    sigo: ledc1_ls_sig_out6
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  ch7:
+    sigo: ledc1_ls_sig_out7
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+mcpwm2:
+  out0a:
+    sigo: pwm2_out0a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out0b:
+    sigo: pwm2_out0b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1a:
+    sigo: pwm2_out1a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1b:
+    sigo: pwm2_out1b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2a:
+    sigo: pwm2_out2a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2b:
+    sigo: pwm2_out2b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync0:
+    sigi: pwm2_sync0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault0:
+    sigi: pwm2_f0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap0:
+    sigi: pwm2_cap0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync1:
+    sigi: pwm2_sync1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault1:
+    sigi: pwm2_f1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap1:
+    sigi: pwm2_cap1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync2:
+    sigi: pwm2_sync2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault2:
+    sigi: pwm2_f2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap2:
+    sigi: pwm2_cap2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+mcpwm3:
+  out0a:
+    sigo: pwm3_out0a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out0b:
+    sigo: pwm3_out0b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1a:
+    sigo: pwm3_out1a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out1b:
+    sigo: pwm3_out1b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2a:
+    sigo: pwm3_out2a
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  out2b:
+    sigo: pwm3_out2b
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync0:
+    sigi: pwm3_sync0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault0:
+    sigi: pwm3_f0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap0:
+    sigi: pwm3_cap0_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync1:
+    sigi: pwm3_sync1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault1:
+    sigi: pwm3_f1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap1:
+    sigi: pwm3_cap1_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  sync2:
+    sigi: pwm3_sync2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  fault2:
+    sigi: pwm3_f2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cap2:
+    sigi: pwm3_cap2_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+parlio:
+  tx_clk:
+    sigi: parlio_tx_clk_in
+    sigo: parlio_tx_clk_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rx_clk:
+    sigi: parlio_rx_clk_in
+    sigo: parlio_rx_clk_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  tx_cs:
+    sigo: parlio_tx_cs_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data0:
+    sigi: parlio_rx_data0_in
+    sigo: parlio_tx_data0_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data1:
+    sigi: parlio_rx_data1_in
+    sigo: parlio_tx_data1_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data2:
+    sigi: parlio_rx_data2_in
+    sigo: parlio_tx_data2_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data3:
+    sigi: parlio_rx_data3_in
+    sigo: parlio_tx_data3_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data4:
+    sigi: parlio_rx_data4_in
+    sigo: parlio_tx_data4_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data5:
+    sigi: parlio_rx_data5_in
+    sigo: parlio_tx_data5_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data6:
+    sigi: parlio_rx_data6_in
+    sigo: parlio_tx_data6_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data7:
+    sigi: parlio_rx_data7_in
+    sigo: parlio_tx_data7_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data8:
+    sigi: parlio_rx_data8_in
+    sigo: parlio_tx_data8_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data9:
+    sigi: parlio_rx_data9_in
+    sigo: parlio_tx_data9_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data10:
+    sigi: parlio_rx_data10_in
+    sigo: parlio_tx_data10_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data11:
+    sigi: parlio_rx_data11_in
+    sigo: parlio_tx_data11_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data12:
+    sigi: parlio_rx_data12_in
+    sigo: parlio_tx_data12_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data13:
+    sigi: parlio_rx_data13_in
+    sigo: parlio_tx_data13_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data14:
+    sigi: parlio_rx_data14_in
+    sigo: parlio_tx_data14_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  data15:
+    sigi: parlio_rx_data15_in
+    sigo: parlio_tx_data15_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+uart3:
+  tx:
+    sigo: u3txd_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rx:
+    sigi: u3rxd_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  cts:
+    sigi: u3cts_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  rts:
+    sigo: u3rts_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dtr:
+    sigo: u3dtr_out
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  dsr:
+    sigi: u3dsr_in
+    gpio: [[0, 28], [30, 40], [42, 61]]
