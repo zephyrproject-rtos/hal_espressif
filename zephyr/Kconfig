@@ -50,6 +50,10 @@ if SOC_SERIES_ESP32P4
 rsource "../components/soc/esp32p4/include/soc/Kconfig.soc_caps.in"
 endif
 
+if SOC_SERIES_ESP32S31
+rsource "../components/soc/esp32s31/include/soc/Kconfig.soc_caps.in"
+endif
+
 # XTAL frequency in Hz from devicetree
 config XTAL_FREQ_HZ
 	int
@@ -178,6 +182,7 @@ config IDF_FIRMWARE_CHIP_ID
 	default 0x0014 if SOC_SERIES_ESP32C61
 	default 0x0010 if SOC_SERIES_ESP32H2
 	default 0x0012 if SOC_SERIES_ESP32P4
+	default 0x0020 if SOC_SERIES_ESP32S31
 
 config SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY
 	bool
@@ -243,6 +248,10 @@ config IDF_TARGET_ESP32H2
 config IDF_TARGET_ESP32P4
 	bool
 	default y if SOC_SERIES_ESP32P4
+
+config IDF_TARGET_ESP32S31
+	bool
+	default y if SOC_SERIES_ESP32S31
 
 config ESP_TIMER_IMPL_TG0_LAC
 	bool
