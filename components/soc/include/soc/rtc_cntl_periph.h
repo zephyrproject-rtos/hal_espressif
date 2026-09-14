@@ -30,7 +30,25 @@
 #endif
 
 // TODO: IDF-5645
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32H4 || CONFIG_IDF_TARGET_ESP32S31
+#if CONFIG_IDF_TARGET_ESP32S31
+#include "soc/lp_analog_peri_reg.h"
+#include "soc/lp_clkrst_reg.h"
+#include "soc/lp_clkrst_struct.h"
+#if SOC_LP_I2C_SUPPORTED
+#include "soc/lp_i2c_reg.h"
+#include "soc/lp_i2c_struct.h"
+#endif
+#if SOC_RTC_TIMER_SUPPORTED
+#include "soc/rtc_timer_reg.h"
+#include "soc/rtc_timer_struct.h"
+#endif
+#if SOC_ULP_LP_UART_SUPPORTED
+#include "soc/lp_uart_reg.h"
+#include "soc/lp_uart_struct.h"
+#endif
+#include "soc/rtc_wdt_reg.h"
+#include "soc/rtc_wdt_struct.h"
+#elif CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32H4
 #include "soc/lp_analog_peri_reg.h"
 #include "soc/lp_clkrst_reg.h"
 #include "soc/lp_clkrst_struct.h"
