@@ -5,7 +5,6 @@
  */
 
 #include "rvsleep-frames.h"
-#include "freertos/FreeRTOSConfig.h"
 #include "sdkconfig.h"
 
     .section    .iram1,"ax"
