@@ -36,6 +36,7 @@ BLOB_REPOS=(
     "components/bt/controller/lib_esp32c6/esp32c6-bt-lib|https://github.com/espressif/esp32c6-bt-lib|esp32c6|bt|yes"
     "components/bt/controller/lib_esp32c2/esp32c2-bt-lib|https://github.com/espressif/esp32c2-bt-lib|esp32c2|bt|no"
     "components/bt/controller/lib_esp32h2/esp32h2-bt-lib|https://github.com/espressif/esp32h2-bt-lib|esp32h2|bt|yes"
+    "components/bt/controller/lib_esp32s31/esp32s31-bt-lib|https://github.com/espressif/esp32s31-bt-lib|esp32s31|bt|no"
     "components/bt/controller/lib_esp32c3_family|https://github.com/espressif/esp32c3-bt-lib|esp32c3,esp32s3|bt|yes"
     "components/bt/controller/lib_esp32|https://github.com/espressif/esp32-bt-lib|esp32|bt|yes"
     "components/esp_wifi/lib|https://github.com/espressif/esp32-wifi-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32s2,esp32s3,esp32s31|wifi|yes"
@@ -45,7 +46,7 @@ BLOB_REPOS=(
 
 lib_category() {
     case "$1" in
-        ble_app|btdm_app) echo "bt" ;;
+        ble_app|btdm_app|btdm_common) echo "bt" ;;
         btbb|phy|rtc)     echo "phy" ;;
         core|espnow|mesh|net80211|pp) echo "wifi" ;;
         coexist)          echo "coex" ;;

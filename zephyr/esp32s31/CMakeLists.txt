@@ -34,9 +34,9 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     ../../components/bt/controller/${CONFIG_SOC_SERIES}
     ../../components/bt/include/${CONFIG_SOC_SERIES}/include
     ../../components/bt/porting/include
-    ../../components/bt/porting/npl/zephyr/include
-    ../../components/bt/porting/npl/zephyr/include/nimble
-    ../../components/bt/porting/transport/include
+    ../../components/bt/porting_btdm/controller/btdm_common/include
+    ../../components/bt/porting_btdm/controller/ble/include
+    ../../components/bt/porting_btdm/transport/include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
     ../../components/driver/include
@@ -608,6 +608,37 @@ if(CONFIG_SOC_SERIES_ESP32S31)
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.phy.ld
         -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.net80211.ld
       )
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      ../../components/bt/porting/mem/bt_osi_mem.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_osal_zephyr.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_coex.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_external.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_log.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_lp.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble_msys.c
+      ../../components/bt/porting_btdm/transport/src/hci_transport.c
+      ../../components/bt/porting_btdm/transport/driver/vhci/hci_driver_standard.c
+      ../../components/bt/controller/${CONFIG_SOC_SERIES}/bt.c
+      )
+
+    zephyr_compile_definitions(CONFIG_BT_ENABLED=1)
+    zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED=1)
+
+    zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/stubs/bt_stubs.c
+      ../port/stubs/phy_stubs.c
+      )
+
+    # ble, with btbb after ble_app to resolve its baseband calls
+    esp_blobs_link(ble_app btdm_common btbb)
+
   endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)

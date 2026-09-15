@@ -22,10 +22,10 @@ struct ble_mbuf *hci_driver_mem_iso_len_alloc(uint32_t len);
 
 extern const struct hci_h4_allocators s_hci_driver_mem_alloc;
 extern const struct hci_h4_frees s_hci_driver_mem_free;
-#if CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY || CONFIG_BTDM_CTRL_MODE_BTDM
+#if UC_BT_CTRL_BR_EDR_IS_ENABLE
 hci_driver_packet_t *hci_driver_mem_bredr_acl_alloc(uint16_t len);
 
 hci_driver_packet_t *hci_driver_mem_sync_alloc(uint16_t len);
-#endif // CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY || CONFIG_BTDM_CTRL_MODE_BTDM
+#endif /* UC_BT_CTRL_BR_EDR_IS_ENABLE */
 
 #endif // _H_HCI_DRIVER_MEM_

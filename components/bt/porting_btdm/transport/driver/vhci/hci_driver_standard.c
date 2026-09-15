@@ -5,6 +5,7 @@
  */
 #include <string.h>
 #include <stdio.h>
+#include <zephyr/kernel.h>
 #include "esp_hci_driver.h"
 #include "esp_hci_internal.h"
 #include "esp_bt.h"
@@ -63,18 +64,15 @@ hci_driver_vhci_host_recv_with_type(uint8_t data_type, uint8_t *data, uint16_t l
     return -1;
 }
 
-#if 0
 static void
 hci_driver_vhci_host_send_available(void)
 {
-    static const esp_vhci_host_callback_t *host_recv_cb;
+    const esp_vhci_host_callback_t *host_recv_cb = s_hci_driver_vhci_env.host_recv_cb;
 
-    host_recv_cb = s_hci_driver_vhci_env.host_recv_cb;
     if (host_recv_cb && host_recv_cb->notify_host_send_available) {
         host_recv_cb->notify_host_send_available();
     }
 }
-#endif
 
 static int
 hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t length, hci_driver_direction_t dir)
@@ -89,14 +87,14 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
 #if UC_BT_CTRL_BLE_IS_ENABLE
         if (dir == HCI_DRIVER_DIR_LEC2H) {
             struct ble_mbuf *om = (struct ble_mbuf *)data;
-            buf = malloc(buf_len);
+            buf = k_malloc(buf_len);
             /* TODO: If there is no memory, should handle it in the controller. */
             assert(buf);
             buf[0] = HCI_DRIVER_TYPE_ACL;
             ble_mbuf_copydata(om, 0, length, &buf[1]);
             ble_mbuf_free_chain(om);
             rc = hci_driver_vhci_host_recv_with_type(data_type, buf, buf_len);
-            free(buf);
+            k_free(buf);
         }
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
@@ -116,13 +114,13 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
         /* TODO: If there is no memory, should handle it in the controller. */
         if (dir == HCI_DRIVER_DIR_LEC2H) {
 #if UC_BT_CTRL_BLE_IS_ENABLE
-            buf = malloc(buf_len);
+            buf = k_malloc(buf_len);
             assert(buf != NULL);
             buf[0] = HCI_DRIVER_TYPE_EVT;
             memcpy(&buf[1], data, length);
             rc = hci_driver_vhci_host_recv_with_type(data_type, buf, buf_len);
             r_ble_hci_trans_buf_free(data);
-            free(buf);
+            k_free(buf);
 #endif
         }
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
@@ -203,7 +201,9 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         if (!is_bredr && HCI_INTERNAL_CONN_IS_BLE(conn_handle)) {
             struct ble_mbuf *om = ble_msys_get_pkthdr(pkt_len, ESP_HCI_INTERNAL_ACL_MBUF_LEADINGSPCAE);
             assert(om);
-            assert(ble_mbuf_append(om, &data[1], length - 1) == 0);
+            int append_rc = ble_mbuf_append(om, &data[1], length - 1);
+            assert(append_rc == 0);
+            (void)append_rc;
             data = (uint8_t *)om;
             data_source = HCI_DRIVER_LE_ACL;
         }
@@ -251,6 +251,7 @@ hci_driver_vhci_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_t len
     int rc;
     if (dir == HCI_DRIVER_DIR_H2C) {
         rc = hci_driver_vhci_host_tx(data_type, data, length);
+        hci_driver_vhci_host_send_available();
     } else {
         rc = hci_driver_vhci_controller_tx(data_type, data, length, dir);
     }
@@ -287,6 +288,7 @@ esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback)
     }
 
     s_hci_driver_vhci_env.host_recv_cb = callback;
+    hci_driver_vhci_host_send_available();
     return ESP_OK;
 }
 
