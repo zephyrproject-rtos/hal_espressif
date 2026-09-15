@@ -7,7 +7,8 @@
 #include <string.h>
 #include "sdkconfig.h"
 #include <zephyr/irq.h>
-#include "esp_intr_alloc.h"
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #include "soc/periph_defs.h"
 #include "soc/soc.h"
 #include "hal/ieee802154_periph.h"
@@ -79,7 +80,16 @@ static uint8_t s_rx_index = 0;
 static uint8_t s_enh_ack_frame[128];
 static uint8_t s_recent_rx_frame_info_index;
 static esp_os_spinlock_t s_ieee802154_spinlock = ESP_OS_SPINLOCK_INIT;
-static intr_handle_t s_ieee802154_isr_handle = NULL;
+static bool s_ieee802154_isr_installed;
+
+/*
+ * The MAC is a level-2 leaf under its own INTMUX aggregator: ZB_MAC is the
+ * interrupt-matrix source and the aggregator names the CPU line, so the ISR is
+ * connected at the multilevel-encoded IRQ and the SoC backend routes the matrix
+ * on enable. Connecting statically (rather than through the old allocator) is
+ * what makes this interrupt visible in build/zephyr/isr_intlist.txt.
+ */
+#define IEEE802154_NODE DT_NODELABEL(ieee802154)
 
 static esp_err_t ieee802154_sleep_init(void);
 static esp_err_t ieee802154_sleep_deinit(void);
@@ -766,7 +776,7 @@ IRAM_ATTR void ieee802154_exit_critical(void)
     esp_os_exit_critical(&s_ieee802154_spinlock);
 }
 
-IEEE802154_NOINLINE static void ieee802154_isr(void *arg)
+IEEE802154_NOINLINE static void ieee802154_isr(const void *arg)
 {
     ieee802154_enter_critical();
     ieee802154_ll_events events = ieee802154_ll_get_events();
@@ -921,9 +931,15 @@ esp_err_t ieee802154_mac_init(void)
 
     ieee802154_set_state(IEEE802154_STATE_IDLE);
 
-    // TODO: Add flags for IEEE802154 ISR allocating. TZ-102
-    ret = esp_intr_alloc(ieee802154_periph.irq_id, 0, ieee802154_isr, NULL, &s_ieee802154_isr_handle);
-    ESP_RETURN_ON_FALSE(ret == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC init failed");
+    /*
+     * TODO: Add flags for IEEE802154 ISR allocating. TZ-102
+     * The flags argument stays 0: ieee802154_isr and everything it calls are
+     * flash-resident, so claiming ESP_INTR_FLAG_IRAM here would be rejected by
+     * z_soc_irq_validate().
+     */
+    IRQ_CONNECT(DT_IRQN(IEEE802154_NODE), IRQ_DEFAULT_PRIORITY, ieee802154_isr, NULL, 0);
+    irq_enable(DT_IRQN(IEEE802154_NODE));
+    s_ieee802154_isr_installed = true;
 
     ESP_RETURN_ON_FALSE(ieee802154_sleep_init() == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC sleep init failed");
 
@@ -933,10 +949,12 @@ esp_err_t ieee802154_mac_init(void)
 esp_err_t ieee802154_mac_deinit(void)
 {
     esp_err_t ret = ESP_OK;
-    if (s_ieee802154_isr_handle) {
-        ret = esp_intr_free(s_ieee802154_isr_handle);
-        s_ieee802154_isr_handle = NULL;
-        ESP_RETURN_ON_FALSE(ret == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC ISR deinit failed");
+    if (s_ieee802154_isr_installed) {
+        /* The table slot stays claimed by IRQ_CONNECT; masking the line is all
+         * that can be undone, and all that deinit needs.
+         */
+        irq_disable(DT_IRQN(IEEE802154_NODE));
+        s_ieee802154_isr_installed = false;
     }
     ESP_RETURN_ON_FALSE(ieee802154_sleep_deinit() == ESP_OK, ESP_FAIL, IEEE802154_TAG, "IEEE802154 MAC sleep deinit failed");
     return ret;
@@ -944,7 +962,7 @@ esp_err_t ieee802154_mac_deinit(void)
 
 bool ieee802154_mac_is_inited(void)
 {
-    return s_ieee802154_isr_handle != NULL;
+    return s_ieee802154_isr_installed;
 }
 
 IEEE802154_STATIC void start_ed(uint32_t duration)
