@@ -16,6 +16,7 @@
 
 #include <sys/lock.h>
 #include <zephyr/kernel.h>
+#include "esp_sem.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_private/sar_periph_ctrl.h"
@@ -29,7 +30,7 @@
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
 extern esp_os_spinlock_t rtc_spinlock;
-K_MUTEX_DEFINE(adc_reset_lock);
+K_SEM_DEFINE(adc_reset_lock, 1, 1);
 
 void sar_periph_ctrl_init(void)
 {
@@ -150,10 +151,10 @@ void sar_periph_ctrl_adc_reset(void)
 
 void adc_reset_lock_acquire(void)
 {
-    k_mutex_lock(&adc_reset_lock, K_FOREVER);
+    esp_sem_take_safe(&adc_reset_lock);
 }
 
 void adc_reset_lock_release(void)
 {
-    k_mutex_unlock(&adc_reset_lock);
+    k_sem_give(&adc_reset_lock);
 }

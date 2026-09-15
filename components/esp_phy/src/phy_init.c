@@ -25,6 +25,7 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/atomic.h>
 #include <esp_heap_caps.h>
+#include "esp_sem.h"
 #include "esp_private/critical_section.h"
 #include "esp_private/phy.h"
 #include "phy_init_data.h"
@@ -76,12 +77,12 @@ extern bool pm_get_wifimac_regdma_link_selection(void);
 
 static const char* TAG __attribute__((unused)) = "phy_init";
 
-K_MUTEX_DEFINE(s_phy_access_lock);
+K_SEM_DEFINE(s_phy_access_lock, 1, 1);
 
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
 static DRAM_ATTR int s_wifi_bt_pd_count;
-K_MUTEX_DEFINE(s_wifi_bt_pd_lock);
+K_SEM_DEFINE(s_wifi_bt_pd_lock, 1, 1);
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 
@@ -206,13 +207,13 @@ esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem) {
         return ESP_ERR_INVALID_ARG;
     }
     uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     *used_time = s_phy_rf_used_info[index].used_time;
     if (s_phy_rf_used_info[index].disabled_time < s_phy_rf_used_info[index].enabled_time) {
         // phy is being used
         *used_time += esp_timer_get_time() - s_phy_rf_used_info[index].enabled_time;
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
     return ESP_OK;
 }
 
@@ -221,7 +222,7 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
         return ESP_ERR_INVALID_ARG;
     }
     uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     if (s_phy_rf_used_info[index].enabled_time > s_phy_rf_used_info[index].disabled_time) {
         // phy is being used
         s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
@@ -229,7 +230,7 @@ esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
         s_phy_rf_used_info[index].enabled_time = s_phy_rf_used_info[index].disabled_time;
     }
     s_phy_rf_used_info[index].used_time = 0;
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
     return ESP_OK;
 }
 #endif
@@ -312,7 +313,7 @@ void IRAM_ATTR esp_phy_modem_rf_flag_update(void)
 
 void esp_phy_enable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     if (phy_get_modem_flag() == 0) {
 #if CONFIG_IDF_TARGET_ESP32
         s_phy_rf_en_ts = esp_timer_get_time();
@@ -389,12 +390,12 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(true, modem);
 #endif
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 }
 
 void esp_phy_disable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(false, modem);
 #endif
@@ -434,14 +435,14 @@ void esp_phy_disable(esp_phy_modem_t modem)
         // Disable WiFi/BT common peripheral clock. Do not disable clock for hardware RNG
         esp_phy_common_clock_disable();
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 }
 
 void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
-    k_mutex_lock(&s_wifi_bt_pd_lock, K_FOREVER);
+    esp_sem_take_safe(&s_wifi_bt_pd_lock);
     if (s_wifi_bt_pd_count++ == 0) {
         RTC_CNTL_ATOMIC() {
             CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
@@ -460,7 +461,7 @@ void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
         }
         wifi_bt_common_module_disable();
     }
-    k_mutex_unlock(&s_wifi_bt_pd_lock);
+    k_sem_give(&s_wifi_bt_pd_lock);
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
@@ -469,14 +470,14 @@ void esp_wifi_bt_power_domain_off(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
-    k_mutex_lock(&s_wifi_bt_pd_lock, K_FOREVER);
+    esp_sem_take_safe(&s_wifi_bt_pd_lock);
     if (--s_wifi_bt_pd_count == 0) {
         RTC_CNTL_ATOMIC() {
             SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
             SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
         }
     }
-    k_mutex_unlock(&s_wifi_bt_pd_lock);
+    k_sem_give(&s_wifi_bt_pd_lock);
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
@@ -484,7 +485,7 @@ void esp_wifi_bt_power_domain_off(void)
 void esp_phy_modem_init(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     s_phy_modem_init_ref++;
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
     if (s_phy_digital_regs_mem == NULL) {
@@ -494,14 +495,14 @@ void esp_phy_modem_init(void)
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
     sleep_modem_wifi_modem_state_init();
 #endif // CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 }
 
 void esp_phy_modem_deinit(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
 
     s_phy_modem_init_ref--;
     if (s_phy_modem_init_ref == 0) {
@@ -520,7 +521,7 @@ void esp_phy_modem_deinit(void)
         sleep_modem_wifi_modem_state_deinit();
 #endif // CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 }
 
@@ -538,12 +539,12 @@ void esp_mac_bb_pd_mem_init(void)
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
     extern void esp_apb_backup_dma_lock_init(void);
     esp_apb_backup_dma_lock_init();
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     s_macbb_backup_mem_ref++;
     if (s_mac_bb_pd_mem == NULL) {
         s_mac_bb_pd_mem = (uint32_t *)heap_caps_malloc(SOC_MAC_BB_PD_MEM_SIZE, MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_phy_sleep_data_init();
 #endif
@@ -552,13 +553,13 @@ void esp_mac_bb_pd_mem_init(void)
 void esp_mac_bb_pd_mem_deinit(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    esp_sem_take_safe(&s_phy_access_lock);
     s_macbb_backup_mem_ref--;
     if (s_macbb_backup_mem_ref == 0) {
         k_free(s_mac_bb_pd_mem);
         s_mac_bb_pd_mem = NULL;
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    k_sem_give(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_phy_sleep_data_deinit();
 #endif
@@ -1226,7 +1227,7 @@ esp_err_t esp_phy_update_country_info(const char *country)
 void esp_wifi_power_domain_on(void) __attribute__((alias("esp_wifi_bt_power_domain_on")));
 void esp_wifi_power_domain_off(void) __attribute__((alias("esp_wifi_bt_power_domain_off")));
 
-struct k_mutex *phy_get_lock(void)
+struct k_sem *phy_get_lock(void)
 {
     return &s_phy_access_lock;
 }

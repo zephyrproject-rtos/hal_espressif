@@ -18,7 +18,7 @@
  */
 
 #include <zephyr/kernel.h>
-
+#include "esp_sem.h"
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "sys/lock.h"
@@ -127,12 +127,12 @@ int IRAM_ATTR adc_get_hw_calibration_chan_compens(adc_unit_t adc_n, adc_channel_
 /*---------------------------------------------------------------
             ADC Hardware Locks
 ---------------------------------------------------------------*/
-K_MUTEX_DEFINE(adc1_lock);
-K_MUTEX_DEFINE(adc2_lock);
+K_SEM_DEFINE(adc1_lock, 1, 1);
+K_SEM_DEFINE(adc2_lock, 1, 1);
 
-#define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
-#define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
-#define ADC_LOCK_TRY_ACQUIRE(lock) ((k_mutex_lock(lock, K_NO_WAIT) == 0) ? 0 : -1)
+#define ADC_LOCK_ACQUIRE(lock) do { esp_sem_take_safe(lock); } while(0)
+#define ADC_LOCK_RELEASE(lock) do { k_sem_give(lock); } while(0)
+#define ADC_LOCK_TRY_ACQUIRE(lock) ((k_sem_take(lock, K_NO_WAIT) == 0) ? 0 : -1)
 
 esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 {
@@ -150,12 +150,12 @@ esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 esp_err_t adc_lock_release(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_2) {
-        ESP_RETURN_ON_FALSE((adc2_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+        ESP_RETURN_ON_FALSE((k_sem_count_get(&adc2_lock) == 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
         ADC_LOCK_RELEASE(&adc2_lock);
     }
 
     if (adc_unit == ADC_UNIT_1) {
-        ESP_RETURN_ON_FALSE((adc1_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
+        ESP_RETURN_ON_FALSE((k_sem_count_get(&adc1_lock) == 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
         ADC_LOCK_RELEASE(&adc1_lock);
     }
 
