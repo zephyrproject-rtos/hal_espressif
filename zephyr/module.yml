@@ -17,6 +17,22 @@ blobs:
     url: https://github.com/espressif/esp32c5-bt-lib/raw/c328228f53fe167cc9fbd05b5bef37158f64956d/libble_app.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp32c5-bt-lib
+  - path: lib/esp32s31/libble_app.a
+    sha256: 34b2c4b8cc6a354c836b77f0a1eb61871a89479a5cbc65f2d32848d9b227b633
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32s31-bt-lib/raw/3fe7c1bc6cfcf83b365d965640899352d5ff2a4c/libble_app.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32s31-bt-lib
+  - path: lib/esp32s31/libbtdm_common.a
+    sha256: 37131a88c7fb3724142279ae0b97cb0953d9e3cd03095f9645b438e006f11fa6
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp32s31-bt-lib/raw/3fe7c1bc6cfcf83b365d965640899352d5ff2a4c/libbtdm_common.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp32s31-bt-lib
   - path: lib/esp32c6/libble_app.a
     sha256: 31f5e69a98a5893abbbb21434d6685d886688642bfdcc9d1ddce687be7558d6f
     type: lib
@@ -495,6 +511,14 @@ blobs:
     version: '1.0'
     license-path: zephyr/blobs/license.txt
     url: https://github.com/espressif/esp-phy-lib/raw/e37ecdc9c1e93fefda5b1a99f09bd979046d0720/esp32c6/libbtbb.a
+    description: "Binary libraries supporting the ESP32 series RF subsystems"
+    doc-url: https://github.com/espressif/esp-phy-lib
+  - path: lib/esp32s31/libbtbb.a
+    sha256: f6fb6e5f64b1d0a930ea65445c0bcc982be68abaae4d4a66914a8434212d41c7
+    type: lib
+    version: '1.0'
+    license-path: zephyr/blobs/license.txt
+    url: https://github.com/espressif/esp-phy-lib/raw/5695f4f38108658bc4a33e4712c1ebcb34911434/esp32s31/libbtbb.a
     description: "Binary libraries supporting the ESP32 series RF subsystems"
     doc-url: https://github.com/espressif/esp-phy-lib
   - path: lib/esp32c61/libbtbb.a

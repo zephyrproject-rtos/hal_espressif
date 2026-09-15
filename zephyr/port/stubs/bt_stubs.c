@@ -851,3 +851,301 @@ void r_esp_ble_rtc_ticks_delay(uint32_t ticks)
 }
 
 #endif /* CONFIG_SOC_SERIES_ESP32H2 */
+
+#if defined(CONFIG_SOC_SERIES_ESP32S31)
+
+struct os_mbuf;
+
+const char *ble_controller_get_compile_version(void)
+{
+	return "stub";
+}
+
+const char *r_btdm_get_compile_version(void)
+{
+	return "stub";
+}
+
+void bt_bb_v2_init_cmplx(uint8_t i)
+{
+	(void)i;
+}
+
+int esp_ble_register_bb_funcs(void)
+{
+	return 0;
+}
+
+int esp_ble_unregister_bb_funcs(void)
+{
+	return 0;
+}
+
+int esp_register_ext_funcs(void *funcs)
+{
+	(void)funcs;
+	return 0;
+}
+
+void esp_unregister_ext_funcs(void)
+{
+}
+
+int r_base_stack_initEnv(void)
+{
+	return 0;
+}
+
+int r_base_stack_deinitEnv(void)
+{
+	return 0;
+}
+
+int r_base_stack_enable(void)
+{
+	return 0;
+}
+
+void r_base_stack_disable(void)
+{
+}
+
+int r_conn_stack_initEnv(void)
+{
+	return 0;
+}
+
+void r_conn_stack_deinitEnv(void)
+{
+}
+
+int r_conn_stack_enable(void)
+{
+	return 0;
+}
+
+void r_conn_stack_disable(void)
+{
+}
+
+int r_ble_controller_init(void *cfg)
+{
+	(void)cfg;
+	return 0;
+}
+
+int r_ble_controller_deinit(void)
+{
+	return 0;
+}
+
+void r_ble_hci_trans_buf_free(uint8_t *buf)
+{
+	(void)buf;
+}
+
+void r_ble_hci_trans_cfg_hs(void *evt_cb, void *evt_arg, void *acl_cb, void *acl_arg)
+{
+	(void)evt_cb;
+	(void)evt_arg;
+	(void)acl_cb;
+	(void)acl_arg;
+}
+
+int r_ble_hci_trans_hs_acl_tx(struct os_mbuf *om)
+{
+	(void)om;
+	return 0;
+}
+
+int r_ble_ll_get_npl_element_info(void *cfg, void *elem)
+{
+	(void)cfg;
+	(void)elem;
+	return 0;
+}
+
+int r_ble_txpwr_get(int power_type, uint16_t handle)
+{
+	(void)power_type;
+	(void)handle;
+	return 0;
+}
+
+int r_ble_txpwr_set(int power_type, uint16_t handle, int power_level)
+{
+	(void)power_type;
+	(void)handle;
+	(void)power_level;
+	return 0;
+}
+
+uint16_t r_btdm_get_le16(const void *buf)
+{
+	(void)buf;
+	return 0;
+}
+
+void r_btdm_swap_in_place(void *buf, int len)
+{
+	(void)buf;
+	(void)len;
+}
+
+void r_btdm_swap_buf(uint8_t *dst, const uint8_t *src, int len)
+{
+	(void)dst;
+	(void)src;
+	(void)len;
+}
+
+int r_btdm_hal_rtc_freq_set(uint64_t freq)
+{
+	(void)freq;
+	return 0;
+}
+
+int r_btdm_hci_fc_env_init(void)
+{
+	return 0;
+}
+
+void r_btdm_hci_fc_env_deinit(void)
+{
+}
+
+int r_btdm_hci_fc_enable(void)
+{
+	return 0;
+}
+
+void r_btdm_hci_fc_disable(void)
+{
+}
+
+void *r_btdm_hci_trans_buf_alloc(uint8_t type, uint16_t handle)
+{
+	(void)type;
+	(void)handle;
+	return NULL;
+}
+
+void r_btdm_hci_trans_buf_free(void *buf)
+{
+	(void)buf;
+}
+
+int r_btdm_hci_trans_register_tx(void *tx_func, bool async)
+{
+	(void)tx_func;
+	(void)async;
+	return 0;
+}
+
+int r_btdm_hci_trans_rx(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
+int r_btdm_os_mempool_init(void *cfg)
+{
+	(void)cfg;
+	return 0;
+}
+
+int r_btdm_task_init(void *cfg)
+{
+	(void)cfg;
+	return 0;
+}
+
+void r_btdm_task_deinit(void)
+{
+}
+
+int r_btdm_task_enable(void)
+{
+	return 0;
+}
+
+void r_btdm_task_disable(void)
+{
+}
+
+void r_btdm_task_shutdown(void)
+{
+}
+
+int r_esp_ble_ll_set_public_addr(const uint8_t *addr)
+{
+	(void)addr;
+	return 0;
+}
+
+int r_esp_ble_msys_init(uint16_t size1, uint16_t size2, uint16_t cnt1, uint16_t cnt2,
+			uint8_t from_heap)
+{
+	(void)size1;
+	(void)size2;
+	(void)cnt1;
+	(void)cnt2;
+	(void)from_heap;
+	return 0;
+}
+
+void r_esp_ble_msys_deinit(void)
+{
+}
+
+void r_filter_duplicate_mode_enable(int mode)
+{
+	(void)mode;
+}
+
+void r_filter_duplicate_mode_disable(int mode)
+{
+	(void)mode;
+}
+
+void r_filter_duplicate_set_ring_list_max_num(uint32_t max)
+{
+	(void)max;
+}
+
+void r_scan_duplicate_cache_refresh_set_time(uint32_t period_time)
+{
+	(void)period_time;
+}
+
+int r_os_mbuf_append(struct os_mbuf *om, const void *data, uint16_t len)
+{
+	(void)om;
+	(void)data;
+	(void)len;
+	return 0;
+}
+
+int r_os_mbuf_copydata(const struct os_mbuf *om, int off, int len, void *dst)
+{
+	(void)om;
+	(void)off;
+	(void)len;
+	(void)dst;
+	return 0;
+}
+
+int r_os_mbuf_free_chain(struct os_mbuf *om)
+{
+	(void)om;
+	return 0;
+}
+
+struct os_mbuf *r_os_msys_get_pkthdr(uint16_t dsize, uint16_t user_hdr_len)
+{
+	(void)dsize;
+	(void)user_hdr_len;
+	return NULL;
+}
+
+#endif /* CONFIG_SOC_SERIES_ESP32S31 */

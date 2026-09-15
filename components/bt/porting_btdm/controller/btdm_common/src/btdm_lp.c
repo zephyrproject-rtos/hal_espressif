@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
