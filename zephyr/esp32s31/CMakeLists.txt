@@ -33,10 +33,9 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     ../../components/bootloader_support/private_include
     ../../components/bt/controller/${CONFIG_SOC_SERIES}
     ../../components/bt/include/${CONFIG_SOC_SERIES}/include
-    ../../components/bt/porting/include
-    ../../components/bt/porting/npl/zephyr/include
-    ../../components/bt/porting/npl/zephyr/include/nimble
-    ../../components/bt/porting/transport/include
+    ../../components/bt/porting_btdm/controller/btdm_common/include
+    ../../components/bt/porting_btdm/controller/ble/include
+    ../../components/bt/porting_btdm/transport/include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
     ../../components/driver/include
@@ -896,6 +895,50 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_MBO_SUPPORT CONFIG_MBO)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_11R_SUPPORT CONFIG_IEEE80211R)
     zephyr_compile_definitions_ifdef(CONFIG_ESP32_WIFI_SCAN_CACHE CONFIG_ESP_WIFI_SCAN_CACHE)
+
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT_ESP32)
+
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      )
+
+    zephyr_compile_definitions(CONFIG_BT_ENABLED=1)
+    zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED=1)
+
+    # BTDM controller port, built with the ESP32_BT_ to CONFIG_BT_ mapping
+    zephyr_library_named(esp32s31_btdm)
+
+    zephyr_library_sources(
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_osal_zephyr.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_coex.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_external.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_log.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_lp.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble_msys.c
+      ../../components/bt/porting_btdm/transport/src/hci_transport.c
+      ../../components/bt/porting_btdm/transport/driver/vhci/hci_driver_standard.c
+      ../../components/bt/controller/${CONFIG_SOC_SERIES}/bt.c
+      src/bt/ble_sm_alg_psa.c
+      src/bt/bt_cfg_default.c
+      )
+
+    zephyr_library_include_directories(src/bt/include)
+
+    zephyr_library_compile_options(
+      -include${CMAKE_CURRENT_SOURCE_DIR}/../../components/bt/controller/${CONFIG_SOC_SERIES}/esp_bt_cfg.h
+      )
+
+    zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/stubs/bt_stubs.c
+      ../port/stubs/phy_stubs.c
+      )
+
+    # ble, with btbb after ble_app to resolve its baseband calls
+    esp_blobs_link(ble_app btdm_common btbb)
 
   endif()
 
