@@ -5,8 +5,6 @@
  */
 
 #include <stdint.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
 #include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
