@@ -175,7 +175,7 @@ if(CONFIG_SOC_SERIES_ESP32)
 
   zephyr_compile_definitions(ESP_PLATFORM)
 
-  zephyr_sources(src/hal/windowspill_asm.S)
+  zephyr_sources_ifdef(CONFIG_XTENSA_ENABLE_BACKTRACE ../common/windowspill_asm.S)
 
   zephyr_sources(
     ../../components/efuse/src/esp_efuse_api.c
