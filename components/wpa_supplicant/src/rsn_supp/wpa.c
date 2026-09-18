@@ -37,6 +37,7 @@
 #include "common/sae.h"
 #include "esp_eap_client_i.h"
 #include "esp_wpa3_i.h"
+#include "esp_wifi_sta_pmksa_cache_i.h"
 #include "eap_peer/eap.h"
 
 /**
@@ -2439,6 +2440,7 @@ bool wpa_sm_init(void)
 void wpa_sm_deinit(void)
 {
     struct wpa_sm *sm = &gWpaSm;
+    esp_wifi_sta_pmksa_cache_deinit();
     pmksa_cache_deinit(sm->pmksa);
     sm->pmksa = NULL;
     os_free(sm->assoc_rsnxe);
@@ -2685,6 +2687,9 @@ int wpa_set_bss(uint8_t *macddr, uint8_t *bssid, uint8_t pairwise_cipher, uint8_
     sm->renew_snonce = 1;
     memcpy(sm->own_addr, macddr, ETH_ALEN);
     memcpy(sm->bssid, bssid, ETH_ALEN);
+    if (esp_wifi_sta_pmksa_cache_install(sm, bssid)) {
+        use_pmk_cache = true;
+    }
     sm->ap_notify_completed_rsne = esp_wifi_sta_is_ap_notify_completed_rsne_internal();
     sm->use_ext_key_id = (sm->proto == WPA_PROTO_WPA);
     sm->sae_pwe = esp_wifi_get_config_sae_pwe_h2e_internal(WIFI_IF_STA);
