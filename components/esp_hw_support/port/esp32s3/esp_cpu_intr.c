@@ -22,16 +22,13 @@ typedef struct {
 
 const static intr_desc_t intr_desc_table [SOC_CPU_INTR_NUM] = {
     /* Interrupt 0 reserved for WMAC (Wifi) */
-#if CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_0
-    [0] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   0                               } },
-#else
-    [0] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              ESP_CPU_INTR_DESC_FLAG_RESVD    } },
-#endif
-    [1] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              0                               } },
+    [0] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } },
+    /* Interrupt 1 used by the WiFi blob alongside int 0 */
+    [1] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } },
     [2] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              0                               } },
     [3] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              0                               } },
     /* Interrupt 4 reserved for WBB */
-    [4] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   0                               } },
+    [4] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   ESP_CPU_INTR_DESC_FLAG_RESVD    } },
     [5] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              0                               } },
     [6] = { 1, ESP_CPU_INTR_TYPE_NA,     { ESP_CPU_INTR_DESC_FLAG_SPECIAL, ESP_CPU_INTR_DESC_FLAG_SPECIAL  } },
     [7] = { 1, ESP_CPU_INTR_TYPE_NA,     { ESP_CPU_INTR_DESC_FLAG_SPECIAL, ESP_CPU_INTR_DESC_FLAG_SPECIAL  } },

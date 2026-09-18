@@ -11,28 +11,31 @@
 
 #ifdef __ZEPHYR__
 #include <zephyr/irq.h>
+#include <zephyr/arch/cpu.h>
 
 /*
- * Use interrupt locking instead of Zephyr spinlocks because this code runs
- * during early boot before the kernel is initialized (e.g., PSRAM init).
+ * Use arch_irq_lock instead of irq_lock because this code runs during early
+ * boot before the kernel threading model is up (e.g., PSRAM init). Under SMP,
+ * irq_lock() resolves to z_smp_global_lock() which dereferences _current and
+ * is unsafe pre-kernel.
  */
 static uint64_t s_reserved_pin_mask = ~(SOC_GPIO_VALID_GPIO_MASK);
 
 uint64_t esp_gpio_reserve(uint64_t gpio_mask)
 {
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     uint64_t prev = s_reserved_pin_mask;
     s_reserved_pin_mask |= gpio_mask;
-    irq_unlock(key);
+    arch_irq_unlock(key);
     return prev;
 }
 
 uint64_t esp_gpio_revoke(uint64_t gpio_mask)
 {
-    unsigned int key = irq_lock();
+    unsigned int key = arch_irq_lock();
     uint64_t prev = s_reserved_pin_mask;
     s_reserved_pin_mask &= ~gpio_mask;
-    irq_unlock(key);
+    arch_irq_unlock(key);
     return prev;
 }
 
