@@ -431,7 +431,6 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../port/heap/heap_caps_zephyr.c
     src/soc_flash_init.c
     src/soc_init.c
-    src/soc_random.c
   )
 
   ## WIFI definitions
