@@ -203,8 +203,8 @@ static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
      * kernel is not yet running (e.g. early boot flash erase recovery).
      */
     if (!k_is_pre_kernel()) {
-#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
-        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
+#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_MS
+        k_sleep(K_MSEC(CONFIG_SPI_FLASH_ERASE_YIELD_MS));
 #else
         k_sleep(K_MSEC(1));
 #endif
@@ -433,16 +433,28 @@ esp_err_t esp_flash_set_dangerous_write_protection(esp_flash_t *chip, const bool
 // Valid task execution interval: continuous time with the cache enabled, which is longer than
 // CONFIG_SPI_FLASH_ERASE_YIELD_TICKS. Yield time shorter than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS is
 // not treated as valid interval.
+/* The yield bookkeeping runs with the cache enabled: check_yield() is called
+ * before start(), released() after end() has restored the cache, and yielded()
+ * after the sleep. Any kernel time source is safe there.
+ */
+#if defined(__ZEPHYR__) && defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+static inline uint32_t spi_flash_os_time_us(void)
+{
+    return (uint32_t)k_ticks_to_us_floor64(k_uptime_ticks());
+}
+#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_MS * 1000)
+#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+#define spi_flash_os_time_us() ((uint32_t)esp_system_get_time())
+#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000)
+#endif
+
 static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
 {
-#ifdef __ZEPHYR__
-    (void)ctx;
-    return false;
-#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
-    uint32_t time = esp_system_get_time();
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    uint32_t time = spi_flash_os_time_us();
     // We handle the reset here instead of in `on_spi_acquired()`, when acquire() and release() is
-    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
-    if ((time - ctx->released_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000) {
+    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one time query
+    if ((time - ctx->released_since_us) >= SPI_FLASH_YIELD_TICKS_US) {
         // Reset the acquired time as if the yield has just happened.
         ctx->acquired_since_us = time;
     } else if ((time - ctx->acquired_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_DURATION_MS * 1000) {
@@ -457,10 +469,8 @@ static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
 
 static inline IRAM_ATTR void on_spi_released(app_func_arg_t* ctx)
 {
-#if defined(__ZEPHYR__)
-    (void)ctx;
-#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
-    ctx->released_since_us = esp_system_get_time();
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    ctx->released_since_us = spi_flash_os_time_us();
 #else
     (void)ctx;
 #endif
@@ -480,10 +490,9 @@ static inline IRAM_ATTR void on_spi_acquired(app_func_arg_t* ctx)
 
 static inline IRAM_ATTR void on_spi_yielded(app_func_arg_t* ctx)
 {
-#if defined(__ZEPHYR__)
-    (void)ctx;
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    ctx->acquired_since_us = spi_flash_os_time_us();
 #else
-    uint32_t time = esp_system_get_time();
-    ctx->acquired_since_us = time;
+    (void)ctx;
 #endif
 }
