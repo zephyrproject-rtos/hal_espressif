@@ -624,9 +624,13 @@ static esp_err_t init_timer_task(void)
         k_thread_name_set(&s_timer_task, "esp_timer");
 
 #if defined(CONFIG_SMP)
-#if defined(CONFIG_SCHED_CPU_MASK) && defined(CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID)
+        /* The core choice for this task only exists with CONFIG_SCHED_CPU_MASK,
+         * and the radio stacks expect their timers on the configured core, so
+         * fail the build rather than let the scheduler float the task.
+         */
+        BUILD_ASSERT(IS_ENABLED(CONFIG_SCHED_CPU_MASK),
+                     "esp_timer under SMP requires CONFIG_SCHED_CPU_MASK");
         k_thread_cpu_pin(tid, CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID);
-#endif
         k_thread_start(tid);
 #else
         ARG_UNUSED(tid);
