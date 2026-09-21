@@ -430,7 +430,6 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     ../port/heap/heap_caps_zephyr.c
     src/soc_flash_init.c
     src/soc_init.c
-    src/soc_random.c
   )
 
   zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_ENABLE_PVT
