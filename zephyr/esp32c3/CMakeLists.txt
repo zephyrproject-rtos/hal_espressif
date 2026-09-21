@@ -399,7 +399,6 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../port/heap/heap_caps_zephyr.c
     src/soc_flash_init.c
     src/soc_init.c
-    src/soc_random.c
   )
 
   zephyr_sources_ifdef(CONFIG_MAC_BB_PD

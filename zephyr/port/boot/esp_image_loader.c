@@ -10,6 +10,7 @@
 #include <bootutil/fault_injection_hardening.h>
 
 #include "bootloader_flash_priv.h"
+#include "bootloader_random.h"
 #include "esp_flash_encrypt.h"
 #include "soc/soc_memory_layout.h"
 #include "esp_log.h"
@@ -231,6 +232,9 @@ void start_cpu0_image(int image_index, int slot, unsigned int hdr_offset)
 {
     unsigned int entry_addr;
     esp_app_image_load(image_index, slot, hdr_offset, &entry_addr);
+
+    /* Disable random number generator before jumping to the application. */
+    bootloader_random_disable();
 
     if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
         sys_clock_disable();
