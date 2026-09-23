@@ -86,7 +86,7 @@ IRAM_ATTR void *wifi_malloc(size_t size)
     void *ptr = esp_wifi_malloc_func(size);
 
     if (ptr == NULL) {
-        LOG_ERR("memory allocation failed");
+        LOG_ERR_RATELIMIT("memory allocation failed");
     }
 
     return ptr;
@@ -97,7 +97,7 @@ IRAM_ATTR void *wifi_realloc(void *ptr, size_t size)
     void *p = esp_wifi_realloc_func(ptr, size);
 
     if (p == NULL) {
-        LOG_ERR("memory allocation failed");
+        LOG_ERR_RATELIMIT("memory allocation failed");
     }
 
     return p;
@@ -108,7 +108,7 @@ IRAM_ATTR void *wifi_calloc(size_t n, size_t size)
     void *ptr = esp_wifi_calloc_func(n, size);
 
     if (ptr == NULL) {
-        LOG_ERR("memory allocation failed");
+        LOG_ERR_RATELIMIT("memory allocation failed");
     }
 
     return ptr;
