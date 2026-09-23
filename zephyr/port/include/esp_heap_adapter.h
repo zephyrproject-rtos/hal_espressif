@@ -62,10 +62,10 @@ static inline void* os_wpa_malloc_func(size_t _size)
 
 static inline void* os_wpa_realloc_func(void *_ptr, size_t _size)
 {
-	if (_ptr) {
-		esp_wifi_free_func(_ptr);
+	if (esp_ptr_in_dram(_ptr)) {
+		return k_realloc(_ptr, _size);
 	}
-	return os_wpa_malloc_func(_size);
+	return shared_multi_heap_realloc(SMH_REG_ATTR_EXTERNAL, _ptr, _size);
 }
 
 static inline void* os_wpa_calloc_func(size_t _nmemb, size_t _size)
@@ -121,10 +121,7 @@ static inline void* esp_bt_calloc_func(size_t _nmemb, size_t _size)
 
 static inline void* esp_bt_realloc_func(void *_ptr, size_t _size)
 {
-	if (_ptr) {
-		shared_multi_heap_free(_ptr);
-	}
-	return esp_bt_malloc_func(_size);
+	return shared_multi_heap_realloc(SMH_REG_ATTR_EXTERNAL, _ptr, _size);
 }
 
 static inline void esp_bt_free_func(void *_mem)
