@@ -82,6 +82,12 @@ esp_err_t esp_mesh_send_block_time(uint32_t time_ms)
 	return ESP_OK;
 }
 
+esp_err_t esp_mesh_allow_root_conflicts(bool allowed)
+{
+	ARG_UNUSED(allowed);
+	return ESP_OK;
+}
+
 esp_err_t esp_mesh_post_toDS_state(bool reachable)
 {
 	ARG_UNUSED(reachable);
