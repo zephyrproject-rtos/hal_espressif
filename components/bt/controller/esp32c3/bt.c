@@ -7,6 +7,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
+#include <zephyr/irq.h>
+#include <zephyr/irq_multilevel.h>
+#include <zephyr/devicetree.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -853,42 +856,82 @@ static inline void esp_bt_power_domain_off(void)
     esp_wifi_bt_power_domain_off();
 }
 
-static void btdm_intr_alloc(void *arg)
-{
-    btdm_isr_alloc_t *p = arg;
-    p->ret = esp_intr_alloc(p->source, p->flags, p->fn, p->arg, p->handle);
-}
+/*
+ * The controller picks its interrupt sources at run time, so they cannot be
+ * named in the devicetree and IRQ_CONNECT() is not usable here. What the
+ * devicetree does provide is ble_intmux, a CPU interrupt line reserved for the
+ * controller; combining it with the source the blob asks for gives the
+ * multilevel-encoded level-2 IRQ that irq_connect_dynamic() expects.
+ *
+ * Sharing one line across several sources is fine: nothing is statically
+ * connected on it, so esp_intc_intr_enable() finds the level-1 slot still
+ * spurious and installs z_soc_2nd_lvl_isr, which then dispatches each source
+ * from its own slot in the level-2 window.
+ *
+ * The opaque handle the controller keeps is the encoded IRQ itself, which is
+ * non-zero for every level-2 IRQ, so the blob's NULL checks still behave.
+ * That is also what lets the enable/disable wrappers below work: they are
+ * handed the handle, not the source, and can act on the line directly.
+ *
+ * The ESP_INTR_FLAG_LEVEL3 this used to request is gone. It asked the old
+ * allocator for a priority-3 vector; the priority is now a property of the
+ * CPU line named by ble_intmux, which is chosen to be a priority-3 line.
+ * ESP_INTR_FLAG_IRAM is the only flag the connect path still acts on, and
+ * both wrappers pass the same value so the per-line client counters in
+ * z_soc_irq_flags_apply()/_clear() stay balanced.
+ */
+#define BLE_IRQ_FROM_SOURCE(source) \
+    (irq_to_level_2(source) | DT_IRQN(DT_NODELABEL(ble_intmux)))
+
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+#define BLE_ISR_FLAGS 0
+#else
+#define BLE_ISR_FLAGS ESP_INTR_FLAG_IRAM
+#endif
 
 static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle)
 {
-    btdm_isr_alloc_t p;
-    p.source = source;
-#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
-    p.flags = ESP_INTR_FLAG_LEVEL3;
-#else
-    p.flags = ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM;
-#endif
-    p.fn = handler;
-    p.arg = arg;
-    p.handle = (intr_handle_t *)ret_handle;
-    /* Zephyr: direct interrupt allocation */
-    btdm_intr_alloc(&p);
-    return p.ret;
+    unsigned int irq = BLE_IRQ_FROM_SOURCE(source);
+    int rc;
+
+    ARG_UNUSED(cpu_id);
+
+    rc = irq_connect_dynamic(irq, IRQ_DEFAULT_PRIORITY, (void (*)(const void *))handler, arg,
+                             BLE_ISR_FLAGS);
+    if (rc < 0) {
+        return rc;
+    }
+
+    *ret_handle = (void *)(uintptr_t)irq;
+
+    return 0;
 }
 
 static int interrupt_free_wrapper(void *handle)
 {
-    return esp_intr_free((intr_handle_t)handle);
+    unsigned int irq = (unsigned int)(uintptr_t)handle;
+
+    irq_disable(irq);
+    /* Releases the line's client count in z_soc_irq_flags_clear(); without it
+     * the line stays pinned non-IRAM-capable after the controller is stopped.
+     */
+    irq_disconnect_dynamic(irq, IRQ_DEFAULT_PRIORITY, NULL, NULL, BLE_ISR_FLAGS);
+
+    return 0;
 }
 
 static int interrupt_enable_wrapper(void *handle)
 {
-    return esp_intr_enable((intr_handle_t)handle);
+    irq_enable((unsigned int)(uintptr_t)handle);
+
+    return 0;
 }
 
 static int interrupt_disable_wrapper(void *handle)
 {
-    return esp_intr_disable((intr_handle_t)handle);
+    irq_disable((unsigned int)(uintptr_t)handle);
+
+    return 0;
 }
 
 static void IRAM_ATTR global_interrupt_disable(void)

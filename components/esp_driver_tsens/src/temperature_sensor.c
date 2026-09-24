@@ -84,6 +84,10 @@ static esp_err_t temperature_sensor_choose_best_range(temperature_sensor_handle_
 }
 
 #if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
+#ifndef __ZEPHYR__
+/* Only temperature_sensor_register_callbacks() connects this, and that is not
+ * built under Zephyr - see the note there.
+ */
 static void IRAM_ATTR temperature_sensor_isr(void *arg)
 {
     temperature_sensor_ll_clear_intr();
@@ -102,6 +106,7 @@ static void IRAM_ATTR temperature_sensor_isr(void *arg)
 
     (void)cbs_yield;
 }
+#endif /* __ZEPHYR__ */
 #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
 
 #if TEMPERATURE_SENSOR_USE_RETENTION_LINK
@@ -196,9 +201,14 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
 
 #if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
     temperature_sensor_ll_enable_intr(false);
+#ifndef __ZEPHYR__
+    /* Paired with temperature_sensor_register_callbacks(), which is not built
+     * under Zephyr - nothing ever allocates this handle here.
+     */
     if (tsens->temp_sensor_isr_handle) {
         ESP_RETURN_ON_ERROR(esp_intr_free(tsens->temp_sensor_isr_handle), TAG, "uninstall interrupt service failed");
     }
+#endif /* __ZEPHYR__ */
 #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
 
 #if TEMPERATURE_SENSOR_USE_RETENTION_LINK
@@ -353,6 +363,23 @@ esp_err_t temperature_sensor_set_delta_threshold(temperature_sensor_handle_t tse
     return ret;
 }
 
+#ifndef __ZEPHYR__
+/*
+ * Not built under Zephyr. The threshold interrupt is the only thing this
+ * function sets up, and nothing reaches it: the Zephyr driver
+ * (drivers/sensor/espressif/esp32_temp/esp32_temp.c) only installs, enables and
+ * polls the sensor.
+ *
+ * Migrating it needs more than swapping the call. On the SoCs where
+ * SOC_ADC_TEMPERATURE_SHARE_INTR is set, the ADC shares
+ * ETS_TEMPERATURE_SENSOR_INTR_SOURCE, which is why this asks for
+ * ESP_INTR_FLAG_SHARED together with a status register and a mask. That trio is
+ * exactly what the espressif,esp32-l3-intc aggregator replaces: the sensor
+ * becomes a level-3 leaf naming its own status bit, and the aggregator
+ * dispatches. See drivers/comparator/comparator_esp32_ana_cmpr.c for the worked
+ * example - it keeps the old esp_intr_alloc_intrstatus() call in a comment next
+ * to its IRQ_CONNECT().
+ */
 esp_err_t temperature_sensor_register_callbacks(temperature_sensor_handle_t tsens, const temperature_sensor_event_callbacks_t *cbs, void *user_arg)
 {
     esp_err_t ret = ESP_OK;
@@ -391,5 +418,6 @@ esp_err_t temperature_sensor_register_callbacks(temperature_sensor_handle_t tsen
     }
     return ret;
 }
+#endif /* __ZEPHYR__ */
 
 #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT

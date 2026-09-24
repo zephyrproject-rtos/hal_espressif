@@ -8,6 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <zephyr/irq.h>
+#include <zephyr/irq_multilevel.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+
 #include "esp_random.h"
 #include "esp_heap_caps.h"
 #include "esp_heap_caps_init.h"
@@ -599,23 +604,72 @@ static int esp_ecc_gen_dh_key(const uint8_t *peer_pub_key_x, const uint8_t *peer
     return rc;
 }
 
+/*
+ * The controller picks its interrupt sources at run time, so they cannot be
+ * named in the devicetree and IRQ_CONNECT() is not usable here. What the
+ * devicetree does provide is ble_intmux, a CPU interrupt line reserved for the
+ * controller; combining it with the source the blob asks for gives the
+ * multilevel-encoded level-2 IRQ that irq_connect_dynamic() expects.
+ *
+ * Sharing one line across several sources is fine: nothing is statically
+ * connected on it, so esp_intc_intr_enable() finds the level-1 slot still
+ * spurious and installs z_soc_2nd_lvl_isr, which then dispatches each source
+ * from its own slot in the level-2 window.
+ *
+ * The opaque handle the controller keeps is the encoded IRQ itself, which is
+ * non-zero for every level-2 IRQ, so the blob's NULL checks still behave.
+ */
+#define BLE_IRQ_FROM_SOURCE(source) \
+    (irq_to_level_2(source) | DT_IRQN(DT_NODELABEL(ble_intmux)))
+
+/*
+ * The only flag the connect path acts on is ESP_INTR_FLAG_IRAM, which decides
+ * whether the line stays enabled while the flash cache is off. The controller's
+ * own ESP_INTR_FLAG_LEVELx bits are dropped: the interrupt priority now comes
+ * from the CPU line named by ble_intmux, not from the allocation request.
+ *
+ * Both wrappers use this same value so that the per-line client counters in
+ * z_soc_irq_flags_apply()/_clear() stay balanced; passing the blob's flags
+ * through would let a connect and its disconnect disagree.
+ */
+#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
+#define BLE_ISR_FLAGS 0
+#else
+#define BLE_ISR_FLAGS ESP_INTR_FLAG_IRAM
+#endif
+
 static int esp_intr_alloc_wrapper(int source, int flags, intr_handler_t handler,
                                   void *arg, void **ret_handle_in)
 {
-#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
-    int rc = esp_intr_alloc(source, flags, handler, arg, (intr_handle_t *)ret_handle_in);
-#else
-    int rc = esp_intr_alloc(source, flags | ESP_INTR_FLAG_IRAM, handler, arg, (intr_handle_t *)ret_handle_in);
-#endif
-    return rc;
+    unsigned int irq = BLE_IRQ_FROM_SOURCE(source);
+    int rc;
+
+    ARG_UNUSED(flags);
+
+    rc = irq_connect_dynamic(irq, IRQ_DEFAULT_PRIORITY, (void (*)(const void *))handler, arg,
+                             BLE_ISR_FLAGS);
+    if (rc < 0) {
+        return rc;
+    }
+
+    irq_enable(irq);
+    *ret_handle_in = (void *)(uintptr_t)irq;
+
+    return 0;
 }
 
 static int esp_intr_free_wrapper(void **ret_handle)
 {
-    int rc = 0;
-    rc = esp_intr_free((intr_handle_t) * ret_handle);
+    unsigned int irq = (unsigned int)(uintptr_t) * ret_handle;
+
+    irq_disable(irq);
+    /* Releases the line's client count in z_soc_irq_flags_clear(); without it
+     * the line stays pinned non-IRAM-capable after the controller is stopped.
+     */
+    irq_disconnect_dynamic(irq, IRQ_DEFAULT_PRIORITY, NULL, NULL, BLE_ISR_FLAGS);
     *ret_handle = NULL;
-    return rc;
+
+    return 0;
 }
 
 void esp_bt_rtc_slow_clk_select(uint8_t slow_clk_src)

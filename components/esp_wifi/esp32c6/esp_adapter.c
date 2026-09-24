@@ -15,6 +15,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/dt-bindings/interrupt-controller/esp-esp32c6-intmux.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32c6_wifi_adapter, CONFIG_WIFI_LOG_LEVEL);
@@ -203,7 +204,7 @@ static void clear_intr_wrapper(uint32_t intr_source, uint32_t intr_num)
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
     irq_disable(n);
-    irq_connect_dynamic(n, 0, f, arg, 0);
+    irq_connect_dynamic(n, IRQ_DEFAULT_PRIORITY, f, arg, ESP_INTR_FLAG_IRAM);
     irq_enable(n);
 }
 
