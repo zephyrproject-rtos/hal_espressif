@@ -833,7 +833,9 @@ static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, vo
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, stack_depth,
+    ARG_UNUSED(stack_depth);
+
+    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, K_THREAD_STACK_SIZEOF(bt_stack),
                       (k_thread_entry_t)task_func, param, NULL, NULL,
                       K_PRIO_COOP(prio), K_INHERIT_PERMS, K_NO_WAIT);
 
