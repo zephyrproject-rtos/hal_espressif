@@ -910,6 +910,47 @@ void r_base_stack_disable(void)
 {
 }
 
+int r_iso_stack_initEnv(void)
+{
+	return 0;
+}
+
+void r_iso_stack_deinitEnv(void)
+{
+}
+
+int r_iso_stack_enable(void)
+{
+	return 0;
+}
+
+void r_iso_stack_disable(void)
+{
+}
+
+int r_gapFinder_stack_enable(void)
+{
+	return 0;
+}
+
+void r_gapFinder_stack_disable(void)
+{
+}
+
+void r_ble_iso_trans_cfg_hs(void *iso_cb, void *iso_arg)
+{
+	(void)iso_cb;
+	(void)iso_arg;
+}
+
+int r_ble_hci_trans_hs_iso_tx(const uint8_t *data, uint16_t length, void *arg)
+{
+	(void)data;
+	(void)length;
+	(void)arg;
+	return 0;
+}
+
 int r_conn_stack_initEnv(void)
 {
 	return 0;
