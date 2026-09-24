@@ -167,10 +167,15 @@ void esp_ipc_isr_stall_resume(void);
 
 #else // CONFIG_ESP_IPC_ISR_ENABLE
 
+#if CONFIG_ESP_IPC_ISR_STALL
+void esp_ipc_isr_stall_other_cpu(void);
+void esp_ipc_isr_release_other_cpu(void);
+#else
 #define esp_ipc_isr_stall_other_cpu()
+#define esp_ipc_isr_release_other_cpu()
+#endif
 #define esp_ipc_isr_stall_other_cpu_safe() (ESP_OK)
 #define esp_ipc_isr_is_other_cpu_stalled() (false)
-#define esp_ipc_isr_release_other_cpu()
 #define esp_ipc_isr_stall_pause()
 #define esp_ipc_isr_stall_abort()
 #define esp_ipc_isr_stall_resume()

@@ -438,8 +438,6 @@ static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-	ARG_UNUSED(core_id);
-
 	uint32_t stack_size = MAX(stack_depth, CONFIG_ESP32_WIFI_TASK_STACK_SIZE);
 	struct wifi_task *t = wifi_malloc(sizeof(*t));
 
@@ -463,11 +461,28 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 		return 0;
 	}
 
+	/* The blob assumes its task and interrupt share a core, so pin the task to
+	 * the configured core (create suspended, pin, then start) instead of letting
+	 * the scheduler float it.
+	 */
 	k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
-				      prio, K_INHERIT_PERMS, K_NO_WAIT);
+				      prio, K_INHERIT_PERMS,
+				      IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
 
 	k_thread_name_set(tid, name);
+
+#if defined(CONFIG_SMP)
+	/* k_thread_cpu_pin() is only built with CONFIG_SCHED_CPU_MASK. Pinning is
+	 * not optional here: the blob assumes its task and interrupt share a core,
+	 * so fail the build rather than silently let the scheduler float the task.
+	 */
+	BUILD_ASSERT(IS_ENABLED(CONFIG_SCHED_CPU_MASK),
+		     "WIFI_ESP32 under SMP requires CONFIG_SCHED_CPU_MASK to pin the Wi-Fi task");
+
+	k_thread_cpu_pin(tid, core_id);
+	k_thread_start(tid);
+#endif
 
 	*(int32_t *)task_handle = (int32_t)tid;
 	return 1;
@@ -475,7 +490,9 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle)
 {
-	return task_create_pinned_to_core_wrapper(task_func, name, stack_depth, param, prio, task_handle, 0);
+	/* Tasks created without a core follow the Wi-Fi task's core. */
+	return task_create_pinned_to_core_wrapper(task_func, name, stack_depth, param, prio, task_handle,
+						  IS_ENABLED(CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_1) ? 1 : 0);
 }
 
 static int32_t IRAM_ATTR task_ms_to_tick_wrapper(uint32_t ms)

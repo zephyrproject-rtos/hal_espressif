@@ -52,30 +52,43 @@ bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 #endif
 }
 
+struct coex_int_mux {
+    struct k_spinlock lock;
+    k_spinlock_key_t key;
+};
+
 void * esp_coex_common_spin_lock_create_wrapper(void)
 {
-    unsigned int *wifi_spin_lock = (unsigned int *)k_malloc(sizeof(unsigned int));
+    struct coex_int_mux *mux = k_malloc(sizeof(*mux));
 
-    if (wifi_spin_lock == NULL) {
+    if (mux == NULL) {
         LOG_ERR("spin_lock_create_wrapper allocation failed");
+        return NULL;
     }
 
-    return (void *)wifi_spin_lock;
+    memset(mux, 0, sizeof(*mux));
+    return mux;
 }
 
+/* The blob expects a port mux: interrupts off on the calling core plus a
+ * lock that excludes the other core. irq_lock() would take the global
+ * kernel lock under SMP and serialise every blob critical section with
+ * every other irq_lock() user in the system.
+ */
 uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *wifi_int_mux)
 {
-    unsigned int *int_mux = (unsigned int *)wifi_int_mux;
+    struct coex_int_mux *mux = wifi_int_mux;
 
-    *int_mux = irq_lock();
+    mux->key = k_spin_lock(&mux->lock);
     return 0;
 }
 
 void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *wifi_int_mux, uint32_t tmp)
 {
-    unsigned int *key = (unsigned int *)wifi_int_mux;
+    struct coex_int_mux *mux = wifi_int_mux;
 
-    irq_unlock(*key);
+    ARG_UNUSED(tmp);
+    k_spin_unlock(&mux->lock, mux->key);
 }
 
 void IRAM_ATTR esp_coex_common_task_yield_from_isr_wrapper(void)
@@ -118,7 +131,7 @@ int32_t esp_coex_common_semphr_take_wrapper(void *semphr, uint32_t block_time_ti
     return 0;
 }
 
-int32_t esp_coex_common_semphr_give_wrapper(void *semphr)
+int32_t IRAM_ATTR esp_coex_common_semphr_give_wrapper(void *semphr)
 {
     k_sem_give((struct k_sem *)semphr);
     return 1;
