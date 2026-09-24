@@ -448,8 +448,7 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
         prio = CONFIG_NUM_PREEMPT_PRIORITIES - 1;
     }
 
-    t->stack = k_thread_stack_alloc(stack_size,
-                                    IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+    t->stack = k_thread_stack_alloc(stack_size, 0);
     if (t->stack == NULL) {
         esp_wifi_free(t);
         return 0;
