@@ -2,6 +2,8 @@
 
 if(CONFIG_SOC_SERIES_ESP32S31)
 
+  include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/esp_blobs.cmake)
+
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
@@ -569,6 +571,42 @@ if(CONFIG_SOC_SERIES_ESP32S31)
       ../../components/esp_hal_gpio/${CONFIG_SOC_SERIES}/rtc_io_periph.c
       ../../components/esp_hal_uart/uart_hal_iram.c
       ../../components/esp_hal_uart/uart_hal.c
+      )
+  endif()
+
+
+  ## shared WIFI/BT/IEEE802154 resources
+  if (CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32 OR CONFIG_IEEE802154)
+    zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
+
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+      ../../components/esp_phy/src/phy_common.c
+      ../../components/esp_phy/src/phy_override.c
+      ../../components/esp_phy/${CONFIG_SOC_SERIES}/phy_init_data.c
+      ../../components/esp_coex/${CONFIG_SOC_SERIES}/esp_coex_adapter.c
+      )
+
+    if(CONFIG_ESP32_SW_COEXIST_ENABLE)
+      zephyr_sources(../../components/esp_coex/src/lib_printf.c)
+      zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
+
+      esp_blobs_link(coexist)
+
+      zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.coexist.ld
+        )
+    endif()
+
+    esp_blobs_link(net80211 espnow core pp phy mesh)
+
+    zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
+      # wifi libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.pp.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.phy.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.net80211.ld
       )
   endif()
 

@@ -239,3 +239,11 @@ blob_filters:
     - net80211
     - phy
     - pp
+  esp32s31:
+    - coexist
+    - core
+    - espnow
+    - mesh
+    - net80211
+    - phy
+    - pp
