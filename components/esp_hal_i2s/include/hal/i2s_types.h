@@ -26,7 +26,13 @@ typedef enum {
     I2S_SLOT_MODE_STEREO = 2,        /*!< I2S channel slot format stereo, transmit different data in different slots for tx mode, receive the data in all slots for rx mode. */
 } i2s_slot_mode_t;
 
-#ifndef __ZEPHYR__
+/* Zephyr's I2S driver header (zephyr/drivers/i2s.h) defines its own
+ * enum i2s_dir with the same I2S_DIR_RX/I2S_DIR_TX enumerators. Only
+ * suppress the HAL type when that header is already in scope, to avoid
+ * a redefinition clash; every other translation unit (the LL headers
+ * and clock/peripheral control code) still needs i2s_dir_t.
+ */
+#ifndef ZEPHYR_INCLUDE_DRIVERS_I2S_H_
 /**
  * @brief I2S channel direction
  */
@@ -34,7 +40,7 @@ typedef enum {
     I2S_DIR_RX = BIT(0),            /*!< I2S channel direction RX */
     I2S_DIR_TX = BIT(1),            /*!< I2S channel direction TX */
 } i2s_dir_t;
-#endif /* __ZEPHYR__ */
+#endif /* ZEPHYR_INCLUDE_DRIVERS_I2S_H_ */
 
 /**
  * @brief I2S controller role
