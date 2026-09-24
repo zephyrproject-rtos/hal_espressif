@@ -133,7 +133,7 @@ wr_btdm_coex_version_get(unsigned *major, unsigned *minor, unsigned *path)
 int
 wr_btdm_coex_iso_start(void *coex_iso_info)
 {
-#if CONFIG_SW_COEXIST_ENABLE && CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_SW_COEXIST_ENABLE && CONFIG_ESP32_BT_LE_ISO_SUPPORT
     return coex_iso_start(coex_iso_info);
 #else
     return ESP_OK;
@@ -143,7 +143,7 @@ wr_btdm_coex_iso_start(void *coex_iso_info)
 int
 wr_btdm_coex_iso_stop(uint16_t handle)
 {
-#if CONFIG_SW_COEXIST_ENABLE && CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_SW_COEXIST_ENABLE && CONFIG_ESP32_BT_LE_ISO_SUPPORT
     return coex_iso_stop(handle);
 #else
     return ESP_OK;
@@ -153,7 +153,7 @@ wr_btdm_coex_iso_stop(uint16_t handle)
 uint16_t
 wr_btdm_coex_iso_protect_frame_thres_get(void)
 {
-#if CONFIG_SW_COEXIST_ENABLE && CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_SW_COEXIST_ENABLE && CONFIG_ESP32_BT_LE_ISO_SUPPORT
     return coex_protect_frame_thres_get();
 #else
     return 0;
@@ -163,7 +163,7 @@ wr_btdm_coex_iso_protect_frame_thres_get(void)
 void
 wr_btdm_coex_iso_start_int_handle(uint16_t handle, uint32_t duration)
 {
-#if CONFIG_SW_COEXIST_ENABLE && CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_SW_COEXIST_ENABLE && CONFIG_ESP32_BT_LE_ISO_SUPPORT
     coex_start_int_handle(handle, duration);
 #endif /* CONFIG_SW_COEXIST_ENABLE */
 }
@@ -171,7 +171,7 @@ wr_btdm_coex_iso_start_int_handle(uint16_t handle, uint32_t duration)
 void
 wr_btdm_coex_iso_end_int_handle(uint16_t handle, uint32_t duration)
 {
-#if CONFIG_SW_COEXIST_ENABLE && CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_SW_COEXIST_ENABLE && CONFIG_ESP32_BT_LE_ISO_SUPPORT
     coex_end_int_handle(handle, duration);
 #endif /* CONFIG_SW_COEXIST_ENABLE */
 }

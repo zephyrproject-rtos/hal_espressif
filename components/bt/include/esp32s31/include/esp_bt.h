@@ -331,7 +331,7 @@ typedef struct {
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
 #endif
 
-#if defined(CONFIG_BT_LE_ISO_SUPPORT)
+#if defined(CONFIG_ESP32_BT_LE_ISO_SUPPORT)
 #define DEFAULT_BT_LE_ISO_ENABLED                   1
 #if defined(CONFIG_BT_LE_ISO_FRA_UNSEG)
 #define DEFAULT_BT_LE_ISO_FRA_UNSEG                 CONFIG_BT_LE_ISO_FRA_UNSEG
@@ -345,14 +345,14 @@ typedef struct {
 #define DEFAULT_BT_LE_ISO_NSFC_EN                   (0)
 #define DEFAULT_BT_LE_ISO_NSFC_NUM                  (0)
 #endif
-#define DEFAULT_BT_LE_ISO_BUF_COUNT                 CONFIG_BT_LE_ISO_BUF_COUNT
-#define DEFAULT_BT_LE_ISO_BUF_SIZE                  CONFIG_BT_LE_ISO_BUF_SIZE
-#define DEFAULT_BT_LE_ISO_BIG                       CONFIG_BT_LE_ISO_BIG
-#define DEFAULT_BT_LE_ISO_BIS                       CONFIG_BT_LE_ISO_BIS
-#define DEFAULT_BT_LE_ISO_BIS_PER_BIG               CONFIG_BT_LE_ISO_BIS_PER_BIG
-#define DEFAULT_BT_LE_ISO_CIG                       CONFIG_BT_LE_ISO_CIG
-#define DEFAULT_BT_LE_ISO_CIS                       CONFIG_BT_LE_ISO_CIS
-#define DEFAULT_BT_LE_ISO_CIS_PER_CIG               CONFIG_BT_LE_ISO_CIS_PER_CIG
+#define DEFAULT_BT_LE_ISO_BUF_COUNT                 CONFIG_ESP32_BT_LE_ISO_BUF_COUNT
+#define DEFAULT_BT_LE_ISO_BUF_SIZE                  CONFIG_ESP32_BT_LE_ISO_BUF_SIZE
+#define DEFAULT_BT_LE_ISO_BIG                       CONFIG_ESP32_BT_LE_ISO_BIG
+#define DEFAULT_BT_LE_ISO_BIS                       CONFIG_ESP32_BT_LE_ISO_BIS
+#define DEFAULT_BT_LE_ISO_BIS_PER_BIG               CONFIG_ESP32_BT_LE_ISO_BIS_PER_BIG
+#define DEFAULT_BT_LE_ISO_CIG                       CONFIG_ESP32_BT_LE_ISO_CIG
+#define DEFAULT_BT_LE_ISO_CIS                       CONFIG_ESP32_BT_LE_ISO_CIS
+#define DEFAULT_BT_LE_ISO_CIS_PER_CIG               CONFIG_ESP32_BT_LE_ISO_CIS_PER_CIG
 #else
 #define DEFAULT_BT_LE_ISO_ENABLED                   0
 #define DEFAULT_BT_LE_ISO_FRA_UNSEG                 0

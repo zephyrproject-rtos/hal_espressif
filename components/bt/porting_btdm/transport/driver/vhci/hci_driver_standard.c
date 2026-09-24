@@ -11,6 +11,7 @@
 #include "esp_bt.h"
 #if UC_BT_CTRL_BLE_IS_ENABLE
 #include "ble_mbuf.h"
+#include "btdm_osal.h"
 #endif
 
 typedef struct {
@@ -146,12 +147,20 @@ hci_driver_vhci_controller_tx(hci_driver_data_type_t data_type, uint8_t *data, u
         }
 
     }
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     else if (data_type == HCI_DRIVER_TYPE_ISO) {
-        rc = hci_driver_vhci_host_recv_with_type(data_type, data, length);
-        free(data);
+        buf = k_malloc(buf_len);
+        if (buf) {
+            buf[0] = HCI_DRIVER_TYPE_ISO;
+            memcpy(&buf[1], data, length);
+            rc = hci_driver_vhci_host_recv_with_type(data_type, buf, buf_len);
+            k_free(buf);
+        } else {
+            rc = -1;
+        }
+        btdm_osal_free(data);
     }
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
     else if (data_type == HCI_DRIVER_TYPE_SYNC) {
         /* SCO/ESCO data */
@@ -181,6 +190,9 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
     uint16_t handle_flags = 0;
     hci_driver_packet_t *pkt = NULL;
     uint8_t data_source = 0xFF;
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
+    uint8_t *iso_buf;
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 
     pkt_len = length - 1;
     switch (data_type) {
@@ -230,6 +242,14 @@ hci_driver_vhci_host_tx(hci_driver_data_type_t data_type, uint8_t *data, uint32_
         break;
 #endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
     case HCI_DRIVER_TYPE_ISO:
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
+        iso_buf = btdm_osal_malloc(pkt_len, BTDM_OSAL_MALLOC_F_INTERNAL);
+        if (!iso_buf) {
+            return -1;
+        }
+        memcpy(iso_buf, &data[1], pkt_len);
+        data = iso_buf;
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
         data_source = HCI_DRIVER_LE_ISO;
         break;
     default:

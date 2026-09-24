@@ -1381,7 +1381,7 @@ extern void r_conn_errorSim_disable(void);
 #define conn_errorSim_disable        r_conn_errorSim_disable
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
 
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
 extern int r_iso_stack_initEnv(void);
 extern void r_iso_stack_deinitEnv(void);
 extern int r_iso_stack_enable(void);
@@ -1390,7 +1390,7 @@ extern void r_iso_stack_disable(void);
 #define iso_stack_disable        r_iso_stack_disable
 #define iso_stack_initEnv   r_iso_stack_initEnv
 #define iso_stack_deinitEnv r_iso_stack_deinitEnv
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 
 
 int ble_stack_init(esp_bt_controller_config_t *cfg)
@@ -1424,22 +1424,22 @@ int ble_stack_init(esp_bt_controller_config_t *cfg)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
 
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     rc = iso_stack_initEnv();
     if (rc) {
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "iso_stack_initEnv failed %d", rc);
         return rc;
     }
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 
     return 0;
 }
 
 void ble_stack_deinit(void)
 {
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     iso_stack_deinitEnv();
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
 #if CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_errorSim_deinitEnv();
@@ -1482,7 +1482,7 @@ int ble_stack_enable(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
 
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
 
     rc = iso_stack_enable();
     if (rc != ESP_OK) {
@@ -1503,7 +1503,7 @@ int ble_stack_enable(void)
 
 void ble_stack_disable(void)
 {
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     gapFinder_stack_disable();
 
     iso_stack_disable();

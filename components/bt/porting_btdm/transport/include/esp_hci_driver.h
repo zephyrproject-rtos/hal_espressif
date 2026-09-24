@@ -90,7 +90,7 @@ int hci_driver_host_cmd_tx(uint8_t *data);
  */
 int hci_driver_host_acl_tx(uint8_t *data, uint32_t length);
 
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
 /**
  * @brief Called to send HCI ISO daata form host to controller.
  * @param data      Point to the ISO data
@@ -98,7 +98,7 @@ int hci_driver_host_acl_tx(uint8_t *data, uint32_t length);
  * @return int 0 on success, non-zero error code on failure.
  */
 int hci_driver_host_iso_tx(uint8_t *data, uint32_t length);
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 #endif // CONFIG_BT_NIMBLE_ENABLED
 
 #if UC_BT_CTRL_HCI_INTERFACE_USE_RAM
