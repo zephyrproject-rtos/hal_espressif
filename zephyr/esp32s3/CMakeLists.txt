@@ -341,8 +341,9 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hal_cam/cam_hal.c
     )
 
-  zephyr_sources_ifdef(CONFIG_MIPI_DBI_ESP32
+  zephyr_sources_ifdef(CONFIG_ESP32_LCD_CAM
     ../../components/esp_hal_lcd/lcd_hal.c
+    ../../components/hal/hal_utils.c
     )
 
   zephyr_sources_ifdef(CONFIG_PULSE_IO_ESP32_RMT
