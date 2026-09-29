@@ -62,7 +62,6 @@ static void wifi_task_cleanup_work(struct k_work *work)
 	}
 
 	k_thread_stack_free(t->stack);
-	k_object_release(&t->thread);
 	esp_wifi_free_func(t);
 }
 
@@ -314,7 +313,6 @@ static void task_delete_wrapper(void *handle)
 	}
 	
 	k_thread_stack_free(t->stack);
-	k_object_release(tid);
 	esp_wifi_free(t);
 }
 
@@ -456,8 +454,7 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 		prio = CONFIG_NUM_PREEMPT_PRIORITIES - 1;
 	}
 
-	t->stack = k_thread_stack_alloc(stack_size,
-					IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0);
+	t->stack = k_thread_stack_alloc(stack_size, 0);
 	if (t->stack == NULL) {
 		esp_wifi_free(t);
 		return 0;
@@ -465,7 +462,7 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 
 	k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
-				      prio, K_INHERIT_PERMS, K_NO_WAIT);
+				      prio, 0, K_NO_WAIT);
 
 	k_thread_name_set(tid, name);
 
