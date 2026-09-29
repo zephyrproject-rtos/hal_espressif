@@ -415,7 +415,7 @@ static DRAM_ATTR esp_bt_controller_status_t btdm_controller_status = ESP_BT_CONT
 static esp_os_spinlock_t global_int_lock = ESP_OS_SPINLOCK_INIT;
 
 // BT library uses a single task
-K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
+static K_KERNEL_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
 static struct k_thread bt_task_handle;
 
 // measured average low power clock period in micro seconds
@@ -833,9 +833,16 @@ static int32_t IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, vo
 
 static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, stack_depth,
+    if (stack_depth > K_KERNEL_STACK_SIZEOF(bt_stack)) {
+        LOG_ERR("BT task stack too small: requested %u, have %zu, "
+                "increase CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE",
+                stack_depth, K_KERNEL_STACK_SIZEOF(bt_stack));
+        return 0;
+    }
+
+    k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, K_KERNEL_STACK_SIZEOF(bt_stack),
                       (k_thread_entry_t)task_func, param, NULL, NULL,
-                      K_PRIO_COOP(prio), K_INHERIT_PERMS, K_NO_WAIT);
+                      K_PRIO_COOP(prio), 0, K_NO_WAIT);
 
     k_thread_name_set(tid, name);
 
