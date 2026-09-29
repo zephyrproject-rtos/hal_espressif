@@ -629,6 +629,13 @@ static int task_create_wrapper(void *task_func, const char *name, uint32_t stack
 {
     k_tid_t tid;
 
+    if (stack_depth > K_KERNEL_STACK_SIZEOF(bt_task_stack)) {
+        ESP_LOGE(NIMBLE_PORT_LOG_TAG, "BT task stack too small: requested %u, have %zu, "
+                 "increase CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE",
+                 stack_depth, K_KERNEL_STACK_SIZEOF(bt_task_stack));
+        return 0;
+    }
+
     tid = k_thread_create(&bt_task_thread, bt_task_stack,
                           K_KERNEL_STACK_SIZEOF(bt_task_stack),
                           (k_thread_entry_t)task_func, param, NULL, NULL,
