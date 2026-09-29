@@ -22,7 +22,7 @@ typedef struct {
 
 const static intr_desc_t intr_desc_table [SOC_CPU_INTR_NUM] = {
     /* Interrupt 0 reserved for WMAC (Wifi) */
-#if CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_0
+#if CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_0
     [0] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { ESP_CPU_INTR_DESC_FLAG_RESVD,   0                               } },
 #else
     [0] = { 1, ESP_CPU_INTR_TYPE_LEVEL,  { 0,                              ESP_CPU_INTR_DESC_FLAG_RESVD    } },

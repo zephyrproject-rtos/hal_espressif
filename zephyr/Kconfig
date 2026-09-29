@@ -137,6 +137,13 @@ config ESP_SYSTEM_SINGLE_CORE_MODE
 	bool
 	default y if !SMP
 
+config ESP_IPC_ISR_STALL
+	bool
+	default y if SMP && !SOC_SERIES_ESP32
+	help
+	  The SoC layer provides esp_ipc_isr_stall_other_cpu() and
+	  esp_ipc_isr_release_other_cpu().
+
 config IDF_TARGET_ARCH_RISCV
 	bool
 	default y if RISCV
@@ -254,30 +261,14 @@ config ESP_TIMER_IMPL_SYSTIMER
 	default y
 	depends on !SOC_SERIES_ESP32
 
-menu "Wi-Fi config"
-
-choice ESP_WIFI_TASK_CORE_ID
-	prompt "WiFi Task Core ID"
-	depends on SOC_SERIES_ESP32S3
-	default ESP_WIFI_TASK_PINNED_TO_CORE_0
-	help
-	  Pinned WiFi task to core 0 or core 1.
-
-config ESP_WIFI_TASK_PINNED_TO_CORE_0
-	bool "Core 0"
-
-config ESP_WIFI_TASK_PINNED_TO_CORE_1
-	bool "Core 1"
-
-endchoice # ESP_WIFI_TASK_CORE_ID
-
-endmenu # Wi-Fi config
-
 if BT_ESP32
 
 config ESP32_BT_CTLR_PINNED_TO_CORE
-	int
+	int "CPU core for Bluetooth controller task"
 	default 0
+	range 0 1
+	help
+	  Pin the Bluetooth controller task to this CPU core.
 
 endif
 

@@ -196,7 +196,7 @@ extern wifi_osi_funcs_t g_wifi_osi_funcs;
 #define WIFI_DEFAULT_RX_BA_WIN 0 /* unused if ampdu_rx_enable == false */
 #endif
 
-#if CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_1
+#if CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_1
 #define WIFI_TASK_CORE_ID 1
 #else
 #define WIFI_TASK_CORE_ID 0
