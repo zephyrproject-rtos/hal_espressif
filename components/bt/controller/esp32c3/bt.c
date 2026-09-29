@@ -499,10 +499,7 @@ static DRAM_ATTR struct k_sem *s_wakeup_req_sem = NULL;
 
 /* Zephyr thread handle and stack for BT task */
 static struct k_thread bt_task_handle;
-#ifndef CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE
-#define CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE 4096
-#endif
-static K_THREAD_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_LE_CONTROLLER_TASK_STACK_SIZE);
+static K_KERNEL_STACK_DEFINE(bt_stack, CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE);
 // wakeup timer
 static DRAM_ATTR esp_timer_handle_t s_btdm_slp_tmr = NULL;
 
@@ -1089,10 +1086,17 @@ static int IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *
 
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    ARG_UNUSED(stack_depth);
     ARG_UNUSED(core_id);
+
+    if (stack_depth > K_KERNEL_STACK_SIZEOF(bt_stack)) {
+        LOG_ERR("BT task stack too small: requested %u, have %zu, "
+                "increase CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE",
+                stack_depth, K_KERNEL_STACK_SIZEOF(bt_stack));
+        return 0;
+    }
+
     k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack,
-                                  K_THREAD_STACK_SIZEOF(bt_stack),
+                                  K_KERNEL_STACK_SIZEOF(bt_stack),
                                   (k_thread_entry_t)task_func,
                                   param, NULL, NULL,
                                   K_PRIO_COOP(prio), 0, K_NO_WAIT);
