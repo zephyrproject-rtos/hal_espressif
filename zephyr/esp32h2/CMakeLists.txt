@@ -525,8 +525,6 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       ../port/stubs/phy_stubs.c
       ../port/stubs/ieee802154_stubs.c
       )
-
-    esp_blobs_link(btbb)
   endif()
 
   ## BT definitions
@@ -553,7 +551,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       )
 
     ## ble
-    esp_blobs_link(btbb ble_app)
+    esp_blobs_link(ble_app)
 
   endif()
 
@@ -585,7 +583,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       esp_blobs_link(coexist)
     endif()
 
-    esp_blobs_link(phy)
+    esp_blobs_link(btbb phy)
 
     zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
       ## esp-idf libs refer gcc libs symbols, so linked in libgcc
