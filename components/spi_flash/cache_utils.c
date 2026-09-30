@@ -62,13 +62,16 @@ void IRAM_ATTR __weak soc_mp_resume_others(void)
 #define SPI_FLASH_RESUME_OTHERS()
 #endif
 
+#if !CONFIG_SPI_FLASH_ALLOW_IRAM_ISR
 static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
+#endif
 
 // Used only on ROM impl. in idf, this param unused, cache status hold by hal
 static uint32_t s_flash_op_cache_state[2];
 
-#ifndef CONFIG_MCUBOOT
+#if CONFIG_SPI_FLASH_ALLOW_IRAM_ISR && CONFIG_MULTITHREADING
 K_MUTEX_DEFINE(s_flash_op_mutex);
+#endif
 
 void spi_flash_init_lock(void)
 {
@@ -76,25 +79,41 @@ void spi_flash_init_lock(void)
 
 void spi_flash_op_lock(void)
 {
+#if CONFIG_SPI_FLASH_ALLOW_IRAM_ISR && CONFIG_MULTITHREADING
+    // Pre-kernel there is one thread and no scheduler to lock
+    if (k_is_pre_kernel())
+        return;
+    // One flash operation at a time, with interrupts left on
     k_mutex_lock(&s_flash_op_mutex, K_FOREVER);
+    // No switching to another thread, which may run from flash, while the cache is off
+    k_sched_lock();
+#endif
 }
 
 void spi_flash_op_unlock(void)
 {
+#if CONFIG_SPI_FLASH_ALLOW_IRAM_ISR && CONFIG_MULTITHREADING
+    if (k_is_pre_kernel())
+        return;
+    k_sched_unlock();
     k_mutex_unlock(&s_flash_op_mutex);
+#endif
 }
-#endif /* !CONFIG_MCUBOOT */
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
 {
-    /* Park the peer first, so the pause lock is the outermost lock. The locks
-     * taken below are cross-core, and a core that blocks on one of them does so
+    // Take the lock before parking the peer, since waiting on it may sleep
+    spi_flash_op_lock();
+    /* Park the peer before the spinlocks below, so the pause lock is the
+     * outermost of them. They are cross-core, and a core that blocks on one does so
      * with interrupts disabled, which would leave it unable to answer the stall
      * request. A core can never be parked while holding them for the same
      * reason: they are only ever taken with interrupts already off.
      */
     SPI_FLASH_PAUSE_OTHERS();
+#if !CONFIG_SPI_FLASH_ALLOW_IRAM_ISR
     esp_os_enter_critical(&s_intr_saved_state);
+#endif
     esp_intr_noniram_disable();
     spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
 }
@@ -103,8 +122,11 @@ void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
 {
     spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
     esp_intr_noniram_enable();
+#if !CONFIG_SPI_FLASH_ALLOW_IRAM_ISR
     esp_os_exit_critical(&s_intr_saved_state);
+#endif
     SPI_FLASH_RESUME_OTHERS();
+    spi_flash_op_unlock();
 }
 
 void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
