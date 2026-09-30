@@ -326,6 +326,12 @@ if(CONFIG_SOC_SERIES_ESP32C6)
       )
   endif()
 
+  if(CONFIG_CAN_ESP32_TWAI AND CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    zephyr_sources(
+      ../../components/esp_hal_twai/${CONFIG_SOC_SERIES}/twai_periph.c
+      )
+  endif()
+
   if (CONFIG_MCUBOOT)
     zephyr_sources(
         ../port/boot/esp_image_loader.c
