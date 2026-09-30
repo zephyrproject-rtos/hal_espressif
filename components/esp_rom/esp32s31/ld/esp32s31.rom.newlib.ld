@@ -17,23 +17,28 @@
  Group newlib
  ***************************************/
 
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* strdup       = 0x2f800474; */
+/* strndup      = 0x2f800478; */
+/* rand         = 0x2f800480; */
+/* srand        = 0x2f800484; */
+/* rand_r       = 0x2f80047c; */
+/* atoi         = 0x2f800488; */
+/* atol         = 0x2f80048c; */
+/* strtol       = 0x2f800490; */
+/* strtoul      = 0x2f800494; */
+/* fflush       = 0x2f800498; */
+/* _fflush_r    = 0x2f80049c; */
+/* _fwalk       = 0x2f8004a0; */
+/* _fwalk_reent = 0x2f8004a4; */
+/* __swbuf_r    = 0x2f8004b0; */
+
 /* Functions */
-_isatty_r = 0x2f800470;
-strdup = 0x2f800474;
-strndup = 0x2f800478;
-rand_r = 0x2f80047c;
-rand = 0x2f800480;
-srand = 0x2f800484;
-atoi = 0x2f800488;
-atol = 0x2f80048c;
-strtol = 0x2f800490;
-strtoul = 0x2f800494;
-fflush = 0x2f800498;
-_fflush_r = 0x2f80049c;
-_fwalk = 0x2f8004a0;
-_fwalk_reent = 0x2f8004a4;
-__smakebuf_r = 0x2f8004a8;
-__swhatbuf_r = 0x2f8004ac;
-__swbuf_r = 0x2f8004b0;
-__swbuf = 0x2f8004b4;
-__swsetup_r = 0x2f8004b8;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* _isatty_r = 0x2f800470; */
+/* __smakebuf_r = 0x2f8004a8; */
+/* __swhatbuf_r = 0x2f8004ac; */
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf = 0x2f8004b4; */
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swsetup_r = 0x2f8004b8; */

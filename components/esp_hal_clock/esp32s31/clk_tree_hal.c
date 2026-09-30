@@ -18,7 +18,7 @@ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
     case SOC_CPU_CLK_SRC_CPLL:
         return clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz());
     case SOC_CPU_CLK_SRC_RC_FAST:
-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
+        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
     case SOC_CPU_CLK_SRC_PLL_F240M:
         return CLK_LL_PLL_240M_FREQ_MHZ;
     default:
@@ -37,7 +37,7 @@ uint32_t clk_hal_cpu_get_freq_hz(void)
         denominator = 1;
         numerator = 0;
     }
-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ * denominator / (integer * denominator + numerator);
+    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) * denominator / (integer * denominator + numerator);
 }
 
 uint32_t clk_hal_sys_get_freq_hz(void)
