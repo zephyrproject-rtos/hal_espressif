@@ -21,6 +21,7 @@ components:
   - esp_driver_gpio
   - esp_driver_gptimer
   - esp_driver_mcpwm
+  - esp_driver_rmt
   - esp_driver_touch_sens
   - esp_driver_tsens
   - esp_event
@@ -117,6 +118,7 @@ exclude:
   - esp_driver_gpio/test_apps
   - esp_driver_gptimer/test_apps
   - esp_driver_mcpwm/test_apps
+  - esp_driver_rmt/test_apps
   - esp_driver_touch_sens/test_apps
   - esp_driver_tsens/test_apps
   - esp_event/host_test
