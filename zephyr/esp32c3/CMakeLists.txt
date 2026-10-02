@@ -185,13 +185,15 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_hal_gpspi/spi_slave_hal_iram.c
   )
 
-  zephyr_sources_ifdef(CONFIG_ESP32_SPIM
-    ../../components/esp_hal_gpspi/spi_hal.c
-    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
-    ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/esp_hal_dma/gdma_hal_top.c
-    ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
+  if(CONFIG_ESP32_SPIM OR CONFIG_MSPI_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_hal.c
+      ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
+      ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/esp_hal_dma/gdma_hal_top.c
+      ../../components/esp_hal_dma/gdma_hal_ahb_v1.c
     )
+  endif()
 
     if(CONFIG_SOC_FLASH_ESP32 OR NOT CONFIG_BOOTLOADER_MCUBOOT)
     zephyr_sources(

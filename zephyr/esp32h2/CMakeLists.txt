@@ -345,7 +345,7 @@ if(CONFIG_SOC_SERIES_ESP32H2)
       )
   endif()
 
-  if(CONFIG_ESP32_SPIM)
+  if(CONFIG_ESP32_SPIM OR CONFIG_MSPI_ESP32)
     zephyr_sources(
       ../../components/esp_hal_gpspi/spi_hal.c
       ../../components/esp_hal_gpspi/spi_hal_iram.c
