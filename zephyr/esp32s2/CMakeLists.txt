@@ -216,12 +216,14 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hal_gpspi/spi_slave_hal_iram.c
   )
 
-  zephyr_sources_ifdef(CONFIG_ESP32_SPIM
-    ../../components/esp_hal_gpspi/spi_hal.c
-    ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
-    ../../components/esp_hal_gpspi/spi_hal_iram.c
-    ../../components/soc/lldesc.c
+  if(CONFIG_ESP32_SPIM OR CONFIG_MSPI_ESP32)
+    zephyr_sources(
+      ../../components/esp_hal_gpspi/spi_hal.c
+      ../../components/esp_hal_gpspi/${CONFIG_SOC_SERIES}/spi_periph.c
+      ../../components/esp_hal_gpspi/spi_hal_iram.c
+      ../../components/soc/lldesc.c
     )
+  endif()
 
   if (CONFIG_ESP_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
