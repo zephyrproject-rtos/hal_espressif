@@ -58,6 +58,7 @@ static adc_ll_controller_t get_controller(adc_unit_t unit, adc_hal_work_mode_t w
 #endif
         }
     }
+    return 0; // Should not reach this point
 }
 
 void adc_hal_set_controller(adc_unit_t unit, adc_hal_work_mode_t work_mode)
