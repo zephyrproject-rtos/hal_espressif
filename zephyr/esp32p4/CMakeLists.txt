@@ -288,7 +288,6 @@ if(CONFIG_SOC_SERIES_ESP32P4)
       ../common/pm_locks_zephyr.c
       ../../components/esp_driver_gpio/src/gpio.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
-      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep_clock_icg.c
       ../../components/esp_hw_support/port/pau_regdma.c
       ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
       ../../components/esp_hw_support/sleep_gpio.c
@@ -304,6 +303,11 @@ if(CONFIG_SOC_SERIES_ESP32P4)
       ../../components/esp_hw_support/clk_utils.c
       ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
       )
+    if(NOT CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+      zephyr_sources(
+        ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep_clock_icg.c
+        )
+    endif()
     if(CONFIG_ESP32_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
