@@ -321,6 +321,10 @@ if(CONFIG_SOC_SERIES_ESP32P4)
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
         )
     endif()
+
+    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+      ../../components/spi_flash/spi_flash_dpd_enable.c
+    )
   endif()
 
   if(CONFIG_DMA_ESP32)
