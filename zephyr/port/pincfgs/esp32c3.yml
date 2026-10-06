@@ -169,3 +169,17 @@ rmt:
   in1:
     sigi: rmt_sig_in1
     gpio: [[0, 21]]
+
+sdm:
+  ch0:
+    sigo: gpio_sd0_out
+    gpio: [[0, 21]]
+  ch1:
+    sigo: gpio_sd1_out
+    gpio: [[0, 21]]
+  ch2:
+    sigo: gpio_sd2_out
+    gpio: [[0, 21]]
+  ch3:
+    sigo: gpio_sd3_out
+    gpio: [[0, 21]]
