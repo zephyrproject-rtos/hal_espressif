@@ -486,3 +486,29 @@ pcnt3:
   ch1ctrl:
     sigi: pcnt_ctrl_ch1_in3
     gpio: [[0, 54]]
+
+sdm:
+  ch0:
+    sigo: gpio_sd0_out
+    gpio: [[0, 54]]
+  ch1:
+    sigo: gpio_sd1_out
+    gpio: [[0, 54]]
+  ch2:
+    sigo: gpio_sd2_out
+    gpio: [[0, 54]]
+  ch3:
+    sigo: gpio_sd3_out
+    gpio: [[0, 54]]
+  ch4:
+    sigo: gpio_sd4_out
+    gpio: [[0, 54]]
+  ch5:
+    sigo: gpio_sd5_out
+    gpio: [[0, 54]]
+  ch6:
+    sigo: gpio_sd6_out
+    gpio: [[0, 54]]
+  ch7:
+    sigo: gpio_sd7_out
+    gpio: [[0, 54]]

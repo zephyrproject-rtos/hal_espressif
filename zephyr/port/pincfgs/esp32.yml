@@ -550,3 +550,29 @@ rmt:
   in7:
     sigi: rmt_sig_in7
     gpio: [[0, 23], [25, 27], [32, 39]]
+
+sdm:
+  ch0:
+    sigo: gpio_sd0_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch1:
+    sigo: gpio_sd1_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch2:
+    sigo: gpio_sd2_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch3:
+    sigo: gpio_sd3_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch4:
+    sigo: gpio_sd4_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch5:
+    sigo: gpio_sd5_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch6:
+    sigo: gpio_sd6_out
+    gpio: [[0, 23], [25, 27], [32, 33]]
+  ch7:
+    sigo: gpio_sd7_out
+    gpio: [[0, 23], [25, 27], [32, 33]]

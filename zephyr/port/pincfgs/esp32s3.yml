@@ -614,3 +614,29 @@ rmt:
   in3:
     sigi: rmt_sig_in3
     gpio: [[0, 21], [26, 48]]
+
+sdm:
+  ch0:
+    sigo: gpio_sd0_out
+    gpio: [[0, 21], [26, 48]]
+  ch1:
+    sigo: gpio_sd1_out
+    gpio: [[0, 21], [26, 48]]
+  ch2:
+    sigo: gpio_sd2_out
+    gpio: [[0, 21], [26, 48]]
+  ch3:
+    sigo: gpio_sd3_out
+    gpio: [[0, 21], [26, 48]]
+  ch4:
+    sigo: gpio_sd4_out
+    gpio: [[0, 21], [26, 48]]
+  ch5:
+    sigo: gpio_sd5_out
+    gpio: [[0, 21], [26, 48]]
+  ch6:
+    sigo: gpio_sd6_out
+    gpio: [[0, 21], [26, 48]]
+  ch7:
+    sigo: gpio_sd7_out
+    gpio: [[0, 21], [26, 48]]
