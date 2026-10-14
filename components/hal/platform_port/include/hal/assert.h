@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 #ifndef __noreturn
-#if CONFIG_LIBC_PICOLIBC
+#if CONFIG_LIBC_PICOLIBC || defined(__ZEPHYR__)
 // TODO IDF-15569
 // #if defined(__cplusplus) && __cplusplus >= 201103L
 // #define __noreturn [[noreturn]]
