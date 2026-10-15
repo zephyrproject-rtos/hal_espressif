@@ -572,6 +572,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
 
   zephyr_sources_ifdef(CONFIG_ESP32_LCD_CAM
     ../../components/esp_hal_lcd/lcd_hal.c
+    ../../components/esp_hal_lcd/${CONFIG_SOC_SERIES}/lcd_periph.c
     ../../components/hal/hal_utils.c
     )
 
