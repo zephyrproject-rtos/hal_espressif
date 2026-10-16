@@ -256,6 +256,10 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
     )
 
+  zephyr_sources_ifdef(CONFIG_ESP32_SDM
+    ../../components/esp_hal_gpio/sdm_hal.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
       ../common/pm_impl_zephyr.c
