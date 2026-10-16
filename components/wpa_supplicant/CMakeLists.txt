@@ -86,6 +86,7 @@ set(esp_srcs "esp_supplicant/src/esp_eap_client.c"
     "esp_supplicant/src/esp_wps.c"
     "esp_supplicant/src/esp_wpa3.c"
     "esp_supplicant/src/esp_owe.c"
+    "esp_supplicant/src/esp_wifi_sta_pmksa_cache.c"
     "esp_supplicant/src/esp_nan_supplicant.c")
 if(CONFIG_ESP_WIFI_SOFTAP_SUPPORT)
     set(esp_srcs ${esp_srcs} "esp_supplicant/src/esp_hostap.c")
