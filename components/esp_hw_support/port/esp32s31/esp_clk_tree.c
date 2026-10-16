@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <stdatomic.h>
+#include <zephyr/sys/atomic.h>
 #include "sdkconfig.h"
 #include "esp_clk_tree.h"
 #include "esp_err.h"
@@ -71,31 +71,31 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = SOC_XTAL_FREQ_40M * MHZ;
+        clk_src_freq = SOC_XTAL_FREQ_40M * MHZ(1);
         break;
     case SOC_MOD_CLK_SYS:
         clk_src_freq = clk_hal_sys_get_freq_hz();
         break;
     case SOC_MOD_CLK_PLL_F20M:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_CPLL:
-        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_BBPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_MPLL:
-        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_APLL:
         clk_src_freq = clk_hal_apll_get_freq_hz();
@@ -115,7 +115,7 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
         break;
     case SOC_MOD_CLK_APB:
         clk_src_freq = clk_hal_apb_get_freq_hz();
@@ -159,7 +159,7 @@ esp_err_t esp_clk_tree_src_set_freq_hz(soc_module_clk_t clk_src, uint32_t expt_f
     return ret;
 }
 
-static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
+static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
 static bool s_clk_tree_initialized = false;
 static int16_t s_cpll_ref_cnt = 0;
 
@@ -272,28 +272,30 @@ esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
     }
 
     // other clock sources use the global reference counting
+    /* Zephyr sys/atomic.h: atomic_add/atomic_sub return the previous
+     * value, matching C11 atomic_fetch_add/sub semantics.
+     */
     if (enable) {
-        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
     } else {
-        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
         if (prev_ref_cnt <= 0) {
             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
+            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
             return ESP_OK;
         }
     }
-    // TODO: IDF-15502
-    //if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
-    //    switch (clk_src) {
-    //        case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable(); break;
-    //        case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
-    //        case SOC_MOD_CLK_PLL_F25M:  ENABLE_CLK_GATE(clk_gate_ll_ref_25m_clk_en, enable);  break;
-    //        case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
-    //        case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
-    //        case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
-    //        default: break;
-    //    }
-    //}
+    if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
+        switch (clk_src) {
+        case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable(); break;
+        case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
+        case SOC_MOD_CLK_PLL_F25M:  ENABLE_CLK_GATE(clk_gate_ll_ref_25m_clk_en, enable);  break;
+        case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
+        case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
+        case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
+        default: break;
+        }
+    }
 
     return ESP_OK;
 }
