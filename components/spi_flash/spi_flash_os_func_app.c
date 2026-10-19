@@ -132,7 +132,7 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
      * kernel is not yet running (esp_flash_config() runs pre-kernel, where
      * execution is single-threaded and no arbitration is needed).
      */
-    if (!k_is_pre_kernel()) {
+    if (k_can_yield()) {
         k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
     }
 #else
@@ -170,7 +170,7 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
     ret = release_spi_bus_lock(arg);
 #elif SPI_FLASH_CACHE_NO_DISABLE
     /* See spi1_start: no lock is taken pre-kernel. */
-    if (!k_is_pre_kernel()) {
+    if (k_can_yield()) {
         k_mutex_unlock(&s_spi1_flash_mutex);
     }
 #else
@@ -199,10 +199,13 @@ static esp_err_t spi_flash_os_check_yield(void *arg, uint32_t chip_status, uint3
 
 static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
 {
-    /* k_sleep requires an active thread context. Skip the yield if the
-     * kernel is not yet running (e.g. early boot flash erase recovery).
+    /* k_sleep needs a context that can block. k_can_yield() is false
+     * before the kernel is up, in an ISR, with IRQs locked, and from the
+     * idle thread. The flash coredump backend writes from the fatal
+     * handler: on Xtensa that is still an ISR; on RISC-V it is not, but
+     * the trap has cleared MIE, so the IRQs-locked check skips the sleep.
      */
-    if (!k_is_pre_kernel()) {
+    if (k_can_yield()) {
 #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_MS
         k_sleep(K_MSEC(CONFIG_SPI_FLASH_ERASE_YIELD_MS));
 #else
