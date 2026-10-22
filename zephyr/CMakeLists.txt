@@ -44,9 +44,39 @@ else()
   zephyr_compile_definitions(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM=${CONFIG_ESP_CONSOLE_UART_NUM})
 endif()
 
-zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32 ../components/soc/dport_access_common.c)
+# sha_hal/aes_hal read results through DPORT on the Xtensa SoCs.
+if(CONFIG_CRYPTO_ESP32 OR CONFIG_PSA_CRYPTO_DRIVER_ESP32_SHA)
+  zephyr_sources(../components/soc/dport_access_common.c)
+endif()
 zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32_AES ../components/esp_hal_security/aes_hal.c)
-zephyr_sources_ifdef(CONFIG_CRYPTO_ESP32_SHA ../components/esp_hal_security/sha_hal.c)
+if(CONFIG_CRYPTO_ESP32_SHA OR CONFIG_PSA_CRYPTO_DRIVER_ESP32_SHA)
+  zephyr_sources(../components/esp_hal_security/sha_hal.c)
+endif()
+
+# PSA Crypto driver for the SHA accelerator (common/psa_crypto/README.rst).
+if(CONFIG_PSA_CRYPTO_DRIVER_ESP32_SHA)
+  # Driver configuration and operation context: reached from <psa/crypto.h>
+  # in every translation unit, so the include path is global.
+  zephyr_include_directories(common/psa_crypto/include)
+
+  zephyr_library_named(esp_psa_crypto)
+  zephyr_library_sources(
+    common/psa_crypto/esp_psa_sha.c
+    common/psa_crypto/esp_sha_port.c
+    ../components/mbedtls/port/psa_driver/esp_sha/core/psa_crypto_driver_esp_sha1.c
+    ../components/mbedtls/port/psa_driver/esp_sha/core/psa_crypto_driver_esp_sha256.c
+  )
+  # The stand-in mbedtls/esp_config.h must come before the ESP-IDF one in
+  # components/mbedtls/port/include.
+  target_include_directories(esp_psa_crypto BEFORE PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/psa_crypto/shim)
+  zephyr_library_include_directories(
+    ../components/mbedtls/port/psa_driver/include
+    ../components/mbedtls/port/psa_driver/esp_sha/include
+    ../components/mbedtls/port/sha/core/include
+    ../components/mbedtls/port/include
+  )
+endif()
 
 if(CONFIG_SOC_SERIES_ESP32C5 OR CONFIG_SOC_SERIES_ESP32C6 OR CONFIG_SOC_SERIES_ESP32C61 OR CONFIG_SOC_SERIES_ESP32H2 OR CONFIG_SOC_SERIES_ESP32P4)
   zephyr_sources(../components/esp_hal_security/apm_hal.c)
