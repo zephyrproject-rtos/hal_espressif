@@ -436,8 +436,6 @@ static uint32_t event_group_wait_bits_wrapper(void *event, uint32_t bits_to_wait
 
 static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-	ARG_UNUSED(core_id);
-
 	uint32_t stack_size = MAX(stack_depth, CONFIG_ESP32_WIFI_TASK_STACK_SIZE);
 	struct wifi_task *t = wifi_malloc(sizeof(*t));
 
@@ -460,11 +458,30 @@ static int32_t task_create_pinned_to_core_wrapper(void *task_func, const char *n
 		return 0;
 	}
 
+#ifdef CONFIG_SCHED_CPU_MASK
+	/*
+	 * The wifi blob (libpp.a/libcore.a/libnet80211.a) is not written to be
+	 * SMP-safe: it assumes each of its internal tasks stays pinned to the
+	 * single core it requested here for the task's whole lifetime. Create
+	 * the thread suspended so it can be pinned before it ever runs, rather
+	 * than leaving it free to migrate between cores under SMP.
+	 */
+	k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
+				      (k_thread_entry_t)task_func, param, NULL, NULL,
+				      prio, K_INHERIT_PERMS, K_FOREVER);
+
+	k_thread_cpu_pin(tid, core_id < CONFIG_MP_MAX_NUM_CPUS ? (int)core_id : 0);
+	k_thread_name_set(tid, name);
+	k_thread_start(tid);
+#else
+	ARG_UNUSED(core_id);
+
 	k_tid_t tid = k_thread_create(&t->thread, t->stack, stack_size,
 				      (k_thread_entry_t)task_func, param, NULL, NULL,
 				      prio, 0, K_NO_WAIT);
 
 	k_thread_name_set(tid, name);
+#endif
 
 	*(int32_t *)task_handle = (int32_t)tid;
 	return 1;
