@@ -13,6 +13,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
 #include <zephyr/init.h>
+#include <zephyr/spinlock.h>
 #include <zephyr/logging/log.h>
 
 #include "esp_attr.h"
@@ -52,30 +53,72 @@ bool IRAM_ATTR esp_coex_common_env_is_chip_wrapper(void)
 #endif
 }
 
+/*
+ * The blob's critical sections nest: the same wifi_int_mux can legitimately
+ * be entered more than once by the same core before it is fully unwound
+ * (this mirrors real ESP-IDF, whose portMUX_TYPE tracks an owner core plus a
+ * nesting count for exactly this reason). A plain struct k_spinlock has no
+ * notion of an owner, so a same-core re-entry would spin forever waiting for
+ * itself to release it. Track the owning core and a nesting count instead: a
+ * core already holding the lock just increments the count, and only the
+ * outermost release (count reaching 0) actually gives it up.
+ */
+struct esp_wifi_int_mux {
+    atomic_t owner;  /* 0 = free, otherwise (cpu id + 1) of the owner */
+    uint32_t count;  /* nesting depth; only ever touched by the owner */
+};
+
 void * esp_coex_common_spin_lock_create_wrapper(void)
 {
-    unsigned int *wifi_spin_lock = (unsigned int *)k_malloc(sizeof(unsigned int));
+    struct esp_wifi_int_mux *mux =
+        (struct esp_wifi_int_mux *)k_malloc(sizeof(struct esp_wifi_int_mux));
 
-    if (wifi_spin_lock == NULL) {
+    if (mux == NULL) {
         LOG_ERR("spin_lock_create_wrapper allocation failed");
+        return NULL;
     }
 
-    return (void *)wifi_spin_lock;
+    mux->owner = ATOMIC_INIT(0);
+    mux->count = 0;
+
+    return (void *)mux;
 }
 
+/*
+ * These guard the wifi blob's (libpp.a/libcore.a/libnet80211.a) internal
+ * critical sections, which may be entered from either the wifi task or an
+ * ISR. A plain irq_lock()/irq_unlock() pair only masks interrupts on the
+ * calling core, which is safe under single-core builds but not under SMP:
+ * the other core can still be mid-way through the same protected state.
+ * irq_lock() still runs on every call (nests safely on its own, each call
+ * gets back its own key to restore), and on top of it a core-owned, nesting-
+ * aware spin loop gives real cross-core exclusion without the self-deadlock
+ * a plain, non-recursive k_spinlock would hit on same-core re-entry.
+ */
 uint32_t IRAM_ATTR esp_coex_common_int_disable_wrapper(void *wifi_int_mux)
 {
-    unsigned int *int_mux = (unsigned int *)wifi_int_mux;
+    struct esp_wifi_int_mux *mux = (struct esp_wifi_int_mux *)wifi_int_mux;
+    unsigned int key = irq_lock();
+    atomic_val_t me = (atomic_val_t)(arch_curr_cpu()->id + 1);
 
-    *int_mux = irq_lock();
-    return 0;
+    if (atomic_get(&mux->owner) != me) {
+        while (!atomic_cas(&mux->owner, 0, me)) {
+            arch_nop();
+        }
+    }
+    mux->count++;
+
+    return (uint32_t)key;
 }
 
 void IRAM_ATTR esp_coex_common_int_restore_wrapper(void *wifi_int_mux, uint32_t tmp)
 {
-    unsigned int *key = (unsigned int *)wifi_int_mux;
+    struct esp_wifi_int_mux *mux = (struct esp_wifi_int_mux *)wifi_int_mux;
 
-    irq_unlock(*key);
+    if (--mux->count == 0) {
+        atomic_set(&mux->owner, 0);
+    }
+    irq_unlock((unsigned int)tmp);
 }
 
 void IRAM_ATTR esp_coex_common_task_yield_from_isr_wrapper(void)
