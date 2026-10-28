@@ -942,6 +942,12 @@ if(CONFIG_SOC_SERIES_ESP32S31)
 
   endif()
 
+  zephyr_sources_ifdef(CONFIG_ESP32S31_EMAC
+    ../../components/esp_hal_emac/emac_hal.c
+    ../../components/esp_hal_emac/${CONFIG_SOC_SERIES}/emac_periph.c
+    ../../components/esp_hal_emac/${CONFIG_SOC_SERIES}/emac_clk.c
+    )
+
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 
 endif()
