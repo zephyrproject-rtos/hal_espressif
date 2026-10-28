@@ -154,9 +154,7 @@ static inline void pmu_power_domain_force_default(pmu_context_t *ctx)
     const pmu_hp_power_domain_t pmu_hp_domains[] = {
         PMU_HP_PD_TOP,
         PMU_HP_PD_HPALIVE,
-        PMU_HP_PD_MODEMPWR,
         PMU_HP_PD_HPCPU,
-        PMU_HP_PD_HPCNNT,
         PMU_HP_PD_MODEM
     };
 

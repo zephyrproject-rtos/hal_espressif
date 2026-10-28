@@ -7,7 +7,6 @@
 #include "soc/soc.h"
 #include "riscv/encoding.h"
 #include "rvsleep-frames.h"
-#include "freertos/FreeRTOSConfig.h"
 #include "sdkconfig.h"
 #include "riscv/csr_clic.h"
 
@@ -16,7 +15,7 @@
     .type       rv_core_critical_regs_frame,@object
     .align      4
 rv_core_critical_regs_frame:
-    .rept (portNUM_PROCESSORS)
+    .rept (CONFIG_MP_MAX_NUM_CPUS)
     .word       0
     .endr
 
