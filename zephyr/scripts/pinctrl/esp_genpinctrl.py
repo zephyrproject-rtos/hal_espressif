@@ -134,16 +134,18 @@ def get_pinmux(dev_name, pin_name, pin_info, io):
     return pinmux
 
 
-def get_rmii_pinmux(pin_name, io):
-    # The Ethernet RMII data plane is routed through dedicated EMAC
-    # IOMUX pad functions instead of the GPIO matrix, so it uses the
-    # ESP32_RMII_PINMUX() encoding (signal slot + GPIO) rather than
-    # ESP32_PINMUX(). The slot maps to an ESP_RMII_* constant.
-    slot = 'ESP_RMII_' + pin_name.upper()
+def get_emac_pinmux(dev_name, pin_name, io):
+    # The Ethernet RMII and RGMII data planes are routed through dedicated
+    # EMAC IOMUX pad functions instead of the GPIO matrix, so they use the
+    # ESP32_RMII_PINMUX() / ESP32_RGMII_PINMUX() encoding (signal slot +
+    # GPIO) rather than ESP32_PINMUX(). The slot maps to an ESP_RMII_* or
+    # ESP_RGMII_* constant.
+    prefix = dev_name.upper()
+    slot = 'ESP_' + prefix + '_' + pin_name.upper()
 
-    pinmux = 'RMII_' + pin_name.upper() + '_GPIO' + str(io)
+    pinmux = prefix + '_' + pin_name.upper() + '_GPIO' + str(io)
     define_str = '#define ' + pinmux
-    macro_str = 'ESP32_RMII_PINMUX(' + str(io) + ', ' + slot + ')'
+    macro_str = 'ESP32_' + prefix + '_PINMUX(' + str(io) + ', ' + slot + ')'
 
     if len(define_str + ' ' + macro_str) > 100:
         pinmux = define_str + ' \\\n\t' + macro_str + '\n'
@@ -183,18 +185,15 @@ def main(pcfg_in):
         # diffs minimal and easily trackable
         dev_info = sorted(dev_info.items())
 
-        is_rmii = dev_name.lower() == 'rmii'
+        is_emac = dev_name.lower() in ('rmii', 'rgmii')
 
         for (pin_name, pin_info) in dev_info:
-            if is_rmii:
-                name = 'RMII_' + pin_name.upper()
-            else:
-                name = dev_name.upper() + '_' + pin_name.upper()
+            name = dev_name.upper() + '_' + pin_name.upper()
             f.write('/**\n * @name ' + name + '\n * @{\n */\n')
             ios = get_gpios(pin_info)
             for io in ios:
-                if is_rmii:
-                    pinmux = get_rmii_pinmux(pin_name, io)
+                if is_emac:
+                    pinmux = get_emac_pinmux(dev_name, pin_name, io)
                 else:
                     pinmux = get_pinmux(dev_name, pin_name, pin_info, io)
                 f.write(pinmux)
