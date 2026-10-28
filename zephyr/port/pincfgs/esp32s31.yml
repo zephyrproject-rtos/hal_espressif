@@ -643,3 +643,54 @@ uart3:
   dsr:
     sigi: u3dsr_in
     gpio: [[0, 28], [30, 40], [42, 61]]
+
+smi:
+  mdc:
+    sigo: emac_mdc_o
+    gpio: [[0, 28], [30, 40], [42, 61]]
+  mdio:
+    sigi: emac_mdi_i
+    sigo: emac_mdo_o
+    gpio: [[0, 28], [30, 40], [42, 61]]
+
+rmii:
+  clk:
+    gpio: [13, 43]
+  tx_en:
+    gpio: [12, 37]
+  txd0:
+    gpio: [8, 44]
+  txd1:
+    gpio: [9, 45]
+  crs_dv:
+    gpio: [15, 36]
+  rxd0:
+    gpio: [19, 41]
+  rxd1:
+    gpio: [18, 40]
+
+rgmii:
+  tx_clk:
+    gpio: [13, 43]
+  tx_ctl:
+    gpio: [12, 37]
+  txd0:
+    gpio: [8, 44]
+  txd1:
+    gpio: [9, 45]
+  txd2:
+    gpio: [10, 46]
+  txd3:
+    gpio: [11, 47]
+  rx_clk:
+    gpio: [14, 42]
+  rx_ctl:
+    gpio: [15, 36]
+  rxd0:
+    gpio: [19, 41]
+  rxd1:
+    gpio: [18, 40]
+  rxd2:
+    gpio: [17, 39]
+  rxd3:
+    gpio: [16, 38]
