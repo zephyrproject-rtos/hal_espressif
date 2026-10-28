@@ -12,7 +12,6 @@
 #include "esp_system.h"
 #include "esp_task.h"
 #include "esp_attr.h"
-#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/periph_ctrl.h"
@@ -23,6 +22,10 @@
 #include "hal/lact_ll.h"
 #include <zephyr/kernel.h>
 #include "esp_private/critical_section.h"
+#include "hal/timer_ll.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#include <zephyr/irq.h>
+#include <zephyr/devicetree.h>
 
 /**
  * @file esp_timer_lac.c
@@ -70,14 +73,14 @@ typedef struct {
     };
 } timer_64b_reg_t;
 
-ESP_LOG_ATTR_TAG(TAG, "esp_timer_impl");
-
 #define NOT_USED 0xBAD00FAD
 
 /* Interrupt handle returned by the interrupt allocator */
 /* Zephyr uses single ISR handler */
 #define ISR_HANDLERS (1)
+#ifndef __ZEPHYR__
 static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
+#endif
 
 /* Function from the upper layer to be called when the interrupt happens.
  * Registered in esp_timer_impl_init.
@@ -249,33 +252,22 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
     /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
     esp_timer_impl_early_init();
 
-    if (s_timer_interrupt_handle[0] != NULL) {
-        ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
-                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
-#if CONFIG_ESP_TIMER_IN_IRAM
-                    | ESP_INTR_FLAG_IRAM
-#endif
-                    ;
-
-    esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
-                                   &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[0]);
-
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
-        return err;
-    }
+    /*
+     * Connect at the multilevel-encoded IRQ from the lact devicetree node, not
+     * at INTR_SOURCE_LACT. The latter is a raw interrupt-matrix source (17 for
+     * TG0), and irq_get_level() reads a bare 17 as level 1 - i.e. as CPU line
+     * 17 - so the ISR would be planted directly in that line's slot, colliding
+     * with whatever the generator placed there.
+     */
+    IRQ_CONNECT(DT_IRQN(DT_NODELABEL(lact)), IRQ_DEFAULT_PRIORITY, timer_alarm_isr, NULL,
+                ESP_INTR_FLAG_IRAM);
 
     if (s_alarm_handler == NULL) {
         s_alarm_handler = alarm_handler;
         /* In theory, this needs a shared spinlock with the timer group driver.
-        * However since esp_timer_impl_init is called early at startup, this
-        * will not cause issues in practice.
-        */
+         * However since esp_timer_impl_init is called early at startup, this
+         * will not cause issues in practice.
+         */
         REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
         esp_os_enter_critical_safe(&s_time_update_lock);
         lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
@@ -286,18 +278,16 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[0]);
-    if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
-    }
+    irq_enable(DT_IRQN(DT_NODELABEL(lact)));
 
-    return err;
+    return 0;
 }
 
 void esp_timer_impl_deinit(void)
 {
     REG_WRITE(CONFIG_REG, 0);
     REG_SET_BIT(INT_CLR_REG, TIMG_LACT_INT_CLR);
+#ifndef __ZEPHYR__
     /* TODO: also clear TIMG_LACT_INT_ENA; however see the note in esp_timer_impl_init. */
     for (unsigned i = 0; i < ISR_HANDLERS; i++) {
         if (s_timer_interrupt_handle[i] != NULL) {
@@ -306,6 +296,9 @@ void esp_timer_impl_deinit(void)
             s_timer_interrupt_handle[i] = NULL;
         }
     }
+#else
+    irq_disable(DT_IRQN(DT_NODELABEL(lact)));
+#endif
     s_alarm_handler = NULL;
     PERIPH_RCC_RELEASE_ATOMIC(PERIPH_LACT, ref_count) {
         if (ref_count == 0) {
