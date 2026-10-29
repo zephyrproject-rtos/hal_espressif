@@ -332,6 +332,12 @@ void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa)
 }
 
 
+struct rsn_pmksa_cache_entry * pmksa_cache_head(struct rsn_pmksa_cache *pmksa)
+{
+    return pmksa->pmksa;
+}
+
+
 /**
  * pmksa_cache_get - Fetch a PMKSA cache entry
  * @pmksa: Pointer to PMKSA cache data from pmksa_cache_init()
