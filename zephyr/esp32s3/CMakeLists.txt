@@ -534,6 +534,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
     zephyr_sources(
       ../../components/bt/controller/esp32c3/bt.c
+      ../common/esp_bt_intr.c
       )
     zephyr_compile_definitions(CONFIG_BT_ENABLED)
 
