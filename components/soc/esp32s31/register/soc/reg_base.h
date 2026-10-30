@@ -126,6 +126,8 @@
  */
 #define DR_REG_UART_BASE                        DR_REG_UART0_BASE
 #define DR_REG_TIMERGROUP0_BASE                 DR_REG_TIMERG0_BASE
+#define DR_REG_TWAI0_BASE                       DR_REG_TWAIFD0_BASE
+#define DR_REG_TWAI1_BASE                       DR_REG_TWAIFD1_BASE
 #define DR_REG_TIMERGROUP1_BASE                 DR_REG_TIMERG1_BASE
 #define DR_REG_I2S_BASE                         DR_REG_I2S0_BASE
 #define DR_REG_INTERRUPT_MATRIX_BASE            DR_REG_INTR0_BASE
