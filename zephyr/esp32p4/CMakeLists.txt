@@ -574,6 +574,14 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hal_lcd/${CONFIG_SOC_SERIES}/mipi_dsi_periph.c
     )
 
+  zephyr_sources_ifdef(CONFIG_VIDEO_ESP32_CSI
+    ../../components/esp_hal_cam/mipi_csi_hal.c
+    ../../components/esp_hal_cam/isp_hal.c
+    ../../components/esp_hal_cam/${CONFIG_SOC_SERIES}/mipi_csi_periph.c
+    ../../components/esp_hal_cam/${CONFIG_SOC_SERIES}/isp_periph.c
+    ../../components/hal/hal_utils.c
+    )
+
   zephyr_sources_ifdef(CONFIG_INPUT_ESP32_TOUCH_SENSOR
     ../../components/esp_hal_touch_sens/esp32p4/touch_sensor_periph.c
     ../../components/esp_hal_touch_sens/touch_sens_hal.c
