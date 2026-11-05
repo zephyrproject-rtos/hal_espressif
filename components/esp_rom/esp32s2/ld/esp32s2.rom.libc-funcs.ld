@@ -18,11 +18,13 @@ PROVIDE ( __assert_func = 0x4001a408 );
 bzero = 0x400078c8;
 div = 0x40000620;
 isascii = 0x4001aaec;
-isblank = 0x400078f8;
-iscntrl = 0x40007918;
-isgraph = 0x40007968;
-isprint = 0x40007980;
-ispunct = 0x40007994;
+/* Zephyr: locale-dependent ROM call, provided by the selected libc */
+/* isblank = 0x400078f8; */
+/* iscntrl = 0x40007918; */
+/* isgraph = 0x40007968; */
+/* isprint = 0x40007980; */
+/* ispunct = 0x40007994; */
+
 labs = 0x40000648;
 ldiv = 0x40000650;
 /* Zephyr: reentrant ROM call, provided by the selected libc */
