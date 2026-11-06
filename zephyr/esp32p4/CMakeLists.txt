@@ -506,6 +506,12 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     endif()
   endif()
 
+  if(CONFIG_I2S_ESP32_LP)
+    zephyr_sources(
+      ../../components/esp_hal_i2s/lp_i2s_hal.c
+      )
+  endif()
+
   if(CONFIG_COUNTER_TMR_ESP32)
     zephyr_sources(
       ../../components/esp_hal_timg/timer_hal.c
