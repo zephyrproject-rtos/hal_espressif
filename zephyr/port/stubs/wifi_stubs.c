@@ -707,7 +707,7 @@ void *esp_wifi_internal_mac_retention_context_get(int *config_size)
 }
 #endif
 
-#if CONFIG_MAC_BB_PD
+#if CONFIG_SOC_FAMILY_ESP32_MAC_BB_PD
 esp_err_t esp_wifi_internal_set_mac_sleep(bool enable)
 {
 	ARG_UNUSED(enable);

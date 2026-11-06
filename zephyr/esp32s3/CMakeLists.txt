@@ -314,7 +314,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
 
   zephyr_link_libraries("-Wl,--wrap=longjmp")
 
-  if (CONFIG_ESP_SPIRAM)
+  if (CONFIG_SOC_FAMILY_ESP32_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
@@ -322,15 +322,15 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_hw_support/esp_gpio_reserve.c
       )
 
-    zephyr_sources_ifdef(CONFIG_SPIRAM_MODE_QUAD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SPIRAM_MODE_QUAD
       ../../components/esp_psram/device/esp_psram_impl_ap_quad.c
       )
 
-    zephyr_sources_ifdef(CONFIG_SPIRAM_MODE_OCT
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SPIRAM_MODE_OCT
       ../../components/esp_psram/${CONFIG_SOC_SERIES}/esp_psram_impl_octal.c
       )
 
-    if (CONFIG_SPIRAM_FETCH_INSTRUCTIONS OR CONFIG_SPIRAM_RODATA)
+    if (CONFIG_SOC_FAMILY_ESP32_SPIRAM_FETCH_INSTRUCTIONS OR CONFIG_SOC_FAMILY_ESP32_SPIRAM_RODATA)
       zephyr_sources(
         ../../components/esp_psram/xip_impl/mmu_psram_flash.c
         )
@@ -341,7 +341,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     ../../components/esp_hal_cam/cam_hal.c
     )
 
-  zephyr_sources_ifdef(CONFIG_ESP32_LCD_CAM
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_LCD_CAM
     ../../components/esp_hal_lcd/lcd_hal.c
     ../../components/hal/hal_utils.c
     )
@@ -371,7 +371,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/rtc_cntl_hal.c
     )
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()
@@ -488,7 +488,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     src/soc_random.c
   )
 
-  zephyr_sources_ifdef(CONFIG_MAC_BB_PD
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_MAC_BB_PD
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/apb_backup_dma.c
   )
 
@@ -505,7 +505,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
       ../port/stubs/wifi_compat_stubs.c
       )
 
-    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
+    if (CONFIG_SOC_FAMILY_ESP32_SW_COEXIST_ENABLE)
       zephyr_sources(../../components/esp_coex/src/lib_printf.c)
       zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 

@@ -271,7 +271,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/esp_hw_support/clk_utils.c
       )
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()
@@ -403,7 +403,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
     src/soc_random.c
   )
 
-  zephyr_sources_ifdef(CONFIG_MAC_BB_PD
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_MAC_BB_PD
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/apb_backup_dma.c
   )
 
@@ -421,7 +421,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../port/stubs/wifi_compat_stubs.c
       )
 
-    if (CONFIG_ESP32_SW_COEXIST_ENABLE)
+    if (CONFIG_SOC_FAMILY_ESP32_SW_COEXIST_ENABLE)
       zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 
       zephyr_sources(
