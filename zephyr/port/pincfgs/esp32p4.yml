@@ -313,6 +313,9 @@ i2s0:
   o_sd:
     sigo: i2s0_o_sd_out
     gpio: [[0, 54]]
+  o_sd1:
+    sigo: i2s0_o_sd1_out
+    gpio: [[0, 54]]
   i_sd:
     sigi: i2s0_i_sd_in
     gpio: [[0, 54]]
