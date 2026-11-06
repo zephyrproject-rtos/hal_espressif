@@ -30,7 +30,7 @@ void print_banner(void)
 	ESP_EARLY_LOGI(TAG, "MCUboot 2nd stage bootloader");
 #elif CONFIG_BOOTLOADER_MCUBOOT
 	ESP_EARLY_LOGI(TAG, "MCUboot Application image");
-#else /* CONFIG_ESP_SIMPLE_BOOT */
+#else /* CONFIG_SOC_FAMILY_ESP32_SIMPLE_BOOT */
 	ESP_EARLY_LOGI(TAG, "ESP Simple boot");
 #endif
 	ESP_EARLY_LOGI(TAG, "compile time " __DATE__ " " __TIME__);
@@ -139,14 +139,14 @@ int check_bootloader_validity(void)
 		ESP_EARLY_LOGE(TAG,
 			       "Proceeding with this ESP32 chip revision is not recommended unless "
 			       "you fully understand the potential risk and limitations.");
-#if !defined(CONFIG_ESP32_USE_UNSUPPORTED_REVISION)
+#if !defined(CONFIG_SOC_FAMILY_ESP32_USE_UNSUPPORTED_REVISION)
 		ESP_EARLY_LOGE(
 			TAG,
 			"If you choose to continue, please enable "
-			"'CONFIG_ESP32_USE_UNSUPPORTED_REVISION=y' in your project configuration.");
+			"'CONFIG_SOC_FAMILY_ESP32_USE_UNSUPPORTED_REVISION=y' in your project configuration.");
 		config_wdt();
 		abort();
-#endif /* !CONFIG_ESP32_USE_UNSUPPORTED_REVISION */
+#endif /* !CONFIG_SOC_FAMILY_ESP32_USE_UNSUPPORTED_REVISION */
 	}
 #endif /* CONFIG_SOC_SERIES_ESP32 */
 #endif /* CONFIG_MCUBOOT */

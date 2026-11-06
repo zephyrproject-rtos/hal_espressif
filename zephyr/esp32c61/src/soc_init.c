@@ -265,7 +265,7 @@ void bootloader_clock_configure(void)
 	 */
 	_mspi_timing_ll_set_flash_clk_src(0, FLASH_CLK_SRC_SPLL);
 	mspi_timing_ll_set_core_clock(0, 80);
-#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
+#if CONFIG_SOC_FAMILY_ESP32_FLASH_FREQ_80M
 	esp_rom_spiflash_config_clk(1, 0);
 	esp_rom_spiflash_config_clk(1, 1);
 #endif

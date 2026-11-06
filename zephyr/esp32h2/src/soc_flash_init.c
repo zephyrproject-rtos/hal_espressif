@@ -244,7 +244,8 @@ esp_err_t init_spi_flash(void)
 	spi_flash_resume();
 	bootloader_flash_unlock();
 
-#if CONFIG_ESPTOOLPY_FLASHMODE_QIO || CONFIG_ESPTOOLPY_FLASHMODE_QOUT
+#if CONFIG_SOC_FAMILY_ESP32_FLASH_MODE_QIO || \
+	CONFIG_SOC_FAMILY_ESP32_FLASH_MODE_QOUT
 	bootloader_enable_qio_mode();
 #endif
 

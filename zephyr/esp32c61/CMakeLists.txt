@@ -281,20 +281,20 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
     )
 
-    if(CONFIG_ESP32_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
+    if(CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
         )
-      zephyr_sources_ifdef(CONFIG_ESP32_PM_CPU_RETENTION_DYNAMIC
+      zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_PM_CPU_RETENTION_DYNAMIC
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
         )
-      zephyr_sources_ifdef(CONFIG_ESP32_PM_CPU_RETENTION_STATIC
+      zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_PM_CPU_RETENTION_STATIC
         ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
         )
     endif()
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()
@@ -306,20 +306,20 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/esp_hal_dma/gdma_hal_ahb_v2.c
       )
 
-    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hal_dma/${CONFIG_SOC_SERIES}/gdma_periph.c
         )
     endif()
   endif()
 
-  if(CONFIG_WDT_ESP32 AND CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+  if(CONFIG_WDT_ESP32 AND CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
     zephyr_sources(
       ../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/mwdt_periph.c
       )
   endif()
 
-  if (CONFIG_ESP_SPIRAM)
+  if (CONFIG_SOC_FAMILY_ESP32_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
@@ -328,7 +328,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/esp_hw_support/esp_gpio_reserve.c
       )
 
-    zephyr_sources_ifdef(CONFIG_SPIRAM_MODE_QUAD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_SPIRAM_MODE_QUAD
       ../../components/esp_psram/device/esp_psram_impl_ap_quad.c
       )
   endif()
@@ -433,7 +433,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     src/soc_random.c
   )
 
-  zephyr_sources_ifdef(CONFIG_SOC_ESP32_ENABLE_PVT
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESP32_ENABLE_PVT
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_pvt.c
     )
 
@@ -448,7 +448,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/hal/hal_utils.c
       )
 
-    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hal_i2s/${CONFIG_SOC_SERIES}/i2s_periph.c
         )
@@ -459,7 +459,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     zephyr_sources(
       ../../components/esp_hal_timg/timer_hal.c
       )
-    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_hal_timg/${CONFIG_SOC_SERIES}/timer_periph.c
         )
@@ -494,7 +494,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
     ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
     )
 
-    if(CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    if(CONFIG_SOC_FAMILY_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
         ../../components/esp_driver_tsens/${CONFIG_SOC_SERIES}/temperature_sensor_retention.c
         )
@@ -532,7 +532,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/esp_coex/${CONFIG_SOC_SERIES}/esp_coex_adapter.c
       )
 
-    if(CONFIG_ESP32_SW_COEXIST_ENABLE)
+    if(CONFIG_SOC_FAMILY_ESP32_SW_COEXIST_ENABLE)
       zephyr_sources(../../components/esp_coex/src/lib_printf.c)
       zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
 

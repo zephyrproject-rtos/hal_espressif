@@ -24,13 +24,13 @@
 
 void esp_console_deinit(void)
 {
-#ifdef CONFIG_ESP_CONSOLE_UART
+#ifdef CONFIG_SOC_FAMILY_ESP32_CONSOLE_UART
 	/* Ensure any buffered log output is displayed */
 	esp_rom_output_flush_tx(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
-#endif /* CONFIG_ESP_CONSOLE_UART */
+#endif /* CONFIG_SOC_FAMILY_ESP32_CONSOLE_UART */
 }
 
-#ifdef CONFIG_ESP_CONSOLE_UART
+#ifdef CONFIG_SOC_FAMILY_ESP32_CONSOLE_UART
 void esp_console_init(void)
 {
 	esp_rom_install_uart_printf();
@@ -47,23 +47,23 @@ void esp_console_init(void)
 #endif
 	esp_rom_output_tx_wait_idle(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM);
 	_uart_ll_set_baudrate(UART_LL_GET_HW(CONFIG_ESP_CONSOLE_ROM_SERIAL_PORT_NUM),
-			      CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
+			      CONFIG_SOC_FAMILY_ESP32_CONSOLE_UART_BAUDRATE, clock_hz);
 }
-#endif /* CONFIG_ESP_CONSOLE_UART */
+#endif /* CONFIG_SOC_FAMILY_ESP32_CONSOLE_UART */
 
-#ifdef CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+#ifdef CONFIG_SOC_FAMILY_ESP32_CONSOLE_USB_SERIAL_JTAG
 void esp_console_init(void)
 {
 	/* Wait for any pending UART output to complete before switching */
 	esp_rom_output_tx_wait_idle(0);
 
 	/* Switch ROM buffer to USB Serial JTAG */
-	esp_rom_output_switch_buffer(CONFIG_ESP_ROM_USB_SERIAL_DEVICE_NUM);
+	esp_rom_output_switch_buffer(CONFIG_SOC_FAMILY_ESP32_ROM_USB_SERIAL_DEVICE_NUM);
 
 	/* Configure ROM printf to use USB Serial JTAG for output */
-	esp_rom_output_set_as_console(CONFIG_ESP_ROM_USB_SERIAL_DEVICE_NUM);
+	esp_rom_output_set_as_console(CONFIG_SOC_FAMILY_ESP32_ROM_USB_SERIAL_DEVICE_NUM);
 
 	/* Disable ROM channel 2 to avoid double output (channel 2 also goes to USB) */
 	esp_rom_install_channel_putc(2, NULL);
 }
-#endif /* CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG */
+#endif /* CONFIG_SOC_FAMILY_ESP32_CONSOLE_USB_SERIAL_JTAG */

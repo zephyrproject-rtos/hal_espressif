@@ -682,7 +682,7 @@ void bootloader_spi_flash_reset(void)
  * XMC startup flow
  ******************************************************************************/
 
-#define XMC_SUPPORT CONFIG_BOOTLOADER_FLASH_XMC_SUPPORT
+#define XMC_SUPPORT CONFIG_SOC_FAMILY_ESP32_BOOTLOADER_FLASH_XMC_SUPPORT
 #define XMC_VENDOR_ID_1 0x20
 
 #define BOOTLOADER_FLASH_LOG(level, ...)    ESP_EARLY_LOG##level(TAG, ##__VA_ARGS__)
@@ -810,7 +810,7 @@ bool IRAM_ATTR bootloader_flash_is_octal_mode_enabled(void)
 
 void bootloader_common_vddsdio_configure(void)
 {
-#if CONFIG_BOOTLOADER_VDDSDIO_BOOST_1_9V
+#if CONFIG_SOC_FAMILY_ESP32_BOOTLOADER_VDDSDIO_BOOST_1_9V
     rtc_vddsdio_config_t cfg = rtc_vddsdio_get_config();
     if (cfg.enable == 1 && cfg.tieh == RTC_VDDSDIO_TIEH_1_8V) {
         cfg.drefh = 3;

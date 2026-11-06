@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2025 Espressif Systems (Shanghai) Co., Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
-if SOC_FAMILY_ESPRESSIF_ESP32
+if SOC_FAMILY_ESP32
 
 # ESP-IDF platform marker - enables ESP-IDF-specific code paths
 config ESP_PLATFORM
@@ -341,7 +341,7 @@ config ESP_SLEEP_FLASH_LEAKAGE_WORKAROUND
 
 config ESP_SLEEP_PSRAM_LEAKAGE_WORKAROUND
 	bool "Pull up PSRAM CS pin in light sleep"
-	depends on ESP_SPIRAM
+	depends on SOC_FAMILY_ESP32_SPIRAM
 	default y
 	help
 	  Same rationale as flash CS, for PSRAM. Enable when using SPIRAM and
@@ -357,4 +357,4 @@ config ESP_SLEEP_MSPI_NEED_ALL_IO_PU
 
 endmenu # Sleep config
 
-endif # SOC_FAMILY_ESPRESSIF_ESP32
+endif # SOC_FAMILY_ESP32
