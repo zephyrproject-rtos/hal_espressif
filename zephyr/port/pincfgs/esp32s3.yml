@@ -104,6 +104,9 @@ i2s0:
   o_sd:
     sigo: i2s0o_sd_out
     gpio: [[0, 21], [26, 48]]
+  o_sd1:
+    sigo: i2s0o_sd1_out
+    gpio: [[0, 21], [26, 48]]
 
 i2s1:
   mclk:

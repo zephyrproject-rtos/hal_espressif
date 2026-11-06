@@ -121,6 +121,9 @@ i2s:
   o_sd:
     sigo: i2so_sd_out
     gpio: [[0, 21]]
+  o_sd1:
+    sigo: i2so_sd1_out
+    gpio: [[0, 21]]
 
 twai:
   rx:

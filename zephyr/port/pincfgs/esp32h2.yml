@@ -131,6 +131,9 @@ i2s:
   o_sd:
     sigo: i2so_sd_out
     gpio: [[0, 5], [8, 14], [22, 27]]
+  o_sd1:
+    sigo: i2so_sd1_out
+    gpio: [[0, 5], [8, 14], [22, 27]]
 
 ledc:
   ch0:
