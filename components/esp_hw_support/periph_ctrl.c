@@ -67,6 +67,9 @@
 #if SOC_I2S_SUPPORTED
 #include <hal/i2s_ll.h>
 #endif
+#if SOC_LP_I2S_SUPPORTED
+#include <hal/lp_i2s_ll.h>
+#endif
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
 #include <hal/usb_serial_jtag_ll.h>
 #endif
@@ -467,6 +470,13 @@ void non_shared_periph_module_enable(int periph)
         lp_i2c_ll_reset_register(0);
         break;
 #endif
+#ifdef ESP32_LP_I2S0_MODULE
+    case ESP32_LP_I2S0_MODULE:
+        lp_i2s_ll_enable_module_clock(0, true);
+        lp_i2s_ll_reset_module_clock(0);
+        lp_i2s_ll_enable_rx_module_clock(0, true);
+        break;
+#endif
 #if SOC_ADC_SUPPORTED
 #ifdef ESP32_SARADC_MODULE
 #if ESP32_SARADC_MODULE >= 100
@@ -799,6 +809,12 @@ void non_shared_periph_module_disable(int periph)
 #ifdef ESP32_LP_I2C0_MODULE
     case ESP32_LP_I2C0_MODULE:
         lp_i2c_ll_enable_bus_clock(0, false);
+        break;
+#endif
+#ifdef ESP32_LP_I2S0_MODULE
+    case ESP32_LP_I2S0_MODULE:
+        lp_i2s_ll_enable_rx_module_clock(0, false);
+        lp_i2s_ll_enable_module_clock(0, false);
         break;
 #endif
 #if SOC_ADC_SUPPORTED
