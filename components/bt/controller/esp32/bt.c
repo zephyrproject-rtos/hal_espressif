@@ -842,9 +842,18 @@ static int32_t task_create_wrapper(void *task_func, const char *name, uint32_t s
 
     k_tid_t tid = k_thread_create(&bt_task_handle, bt_stack, K_KERNEL_STACK_SIZEOF(bt_stack),
                       (k_thread_entry_t)task_func, param, NULL, NULL,
-                      K_PRIO_COOP(prio), 0, K_NO_WAIT);
+                      K_PRIO_COOP(prio), 0,
+                      IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
 
     k_thread_name_set(tid, name);
+
+#if defined(CONFIG_SMP)
+    BUILD_ASSERT(IS_ENABLED(CONFIG_SCHED_CPU_MASK),
+                 "The Bluetooth controller under SMP requires CONFIG_SCHED_CPU_MASK");
+
+    k_thread_cpu_pin(tid, core_id);
+    k_thread_start(tid);
+#endif
 
     *(int32_t *)task_handle = (int32_t)tid;
 
