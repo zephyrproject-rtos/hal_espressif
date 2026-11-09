@@ -1648,7 +1648,7 @@ esp_err_t esp_light_sleep_start(void)
     if (!rtc_wdt_was_enabled) {
         sleep_rtc_wdt_prepare(true);
     } else {
-        ESP_EARLY_LOGW(TAG, "RTC WDT is enabled and will not be reconfigured again!");
+        ESP_EARLY_LOGD(TAG, "RTC WDT is enabled and will not be reconfigured again!");
     }
 #endif /* SOC_RTC_WDT_SUPPORTED */
 
