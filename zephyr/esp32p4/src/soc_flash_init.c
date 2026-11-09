@@ -236,11 +236,11 @@ esp_err_t init_spi_flash(void)
 	spi_flash_resume();
 	bootloader_flash_unlock();
 
-#if CONFIG_ESPTOOLPY_FLASHMODE_QIO || CONFIG_ESPTOOLPY_FLASHMODE_QOUT
+#if CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_MODE_QIO || CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_MODE_QOUT
 	bootloader_enable_qio_mode();
 #endif
 
-#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
+#if CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_FREQ_80M
 	bootloader_image_hdr.spi_speed = ESP_IMAGE_SPI_SPEED_DIV_1;
 #endif
 	print_flash_info(&bootloader_image_hdr);

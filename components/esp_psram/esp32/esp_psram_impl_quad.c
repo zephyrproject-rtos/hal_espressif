@@ -110,11 +110,11 @@ typedef enum {
 // PSRAM clock and cs IO should be configured based on hardware design.
 // For ESP32-WROVER or ESP32-WROVER-B module, the clock IO is IO17, the cs IO is IO16,
 // they are the default value for these two configs.
-#define D0WD_PSRAM_CLK_IO          CONFIG_D0WD_PSRAM_CLK_IO  // Default value is 17
-#define D0WD_PSRAM_CS_IO           CONFIG_D0WD_PSRAM_CS_IO   // Default value is 16
+#define D0WD_PSRAM_CLK_IO          CONFIG_SOC_ESP32_D0WD_PSRAM_CLK_IO  // Default value is 17
+#define D0WD_PSRAM_CS_IO           CONFIG_SOC_ESP32_D0WD_PSRAM_CS_IO   // Default value is 16
 
-#define D2WD_PSRAM_CLK_IO          CONFIG_D2WD_PSRAM_CLK_IO  // Default value is 9
-#define D2WD_PSRAM_CS_IO           CONFIG_D2WD_PSRAM_CS_IO   // Default value is 10
+#define D2WD_PSRAM_CLK_IO          CONFIG_SOC_ESP32_D2WD_PSRAM_CLK_IO  // Default value is 9
+#define D2WD_PSRAM_CS_IO           CONFIG_SOC_ESP32_D2WD_PSRAM_CS_IO   // Default value is 10
 
 // There is no reason to change the pin of an embedded psram.
 // So define the number of pin directly, instead of configurable.
@@ -123,7 +123,7 @@ typedef enum {
 
 // For ESP32-PICO chip, the psram share clock with flash. The flash clock pin is fixed, which is IO6.
 #define PICO_PSRAM_CLK_IO          6
-#define PICO_PSRAM_CS_IO           CONFIG_PICO_PSRAM_CS_IO   // Default value is 10
+#define PICO_PSRAM_CS_IO           CONFIG_SOC_ESP32_PICO_PSRAM_CS_IO   // Default value is 10
 
 #define PICO_V3_02_PSRAM_CLK_IO    10
 #define PICO_V3_02_PSRAM_CS_IO     9

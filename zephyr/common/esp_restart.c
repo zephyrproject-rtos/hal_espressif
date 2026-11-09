@@ -60,8 +60,8 @@ void IRAM_ATTR esp_restart_noos_dig(void)
 	xt_ints_off(0xFFFFFFFF);
 
 	/* Make sure all the panic handler output is sent from UART FIFO */
-	if (CONFIG_ESP_CONSOLE_UART_NUM >= 0) {
-		esp_rom_output_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+	if (CONFIG_SOC_FAMILY_ESPRESSIF_CONSOLE_UART_NUM >= 0) {
+		esp_rom_output_tx_wait_idle(CONFIG_SOC_FAMILY_ESPRESSIF_CONSOLE_UART_NUM);
 	}
 
 #if SOC_MEMSPI_CLOCK_IS_INDEPENDENT

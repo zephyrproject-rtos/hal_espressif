@@ -269,13 +269,14 @@ static void spi_flash_resume(void)
 int init_spi_flash(void)
 {
 	init_flash_configure();
-#ifndef CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+#ifndef CONFIG_SOC_FAMILY_ESPRESSIF_SPI_FLASH_ROM_DRIVER_PATCH
 	const uint32_t spiconfig = esp_rom_efuse_get_flash_gpio_info();
 
 	if (spiconfig != ESP_ROM_EFUSE_FLASH_DEFAULT_SPI &&
 	    spiconfig != ESP_ROM_EFUSE_FLASH_DEFAULT_HSPI) {
 		ESP_EARLY_LOGE(TAG, "SPI flash pins are overridden. Enable "
-				    "CONFIG_SPI_FLASH_ROM_DRIVER_PATCH in menuconfig");
+				    "CONFIG_SOC_FAMILY_ESPRESSIF_SPI_FLASH_ROM_DRIVER_PATCH "
+				    "in menuconfig");
 		return ESP_FAIL;
 	}
 #endif
@@ -283,7 +284,7 @@ int init_spi_flash(void)
 	spi_flash_resume();
 	bootloader_flash_unlock();
 
-#if CONFIG_ESPTOOLPY_FLASHMODE_QIO || CONFIG_ESPTOOLPY_FLASHMODE_QOUT
+#if CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_MODE_QIO || CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_MODE_QOUT
 	bootloader_enable_qio_mode();
 #endif
 

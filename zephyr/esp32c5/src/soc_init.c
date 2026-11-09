@@ -283,7 +283,7 @@ void bootloader_clock_configure(void)
 					  FLASH_CLK_SRC_SPLL);
 	mspi_timing_ll_set_core_clock(MSPI_TIMING_LL_MSPI_ID_0,
 				      MSPI_TIMING_LL_CORE_CLOCK_MHZ_DEFAULT);
-#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
+#if CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_FREQ_80M
 	/* In 80MHz flash mode, ROM sets the mspi module clk divider to 2 */
 	esp_rom_spiflash_config_clk(1, 0);
 	esp_rom_spiflash_config_clk(1, 1);

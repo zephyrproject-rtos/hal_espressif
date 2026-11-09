@@ -177,7 +177,7 @@ int bootloader_flash_get_wp_pin(void)
 #if CONFIG_BOOTLOADER_SPI_CUSTOM_WP_PIN
     return CONFIG_BOOTLOADER_SPI_WP_PIN; // can be set for bootloader when QIO or QOUT config in use
 #elif CONFIG_SPIRAM_CUSTOM_SPIWP_SD3_PIN
-    return CONFIG_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
+    return CONFIG_SOC_ESP32_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
 #else
     // no custom value, find it based on the package eFuse value
     switch(bootloader_common_get_chip_ver_pkg()) {
