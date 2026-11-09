@@ -488,7 +488,7 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     src/soc_random.c
   )
 
-  zephyr_sources_ifdef(CONFIG_MAC_BB_PD
+  zephyr_sources_ifdef(CONFIG_ESP32_MAC_BB_PD
     ../../components/esp_system/port/soc/${CONFIG_SOC_SERIES}/apb_backup_dma.c
   )
 
