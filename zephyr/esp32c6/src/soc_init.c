@@ -37,7 +37,7 @@ void soc_hw_init(void)
 #endif
 
 	/* In 80MHz flash mode, ROM sets the mspi module clk divider to 2, fix it here */
-#if CONFIG_ESPTOOLPY_FLASHFREQ_80M
+#if CONFIG_SOC_FAMILY_ESPRESSIF_FLASH_FREQ_80M
 	clk_ll_mspi_fast_set_hs_divider(6);
 	esp_rom_spiflash_config_clk(1, 0);
 	esp_rom_spiflash_config_clk(1, 1);

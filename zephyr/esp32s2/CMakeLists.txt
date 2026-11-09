@@ -223,7 +223,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/soc/lldesc.c
     )
 
-  if (CONFIG_ESP_SPIRAM)
+  if (CONFIG_SOC_FAMILY_ESPRESSIF_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_sources(
       ../../components/esp_psram/system_layer/esp_psram.c
@@ -234,7 +234,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/spi_flash/flash_ops.c
       )
 
-    if (CONFIG_SPIRAM_FETCH_INSTRUCTIONS OR CONFIG_SPIRAM_RODATA)
+    if (CONFIG_SOC_FAMILY_ESPRESSIF_SPIRAM_FETCH_INSTRUCTIONS OR
+        CONFIG_SOC_FAMILY_ESPRESSIF_SPIRAM_RODATA)
       zephyr_sources(
         ../../components/esp_psram/xip_impl/mmu_psram_flash.c
         )
@@ -315,7 +316,7 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
     )
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()

@@ -247,7 +247,7 @@ if(CONFIG_SOC_SERIES_ESP32)
     ../../components/esp_hal_sd/${CONFIG_SOC_SERIES}/sdmmc_periph.c
     )
 
-  if (CONFIG_ESP_SPIRAM)
+  if (CONFIG_SOC_FAMILY_ESPRESSIF_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM)
     zephyr_compile_definitions(CONFIG_SPIRAM_OCCUPY_NO_HOST)
     zephyr_sources(
@@ -304,7 +304,7 @@ if(CONFIG_SOC_SERIES_ESP32)
       ../../components/esp_hal_touch_sens/touch_sens_hal.c
       )
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()
@@ -770,8 +770,8 @@ if(CONFIG_SOC_SERIES_ESP32)
   endif()
 
   ## Ethernet MAC/PHY definitions
-  zephyr_sources_ifdef(CONFIG_ESP32_EMAC ../../components/esp_hal_emac/emac_hal.c)
-  zephyr_sources_ifdef(CONFIG_ESP32_EMAC ../../components/esp_hal_emac/${CONFIG_SOC_SERIES}/emac_periph.c)
+  zephyr_sources_ifdef(CONFIG_SOC_ESP32_EMAC ../../components/esp_hal_emac/emac_hal.c)
+  zephyr_sources_ifdef(CONFIG_SOC_ESP32_EMAC ../../components/esp_hal_emac/${CONFIG_SOC_SERIES}/emac_periph.c)
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)
 

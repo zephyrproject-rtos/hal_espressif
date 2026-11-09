@@ -271,7 +271,7 @@ if(CONFIG_SOC_SERIES_ESP32C3)
       ../../components/esp_hw_support/clk_utils.c
       )
 
-    zephyr_sources_ifdef(CONFIG_ESP32_SLEEP_SET_FLASH_DPD
+    zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_SET_FLASH_DPD
       ../../components/spi_flash/spi_flash_dpd_enable.c
     )
   endif()
