@@ -236,6 +236,17 @@ FORCE_INLINE_ATTR void rwdt_ll_set_pause_in_sleep_en(rwdt_dev_t *hw, bool enable
 }
 
 /**
+ * @brief Check if the RWDT pause during sleep functionality is enabled
+ *
+ * @param hw Start address of the peripheral registers.
+ * @return True if the RWDT pauses during sleep, false otherwise
+ */
+FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rwdt_dev_t *hw)
+{
+    return hw->config0.wdt_pause_in_slp;
+}
+
+/**
  * @brief No register for setting chip_reset_en, we keep an empty function to
  *        provide the same HAL interface as other targets.
  */
