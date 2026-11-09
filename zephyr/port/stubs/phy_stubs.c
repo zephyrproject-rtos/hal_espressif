@@ -84,7 +84,7 @@ uint8_t phy_dig_reg_backup(bool backup_en, uint32_t *mem_addr)
 	return 0;
 }
 
-#if CONFIG_MAC_BB_PD
+#if CONFIG_ESP32_MAC_BB_PD
 void phy_freq_mem_backup(bool backup_en, uint32_t *mem)
 {
 	ARG_UNUSED(backup_en);
@@ -130,7 +130,7 @@ esp_err_t esp_phy_erase_cal_data_in_nvs(void)
 	return ESP_OK;
 }
 
-#if CONFIG_MAC_BB_PD
+#if CONFIG_ESP32_MAC_BB_PD
 void esp_mac_bb_pd_mem_init(void)
 {
 	return;
