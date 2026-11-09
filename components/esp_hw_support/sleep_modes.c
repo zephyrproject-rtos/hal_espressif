@@ -3063,6 +3063,13 @@ static SLEEP_FN_ATTR uint32_t get_sleep_flags(uint32_t sleep_flags, bool deepsle
     }
 #endif
 
+#if SOC_RTC_WDT_SUPPORTED
+    wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
+    if (wdt_hal_is_enabled(&rtc_wdt_ctx) && !rwdt_ll_get_pause_in_sleep_en(rtc_wdt_ctx.rwdt_dev)) {
+        sleep_flags |= RTC_SLEEP_USE_RTC_WDT;
+    }
+#endif
+
 #if CONFIG_IDF_TARGET_ESP32P4
     /* Due to esp32p4 eco0 hardware bug, if LP peripheral power domain is powerdowned in sleep, there will be a possibility of
        triggering the EFUSE_CRC reset, so disable the power-down of this power domain on lightsleep for ECO0 version. */
