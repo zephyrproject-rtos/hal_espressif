@@ -229,6 +229,17 @@ FORCE_INLINE_ATTR void rwdt_ll_set_pause_in_sleep_en(rtc_cntl_dev_t *hw, bool en
 }
 
 /**
+ * @brief Check if the RWDT pause during sleep functionality is enabled
+ *
+ * @param hw Start address of the peripheral registers.
+ * @return True if the RWDT pauses during sleep, false otherwise
+ */
+FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
+{
+    return hw->wdt_config0.pause_in_slp;
+}
+
+/**
  * @brief Enable/Disable chip reset on RWDT timeout.
  *
  * A chip reset also resets the analog portion of the chip. It will appear as a
