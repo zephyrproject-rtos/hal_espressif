@@ -28,8 +28,8 @@ file_out_head = (
  * @ingroup pinctrl_{soc}
  */
 
-#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
-#define ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_
 
 #include "esp-pinctrl-common.h"
 #include "{soc}-gpio-sigmap.h"
@@ -48,6 +48,22 @@ file_out_head = (
  * For example, `I2C0_SCL_GPIO1` corresponds to the `SCL` signal of `I2C0`
  * mapped to `GPIO1`.
  *
+ * @code{.dts}
+ * #include <zephyr/dt-bindings/pinctrl/{soc}-pinctrl.h>
+ *
+ * &pinctrl {
+ *     uart0_default: uart0_default {
+ *         group1 {
+ *             pinmux = <UART0_TX_GPIO{TX}>;
+ *         };
+ *         group2 {
+ *             pinmux = <UART0_RX_GPIO{RX}>;
+ *             bias-pull-up;
+ *         };
+ *     };
+ * };
+ * @endcode
+ *
  * @{
  */
 
@@ -61,7 +77,7 @@ file_out_tail = """
 
 /** @} */
 
-#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_ESPRESSIF_{SOC}_PINCTRL_H_ */
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_{SOC}_PINCTRL_H_ */
 """
 
 file_out_path = 'include/zephyr/dt-bindings/pinctrl/'
@@ -95,6 +111,13 @@ def get_gpios(pin_info):
         return get_pin_ios(pin_info.get('gpio'))
     else:
         err('gpio', 'missing property')
+
+
+def get_example_io(pin_info, preferred, taken=None):
+    ios = [io for io in get_gpios(pin_info) if io != taken]
+    if preferred in ios:
+        return preferred
+    return ios[0]
 
 
 def get_pin_sigi(pin_info):
@@ -175,7 +198,17 @@ def main(pcfg_in):
     all_data = sorted(pcfg_data.items())
 
     f = open(file_tmp_abs, 'w')
-    f.write(file_out_head.replace("{soc}", soc.lower()).replace("{SOC}", soc.upper()))
+
+    # usage example in the doxygen group, on pins valid for this soc
+    example_tx = get_example_io(pcfg_data['uart0']['tx'], 21)
+    example_rx = get_example_io(pcfg_data['uart0']['rx'], 20, example_tx)
+
+    f.write(
+        file_out_head.replace("{soc}", soc.lower())
+        .replace("{SOC}", soc.upper())
+        .replace("{TX}", str(example_tx))
+        .replace("{RX}", str(example_rx))
+    )
 
     for (dev_name, dev_info) in all_data:
 
