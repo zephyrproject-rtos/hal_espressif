@@ -143,6 +143,66 @@ i2c1:
     gpio: [[0, 21], [26, 45]]
 
 i2s0:
+  cam_data_in0:
+    sigi: i2s0i_data_in0
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in1:
+    sigi: i2s0i_data_in1
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in2:
+    sigi: i2s0i_data_in2
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in3:
+    sigi: i2s0i_data_in3
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in4:
+    sigi: i2s0i_data_in4
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in5:
+    sigi: i2s0i_data_in5
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in6:
+    sigi: i2s0i_data_in6
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in7:
+    sigi: i2s0i_data_in7
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in8:
+    sigi: i2s0i_data_in8
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in9:
+    sigi: i2s0i_data_in9
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in10:
+    sigi: i2s0i_data_in10
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in11:
+    sigi: i2s0i_data_in11
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in12:
+    sigi: i2s0i_data_in12
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in13:
+    sigi: i2s0i_data_in13
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in14:
+    sigi: i2s0i_data_in14
+    gpio: [[0, 21], [26, 46]]
+  cam_data_in15:
+    sigi: i2s0i_data_in15
+    gpio: [[0, 21], [26, 46]]
+  cam_h_enable:
+    sigi: i2s0i_h_enable
+    gpio: [[0, 21], [26, 46]]
+  cam_h_sync:
+    sigi: i2s0i_h_sync
+    gpio: [[0, 21], [26, 46]]
+  cam_pclk:
+    sigi: i2s0i_ws_in
+    gpio: [[0, 21], [26, 46]]
+  cam_v_sync:
+    sigi: i2s0i_v_sync
+    gpio: [[0, 21], [26, 46]]
   mclk:
     sigo: clk_i2s
     gpio: [[0, 21], [26, 46]]
