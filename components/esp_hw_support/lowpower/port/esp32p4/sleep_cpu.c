@@ -310,6 +310,13 @@ static SPM_IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
     if (s_fpu_saved[core_id]) {
         rv_core_fpu_restore(frame);
     }
+    /*
+     * CPU power-down clears PMP and PMA. MPRV is set and MPP is user mode,
+     * so leave MPRV clear until the non-critical frame is restored.
+     */
+    if ((frame->pmufunc & 0x3) == 0x3) {
+        mstatus &= ~MSTATUS_MPRV;
+    }
     restore_csr_enable_global_int(mstatus, mintthresh);
     return reject ? reject : pmu_sleep_finish(dslp);
 }
@@ -350,6 +357,9 @@ esp_err_t SPM_IRAM_ATTR esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t,
     if (err == ESP_OK) {
         cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
         rv_core_noncritical_regs_restore();
+        if ((s_cpu_retention.retent.critical_frame[core_id]->mstatus & MSTATUS_MPRV) != 0) {
+            RV_SET_CSR(mstatus, MSTATUS_MPRV);
+        }
     }
 
 #if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
@@ -459,9 +469,14 @@ static SPM_IRAM_ATTR void smp_core_do_retention(void)
             if (s_fpu_saved[core_id]) {
                 rv_core_fpu_restore(frame_critical);
             }
+            /* Leave MPRV clear until PMP and PMA are restored. */
+            mstatus &= ~MSTATUS_MPRV;
             restore_csr_enable_global_int(mstatus, mintthresh);
             cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
             rv_core_noncritical_regs_restore();
+            if ((frame_critical->mstatus & MSTATUS_MPRV) != 0) {
+                RV_SET_CSR(mstatus, MSTATUS_MPRV);
+            }
             atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
         }
     }
