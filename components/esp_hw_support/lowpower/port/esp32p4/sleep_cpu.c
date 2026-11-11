@@ -276,10 +276,6 @@ static SPM_IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
     uint8_t core_id = esp_cpu_get_core_id();
     bool reject = false;
     RvCoreCriticalSleepFrame *frame = s_cpu_retention.retent.critical_frame[core_id];
-    /* mstatus is core privated CSR, do it near the core critical regs restore */
-    uint32_t mstatus = 0;
-    uint32_t mintthresh = 0;
-    save_csr_disable_global_int(&mstatus, &mintthresh);
     s_fpu_saved[core_id] = cpu_fpu_context_is_dirty();
     if (s_fpu_saved[core_id]) {
         rv_core_fpu_save(frame);
@@ -310,7 +306,6 @@ static SPM_IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
     if (s_fpu_saved[core_id]) {
         rv_core_fpu_restore(frame);
     }
-    restore_csr_enable_global_int(mstatus, mintthresh);
     return reject ? reject : pmu_sleep_finish(dslp);
 }
 
@@ -331,6 +326,9 @@ esp_err_t SPM_IRAM_ATTR esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t,
     update_retention_frame_crc((uint32_t*)frame, sizeof(RvCoreNonCriticalSleepFrame) - sizeof(long), (uint32_t *)(&frame->frame_crc));
 #endif
 
+    uint32_t mstatus = 0;
+    uint32_t mintthresh = 0;
+    save_csr_disable_global_int(&mstatus, &mintthresh);
     esp_err_t err = do_cpu_retention(goto_sleep, wakeup_opt, reject_opt, lslp_mem_inf_fpu, dslp);
 
     if (err == ESP_OK) {
@@ -351,6 +349,7 @@ esp_err_t SPM_IRAM_ATTR esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t,
         cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
         rv_core_noncritical_regs_restore();
     }
+    restore_csr_enable_global_int(mstatus, mintthresh);
 
 #if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
     atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
@@ -459,9 +458,9 @@ static SPM_IRAM_ATTR void smp_core_do_retention(void)
             if (s_fpu_saved[core_id]) {
                 rv_core_fpu_restore(frame_critical);
             }
-            restore_csr_enable_global_int(mstatus, mintthresh);
             cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
             rv_core_noncritical_regs_restore();
+            restore_csr_enable_global_int(mstatus, mintthresh);
             atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
         }
     }
