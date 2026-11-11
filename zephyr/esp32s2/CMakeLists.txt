@@ -77,6 +77,8 @@ if(CONFIG_SOC_SERIES_ESP32S2)
     ../../components/esp_hal_twai/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_uart/include
     ../../components/esp_hal_uart/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_usb/include
+    ../../components/esp_hal_usb/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hal_wdt/include
     ../../components/esp_hal_wdt/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hw_support/dma
@@ -291,6 +293,12 @@ if(CONFIG_SOC_SERIES_ESP32S2)
       ../../components/esp_hal_ana_conv/adc_hal.c
       )
     endif()
+  endif()
+
+  if (CONFIG_UDC_DWC2 OR CONFIG_UHC_DWC2)
+    zephyr_sources(
+    ../../components/esp_hal_usb/usb_wrap_hal.c
+    )
   endif()
 
   zephyr_sources_ifdef(CONFIG_PULSE_IO_ESP32_RMT
