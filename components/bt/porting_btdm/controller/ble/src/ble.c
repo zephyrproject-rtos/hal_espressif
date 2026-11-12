@@ -1456,10 +1456,10 @@ int ble_stack_enable(void)
 {
     int rc;
 
-#if UC_BT_CTRL_BR_EDR_IS_ENABLE && CONFIG_BT_CTRL_MULTI_LINK_ENABLED
+#if UC_BT_CTRL_BR_EDR_IS_ENABLE && DEFAULT_BT_CTRL_MULTI_LINK_ENABLED
     extern void r_sched_txn_bredrIsEnabled(bool);
     r_sched_txn_bredrIsEnabled(true);
-#endif // UC_BT_CTRL_BR_EDR_IS_ENABLE && CONFIG_BT_CTRL_MULTI_LINK_ENABLED
+#endif /* UC_BT_CTRL_BR_EDR_IS_ENABLE && DEFAULT_BT_CTRL_MULTI_LINK_ENABLED */
 
     rc = base_stack_enable();
     if (rc != ESP_OK) {

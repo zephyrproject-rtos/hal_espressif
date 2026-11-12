@@ -241,6 +241,7 @@ blob_filters:
     - pp
   esp32s31:
     - ble_app
+    - bredr_app
     - btbb
     - btdm_common
     - coexist

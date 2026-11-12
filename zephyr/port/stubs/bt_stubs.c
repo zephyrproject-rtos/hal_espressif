@@ -1189,4 +1189,145 @@ struct os_mbuf *r_os_msys_get_pkthdr(uint16_t dsize, uint16_t user_hdr_len)
 	return NULL;
 }
 
+void r_sched_txn_bredrIsEnabled(bool enable)
+{
+	(void)enable;
+}
+
+int bredr_controller_init(void *cfg)
+{
+	(void)cfg;
+	return 0;
+}
+
+void bredr_controller_deinit(void)
+{
+}
+
+void bredr_register_setup_callback(void *cbk)
+{
+	(void)cbk;
+}
+
+void bredr_register_ext_dep_callback(void *cbk)
+{
+	(void)cbk;
+}
+
+int bredr_register_crypto_funcs(void *ops)
+{
+	(void)ops;
+	return 0;
+}
+
+int bredr_register_bb_funcs(void *ops)
+{
+	(void)ops;
+	return 0;
+}
+
+bool bredr_tx_cca_fifo_empty(void)
+{
+	return true;
+}
+
+bool bredr_tx_cca_fifo_full(void)
+{
+	return false;
+}
+
+uint32_t bredr_tx_cca_fifo_count(void)
+{
+	return 0;
+}
+
+uint32_t bredr_tx_cca_fifo_read(void)
+{
+	return 0;
+}
+
+void bredr_tx_cca_fifo_reset(void)
+{
+}
+
+void bredr_tx_cca_period(uint32_t ru_time, uint32_t cca_time)
+{
+	(void)ru_time;
+	(void)cca_time;
+}
+
+void bredr_tx_cca_set(uint32_t enable, uint32_t thresh_low, uint32_t power_drop_0,
+		      uint32_t power_high_0, uint32_t power_low_0, uint32_t thresh_high_en,
+		      uint32_t thresh_high, uint32_t power_drop1, uint32_t power_high_1,
+		      uint32_t power_low_1)
+{
+	(void)enable;
+	(void)thresh_low;
+	(void)power_drop_0;
+	(void)power_high_0;
+	(void)power_low_0;
+	(void)thresh_high_en;
+	(void)thresh_high;
+	(void)power_drop1;
+	(void)power_high_1;
+	(void)power_low_1;
+}
+
+void bredr_set_tx_on_delay(uint32_t delay_us)
+{
+	(void)delay_us;
+}
+
+int bredr_hci_trans_acl_rx(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
+int bredr_hci_trans_sync_rx(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
+void bredr_hci_trans_register_tx(void *acl_tx_func, void *sync_tx_func, void *evt_tx_func)
+{
+	(void)acl_tx_func;
+	(void)sync_tx_func;
+	(void)evt_tx_func;
+}
+
+void bredr_hci_trans_acl_tx_done(void *pkt)
+{
+	(void)pkt;
+}
+
+void bredr_hci_trans_sync_tx_done(void *pkt)
+{
+	(void)pkt;
+}
+
+void bredr_hci_trans_evt_tx_done(void *pkt)
+{
+	(void)pkt;
+}
+
+int bredr_hci_trans_acl_free(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
+int bredr_hci_trans_sync_free(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
+int bredr_hci_trans_evt_free(void *pkt)
+{
+	(void)pkt;
+	return 0;
+}
+
 #endif /* CONFIG_SOC_SERIES_ESP32S31 */

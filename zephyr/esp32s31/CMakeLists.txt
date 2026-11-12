@@ -628,6 +628,21 @@ if(CONFIG_SOC_SERIES_ESP32S31)
       ../../components/bt/controller/${CONFIG_SOC_SERIES}/bt.c
       )
 
+    if(CONFIG_BT_CLASSIC)
+      zephyr_sources(
+        ../../components/bt/porting_btdm/controller/bredr/src/bredr.c
+        ../../components/bt/porting_btdm/controller/btdm_common/src/bredr_mempool.c
+        ../../components/mbedtls/port/ecc/esp_ecc.c
+        ../../components/esp_hal_security/ecc_hal.c
+        ../port/crypto/esp_crypto_lock.c
+        ../port/crypto/esp_crypto_periph_clk.c
+        )
+      zephyr_include_directories(
+        ../../components/bt/porting_btdm/controller/bredr/include
+        ../../components/mbedtls/port/include
+        )
+    endif()
+
     zephyr_compile_definitions(CONFIG_BT_ENABLED=1)
     zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED=1)
 
@@ -636,7 +651,10 @@ if(CONFIG_SOC_SERIES_ESP32S31)
       ../port/stubs/phy_stubs.c
       )
 
-    # ble, with btbb after ble_app to resolve its baseband calls
+    # bredr and ble, with btbb after them to resolve their baseband calls
+    if(CONFIG_BT_CLASSIC)
+      esp_blobs_link(bredr_app)
+    endif()
     esp_blobs_link(ble_app btdm_common btbb)
 
   endif()

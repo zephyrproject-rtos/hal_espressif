@@ -11,8 +11,6 @@
 #include "sdkconfig.h"
 #include "esp_heap_caps.h"
 #include "esp_heap_caps_init.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_types.h"
 #include "esp_mac.h"
 #include "esp_random.h"
@@ -51,10 +49,11 @@
 
 #include "btdm_osal.h"
 #include "btdm_endian.h"
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
 #include "psa/crypto.h"
+#include "ecc_impl.h"
 #endif
-#if !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if !CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
 #include "tinycrypt/ecc_dh.h"
 #include "tinycrypt/ecc.h"
 #include "tinycrypt/constants.h"
@@ -69,7 +68,7 @@
 #define BREDR_PUB_KEY_LEN_P256  (1U + BREDR_P256_COORD_LEN * 2)
 #define BREDR_PUB_KEY_LEN_P192  (1U + BREDR_P192_COORD_LEN * 2)
 #define BREDR_LOG_TAG       "BREDR_INIT"
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
 static const char *TAG_BREDR_CRYPTO = "bredr_crypto";
 #endif
 
@@ -128,10 +127,12 @@ extern esp_bt_controller_status_t s_btdm_controller_status;
 extern const sleep_retention_entries_config_t *r_bredr_mac_retention_link_get(uint8_t *size);
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE
 
+#if !CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
 static uint32_t esp_random_wrapper(void)
 {
     return esp_random();
 }
+#endif
 typedef struct bredr_ecc_ops {
     int (*ecc256_gen_key_pair)(uint8_t *public, uint8_t *priv);
     int (*ecc256_gen_dhkey)(const uint8_t *remote_pub_key_x, const uint8_t *remote_pub_key_y, const uint8_t *local_priv_key, uint8_t *dhkey);
@@ -233,7 +234,7 @@ struct bredr_bb_ops s_bredr_bb_ops = {
 
 extern int bredr_register_bb_funcs(struct bredr_bb_ops *ops);
 
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
 /* Same PSA ECDH pattern as components/bt/controller/esp32c6/bt.c (ble_sm_alg_*). */
 
 static int bredr_psa_gen_keypair(bool p256, uint8_t *public_key, uint8_t *private_key)
@@ -333,7 +334,92 @@ static int bredr_psa_gen_dhkey(bool p256, const uint8_t *peer_pub_key_x, const u
     btdm_swap_buf(out_dhkey, dh, coord_len);
     return 0;
 }
-#else /* !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS */
+
+/* secp192r1 generator and order, little endian */
+static const uint8_t bredr_p192_gx[BREDR_P192_COORD_LEN] = {
+    0x12, 0x10, 0xff, 0x82, 0xfd, 0x0a, 0xff, 0xf4, 0x00, 0x88, 0xa1, 0x43,
+    0xeb, 0x20, 0xbf, 0x7c, 0xf6, 0x90, 0x30, 0xb0, 0x0e, 0xa8, 0x8d, 0x18,
+};
+static const uint8_t bredr_p192_gy[BREDR_P192_COORD_LEN] = {
+    0x11, 0x48, 0x79, 0x1e, 0xa1, 0x77, 0xf9, 0x73, 0xd5, 0xcd, 0x24, 0x6b,
+    0xed, 0x11, 0x10, 0x63, 0x78, 0xda, 0xc8, 0xff, 0x95, 0x2b, 0x19, 0x07,
+};
+static const uint8_t bredr_p192_n[BREDR_P192_COORD_LEN] = {
+    0x31, 0x28, 0xd2, 0xb4, 0xb1, 0xc9, 0x6b, 0x14, 0x36, 0xf8, 0xde, 0x99,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+};
+
+static bool bredr_p192_scalar_is_valid(const uint8_t *k)
+{
+    bool nonzero = false;
+    int i;
+
+    for (i = 0; i < (int)BREDR_P192_COORD_LEN; i++) {
+        if (k[i] != 0U) {
+            nonzero = true;
+            break;
+        }
+    }
+
+    if (!nonzero) {
+        return false;
+    }
+
+    for (i = (int)BREDR_P192_COORD_LEN - 1; i >= 0; i--) {
+        if (k[i] != bredr_p192_n[i]) {
+            return k[i] < bredr_p192_n[i];
+        }
+    }
+
+    return false;
+}
+
+/* Keys and coordinates are little endian, the public key is X then Y */
+static int bredr_p192_gen_keypair(uint8_t *public_key, uint8_t *private_key)
+{
+    ecc_point_t point = { .len = BREDR_P192_COORD_LEN };
+    ecc_point_t result;
+
+    memcpy(point.x, bredr_p192_gx, BREDR_P192_COORD_LEN);
+    memcpy(point.y, bredr_p192_gy, BREDR_P192_COORD_LEN);
+
+    do {
+        esp_fill_random(private_key, BREDR_P192_COORD_LEN);
+    } while (!bredr_p192_scalar_is_valid(private_key));
+
+    if (esp_ecc_point_multiply(&point, private_key, &result, false) != 0) {
+        return -1;
+    }
+
+    memcpy(public_key, result.x, BREDR_P192_COORD_LEN);
+    memcpy(&public_key[BREDR_P192_COORD_LEN], result.y, BREDR_P192_COORD_LEN);
+
+    return 0;
+}
+
+static int bredr_p192_gen_dhkey(const uint8_t *peer_pub_key_x, const uint8_t *peer_pub_key_y,
+                                const uint8_t *our_priv_key, uint8_t *out_dhkey)
+{
+    ecc_point_t point = { .len = BREDR_P192_COORD_LEN };
+    ecc_point_t result;
+    int rc;
+
+    if (!bredr_p192_scalar_is_valid(our_priv_key)) {
+        return -1;
+    }
+
+    memcpy(point.x, peer_pub_key_x, BREDR_P192_COORD_LEN);
+    memcpy(point.y, peer_pub_key_y, BREDR_P192_COORD_LEN);
+
+    rc = esp_ecc_point_multiply(&point, our_priv_key, &result, true);
+    if (rc == 0) {
+        memcpy(out_dhkey, result.x, BREDR_P192_COORD_LEN);
+    }
+    memset(&result, 0, sizeof(result));
+
+    return rc;
+}
+#else /* !CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO */
 static int bredr_ecc_rand(uint8_t *dst, unsigned int size)
 {
     uint8_t *buf_bytes = (uint8_t *)dst;
@@ -347,11 +433,14 @@ static int bredr_ecc_rand(uint8_t *dst, unsigned int size)
 
     return 1;
 }
-#endif /* !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS */
+#endif /* !CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO */
 
 static int bredr_gen_keypair(bool p256, uint8_t *public_key, uint8_t *private_key)
 {
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
+    if (!p256) {
+        return bredr_p192_gen_keypair(public_key, private_key);
+    }
     return bredr_psa_gen_keypair(p256, public_key, private_key);
 #else
     uint8_t pub[64];
@@ -383,7 +472,10 @@ static int bredr_gen_keypair(bool p256, uint8_t *public_key, uint8_t *private_ke
 static int
 bredr_gen_dhkey(bool p256, const uint8_t *peer_pub_key_x, const uint8_t *peer_pub_key_y, const uint8_t *our_priv_key, uint8_t *out_dhkey)
 {
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
+    if (!p256) {
+        return bredr_p192_gen_dhkey(peer_pub_key_x, peer_pub_key_y, our_priv_key, out_dhkey);
+    }
     return bredr_psa_gen_dhkey(p256, peer_pub_key_x, peer_pub_key_y, our_priv_key, out_dhkey);
 #else
     size_t buf_len = p256 ? BREDR_P256_COORD_LEN : BREDR_P192_COORD_LEN;
@@ -418,7 +510,7 @@ bredr_gen_dhkey(bool p256, const uint8_t *peer_pub_key_x, const uint8_t *peer_pu
 
     btdm_swap_buf(out_dhkey, dh, buf_len);
     return 0;
-#endif /* !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS */
+#endif /* !CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO */
 }
 
 static int bredr_gen_keypair_ecc256(uint8_t *public_key, uint8_t *private_key)
@@ -445,7 +537,7 @@ bredr_gen_dhkey_ecc192(const uint8_t *peer_pub_key_x, const uint8_t *peer_pub_ke
 
 static int bredr_sha256(const uint8_t *msg, uint32_t msg_len, uint8_t *digest)
 {
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
     size_t hash_len = 0;
     psa_status_t status = psa_hash_compute(PSA_ALG_SHA_256, msg, (size_t)msg_len, digest, 32, &hash_len);
 
@@ -489,7 +581,7 @@ static int bredr_sha256(const uint8_t *msg, uint32_t msg_len, uint8_t *digest)
 
 static int bredr_hmac(const uint8_t *key, uint32_t key_len, const uint8_t *msg, uint32_t msg_len, uint8_t *digest)
 {
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
     psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
     psa_key_id_t key_id = 0;
     psa_status_t status;
@@ -692,7 +784,7 @@ static int bredr_ctrl_ext_dep_callback(void)
     int ret = 0;
 
     do {
-#if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if CONFIG_ESP32_BT_CTLR_BR_EDR_CRYPTO
         psa_status_t psa_st = psa_crypto_init();
         if (psa_st != PSA_SUCCESS) {
             ESP_LOGE(BREDR_LOG_TAG, "psa_crypto_init failed: %d", (int)psa_st);

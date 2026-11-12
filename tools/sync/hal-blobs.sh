@@ -46,7 +46,7 @@ BLOB_REPOS=(
 
 lib_category() {
     case "$1" in
-        ble_app|btdm_app|btdm_common) echo "bt" ;;
+        ble_app|bredr_app|btdm_app|btdm_common) echo "bt" ;;
         btbb|phy|rtc)     echo "phy" ;;
         core|espnow|mesh|net80211|pp) echo "wifi" ;;
         coexist)          echo "coex" ;;
