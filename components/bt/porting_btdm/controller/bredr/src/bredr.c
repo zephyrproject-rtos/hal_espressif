@@ -53,6 +53,9 @@
 #include "btdm_endian.h"
 #if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
 #include "psa/crypto.h"
+#if defined(__ZEPHYR__)
+#include "bredr_ecc_p192.h"
+#endif
 #endif
 #if !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
 #include "tinycrypt/ecc_dh.h"
@@ -128,10 +131,12 @@ extern esp_bt_controller_status_t s_btdm_controller_status;
 extern const sleep_retention_entries_config_t *r_bredr_mac_retention_link_get(uint8_t *size);
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE
 
+#if !CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
 static uint32_t esp_random_wrapper(void)
 {
     return esp_random();
 }
+#endif
 typedef struct bredr_ecc_ops {
     int (*ecc256_gen_key_pair)(uint8_t *public, uint8_t *priv);
     int (*ecc256_gen_dhkey)(const uint8_t *remote_pub_key_x, const uint8_t *remote_pub_key_y, const uint8_t *local_priv_key, uint8_t *dhkey);
@@ -352,6 +357,11 @@ static int bredr_ecc_rand(uint8_t *dst, unsigned int size)
 static int bredr_gen_keypair(bool p256, uint8_t *public_key, uint8_t *private_key)
 {
 #if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if defined(__ZEPHYR__)
+    if (!p256) {
+        return bredr_ecc_p192_gen_keypair(public_key, private_key);
+    }
+#endif
     return bredr_psa_gen_keypair(p256, public_key, private_key);
 #else
     uint8_t pub[64];
@@ -384,6 +394,11 @@ static int
 bredr_gen_dhkey(bool p256, const uint8_t *peer_pub_key_x, const uint8_t *peer_pub_key_y, const uint8_t *our_priv_key, uint8_t *out_dhkey)
 {
 #if CONFIG_BT_SMP_CRYPTO_STACK_MBEDTLS
+#if defined(__ZEPHYR__)
+    if (!p256) {
+        return bredr_ecc_p192_gen_dhkey(peer_pub_key_x, peer_pub_key_y, our_priv_key, out_dhkey);
+    }
+#endif
     return bredr_psa_gen_dhkey(p256, peer_pub_key_x, peer_pub_key_y, our_priv_key, out_dhkey);
 #else
     size_t buf_len = p256 ? BREDR_P256_COORD_LEN : BREDR_P192_COORD_LEN;
