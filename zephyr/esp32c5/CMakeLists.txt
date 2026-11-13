@@ -263,6 +263,14 @@ if(CONFIG_SOC_SERIES_ESP32C5)
     ../../components/esp_driver_gpio/src/rtc_io.c
     ../../components/esp_hal_rmt/${CONFIG_SOC_SERIES}/rmt_periph.c
     )
+  if(CONFIG_PULSE_IO_ESP32_RMT AND CONFIG_ESP32_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
+    zephyr_include_directories(
+      ../../components/esp_driver_rmt/src
+      )
+    zephyr_sources(
+      ../../components/esp_driver_rmt/${CONFIG_SOC_SERIES}/rmt_retention.c
+      )
+  endif()
 
   if(CONFIG_PM OR CONFIG_POWEROFF)
   zephyr_sources(
