@@ -9,6 +9,7 @@
 #include <esp_event.h>
 #include <esp_wifi.h>
 #include "esp_log.h"
+#include "esp_private/wifi_os_adapter.h"
 #include "esp_private/wifi.h"
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/sleep_modem.h"

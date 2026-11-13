@@ -1786,6 +1786,18 @@ FORCE_INLINE_ATTR void uart_ll_discard_error_data(uart_dev_t *hw, bool discard)
     uart_ll_update(hw);
 }
 
+/**
+ * @brief  Check if the UART is in RS485 half-duplex mode.
+ *
+ * @param  hw Beginning address of the peripheral registers.
+ *
+ * @return true if RS485 half-duplex mode is enabled, false otherwise.
+ */
+FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
+{
+    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
+}
+
 #ifdef __cplusplus
 }
 #endif
