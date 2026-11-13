@@ -5,6 +5,8 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/irq.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
 
@@ -520,7 +522,7 @@ static void IRAM_ATTR interrupt_l3_restore(void)
 static void set_isr_wrapper(int32_t n, void *f, void *arg)
 {
     irq_disable(n);
-    irq_connect_dynamic(n, Xthal_intlevel[n], f, arg, 0);
+    irq_connect_dynamic(n, Xthal_intlevel[n], f, arg, ESP_INTR_FLAG_IRAM);
 }
 
 static void intr_on(unsigned int mask)

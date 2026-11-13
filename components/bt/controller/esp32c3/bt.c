@@ -7,6 +7,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/random.h>
+#include <zephyr/irq.h>
+#include "esp_bt_intr.h"
+#include <zephyr/devicetree.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -850,42 +853,38 @@ static inline void esp_bt_power_domain_off(void)
     esp_wifi_bt_power_domain_off();
 }
 
-static void btdm_intr_alloc(void *arg)
-{
-    btdm_isr_alloc_t *p = arg;
-    p->ret = esp_intr_alloc(p->source, p->flags, p->fn, p->arg, p->handle);
-}
-
+/*
+ * The controller picks its interrupt sources at run time, so they have no
+ * devicetree consumer. esp_bt_intr routes them to the CPU line reserved for
+ * the controller in the devicetree and dispatches them from one ISR, on the
+ * calling core.
+ */
 static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle)
 {
-    btdm_isr_alloc_t p;
-    p.source = source;
-#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
-    p.flags = ESP_INTR_FLAG_LEVEL3;
-#else
-    p.flags = ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM;
-#endif
-    p.fn = handler;
-    p.arg = arg;
-    p.handle = (intr_handle_t *)ret_handle;
-    /* Zephyr: direct interrupt allocation */
-    btdm_intr_alloc(&p);
-    return p.ret;
+    ARG_UNUSED(cpu_id);
+
+    return esp_bt_intr_alloc(source, handler, arg, ret_handle);
 }
 
 static int interrupt_free_wrapper(void *handle)
 {
-    return esp_intr_free((intr_handle_t)handle);
+    esp_bt_intr_free(handle);
+
+    return 0;
 }
 
 static int interrupt_enable_wrapper(void *handle)
 {
-    return esp_intr_enable((intr_handle_t)handle);
+    esp_bt_intr_enable(handle);
+
+    return 0;
 }
 
 static int interrupt_disable_wrapper(void *handle)
 {
-    return esp_intr_disable((intr_handle_t)handle);
+    esp_bt_intr_disable(handle);
+
+    return 0;
 }
 
 static void IRAM_ATTR global_interrupt_disable(void)

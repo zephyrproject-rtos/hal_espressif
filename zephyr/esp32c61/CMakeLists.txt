@@ -569,6 +569,7 @@ if(CONFIG_SOC_SERIES_ESP32C61)
       ../../components/bt/porting/transport/src/hci_transport.c
       ../../components/bt/controller/esp32c6/ble.c
       ../../components/bt/controller/esp32c6/bt.c
+      ../common/esp_bt_intr.c
       )
 
     zephyr_compile_definitions(CONFIG_BT_ENABLED=1)
