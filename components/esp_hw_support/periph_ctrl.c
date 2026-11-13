@@ -35,6 +35,8 @@
 #include <zephyr/dt-bindings/clock/esp32h2_clock.h>
 #elif defined(CONFIG_SOC_SERIES_ESP32P4)
 #include <zephyr/dt-bindings/clock/esp32p4_clock.h>
+#elif defined(CONFIG_SOC_SERIES_ESP32S31)
+#include <zephyr/dt-bindings/clock/esp32s31_clock.h>
 #endif
 
 #include <hal/uart_ll.h>
@@ -47,6 +49,9 @@
 #endif
 #if SOC_ADC_SUPPORTED
 #include <hal/adc_ll.h>
+#endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#include <hal/dac_ll.h>
 #endif
 #include <hal/timg_ll.h>
 #if SOC_TWAI_SUPPORTED
@@ -216,18 +221,27 @@ void non_shared_periph_module_enable(int periph)
     case ESP32_UART1_MODULE:
         uart_ll_enable_bus_clock(1, true);
         uart_ll_reset_register(1);
+#if defined(CONFIG_SOC_SERIES_ESP32S31)
+        uart_ll_mem_power_by_pmu(1);
+#endif
         break;
 #endif
 #if defined(ESP32_UART2_MODULE) && ESP32_UART2_MODULE >= 100
     case ESP32_UART2_MODULE:
         uart_ll_enable_bus_clock(2, true);
         uart_ll_reset_register(2);
+#if defined(CONFIG_SOC_SERIES_ESP32S31)
+        uart_ll_mem_power_by_pmu(2);
+#endif
         break;
 #endif
 #if defined(ESP32_UART3_MODULE) && ESP32_UART3_MODULE >= 100
     case ESP32_UART3_MODULE:
         uart_ll_enable_bus_clock(3, true);
         uart_ll_reset_register(3);
+#if defined(CONFIG_SOC_SERIES_ESP32S31)
+        uart_ll_mem_power_by_pmu(3);
+#endif
         break;
 #endif
 #if defined(ESP32_UART4_MODULE) && ESP32_UART4_MODULE >= 100
@@ -485,6 +499,15 @@ void non_shared_periph_module_enable(int periph)
         adc_ll_reset_register();
         break;
 #endif
+#endif
+#endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#if ESP32_LP_DAC_MODULE >= 100
+    case ESP32_LP_DAC_MODULE:
+        dac_ll_reset_register();
+        dac_ll_clk_set_source(DAC_DIGI_CLK_SRC_DEFAULT);
+        dac_ll_clk_enable(true);
+        break;
 #endif
 #endif
 #if SOC_UHCI_SUPPORTED
@@ -824,6 +847,13 @@ void non_shared_periph_module_disable(int periph)
         adc_ll_enable_bus_clock(false);
         break;
 #endif
+#endif
+#endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#if ESP32_LP_DAC_MODULE >= 100
+    case ESP32_LP_DAC_MODULE:
+        dac_ll_clk_enable(false);
+        break;
 #endif
 #endif
 #if SOC_UHCI_SUPPORTED
