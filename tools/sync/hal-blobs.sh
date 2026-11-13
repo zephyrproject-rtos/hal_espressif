@@ -3,7 +3,7 @@
 # Update blob library references and regenerate module.yml
 #
 # Downloads blob files via HTTP and computes SHA256 hashes.
-# Reads submodule SHAs from ESP-IDF to determine blob revisions.
+# Reads the submodule gitlinks recorded in the ESP-IDF tree to determine blob revisions.
 #
 # Usage:
 #   ./hal-blobs.sh              # Update blobs
@@ -33,14 +33,14 @@ die() {
 # repo_path|github_url|socs|category|has_soc_prefix
 BLOB_REPOS=(
     "components/bt/controller/lib_esp32c5/esp32c5-bt-lib|https://github.com/espressif/esp32c5-bt-lib|esp32c5|bt|no"
-    "components/bt/controller/lib_esp32c6/esp32c6-bt-lib|https://github.com/espressif/esp32c6-bt-lib|esp32c6|bt|yes"
+    "components/bt/controller/lib_esp32c6/esp32c6-bt-lib|https://github.com/espressif/esp32c6-bt-lib|esp32c6,esp32c61|bt|yes"
     "components/bt/controller/lib_esp32c2/esp32c2-bt-lib|https://github.com/espressif/esp32c2-bt-lib|esp32c2|bt|no"
     "components/bt/controller/lib_esp32h2/esp32h2-bt-lib|https://github.com/espressif/esp32h2-bt-lib|esp32h2|bt|yes"
     "components/bt/controller/lib_esp32c3_family|https://github.com/espressif/esp32c3-bt-lib|esp32c3,esp32s3|bt|yes"
     "components/bt/controller/lib_esp32|https://github.com/espressif/esp32-bt-lib|esp32|bt|yes"
-    "components/esp_wifi/lib|https://github.com/espressif/esp32-wifi-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32s2,esp32s3|wifi|yes"
-    "components/esp_phy/lib|https://github.com/espressif/esp-phy-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32h2,esp32s2,esp32s3|phy|yes"
-    "components/esp_coex/lib|https://github.com/espressif/esp-coex-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32h2,esp32s2,esp32s3|coex|yes"
+    "components/esp_wifi/lib|https://github.com/espressif/esp32-wifi-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32c61,esp32s2,esp32s3|wifi|yes"
+    "components/esp_phy/lib|https://github.com/espressif/esp-phy-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32c61,esp32h2,esp32s2,esp32s3|phy|yes"
+    "components/esp_coex/lib|https://github.com/espressif/esp-coex-lib|esp32,esp32c2,esp32c3,esp32c5,esp32c6,esp32c61,esp32h2,esp32s2,esp32s3|coex|yes"
 )
 
 lib_category() {
@@ -59,12 +59,12 @@ get_filters_for_soc() {
 
 get_submodule_sha() {
     local espidf_path="$1"
-    local line
-    line=$(git -C "${ESPIDF_DIR}" submodule status -- "${espidf_path}" 2>/dev/null | head -1)
-    if [ -z "${line}" ]; then
+    local sha
+    sha=$(git -C "${ESPIDF_DIR}" ls-tree HEAD -- "${espidf_path}" 2>/dev/null | awk '$2 == "commit" {print $3}')
+    if [ -z "${sha}" ]; then
         return 1
     fi
-    echo "${line}" | awk '{print $1}' | sed 's/^[-+]//'
+    echo "${sha}"
 }
 
 download_sha256() {
