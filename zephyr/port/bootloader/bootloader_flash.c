@@ -24,6 +24,7 @@
 
 /* This dependency will be removed in the future.  IDF-5025 */
 #include "esp_flash.h"
+#include "spi_flash_mmap.h"
 
 #include "esp_rom_spiflash.h"
 
@@ -491,7 +492,7 @@ void bootloader_flash_32bits_address_map_enable(esp_rom_spiflash_read_mode_t fla
         break;
     }
     cache_hal_disable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
-    esp_rom_opiflash_cache_mode_config(flash_mode, &cache_rd);
+    esp_rom_spiflash_cache_mode_config(flash_mode, &cache_rd);
     cache_hal_enable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 }
 #endif

@@ -39,6 +39,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/bootloader_support/bootloader_flash/include
     ../../components/bootloader_support/include
     ../../components/bootloader_support/private_include
+    ../../components/esp_image_verify/private_include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
     ../../components/driver/include
@@ -119,14 +120,17 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hw_support/include/soc
     ../../components/esp_hw_support/include/soc/${CONFIG_SOC_SERIES}
     ../../components/esp_hw_support/ldo/include
-    ../../components/esp_hw_support/mspi/mspi_intr/include
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/include
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/include
+    ../../components/esp_mspi/mspi_intr/include
+    ../../components/esp_mspi/mspi_timing_tuning/include
+    ../../components/esp_mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}
+    ../../components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/include
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/private_include
     ../../components/esp_hw_support/port/include
+    ../../components/esp_sleep/include
+    ../../components/esp_sleep/port/include
+    ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/include
     ../../components/esp_hw_support/power_supply/include
     ../../components/esp_mm/include
     ../../components/esp_pm/include
@@ -147,6 +151,10 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_timer/private_include
     ../../components/hal/${CONFIG_SOC_SERIES}/include
     ../../components/hal/include
+    ../../components/esp_hal_cache/include
+    ../../components/esp_hal_debug_assist/include
+    ../../components/esp_hal_debug_assist/${CONFIG_SOC_SERIES}/include
+    ../../components/esp_hal_cache/${CONFIG_SOC_SERIES}/include
     ../../components/hal/platform_port/include
     ../../components/heap/include
     ../../components/mbedtls/port/include
@@ -160,9 +168,13 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/soc/${CONFIG_SOC_SERIES}/register/${esp32p4_hw_ver_dir}
     ../../components/spi_flash/include
     ../../components/spi_flash/include/esp_private
+    ../../components/esp_mspi/include
+    ../../components/esp_mspi/esp_mspi_align/include
+    ../../components/esp_mspi/mspi_mem_barrier/include
     ../../components/ulp/lp_core/include
-    ../../components/ulp/lp_core/lp_core/include
+    ../../components/ulp/subproject/components/lp_core/include
     ../../components/ulp/lp_core/shared/include
+    ../../components/esp_driver_uart/include
     ../../components/ulp/ulp_common/include
   )
 
@@ -244,8 +256,9 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_mm/port/${CONFIG_SOC_SERIES}/ext_mem_layout.c
     ../../components/bootloader_support/src/flash_encrypt.c
     ../../components/esp_hw_support/esp_gpio_reserve.c
-    ../../components/hal/cache_hal.c
-    ../../components/hal/mmu_hal.c
+    ../../components/esp_hal_cache/cache_hal.c
+    ../../components/esp_hal_cache/mmu_hal.c
+    ../../components/esp_hal_cache/${CONFIG_SOC_SERIES}/cache_periph.c
     ../../components/esp_hal_mspi/spi_flash_encrypt_hal_iram.c
     ../../components/esp_hal_mspi/spi_flash_hal.c
     ../../components/esp_hal_mspi/spi_flash_hal_iram.c
@@ -254,7 +267,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/spi_flash/esp_flash_api.c
     ../../components/spi_flash/esp_flash_spi_init.c
     ../../components/spi_flash/flash_mmap.c
-    ../../components/spi_flash/flash_ops.c
+    ../../components/esp_mspi/flash_ops.c
     ../../components/spi_flash/memspi_host_driver.c
     ../../components/spi_flash/spi_flash_chip_boya.c
     ../../components/spi_flash/spi_flash_chip_drivers.c
@@ -267,10 +280,10 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/spi_flash/spi_flash_chip_winbond.c
     ../../components/spi_flash/spi_flash_os_func_noos.c
     ../../components/spi_flash/spi_flash_os_func_app.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/mspi_timing_tuning.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
-    ../../components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
+    ../../components/esp_mspi/mspi_timing_tuning/mspi_timing_tuning.c
+    ../../components/esp_mspi/mspi_timing_tuning/port/${CONFIG_SOC_SERIES}/mspi_timing_config.c
+    ../../components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
+    ../../components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
     )
   endif()
 
@@ -295,43 +308,44 @@ if(CONFIG_SOC_SERIES_ESP32P4)
       ../common/pm_impl_zephyr.c
       ../common/pm_locks_zephyr.c
       ../../components/esp_driver_gpio/src/gpio.c
-      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
-      ../../components/esp_hw_support/port/pau_regdma.c
-      ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_clock.c
-      ../../components/esp_hw_support/sleep_gpio.c
-      ../../components/esp_hw_support/sleep_event.c
-      ../../components/esp_hw_support/sleep_console.c
-      ../../components/esp_hw_support/sleep_modem.c
-      ../../components/esp_hw_support/sleep_system_peripheral.c
-      ../../components/esp_hw_support/sleep_usb.c
-      ../../components/soc/${CONFIG_SOC_SERIES}/system_retention_periph.c
+      ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/pmu_sleep.c
+      ../../components/esp_sleep/port/pau_regdma.c
+      ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_clock.c
+      ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_clock_icg.c
+      ../../components/esp_sleep/sleep_gpio.c
+      ../../components/esp_sleep/sleep_event.c
+      ../../components/esp_sleep/sleep_console.c
+      ../../components/esp_sleep/sleep_modem.c
+      ../../components/esp_sleep/sleep_system_peripheral.c
+      ../../components/esp_sleep/sleep_usb.c
+      ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/system_periph_retention.c
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pau_hal.c
       ../../components/esp_hal_pmu/${CONFIG_SOC_SERIES}/pmu_hal.c
-      ../../components/esp_hw_support/sleep_uart.c
+      ../../components/esp_sleep/sleep_uart.c
       ../../components/esp_hw_support/clk_utils.c
-      ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
+      ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/peripheral_domain_pd.c
       )
     if(NOT CONFIG_SOC_FAMILY_ESPRESSIF_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP)
       zephyr_sources(
-        ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/pmu_sleep_clock_icg.c
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/pmu_sleep_clock_icg.c
         )
     endif()
     if(CONFIG_SOC_FAMILY_ESPRESSIF_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP)
       zephyr_sources(
-        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
-        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
-        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_fpu_asm.S
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_cpu.c
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_cpu_asm.S
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_fpu_asm.S
         )
       zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_PM_CPU_RETENTION_DYNAMIC
-        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_cpu_dynamic.c
         )
       zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_PM_CPU_RETENTION_STATIC
-        ../../components/esp_hw_support/lowpower/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
+        ../../components/esp_sleep/port/${CONFIG_SOC_SERIES}/sleep_cpu_static.c
         )
     endif()
 
     zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_SET_FLASH_DPD
-      ../../components/spi_flash/spi_flash_dpd_enable.c
+      ../../components/esp_mspi/spi_flash_dpd_enable.c
     )
   endif()
 
@@ -349,7 +363,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
         ../../components/esp_driver_dma/src
         )
       zephyr_sources(
-        ../../components/esp_driver_dma/${CONFIG_SOC_SERIES}/gdma_retention.c
+        ../../components/esp_driver_dma/src/${CONFIG_SOC_SERIES}/gdma_retention.c
         )
     endif()
   endif()
@@ -436,15 +450,16 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/sar_periph_ctrl.c
     ../../components/esp_hw_support/port/${CONFIG_SOC_SERIES}/systimer.c
     ../../components/esp_hw_support/port/esp_clk_tree_common.c
-    ../../components/esp_hw_support/port/regdma_link.c
+    ../../components/esp_hw_support/port/esp_clk_tree_apll.c
+    ../../components/esp_sleep/port/regdma_link.c
     ../../components/esp_hw_support/regi2c_ctrl.c
     ../../components/esp_hal_ana_conv/adc_hal_common.c
     ../../components/esp_hw_support/sar_periph_ctrl_common.c
     ../../components/esp_hw_support/rtc_module.c
     ../../components/esp_hw_support/sar_tsens_ctrl.c
-    ../../components/esp_hw_support/sleep_modes.c
-    ../../components/esp_hw_support/sleep_cache.c
-    ../../components/esp_hw_support/sleep_retention.c
+    ../../components/esp_sleep/sleep_modes.c
+    ../../components/esp_sleep/sleep_cache.c
+    ../../components/esp_sleep/sleep_retention.c
     ../../components/esp_hw_support/esp_memory_utils.c
     ../../components/esp_mm/esp_cache_msync.c
     ../../components/esp_rom/patches/esp_rom_crc.c
@@ -474,7 +489,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/riscv/interrupt_clic.c
     ../../components/riscv/rv_utils.c
     ../../components/soc/${CONFIG_SOC_SERIES}/gpio_periph.c
-    ../../components/spi_flash/cache_utils.c
+    ../../components/esp_mspi/cache_utils.c
     ../common/esp_restart.c
     ../common/flash_init.c
     ../port/bootloader/bootloader_flash.c
@@ -555,7 +570,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
         ../../components/esp_driver_mcpwm/src
         )
       zephyr_sources(
-        ../../components/esp_driver_mcpwm/${CONFIG_SOC_SERIES}/mcpwm_retention.c
+        ../../components/esp_driver_mcpwm/src/${CONFIG_SOC_SERIES}/mcpwm_retention.c
         )
     endif()
   endif()
@@ -616,7 +631,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
 
     zephyr_sources(
     ../../components/esp_driver_tsens/src/temperature_sensor.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/adc_efuse_hal.c
     )
   endif()
 
@@ -634,7 +649,7 @@ if(CONFIG_SOC_SERIES_ESP32P4)
     ../../components/esp_adc/adc_cali_curve_fitting.c
     ../../components/esp_adc/${CONFIG_SOC_SERIES}/curve_fitting_coefficients.c
     ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/adc_periph.c
-    ../../components/efuse/${CONFIG_SOC_SERIES}/esp_efuse_rtc_calib.c
+    ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/adc_efuse_hal.c
     )
   endif()
 
@@ -653,10 +668,11 @@ if(CONFIG_SOC_SERIES_ESP32P4)
       )
 
     zephyr_sources_ifdef(CONFIG_SOC_ESP32P4_LPCORE
-      ../../components/ulp/lp_core/lp_core/lp_core_interrupt.c
-      ../../components/ulp/lp_core/lp_core/lp_core_utils.c
-      ../../components/ulp/lp_core/lp_core/lp_core_print.c
-      ../../components/ulp/lp_core/lp_core/lp_core_uart.c
+      ../../components/ulp/subproject/components/lp_core/lp_core_interrupt.c
+      ../../components/ulp/subproject/components/lp_core/lp_core_utils.c
+      ../../components/ulp/subproject/components/lp_core/lp_core_print.c
+      ../../components/ulp/subproject/components/lp_core/lp_core_uart.c
+      ../../components/ulp/lp_core/shared/ulp_lp_core_lp_uart_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_lp_timer_shared.c
       ../../components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
       ../../components/esp_hal_uart/uart_hal.c
