@@ -12,7 +12,7 @@
  #include "rom/cache.h"
  
  #if CONFIG_IDF_TARGET_ESP32
-@@ -26,230 +25,25 @@
+@@ -26,230 +25,50 @@
  #include "hal/cache_ll.h"
  #include <soc/soc.h>
  #include "sdkconfig.h"
@@ -32,10 +32,8 @@
  
  ESP_LOG_ATTR_TAG(TAG, "cache");
  
-+static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
-+
- // Used only on ROM impl. in idf, this param unused, cache status hold by hal
- static uint32_t s_flash_op_cache_state[2];
+-// Used only on ROM impl. in idf, this param unused, cache status hold by hal
+-static uint32_t s_flash_op_cache_state[2];
 -#ifndef CONFIG_FREERTOS_UNICORE
 -static SemaphoreHandle_t s_flash_op_mutex;
 -static volatile bool s_flash_op_can_start = false;
@@ -59,7 +57,8 @@
 -{
 -    xSemaphoreGiveRecursive(s_flash_op_mutex);
 -}
--/*
++#if defined(CONFIG_SMP)
+ /*
 - If you're going to modify this, keep in mind that while the flash caches of the pro and app
 - cpu are separate, the psram cache is *not*. If one of the CPUs returns from a flash routine
 - with its cache enabled but the other CPUs cache is not enabled yet, you will have problems
@@ -103,7 +102,16 @@
 -}
 -
 -void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
--{
++ * A flash operation suspends the cache, so no core may execute flash-mapped
++ * (XIP) code while it runs. Under SMP that has to be enforced on the peer core
++ * as well, whatever the cache topology. soc_mp_pause_others() takes a global
++ * pause lock (the outermost lock, before any flash/cache lock) and parks the
++ * other core in IRAM for the duration. The SoC's smp support provides the
++ * real implementation; the weak no-ops below keep SMP builds of SoCs without
++ * a peer stall linking.
++ */
++void IRAM_ATTR __weak soc_mp_pause_others(void)
+ {
 -#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
 -    assert(esp_task_stack_is_sane_cache_disabled());
 -#endif
@@ -172,12 +180,13 @@
 -    //only needed if cache(s) is per core
 -    spi_flash_disable_cache(other_cpuid, &s_flash_op_cache_state[other_cpuid]);
 -#endif
--}
--
--void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
--{
--    const int cpuid = xPortGetCoreID();
+ }
  
+-void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
++void IRAM_ATTR __weak soc_mp_resume_others(void)
+ {
+-    const int cpuid = xPortGetCoreID();
+-
 -#ifndef NDEBUG
 -    // Sanity check: flash operation ends on the same CPU as it has started
 -    assert(cpuid == s_flash_op_cpu);
@@ -218,8 +227,8 @@
 -    }
 -    // Release API lock
 -    spi_flash_op_unlock();
--}
--
+ }
+ 
 -void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
 -{
 -    const uint32_t cpuid = xPortGetCoreID();
@@ -232,24 +241,33 @@
 -    // Disable cache on this CPU as well
 -    spi_flash_disable_cache(cpuid, &s_flash_op_cache_state[cpuid]);
 -}
--
++#define SPI_FLASH_PAUSE_OTHERS()    soc_mp_pause_others()
++#define SPI_FLASH_RESUME_OTHERS()   soc_mp_resume_others()
++#else
++#define SPI_FLASH_PAUSE_OTHERS()
++#define SPI_FLASH_RESUME_OTHERS()
++#endif
+ 
 -void IRAM_ATTR spi_flash_enable_interrupts_caches_no_os(void)
 -{
 -    const uint32_t cpuid = xPortGetCoreID();
--
++static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
+ 
 -    // Re-enable cache on this CPU
 -    spi_flash_restore_cache(cpuid, s_flash_op_cache_state[cpuid]);
 -    // Re-enable non-iram interrupts
 -    esp_intr_noniram_enable();
 -}
--
++// Used only on ROM impl. in idf, this param unused, cache status hold by hal
++static uint32_t s_flash_op_cache_state[2];
+ 
 -#else // CONFIG_FREERTOS_UNICORE
 +#ifndef CONFIG_MCUBOOT
 +K_MUTEX_DEFINE(s_flash_op_mutex);
  
  void spi_flash_init_lock(void)
  {
-@@ -257,32 +51,18 @@
+@@ -257,32 +76,25 @@
  
  void spi_flash_op_lock(void)
  {
@@ -282,16 +300,24 @@
  void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
  {
 -    spi_flash_op_lock();
++    /* Park the peer first, so the pause lock is the outermost lock. The locks
++     * taken below are cross-core, and a core that blocks on one of them does so
++     * with interrupts disabled, which would leave it unable to answer the stall
++     * request. A core can never be parked while holding them for the same
++     * reason: they are only ever taken with interrupts already off.
++     */
++    SPI_FLASH_PAUSE_OTHERS();
 +    esp_os_enter_critical(&s_intr_saved_state);
      esp_intr_noniram_disable();
      spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
  }
-@@ -291,27 +71,21 @@
+@@ -291,27 +103,22 @@
  {
      spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
      esp_intr_noniram_enable();
 -    spi_flash_op_unlock();
 +    esp_os_exit_critical(&s_intr_saved_state);
++    SPI_FLASH_RESUME_OTHERS();
  }
  
  void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
@@ -315,7 +341,7 @@
  
  void IRAM_ATTR spi_flash_enable_cache(uint32_t cpuid)
  {
-@@ -662,7 +436,6 @@
+@@ -662,7 +469,6 @@
  #else
      cache_line_size = CACHE_LINE_SIZE_64B;
  #endif
@@ -381,6 +407,17 @@
  #include "esp_private/startup_internal.h"
  #include "esp_spi_flash_counters.h"
  #include "esp_rom_spiflash.h"
+@@ -445,8 +444,8 @@
+     if (dev_handle) {
+         spi_bus_lock_unregister_dev(dev_handle);
+     }
+-    free(chip->host);
+-    free(chip);
++    heap_caps_free(chip->host);
++    heap_caps_free(chip);
+     return ESP_OK;
+ }
+ 
 @@ -494,7 +493,6 @@
      // Only these chips have efuses for spi pin configuration.
      cfg.iomux = esp_rom_efuse_get_flash_gpio_info() == 0 ?  true : false;
@@ -647,12 +684,18 @@
      if (ret != ESP_OK) {
          return ret;
      }
-@@ -130,25 +128,12 @@
+@@ -130,25 +128,18 @@
      //use the lock to disable the cache and interrupts before using the SPI bus
      ret = acquire_spi_bus_lock(arg);
  #elif SPI_FLASH_CACHE_NO_DISABLE
 -    _lock_acquire(&s_spi1_flash_mutex);
-+    k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
++    /* k_mutex_lock requires an active thread context. Skip the lock if the
++     * kernel is not yet running (esp_flash_config() runs pre-kernel, where
++     * execution is single-threaded and no arbitration is needed).
++     */
++    if (k_can_yield()) {
++        k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
++    }
  #else
      //directly disable the cache and interrupts when lock is not used
      cache_disable(NULL);
@@ -674,12 +717,15 @@
  #if CONFIG_SPI_FLASH_FREQ_LIMIT_C5_240MHZ
      if (flags & ESP_FLASH_START_FLAG_LIMIT_CPU_FREQ) {
          esp_flash_freq_limit_cb();
-@@ -178,22 +163,11 @@
+@@ -178,22 +169,14 @@
  #if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
      ret = release_spi_bus_lock(arg);
  #elif SPI_FLASH_CACHE_NO_DISABLE
 -    _lock_release(&s_spi1_flash_mutex);
-+    k_mutex_unlock(&s_spi1_flash_mutex);
++    /* See spi1_start: no lock is taken pre-kernel. */
++    if (k_can_yield()) {
++        k_mutex_unlock(&s_spi1_flash_mutex);
++    }
  #else
      cache_enable(NULL);
  #endif
@@ -698,25 +744,29 @@
      on_spi_released(ctx);
      return ret;
  }
-@@ -216,11 +190,14 @@
+@@ -216,11 +199,17 @@
  
  static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
  {
 -    if (likely(xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)) {
-+    /* k_sleep requires an active thread context. Skip the yield if the
-+     * kernel is not yet running (e.g. early boot flash erase recovery).
-+     */
-+    if (!k_is_pre_kernel()) {
- #ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
+-#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
 -        vTaskDelay(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS);
-+        k_sleep(K_TICKS(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS));
++    /* k_sleep needs a context that can block. k_can_yield() is false
++     * before the kernel is up, in an ISR, with IRQs locked, and from the
++     * idle thread. The flash coredump backend writes from the fatal
++     * handler: on Xtensa that is still an ISR; on RISC-V it is not, but
++     * the trap has cleared MIE, so the IRQs-locked check skips the sleep.
++     */
++    if (k_can_yield()) {
++#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_MS
++        k_sleep(K_MSEC(CONFIG_SPI_FLASH_ERASE_YIELD_MS));
  #else
 -        vTaskDelay(1);
 +        k_sleep(K_MSEC(1));
  #endif
      }
      on_spi_yielded((app_func_arg_t*)arg);
-@@ -235,31 +212,33 @@
+@@ -235,31 +224,33 @@
  
  static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
  {
@@ -740,7 +790,7 @@
 -        read_chunk_size = MIN(read_chunk_size, largest_free);
 -        read_chunk_size = (read_chunk_size + 3) & ~3;
 -        ret = heap_caps_malloc(read_chunk_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-+    size_t read_chunk_size = (reqest_size + 3) & ~3;
++    size_t read_chunk_size = MAX((reqest_size + 3) & ~3, 64);
 +
 +    while (ret == NULL && read_chunk_size >= 64) {
 +        ret = k_malloc(read_chunk_size);
@@ -765,7 +815,7 @@
  static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
  {
      if (!esp_partition_is_flash_region_writable(start_addr, size)) {
-@@ -275,8 +254,22 @@
+@@ -275,8 +266,22 @@
  #endif // !CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
      return ESP_OK;
  }
@@ -789,7 +839,7 @@
  {
      bool is_erasing = op_status & SPI_FLASH_OS_IS_ERASING_STATUS_FLAG;
      spi_flash_set_erasing_flag(is_erasing);
-@@ -333,8 +326,7 @@
+@@ -333,8 +338,7 @@
          return ESP_ERR_INVALID_ARG;
      }
  
@@ -799,7 +849,7 @@
      if (chip->os_func_data == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -369,7 +361,7 @@
+@@ -369,7 +373,7 @@
      if (chip->os_func_data) {
          // SPI bus lock is possibly not used on SPI1 bus
          *out_dev_handle = ((app_func_arg_t*)chip->os_func_data)->dev_lock;
@@ -808,7 +858,7 @@
      }
      chip->os_func = NULL;
      chip->os_func_data = NULL;
-@@ -398,7 +390,11 @@
+@@ -398,7 +402,11 @@
  esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip)
  {
      main_flash_arg = (app_func_arg_t) {
@@ -820,19 +870,38 @@
          .no_protect = false, // Required for the main flash chip
      };
      chip->os_func = &esp_flash_spi1_default_os_functions;
-@@ -430,7 +426,10 @@
+@@ -428,38 +436,66 @@
+ // Valid task execution interval: continuous time with the cache enabled, which is longer than
+ // CONFIG_SPI_FLASH_ERASE_YIELD_TICKS. Yield time shorter than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS is
  // not treated as valid interval.
++/* The yield bookkeeping runs with the cache enabled: check_yield() is called
++ * before start(), released() after end() has restored the cache, and yielded()
++ * after the sleep. Any kernel time source is safe there.
++ */
++#if defined(__ZEPHYR__) && defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
++static inline uint32_t spi_flash_os_time_us(void)
++{
++    return (uint32_t)k_ticks_to_us_floor64(k_uptime_ticks());
++}
++#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_MS * 1000)
++#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
++#define spi_flash_os_time_us() ((uint32_t)esp_system_get_time())
++#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000)
++#endif
++
  static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
  {
 -#ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-+#ifdef __ZEPHYR__
-+    (void)ctx;
-+    return false;
-+#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
-     uint32_t time = esp_system_get_time();
+-    uint32_t time = esp_system_get_time();
++#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
++    uint32_t time = spi_flash_os_time_us();
      // We handle the reset here instead of in `on_spi_acquired()`, when acquire() and release() is
-     // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
-@@ -440,26 +439,42 @@
+-    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
+-    if ((time - ctx->released_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000) {
++    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one time query
++    if ((time - ctx->released_since_us) >= SPI_FLASH_YIELD_TICKS_US) {
+         // Reset the acquired time as if the yield has just happened.
+         ctx->acquired_since_us = time;
      } else if ((time - ctx->acquired_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_DURATION_MS * 1000) {
          return true;
      }
@@ -847,10 +916,9 @@
  static inline IRAM_ATTR void on_spi_released(app_func_arg_t* ctx)
  {
 -#ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-+#if defined(__ZEPHYR__)
-+    (void)ctx;
-+#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
-     ctx->released_since_us = esp_system_get_time();
+-    ctx->released_since_us = esp_system_get_time();
++#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
++    ctx->released_since_us = spi_flash_os_time_us();
 +#else
 +    (void)ctx;
  #endif
@@ -870,10 +938,46 @@
  
  static inline IRAM_ATTR void on_spi_yielded(app_func_arg_t* ctx)
  {
-+#if defined(__ZEPHYR__)
-+    (void)ctx;
+-    uint32_t time = esp_system_get_time();
+-    ctx->acquired_since_us = time;
++#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
++    ctx->acquired_since_us = spi_flash_os_time_us();
 +#else
-     uint32_t time = esp_system_get_time();
-     ctx->acquired_since_us = time;
++    (void)ctx;
 +#endif
  }
+--- a/components/spi_flash/spi_flash_os_func_noos.c
++++ b/components/spi_flash/spi_flash_os_func_noos.c
+@@ -9,7 +9,6 @@
+ #include "esp_attr.h"
+ #include "esp_rom_sys.h"
+ #include "esp_cpu.h"
+-#include "rom/cache.h"
+ #include "soc/soc_caps.h"
+ #include "hal/cache_hal.h"
+ #include "hal/cache_ll.h"
+@@ -24,24 +23,14 @@
+     esp_cpu_branch_prediction_disable();
+ #endif
+ 
+-#if CONFIG_IDF_TARGET_ESP32
+-    Cache_Read_Disable(0);
+-    Cache_Read_Disable(1);
+-#else
+     cache_hal_suspend(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
+-#endif
+ 
+     return ESP_OK;
+ }
+ 
+ static IRAM_ATTR esp_err_t end(void *arg)
+ {
+-#if CONFIG_IDF_TARGET_ESP32
+-    Cache_Read_Enable(0);
+-    Cache_Read_Enable(1);
+-#else
+     cache_hal_resume(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
+-#endif
+ 
+ #if SOC_BRANCH_PREDICTOR_SUPPORTED
+     esp_cpu_branch_prediction_enable();

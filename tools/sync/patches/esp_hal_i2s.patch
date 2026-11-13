@@ -34,6 +34,24 @@
  
  /**
   * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32c61/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32c61/include/hal/i2s_ll.h
+@@ -1372,6 +1372,7 @@
+     }
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  */
+@@ -1390,6 +1391,7 @@
+     (void)port_id;
+     return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
 --- a/components/esp_hal_i2s/esp32c6/include/hal/i2s_ll.h
 +++ b/components/esp_hal_i2s/esp32c6/include/hal/i2s_ll.h
 @@ -1243,6 +1243,7 @@
@@ -139,6 +157,40 @@
 @@ -1034,6 +1035,7 @@
      (void)port_id;
      return destination == I2S_DESTINATION_DMA;
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Check whether I2S PDM mode is supported on the specified port
+--- a/components/esp_hal_i2s/esp32s31/include/hal/i2s_ll.h
++++ b/components/esp_hal_i2s/esp32s31/include/hal/i2s_ll.h
+@@ -752,6 +752,7 @@
+     hw->destination.rx_destination = to_bt ? 1 : 0;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Set I2S data destination
+  *
+@@ -768,6 +769,7 @@
+         i2s_ll_rx_set_destination(hw, to_bt);
+     }
+ }
++#endif /* __ZEPHYR__ */
+ 
+ /**
+  * @brief Configure TX WS signal width
+@@ -1858,6 +1860,7 @@
+     hw->hw_sync_data.tx_hw_sync_suppl_data = data;
+ }
+ 
++#ifndef __ZEPHYR__
+ /**
+  * @brief Check whether an I2S data destination is supported on the specified port
+  */
+@@ -1872,6 +1875,7 @@
+         return false;
+     }
  }
 +#endif /* __ZEPHYR__ */
  

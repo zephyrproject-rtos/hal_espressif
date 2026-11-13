@@ -680,7 +680,7 @@
  #define SCAN_CACHE_SUPPORTED
 --- a/components/wpa_supplicant/port/os_xtensa.c
 +++ b/components/wpa_supplicant/port/os_xtensa.c
-@@ -24,40 +24,53 @@
+@@ -24,40 +24,54 @@
  
  #include "os.h"
  #include <stdlib.h>
@@ -703,9 +703,10 @@
 +		return -1;
 +	}
 +
-+	int64_t now = k_uptime_ticks();
-+	t->sec = now / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-+	t->usec = k_ticks_to_us_floor64(now);
++	uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
++
++	t->sec = now_us / USEC_PER_SEC;
++	t->usec = now_us % USEC_PER_SEC;
 +
 +	return 0;
  }
@@ -747,6 +748,30 @@
  }
  
  #ifdef CONFIG_CRYPTO_MBEDTLS
+--- a/components/wpa_supplicant/src/common/wpa_common.c
++++ b/components/wpa_supplicant/src/common/wpa_common.c
+@@ -339,14 +339,19 @@
+ 		return WPA_KEY_MGMT_FT_PSK;
+ #endif /* CONFIG_IEEE80211R */
+ #ifdef CONFIG_IEEE80211W
+-#ifdef CONFIG_WPA3_SAE
++        /* The SAE selectors are recognized regardless of CONFIG_WPA3_SAE so
++         * that scan results classify a WPA3 network as SAE instead of open.
++         * ESP-IDF solves this with a dedicated scan-only parser reached
++         * through a wpa_funcs entry the current Wi-Fi libraries do not call.
++         * Drop this local change once the libraries and the scan-only parser
++         * are picked up by a HAL sync.
++         */
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE)
+                 return WPA_KEY_MGMT_SAE;
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE_EXT_KEY)
+                 return WPA_KEY_MGMT_SAE_EXT_KEY;
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_FT_SAE)
+                 return WPA_KEY_MGMT_FT_SAE;
+-#endif /* CONFIG_WPA3_SAE */
+ 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_802_1X_SHA256)
+ 		return WPA_KEY_MGMT_IEEE8021X_SHA256;
+ 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_PSK_SHA256)
 --- a/components/wpa_supplicant/src/eap_peer/eap.c
 +++ b/components/wpa_supplicant/src/eap_peer/eap.c
 @@ -609,54 +609,60 @@

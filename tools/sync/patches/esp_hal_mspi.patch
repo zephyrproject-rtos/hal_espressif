@@ -231,6 +231,15 @@
  #include "hal/misc.h"
 --- a/components/esp_hal_mspi/esp32p4/include/hal/mspi_ll.h
 +++ b/components/esp_hal_mspi/esp32p4/include/hal/mspi_ll.h
+@@ -403,7 +403,7 @@
+     HAL_ASSERT(spi_num == MSPI_TIMING_LL_MSPI_ID_0);
+     // Should set ie always on to ensure it can read flash sr2
+     REG_SET_BIT(SPI_MEM_C_CTRL_REG, SPI_MEM_C_DATA_IE_ALWAYS_ON);
+-    REG_GET_BIT(SPI_MEM_C_TIMING_CALI_REG, SPI_MEM_C_TIMING_CLK_ENA);
++    REG_SET_BIT(SPI_MEM_C_TIMING_CALI_REG, SPI_MEM_C_TIMING_CLK_ENA);
+ }
+ 
+ /**
 @@ -658,9 +658,9 @@
          return REG_GET_FIELD(SPI_MEM_C_CTRL_REG, SPI_MEM_C_FDUMMY_RIN);
      } else if (spi_num == MSPI_TIMING_LL_MSPI_ID_1) {

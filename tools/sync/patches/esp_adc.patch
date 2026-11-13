@@ -10,6 +10,28 @@
  #include "esp_err.h"
 --- a/components/esp_adc/adc_cali_curve_fitting.c
 +++ b/components/esp_adc/adc_cali_curve_fitting.c
+@@ -106,7 +106,7 @@
+ 
+ err:
+     if (scheme) {
+-        free(scheme);
++        heap_caps_free(scheme);
+     }
+     return ret;
+ }
+@@ -115,10 +115,10 @@
+ {
+     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
+ 
+-    free(handle->ctx);
++    heap_caps_free(handle->ctx);
+     handle->ctx = NULL;
+ 
+-    free(handle);
++    heap_caps_free(handle);
+     handle = NULL;
+ 
+     return ESP_OK;
 @@ -187,11 +187,17 @@
          return 0;
      }
@@ -41,3 +63,75 @@
  {
      ANALOG_CLOCK_ENABLE();
      //Calculate all ICode
+--- a/components/esp_adc/esp32/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32/adc_cali_line_fitting.c
+@@ -206,7 +206,7 @@
+ 
+ err:
+     if (scheme) {
+-        free(scheme);
++        heap_caps_free(scheme);
+     }
+     return ret;
+ }
+@@ -230,10 +230,10 @@
+ {
+     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
+ 
+-    free(handle->ctx);
++    heap_caps_free(handle->ctx);
+     handle->ctx = NULL;
+ 
+-    free(handle);
++    heap_caps_free(handle);
+     handle = NULL;
+ 
+     return ESP_OK;
+--- a/components/esp_adc/esp32c2/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32c2/adc_cali_line_fitting.c
+@@ -87,7 +87,7 @@
+ 
+ err:
+     if (scheme) {
+-        free(scheme);
++        heap_caps_free(scheme);
+     }
+     return ret;
+ }
+@@ -96,10 +96,10 @@
+ {
+     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
+ 
+-    free(handle->ctx);
++    heap_caps_free(handle->ctx);
+     handle->ctx = NULL;
+ 
+-    free(handle);
++    heap_caps_free(handle);
+     handle = NULL;
+ 
+     return ESP_OK;
+--- a/components/esp_adc/esp32s2/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32s2/adc_cali_line_fitting.c
+@@ -121,7 +121,7 @@
+ 
+ err:
+     if (scheme) {
+-        free(scheme);
++        heap_caps_free(scheme);
+     }
+     return ret;
+ }
+@@ -130,10 +130,10 @@
+ {
+     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
+ 
+-    free(handle->ctx);
++    heap_caps_free(handle->ctx);
+     handle->ctx = NULL;
+ 
+-    free(handle);
++    heap_caps_free(handle);
+     handle = NULL;
+ 
+     return ESP_OK;

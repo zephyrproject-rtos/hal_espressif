@@ -20,15 +20,31 @@
  #ifdef __cplusplus
  }
  #endif
+--- a/components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
++++ b/components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
+@@ -177,7 +177,7 @@
+ #if CONFIG_BOOTLOADER_SPI_CUSTOM_WP_PIN
+     return CONFIG_BOOTLOADER_SPI_WP_PIN; // can be set for bootloader when QIO or QOUT config in use
+ #elif CONFIG_SPIRAM_CUSTOM_SPIWP_SD3_PIN
+-    return CONFIG_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
++    return CONFIG_SOC_ESP32_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
+ #else
+     // no custom value, find it based on the package eFuse value
+     switch(bootloader_common_get_chip_ver_pkg()) {
 --- a/components/bootloader_support/src/bootloader_clock_init.c
 +++ b/components/bootloader_support/src/bootloader_clock_init.c
-@@ -9,7 +9,14 @@
+@@ -9,7 +9,19 @@
  #include "soc/chip_revision.h"
  #include "hal/efuse_hal.h"
  
 -#include "soc/rtc_cntl_periph.h"
 +#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3  // TODO: IDF-5645
 +#include "soc/rtc_cntl_reg.h"
++#elif CONFIG_IDF_TARGET_ESP32S31
++#include "soc/rtc_wdt_reg.h"
++#include "soc/rtc_timer_reg.h"
++#include "soc/lp_analog_peri_reg.h"
++#include "soc/pmu_reg.h"
 +#else
 +#include "soc/lp_wdt_reg.h"
 +#include "soc/lp_timer_reg.h"

@@ -270,6 +270,49 @@
  {
      esp_reset_reason_t hint = esp_reset_reason_get_hint();
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
+--- a/components/esp_system/port/soc/esp32c3/apb_backup_dma.c
++++ b/components/esp_system/port/soc/esp32c3/apb_backup_dma.c
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+@@ -8,29 +8,19 @@
+ 
+ #if SOC_APB_BACKUP_DMA
+ #include "esp_private/esp_system_attr.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/portmacro.h"
+ #include "esp32c3/rom/apb_backup_dma.h"
+-#include "sdkconfig.h"
++#include "esp_private/critical_section.h"
+ 
+-static portMUX_TYPE s_apb_backup_dma_mutex = portMUX_INITIALIZER_UNLOCKED;
++static esp_os_spinlock_t s_apb_backup_dma_lock = ESP_OS_SPINLOCK_INIT;
+ 
+ static void ESP_SYSTEM_IRAM_ATTR apb_backup_dma_lock(void)
+ {
+-    if (xPortInIsrContext()) {
+-        portENTER_CRITICAL_ISR(&s_apb_backup_dma_mutex);
+-    } else {
+-        portENTER_CRITICAL(&s_apb_backup_dma_mutex);
+-    }
++    esp_os_enter_critical_safe(&s_apb_backup_dma_lock);
+ }
+ 
+ static void ESP_SYSTEM_IRAM_ATTR apb_backup_dma_unlock(void)
+ {
+-    if (xPortInIsrContext()) {
+-        portEXIT_CRITICAL_ISR(&s_apb_backup_dma_mutex);
+-    } else {
+-        portEXIT_CRITICAL(&s_apb_backup_dma_mutex);
+-    }
++    esp_os_exit_critical_safe(&s_apb_backup_dma_lock);
+ }
+ 
+ void esp_apb_backup_dma_lock_init(void)
 --- a/components/esp_system/port/soc/esp32c3/clk.c
 +++ b/components/esp_system/port/soc/esp32c3/clk.c
 @@ -5,9 +5,7 @@
@@ -364,15 +407,17 @@
  
  static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  
-@@ -51,7 +47,7 @@
+@@ -51,8 +47,8 @@
  
  void esp_rtc_init(void)
  {
 -#if !CONFIG_IDF_ENV_FPGA
-+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_BOOTLOADER_MCUBOOT
-     pmu_init();
+-    pmu_init();
++#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
++	pmu_init();
  #endif
  }
+ 
 @@ -62,16 +58,7 @@
      assert((rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_48M) || (rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M));
  
@@ -415,25 +460,38 @@
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
 --- a/components/esp_system/port/soc/esp32c61/clk.c
 +++ b/components/esp_system/port/soc/esp32c61/clk.c
-@@ -7,7 +7,7 @@
+@@ -5,9 +5,7 @@
+  */
+ 
  #include <stdint.h>
- #include <sys/cdefs.h>
- #include <sys/time.h>
+-#include <sys/cdefs.h>
+-#include <sys/time.h>
 -#include <sys/param.h>
 +#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -32,7 +32,7 @@
+@@ -32,9 +30,7 @@
   * Larger values increase startup delay. Smaller values may cause false positive
   * detection (i.e. oscillator runs for a few cycles and then stops).
   */
 -#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+-
+-#define MHZ (1000000)
 +#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
  
- #define MHZ (1000000)
+ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
  
-@@ -72,9 +72,9 @@
+@@ -42,7 +38,7 @@
+ 
+ void esp_rtc_init(void)
+ {
+-#if !CONFIG_IDF_ENV_FPGA
++#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
+     pmu_init();
+ #endif
+ }
+@@ -72,9 +68,9 @@
  #endif
  
      modem_clock_deselect_all_module_lp_clock_source();
@@ -452,7 +510,7 @@
  }
  
 -static void __attribute__((constructor)) esp_reset_reason_init(void)
-+static void esp_reset_reason_init(void)
++void esp_reset_reason_init(void)
  {
      esp_reset_reason_t hint = esp_reset_reason_get_hint();
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
@@ -485,7 +543,7 @@
  #endif
  
 -#if !CONFIG_IDF_ENV_FPGA
-+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_BOOTLOADER_MCUBOOT
++#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
      pmu_init();
  #endif
  }
@@ -629,7 +687,7 @@
  #endif
  
 -#if !CONFIG_IDF_ENV_FPGA
-+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_BOOTLOADER_MCUBOOT
++#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
      pmu_init();
  #endif
  }
@@ -774,6 +832,44 @@
  {
      esp_reset_reason_t hint = esp_reset_reason_get_hint();
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
+--- a/components/esp_system/port/soc/esp32p4/system_internal.c
++++ b/components/esp_system/port/soc/esp32p4/system_internal.c
+@@ -31,6 +31,9 @@
+ #include "soc/hp_sys_clkrst_reg.h"
+ #include "soc/lp_clkrst_reg.h"
+ #include "soc/hp_system_reg.h"
++#include "soc/hp_sys_clkrst_struct.h"
++#include "soc/h264_struct.h"
++#include "soc/h264_dma_struct.h"
+ #include "hal/uart_ll.h"
+ #include "hal/gdma_ll.h"
+ #include "hal/axi_dma_ll.h"
+@@ -76,6 +79,25 @@
+             dw_gdma_ll_channel_abort(DW_GDMA_LL_GET_HW(0), i);
+         }
+     }
++    // Idle the H264 encoder's own DMA, an AXI master, before RST_EN_H264 (TRM 41.7.3, 41.5.2.4):
++    // stop the core, then abort each channel; TX 3 and 4 are aborted through the RX 5 registers.
++    if (HP_SYS_CLKRST.soc_clk_ctrl1.reg_h264_sys_clk_en &&
++        HP_SYS_CLKRST.peri_clk_ctrl26.reg_h264_clk_en) {
++        h264_dev_t *h264 = (h264_dev_t *)DR_REG_H264_CORE_BASE;
++        h264_dma_dev_t *h264_dma = (h264_dma_dev_t *)DR_REG_H264_DMA_2D_BASE;
++
++        h264->sys_ctrl.sys_rst_pulse = 1;
++        for (int i = 0; i < 3; i++) {
++            h264_dma->dma_out_ch[i].conf0.out_cmd_disable = 1;
++            while (!h264_dma->dma_out_ch[i].state.out_reset_avail);
++        }
++        for (int i = 0; i < 5; i++) {
++            h264_dma->dma_in_ch[i].conf0.in_cmd_disable = 1;
++            while (!h264_dma->dma_in_ch[i].state.in_reset_avail);
++        }
++        h264_dma->dma_in_ch5.conf0.in_cmd_disable = 1;
++        while (!h264_dma->dma_in_ch5.state.in_reset_avail);
++    }
+ 
+     // Set Peripheral clk rst
+     SET_PERI_REG_MASK(HP_SYS_CLKRST_HP_RST_EN0_REG, HP_SYS_CLKRST_REG_RST_EN_MSPI_AXI);
 --- a/components/esp_system/port/soc/esp32/reset_reason.c
 +++ b/components/esp_system/port/soc/esp32/reset_reason.c
 @@ -55,7 +55,7 @@
@@ -846,6 +942,94 @@
  {
      esp_reset_reason_t hint = esp_reset_reason_get_hint();
      s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
+--- a/components/esp_system/port/soc/esp32s31/clk.c
++++ b/components/esp_system/port/soc/esp32s31/clk.c
+@@ -6,8 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <sys/cdefs.h>
+-#include <sys/time.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_log.h"
+@@ -35,9 +34,7 @@
+  * Larger values increase startup delay. Smaller values may cause false positive
+  * detection (i.e. oscillator runs for a few cycles and then stops).
+  */
+-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+-
+-#define MHZ (1000000)
++#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+ 
+ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
+ 
+@@ -45,9 +42,9 @@
+ 
+ __attribute__((weak)) void IRAM_ATTR esp_rtc_init(void)
+ {
+-#if SOC_PMU_SUPPORTED && !CONFIG_IDF_ENV_FPGA
++#if SOC_PMU_SUPPORTED && !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
+     pmu_init();
+-#endif  //SOC_PMU_SUPPORTED
++#endif  //SOC_PMU_SUPPORTED && !CONFIG_MCUBOOT
+ }
+ 
+ __attribute__((weak)) void esp_clk_init(void)
+--- a/components/esp_system/port/soc/esp32s31/reset_reason.c
++++ b/components/esp_system/port/soc/esp32s31/reset_reason.c
+@@ -73,7 +73,7 @@
+     }
+ }
+ 
+-static void __attribute__((constructor)) esp_reset_reason_init(void)
++void esp_reset_reason_init(void)
+ {
+     esp_reset_reason_t hint = esp_reset_reason_get_hint();
+     s_reset_reason = get_reset_reason(esp_rom_get_reset_reason(PRO_CPU_NUM), hint);
+--- a/components/esp_system/port/soc/esp32s3/apb_backup_dma.c
++++ b/components/esp_system/port/soc/esp32s3/apb_backup_dma.c
+@@ -1,34 +1,24 @@
+ /*
+- * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
++ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+ #include "soc/soc_caps.h"
+ #include "esp_private/esp_system_attr.h"
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/portmacro.h"
+ #include "esp32s3/rom/apb_backup_dma.h"
+-#include "sdkconfig.h"
++#include "esp_private/critical_section.h"
+ 
+-static portMUX_TYPE s_apb_backup_dma_mutex = portMUX_INITIALIZER_UNLOCKED;
++static esp_os_spinlock_t s_apb_backup_dma_lock = ESP_OS_SPINLOCK_INIT;
+ 
+ static void ESP_SYSTEM_IRAM_ATTR apb_backup_dma_lock(void)
+ {
+-    if (xPortInIsrContext()) {
+-        portENTER_CRITICAL_ISR(&s_apb_backup_dma_mutex);
+-    } else {
+-        portENTER_CRITICAL(&s_apb_backup_dma_mutex);
+-    }
++    esp_os_enter_critical_safe(&s_apb_backup_dma_lock);
+ }
+ 
+ static void ESP_SYSTEM_IRAM_ATTR apb_backup_dma_unlock(void)
+ {
+-    if (xPortInIsrContext()) {
+-        portEXIT_CRITICAL_ISR(&s_apb_backup_dma_mutex);
+-    } else {
+-        portEXIT_CRITICAL(&s_apb_backup_dma_mutex);
+-    }
++    esp_os_exit_critical_safe(&s_apb_backup_dma_lock);
+ }
+ 
+ void esp_apb_backup_dma_lock_init(void)
 --- a/components/esp_system/port/soc/esp32s3/clk.c
 +++ b/components/esp_system/port/soc/esp32s3/clk.c
 @@ -5,9 +5,7 @@

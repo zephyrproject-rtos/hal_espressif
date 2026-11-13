@@ -92,7 +92,7 @@
   * @brief Call this funnction to track pll immediately.
 --- a/components/esp_phy/src/btbb_init.c
 +++ b/components/esp_phy/src/btbb_init.c
-@@ -5,15 +5,15 @@
+@@ -5,20 +5,20 @@
   */
  
  #include <stdint.h>
@@ -111,7 +111,18 @@
  /* Reference count of enabling BT BB */
  static uint8_t s_btbb_access_ref = 0;
  
-@@ -93,29 +93,29 @@
+ 
+-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
+ #include "esp_private/sleep_retention.h"
+ #include "btbb_retention_reg.h"
+ static const char* TAG = "btbb_init";
+@@ -89,33 +89,33 @@
+     }
+     return err;
+ }
+-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
  
  void esp_btbb_enable(void)
  {
@@ -119,7 +130,8 @@
 +    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
      if (s_btbb_access_ref == 0) {
          bt_bb_v2_init_cmplx(BTBB_ENABLE_VERSION_PRINT);
- #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
          esp_err_t err = btbb_sleep_retention_enable();
          if (err != ESP_OK) {
              btbb_sleep_retention_disable();
@@ -127,7 +139,8 @@
 +            k_mutex_unlock(&s_btbb_access_lock);
              return;
          }
- #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
      }
      s_btbb_access_ref++;
 -    _lock_release(&s_btbb_access_lock);
@@ -139,9 +152,11 @@
 -    _lock_acquire(&s_btbb_access_lock);
 +    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
      if (s_btbb_access_ref && (--s_btbb_access_ref == 0)) {
- #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
          btbb_sleep_retention_disable();
- #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
++#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
      }
 -    _lock_release(&s_btbb_access_lock);
 +    k_mutex_unlock(&s_btbb_access_lock);
@@ -510,11 +525,13 @@
  #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
  }
  
-@@ -550,12 +536,12 @@
+@@ -550,12 +536,14 @@
  void esp_mac_bb_pd_mem_init(void)
  {
  #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
 -    _lock_acquire(&s_phy_access_lock);
++    extern void esp_apb_backup_dma_lock_init(void);
++    esp_apb_backup_dma_lock_init();
 +    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
      s_macbb_backup_mem_ref++;
      if (s_mac_bb_pd_mem == NULL) {
@@ -525,7 +542,7 @@
  #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
      esp_phy_sleep_data_init();
  #endif
-@@ -564,13 +550,13 @@
+@@ -564,13 +552,13 @@
  void esp_mac_bb_pd_mem_deinit(void)
  {
  #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
@@ -542,7 +559,7 @@
  #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
      esp_phy_sleep_data_deinit();
  #endif
-@@ -619,7 +605,7 @@
+@@ -619,7 +607,7 @@
  #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
      size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
              sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
@@ -551,7 +568,7 @@
      if (init_data_store == NULL) {
          ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
          return NULL;
-@@ -636,7 +622,7 @@
+@@ -636,7 +624,7 @@
      ESP_LOGD(TAG, "loading PHY init data from partition at offset 0x%" PRIx32 "", partition->address);
      size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
              sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
@@ -560,7 +577,7 @@
      if (init_data_store == NULL) {
          ESP_LOGE(TAG, "failed to allocate memory for PHY init data");
          return NULL;
-@@ -645,7 +631,7 @@
+@@ -645,7 +633,7 @@
      esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
      if (err != ESP_OK) {
          ESP_LOGE(TAG, "failed to read PHY data partition (0x%x)", err);
@@ -569,7 +586,7 @@
          return NULL;
      }
  #endif
-@@ -655,12 +641,12 @@
+@@ -655,12 +643,12 @@
                  PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0) {
  #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
          ESP_LOGE(TAG, "failed to validate embedded PHY init data");
@@ -584,7 +601,7 @@
          return NULL;
  #else
          ESP_LOGE(TAG, "failed to validate PHY data partition, restoring default data into flash...");
-@@ -679,7 +665,7 @@
+@@ -679,7 +667,7 @@
          err = esp_partition_erase_range(partition, 0, partition->size);
          if (err != ESP_OK) {
              ESP_LOGE(TAG, "failed to erase partition (0x%x)!", err);
@@ -593,7 +610,7 @@
              return NULL;
          }
  
-@@ -687,7 +673,7 @@
+@@ -687,7 +675,7 @@
          err = esp_partition_write(partition, 0, init_data_store, init_data_store_length);
          if (err != ESP_OK) {
              ESP_LOGE(TAG, "failed to write default PHY data partition (0x%x)", err);
@@ -602,7 +619,7 @@
              return NULL;
          }
  #endif // CONFIG_ESP_PHY_DEFAULT_INIT_IF_INVALID
-@@ -707,7 +693,7 @@
+@@ -707,7 +695,7 @@
  
  void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
  {
@@ -611,7 +628,7 @@
  }
  
  #else // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
-@@ -727,7 +713,8 @@
+@@ -727,7 +715,8 @@
  #endif // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
  
  
@@ -621,7 +638,7 @@
  static const char* PHY_NAMESPACE = "phy";
  static const char* PHY_CAL_VERSION_KEY = "cal_version";
  static const char* PHY_CAL_MAC_KEY = "cal_mac";
-@@ -879,6 +866,7 @@
+@@ -879,6 +868,7 @@
  
      return err;
  }
@@ -629,7 +646,7 @@
  
  #if CONFIG_ESP_PHY_REDUCE_TX_POWER
  static void __attribute((unused)) esp_phy_reduce_tx_power(esp_phy_init_data_t* init_data)
-@@ -894,36 +882,30 @@
+@@ -894,36 +884,30 @@
  
  void esp_phy_load_cal_and_init(void)
  {
@@ -669,7 +686,7 @@
          abort();
      }
  
-@@ -934,7 +916,6 @@
+@@ -934,7 +918,6 @@
  #else
      const esp_phy_init_data_t* init_data = esp_phy_get_init_data();
      if (init_data == NULL) {
@@ -677,7 +694,7 @@
          abort();
      }
  #endif
-@@ -978,7 +959,7 @@
+@@ -978,7 +961,7 @@
  
  #if CONFIG_ESP_PHY_REDUCE_TX_POWER
      esp_phy_release_init_data(phy_init_data);
@@ -686,7 +703,7 @@
  #else
      esp_phy_release_init_data(init_data);
  #endif
-@@ -991,7 +972,7 @@
+@@ -991,7 +974,7 @@
  #endif
  #endif
  
@@ -695,7 +712,7 @@
  }
  
  #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN
-@@ -1055,7 +1036,7 @@
+@@ -1055,7 +1038,7 @@
          size_t init_data_store_length,
          phy_init_data_type_t init_data_type)
  {
@@ -704,7 +721,7 @@
      if (init_data_control_info == NULL) {
          ESP_LOGE(TAG, "failed to allocate memory for PHY init data control info");
          return ESP_FAIL;
-@@ -1066,7 +1047,7 @@
+@@ -1066,7 +1049,7 @@
  #else
      err = esp_partition_read(partition, init_data_store_length, init_data_control_info, sizeof(phy_control_info_data_t));
      if (err != ESP_OK) {
@@ -713,7 +730,7 @@
          ESP_LOGE(TAG, "failed to read PHY control info data partition (0x%x)", err);
          return ESP_FAIL;
      }
-@@ -1075,19 +1056,19 @@
+@@ -1075,19 +1058,19 @@
          err =  phy_crc_check_init_data(init_data_control_info->multiple_bin_checksum, init_data_control_info->control_info_checksum,
                  sizeof(phy_control_info_data_t) - sizeof(init_data_control_info->control_info_checksum));
          if (err != ESP_OK) {
@@ -737,7 +754,7 @@
          ESP_LOGE(TAG, "failed to allocate memory for PHY init data multiple bin");
          return ESP_FAIL;
      }
-@@ -1098,8 +1079,8 @@
+@@ -1098,8 +1081,8 @@
      err = esp_partition_read(partition, init_data_store_length + sizeof(phy_control_info_data_t),
              init_data_multiple, sizeof(esp_phy_init_data_t) * init_data_control_info->number);
      if (err != ESP_OK) {
@@ -748,7 +765,7 @@
          ESP_LOGE(TAG, "failed to read PHY init data multiple bin partition (0x%x)", err);
          return ESP_FAIL;
      }
-@@ -1108,14 +1089,14 @@
+@@ -1108,14 +1091,14 @@
          err = phy_crc_check_init_data(init_data_multiple, init_data_control_info->multiple_bin_checksum,
                  sizeof(esp_phy_init_data_t) * init_data_control_info->number);
          if (err != ESP_OK) {
@@ -767,7 +784,7 @@
          ESP_LOGE(TAG, "Check algorithm not CRC, PHY init data update failed");
          return ESP_FAIL;
      }
-@@ -1128,8 +1109,8 @@
+@@ -1128,8 +1111,8 @@
          s_phy_init_data_type = init_data_type;
      }
  
@@ -778,7 +795,7 @@
      return ESP_OK;
  }
  
-@@ -1140,7 +1121,7 @@
+@@ -1140,7 +1123,7 @@
      const esp_partition_t* partition = NULL;
      size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
          sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
@@ -787,7 +804,7 @@
      if (init_data_store == NULL) {
          ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
          return ESP_ERR_NO_MEM;
-@@ -1156,7 +1137,7 @@
+@@ -1156,7 +1139,7 @@
      }
      size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
          sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
@@ -796,7 +813,7 @@
      if (init_data_store == NULL) {
          ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
          return ESP_ERR_NO_MEM;
-@@ -1164,7 +1145,7 @@
+@@ -1164,7 +1147,7 @@
  
      esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
      if (err != ESP_OK) {
@@ -805,7 +822,7 @@
          ESP_LOGE(TAG, "failed to read updated country code PHY data partition (0x%x)", err);
          return ESP_FAIL;
      }
-@@ -1172,7 +1153,7 @@
+@@ -1172,7 +1155,7 @@
      if (memcmp(init_data_store, PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0 ||
              memcmp(init_data_store + init_data_store_length - PHY_INIT_MAGIC_LEN,
                  PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0) {
@@ -814,7 +831,7 @@
          ESP_LOGE(TAG, "failed to validate updated country code PHY data partition");
          return ESP_FAIL;
      }
-@@ -1181,7 +1162,7 @@
+@@ -1181,7 +1164,7 @@
      if (init_data_type != ESP_PHY_INIT_DATA_TYPE_DEFAULT) {
          err = phy_get_multiple_init_data(partition, init_data_store, init_data_store_length, init_data_type);
          if (err != ESP_OK) {
@@ -823,7 +840,7 @@
  #if CONFIG_ESP_PHY_INIT_DATA_ERROR
              abort();
  #else
-@@ -1196,7 +1177,7 @@
+@@ -1196,7 +1179,7 @@
          err = esp_phy_apply_phy_init_data(init_data_store + PHY_INIT_MAGIC_LEN);
          if (err != ESP_OK) {
              ESP_LOGE(TAG, "PHY init data failed to load");
@@ -832,7 +849,7 @@
              return ESP_FAIL;
          }
  
-@@ -1205,7 +1186,7 @@
+@@ -1205,7 +1188,7 @@
          s_current_apply_phy_init_data = s_phy_init_data_type;
      }
  
@@ -841,7 +858,7 @@
      return ESP_OK;
  }
  #endif
-@@ -1243,7 +1224,7 @@
+@@ -1243,7 +1226,7 @@
  void esp_wifi_power_domain_on(void) __attribute__((alias("esp_wifi_bt_power_domain_on")));
  void esp_wifi_power_domain_off(void) __attribute__((alias("esp_wifi_bt_power_domain_off")));
  

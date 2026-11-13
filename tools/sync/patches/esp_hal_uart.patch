@@ -54,6 +54,27 @@
  /**
   * @brief  Configure the UART work in collision_detect mode.
   *
+--- a/components/esp_hal_uart/esp32c61/include/hal/uart_ll.h
++++ b/components/esp_hal_uart/esp32c61/include/hal/uart_ll.h
+@@ -1022,6 +1022,18 @@
+ }
+ 
+ /**
++ * @brief  Check if the UART is in rs485 half duplex mode.
++ *
++ * @param  hw Beginning address of the peripheral registers.
++ *
++ * @return True if the UART is in rs485 half duplex mode, otherwise false.
++ */
++FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
++{
++    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
++}
++
++/**
+  * @brief  Configure the UART work in collision_detect mode.
+  *
+  * @param  hw Beginning address of the peripheral registers.
 --- a/components/esp_hal_uart/esp32c6/include/hal/uart_ll.h
 +++ b/components/esp_hal_uart/esp32c6/include/hal/uart_ll.h
 @@ -1254,6 +1254,18 @@
@@ -152,6 +173,27 @@
   * @brief  Configure the UART work in collision_detect mode.
   *
   * @param  hw Beginning address of the peripheral registers.
+--- a/components/esp_hal_uart/esp32s31/include/hal/uart_ll.h
++++ b/components/esp_hal_uart/esp32s31/include/hal/uart_ll.h
+@@ -1786,6 +1786,18 @@
+     uart_ll_update(hw);
+ }
+ 
++/**
++ * @brief  Check if the UART is in RS485 half-duplex mode.
++ *
++ * @param  hw Beginning address of the peripheral registers.
++ *
++ * @return true if RS485 half-duplex mode is enabled, false otherwise.
++ */
++FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
++{
++    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
++}
++
+ #ifdef __cplusplus
+ }
+ #endif
 --- a/components/esp_hal_uart/esp32s3/include/hal/uart_ll.h
 +++ b/components/esp_hal_uart/esp32s3/include/hal/uart_ll.h
 @@ -873,6 +873,18 @@

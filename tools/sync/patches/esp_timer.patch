@@ -232,7 +232,7 @@
  }
  
  static esp_err_t init_timer_task(void)
-@@ -596,40 +611,31 @@
+@@ -596,40 +611,44 @@
          ESP_EARLY_LOGE(TAG, "Task is already initialized");
          err = ESP_ERR_INVALID_STATE;
      } else {
@@ -246,11 +246,24 @@
 -        }
 +        k_sem_init(&s_timer_semaphore, 0, 1);
 +
-+        k_thread_create(&s_timer_task, timer_task_stack,
++        /* Pin to the configured core (create suspended, pin, then start) to keep
++         * the timer task on the same core as the Wi-Fi/BLE stacks it serves.
++         */
++        k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
 +                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
 +                        timer_task, NULL, NULL, NULL,
-+                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0, K_NO_WAIT);
++                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0,
++                        IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
 +        k_thread_name_set(&s_timer_task, "esp_timer");
++
++#if defined(CONFIG_SMP)
++#if defined(CONFIG_SCHED_CPU_MASK) && defined(CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID)
++        k_thread_cpu_pin(tid, CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID);
++#endif
++        k_thread_start(tid);
++#else
++        ARG_UNUSED(tid);
++#endif
 +        s_timer_task_created = true;
      }
      return err;
@@ -285,7 +298,7 @@
      if (err == ESP_OK) {
          err = esp_timer_impl_init(&timer_alarm_handler);
          if (err != ESP_OK) {
-@@ -640,31 +646,9 @@
+@@ -640,31 +659,9 @@
      return err;
  }
  
@@ -320,7 +333,7 @@
  
  esp_err_t esp_timer_deinit(void)
  {
-@@ -750,7 +734,7 @@
+@@ -750,7 +747,7 @@
       * slightly more and the output will be truncated if that is not enough.
       */
      size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
@@ -329,7 +342,7 @@
      if (print_buf == NULL) {
          return ESP_ERR_NO_MEM;
      }
-@@ -783,7 +767,7 @@
+@@ -783,7 +780,7 @@
          fputs(print_buf, stream);
      }
  
@@ -338,7 +351,7 @@
      return ESP_OK;
  }
  
-@@ -866,8 +850,8 @@
+@@ -866,8 +863,8 @@
      esp_timer_dispatch_t dispatch_method = timer->flags & FL_ISR_DISPATCH_METHOD;
  
      timer_list_lock(dispatch_method);
@@ -349,6 +362,17 @@
      bool active = (timer_armed(timer) && timer->event_id != EVENT_ID_DELETE_TIMER)
                    || ((timer->flags & FL_CALLBACK_IS_RUNNING) != 0);
      timer_list_unlock(dispatch_method);
+--- a/components/esp_timer/src/esp_timer_etm.c
++++ b/components/esp_timer/src/esp_timer_etm.c
+@@ -18,7 +18,7 @@
+ 
+ static esp_err_t esp_timer_etm_event_del(esp_etm_event_t *event)
+ {
+-    free(event);
++    heap_caps_free(event);
+     return ESP_OK;
+ }
+ 
 --- a/components/esp_timer/src/esp_timer_impl_common.c
 +++ b/components/esp_timer/src/esp_timer_impl_common.c
 @@ -9,9 +9,11 @@
@@ -506,7 +530,7 @@
  }
  
  void esp_timer_impl_advance(int64_t time_diff_us)
-@@ -248,21 +246,19 @@
+@@ -248,7 +246,10 @@
  
  esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
  {
@@ -518,14 +542,7 @@
          ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
          return ESP_ERR_INVALID_STATE;
      }
- 
--    int isr_flags = ESP_INTR_FLAG_INTRDISABLED
--                    | ((1 << CONFIG_ESP_TIMER_INTERRUPT_LEVEL) & ESP_INTR_FLAG_LEVELMASK)
--#if CONFIG_ESP_TIMER_IN_IRAM
--                    | ESP_INTR_FLAG_IRAM
--#endif
--                    ;
-+    int isr_flags = 0;
+@@ -262,7 +263,7 @@
  
      esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
                                     &timer_alarm_isr, NULL,
@@ -534,7 +551,7 @@
  
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
-@@ -276,16 +272,16 @@
+@@ -276,16 +277,16 @@
          * will not cause issues in practice.
          */
          REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
@@ -557,7 +574,7 @@
      if (err != ESP_OK) {
          ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
      }
-@@ -315,12 +311,12 @@
+@@ -315,12 +316,12 @@
  
  uint64_t esp_timer_impl_get_alarm_reg(void)
  {

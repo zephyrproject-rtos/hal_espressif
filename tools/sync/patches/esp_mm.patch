@@ -111,9 +111,21 @@
      uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
      esp_cpu_stall(other_cpuid);
  #else
+@@ -100,6 +101,11 @@
+      * - disable non-iram interrupt on current core
+      * - current core call cache freeze
+      * - external access from other cores will hang on cache
++     *
++     * Freezing stalls the other core on its next cache access rather than
++     * faulting it, so unlike the flash-write path this does not need to park
++     * the peer. Keep it that way: parking here would take the pause lock
++     * below s_spinlock and invert the order used by the flash path.
+      */
+     esp_intr_noniram_disable();
+     esp_cache_freeze_ext_mem_cache();
 --- a/components/esp_mm/esp_mmu_map.c
 +++ b/components/esp_mm/esp_mmu_map.c
-@@ -6,10 +6,10 @@
+@@ -6,10 +6,11 @@
  
  #include <stdint.h>
  #include <string.h>
@@ -123,10 +135,11 @@
  #include <inttypes.h>
 -#include <sys/lock.h>
 +#include <zephyr/kernel.h>
++#include <zephyr/arch/cpu.h>
  #include "sdkconfig.h"
  #include "esp_attr.h"
  #include "esp_log.h"
-@@ -111,7 +111,7 @@
+@@ -111,7 +112,7 @@
      /**
       * driver layer mutex lock
       */
@@ -135,7 +148,7 @@
  } mmu_ctx_t;
  
  static mmu_ctx_t s_mmu_ctx;
-@@ -258,6 +258,8 @@
+@@ -258,6 +259,8 @@
          TAILQ_INIT(&s_mmu_ctx.mem_regions[i].mem_block_head);
      }
  
@@ -144,25 +157,25 @@
      assert(available_region_idx == region_num);
  }
  
-@@ -279,7 +281,7 @@
+@@ -279,7 +282,7 @@
      ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
      *out_len = 0;
  
 -    _lock_acquire(&s_mmu_ctx.mutex);
-+    unsigned int key = irq_lock();
++    unsigned int key = arch_irq_lock();
      size_t max = 0;
  
      for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
-@@ -291,7 +293,7 @@
+@@ -291,7 +294,7 @@
      }
  
      *out_len = max;
 -    _lock_release(&s_mmu_ctx.mutex);
-+    irq_unlock(key);
++    arch_irq_unlock(key);
  
      return ESP_OK;
  }
-@@ -486,7 +488,7 @@
+@@ -486,7 +489,7 @@
       */
      s_stop_cache();
  
@@ -171,7 +184,7 @@
  
      cache_bus_mask_t bus_mask = cache_ll_l1_get_bus(0, vaddr_start, size);
      cache_ll_l1_enable_bus(0, bus_mask);
-@@ -514,7 +516,7 @@
+@@ -514,7 +517,7 @@
      ESP_RETURN_ON_FALSE((vaddr_start % CONFIG_MMU_PAGE_SIZE == 0), ESP_ERR_INVALID_ARG, TAG, "vaddr must be rounded up to the nearest multiple of CONFIG_MMU_PAGE_SIZE");
      ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
  
@@ -180,7 +193,7 @@
      mem_block_t *dummy_head = NULL;
      mem_block_t *dummy_tail = NULL;
      size_t aligned_size = ALIGN_UP_BY(size, CONFIG_MMU_PAGE_SIZE);
-@@ -579,7 +581,7 @@
+@@ -579,7 +582,7 @@
           */
          const uint32_t new_paddr_offset = paddr_start - mem_block->paddr_start;
          if (out_ptr) {
@@ -189,7 +202,7 @@
          }
          ESP_LOGD(TAG, "paddr block is mapped already, vaddr_start: %p, size: 0x%x", (void *)mem_block->vaddr_start, mem_block->size);
          ret = ESP_ERR_INVALID_STATE;
-@@ -682,23 +684,23 @@
+@@ -682,23 +685,23 @@
      if (out_ptr) {
          *out_ptr = (void *)new_block->vaddr_start;
      }
@@ -218,7 +231,7 @@
  
      return ret;
  }
-@@ -751,7 +753,7 @@
+@@ -751,7 +754,7 @@
      uint32_t ptr_laddr = mmu_ll_vaddr_to_laddr((uint32_t)ptr);
      size_t slot_len = 0;
  
@@ -227,7 +240,7 @@
      for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
          ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-out-of-bounds")
          if (ptr_laddr >= s_mmu_ctx.mem_regions[i].free_head && ptr_laddr < s_mmu_ctx.mem_regions[i].end) {
-@@ -787,15 +789,15 @@
+@@ -787,15 +790,15 @@
  
      //do unmap
      s_do_unmapping(mem_block->vaddr_start, mem_block->size);
@@ -246,7 +259,7 @@
      return ret;
  }
  
-@@ -825,10 +827,10 @@
+@@ -825,10 +828,10 @@
          int id = 0;
          TAILQ_FOREACH(mem_block, &region->mem_block_head, entries) {
              if (mem_block != TAILQ_FIRST(&region->mem_block_head) && mem_block != TAILQ_LAST(&region->mem_block_head, mem_block_head_)) {
@@ -260,7 +273,7 @@
                           mem_block->size,
                           mem_block->caps,
                           mem_block->paddr_start,
-@@ -877,7 +879,7 @@
+@@ -877,7 +880,7 @@
  {
      uint32_t mmu_id = 0;
  
@@ -269,7 +282,7 @@
  
  #if SOC_MMU_PER_EXT_MEM_TARGET
      mmu_id = mmu_hal_get_id_from_vaddr(vaddr);
-@@ -889,7 +891,7 @@
+@@ -889,7 +892,7 @@
      }
  #endif
  
@@ -278,7 +291,7 @@
  
      return is_mapped;
  }
-@@ -913,7 +915,7 @@
+@@ -913,7 +916,7 @@
  
  static bool s_paddr_to_vaddr(esp_paddr_t paddr, mmu_target_t target, mmu_vaddr_t type, uint32_t *out_vaddr)
  {
@@ -287,7 +300,7 @@
  
      uint32_t mmu_id = 0;
  #if SOC_MMU_PER_EXT_MEM_TARGET
-@@ -921,7 +923,7 @@
+@@ -921,7 +924,7 @@
  #endif
      bool found = mmu_hal_paddr_to_vaddr(mmu_id, paddr, target, type, out_vaddr);
  
