@@ -1,10 +1,17 @@
 --- a/components/bootloader_support/bootloader_flash/include/bootloader_flash_priv.h
 +++ b/components/bootloader_support/bootloader_flash/include/bootloader_flash_priv.h
-@@ -198,6 +198,19 @@
-  */
- void bootloader_spi_flash_reset(void);
- 
+@@ -38,3 +38,26 @@
+ #define CMD_FASTRD_DUAL_4B  0x3C
+ #define CMD_FASTRD_4B       0x0C
+ #define CMD_SLOWRD_4B       0x13
++
 +#ifdef __ZEPHYR__
++#include "esp_private/bootloader_flash_internal.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
 +/**
 + * Zephyr-specific flash ROM function wrappers.
 + * These are implemented in zephyr/port/bootloader/bootloader_flash.c
@@ -15,14 +22,14 @@
 +esp_err_t esp_rom_flash_erase_range(uint32_t start_addr, uint32_t size);
 +const void *esp_rom_flash_mmap(uint32_t src_paddr, uint32_t size);
 +void esp_rom_flash_unmmap(const void *mapping);
-+#endif /* __ZEPHYR__ */
 +
- #ifdef __cplusplus
- }
- #endif
++#ifdef __cplusplus
++}
++#endif
++#endif /* __ZEPHYR__ */
 --- a/components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
 +++ b/components/bootloader_support/bootloader_flash/src/bootloader_flash_config_esp32.c
-@@ -177,7 +177,7 @@
+@@ -178,7 +178,7 @@
  #if CONFIG_BOOTLOADER_SPI_CUSTOM_WP_PIN
      return CONFIG_BOOTLOADER_SPI_WP_PIN; // can be set for bootloader when QIO or QOUT config in use
  #elif CONFIG_SPIRAM_CUSTOM_SPIWP_SD3_PIN
@@ -65,7 +72,7 @@
      // Install rom uart printf as console.
      esp_rom_install_uart_printf();
  
-@@ -99,7 +97,7 @@
+@@ -100,7 +98,7 @@
      // Set configured UART console baud rate
      uint32_t clock_hz = rtc_clk_apb_freq_get();
  #if ESP_ROM_UART_CLK_IS_XTAL
@@ -74,17 +81,6 @@
  #endif
      _uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
  }
---- a/components/bootloader_support/src/bootloader_sha.c
-+++ b/components/bootloader_support/src/bootloader_sha.c
-@@ -7,7 +7,7 @@
- #include <assert.h>
- #include <stdbool.h>
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "bootloader_sha.h"
- #include "soc/soc_caps.h"
 --- a/components/bootloader_support/src/bootloader_utility.c
 +++ b/components/bootloader_support/src/bootloader_utility.c
 @@ -6,7 +6,7 @@
@@ -95,7 +91,7 @@
 +#include <zephyr/sys/util.h>
  
  #include "esp_attr.h"
- #include "esp_log.h"
+ #include "esp_macros.h"
 --- a/components/bootloader_support/src/esp32c6/bootloader_ecdsa.c
 +++ b/components/bootloader_support/src/esp32c6/bootloader_ecdsa.c
 @@ -5,7 +5,7 @@
@@ -107,47 +103,3 @@
  #include "rom/ecdsa.h"
  
  #define ROM_FUNC_TYPECAST  int(*)(const uint8_t*, const uint8_t*, int, const uint8_t*, uint8_t*)
---- a/components/bootloader_support/src/esp_image_format.c
-+++ b/components/bootloader_support/src/esp_image_format.c
-@@ -4,7 +4,7 @@
-  * SPDX-License-Identifier: Apache-2.0
-  */
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_cpu.h>
- #include <bootloader_utility.h>
- #include <esp_secure_boot.h>
---- a/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_app.c
-+++ b/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_app.c
-@@ -13,7 +13,7 @@
- #include "esp_secure_boot.h"
- #include "psa/crypto.h"
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "mbedtls/pk.h"
- 
- 
---- a/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_bootloader.c
-+++ b/components/bootloader_support/src/secure_boot_v1/secure_boot_signatures_bootloader.c
-@@ -15,7 +15,7 @@
- #include "esp32/rom/sha.h"
- #include "uECC_verify_antifault.h"
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <string.h>
- 
- ESP_LOG_ATTR_TAG(TAG, "secure_boot");
---- a/components/bootloader_support/src/secure_boot_v2/secure_boot_signatures_app.c
-+++ b/components/bootloader_support/src/secure_boot_v2/secure_boot_signatures_app.c
-@@ -12,7 +12,7 @@
- #include "esp_log.h"
- #include "esp_image_format.h"
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "esp_secure_boot.h"
- #include "esp_ota_ops.h"
- #include "esp_efuse.h"

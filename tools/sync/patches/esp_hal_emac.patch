@@ -1,6 +1,6 @@
 --- a/components/esp_hal_emac/emac_hal.c
 +++ b/components/esp_hal_emac/emac_hal.c
-@@ -423,7 +423,7 @@
+@@ -418,7 +418,7 @@
           * ———————————— = ————————————— ==> Increment = ————————————— ≈ —————————
           *   Increment        2^31                           10^9         0.465
           */
@@ -9,7 +9,7 @@
      }
      emac_ll_set_ts_sub_second_incre_val(hal->ptp_regs, base_increment);
      /* Set Update Mode */
-@@ -448,7 +448,7 @@
+@@ -443,7 +443,7 @@
              increment_ns = (double)base_increment * 1.0e9 / (double)(1ULL << 31);
          }
          uint32_t base_addend = (uint32_t)((double)(1ULL << 32) *

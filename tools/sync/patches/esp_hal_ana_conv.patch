@@ -31,7 +31,7 @@
  #include "soc/soc_caps.h"
  #include "hal/adc_oneshot_hal.h"
  #include "hal/adc_hal_common.h"
-@@ -37,6 +37,7 @@
+@@ -34,6 +34,7 @@
      hal->clk_src = config->clk_src;
      hal->clk_src_freq_hz = config->clk_src_freq_hz;
      hal->disable_dac_output = config->disable_dac_output;
@@ -39,8 +39,8 @@
  }
  
  void adc_oneshot_hal_channel_config(adc_oneshot_hal_ctx_t *hal, const adc_oneshot_hal_chan_cfg_t *config, adc_channel_t chan)
-@@ -137,6 +138,9 @@
- #endif // SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+@@ -132,6 +133,9 @@
+ #endif
  }
  
 +/* Default upper bound for a single oneshot conversion, in microseconds */
@@ -49,7 +49,7 @@
  bool adc_oneshot_hal_convert(adc_oneshot_hal_ctx_t *hal, int *out_raw)
  {
      bool valid = true;
-@@ -152,8 +156,18 @@
+@@ -147,8 +151,18 @@
      adc_oneshot_ll_enable(hal->unit);
  
      adc_hal_onetime_start(hal->unit, hal->clk_src_freq_hz, &read_delay_us);

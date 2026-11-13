@@ -9,7 +9,7 @@
  #include "driver/temperature_sensor.h"
  #include "esp_private/periph_ctrl.h"
  #include "temperature_sensor_private.h"
-@@ -100,9 +100,7 @@
+@@ -99,9 +99,7 @@
          }
      }
  
@@ -20,7 +20,7 @@
  }
  #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
  
-@@ -192,7 +190,7 @@
+@@ -195,7 +193,7 @@
      ESP_RETURN_ON_FALSE(tsens->fsm == TEMP_SENSOR_FSM_INIT, ESP_ERR_INVALID_STATE, TAG, "tsens not in init state");
  
      if (s_tsens_attribute_copy) {
@@ -29,7 +29,7 @@
      }
      s_tsens_attribute_copy = NULL;
  
-@@ -219,7 +217,7 @@
+@@ -218,7 +216,7 @@
  
      temperature_sensor_power_release();
  
@@ -38,7 +38,7 @@
      return ESP_OK;
  }
  
-@@ -289,7 +287,7 @@
+@@ -288,7 +286,7 @@
      if (s_deltaT == INT_MIN) { //suggests that the value is not initialized
          read_delta_t_from_efuse();
      }
@@ -47,7 +47,7 @@
      return result;
  }
  
-@@ -349,8 +347,8 @@
+@@ -348,8 +346,8 @@
  
      temperature_sensor_ll_set_sample_rate(0xffff);
      temperature_sensor_ll_wakeup_mode(TEMPERATURE_SENSOR_LL_WAKE_DELTA);

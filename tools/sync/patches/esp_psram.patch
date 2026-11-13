@@ -1,6 +1,6 @@
 --- a/components/esp_psram/device/esp_psram_impl_ap_quad.c
 +++ b/components/esp_psram/device/esp_psram_impl_ap_quad.c
-@@ -22,6 +22,22 @@
+@@ -25,6 +25,22 @@
  
  static const char* TAG = "quad_psram";
  
@@ -23,7 +23,7 @@
  static uint32_t s_psram_size = 0;   //this stands for physical psram size in bytes
  static void config_psram_spi_phases(void);
  
-@@ -373,18 +389,36 @@
+@@ -385,18 +401,36 @@
      }
      ESP_EARLY_LOGV(TAG, "MFID: 0x%x", PSRAM_QUAD_MFID(psram_id));
  
@@ -127,7 +127,7 @@
  #define PICO_V3_02_PSRAM_CS_IO     9
 --- a/components/esp_psram/include/esp_psram.h
 +++ b/components/esp_psram/include/esp_psram.h
-@@ -60,6 +60,22 @@
+@@ -58,6 +58,22 @@
   */
  bool esp_psram_ptr_is_no_enc(const void *p);
  
@@ -166,17 +166,17 @@
 -#include "freertos/FreeRTOS.h"
 -#include "esp_heap_caps_init.h"
  #include "esp_psram.h"
+ #include "esp_macros.h"
  #include "esp_mmu_map.h"
- #include "hal/mmu_hal.h"
-@@ -30,7 +28,6 @@
- #include "esp_private/esp_mmu_map_private.h"
+@@ -32,7 +30,6 @@
  #include "esp_private/esp_psram_impl.h"
  #include "esp_private/esp_psram_mspi.h"
+ #include "esp_private/mspi_mem_barrier.h"
 -#include "esp_private/startup_internal.h"
+ #include "esp_private/esp_sys_event_app_init.h"
  #if SOC_SPIRAM_XIP_SUPPORTED
  #include "esp_private/mmu_psram_flash.h"
- #endif
-@@ -119,45 +116,6 @@
+@@ -120,45 +117,6 @@
  static psram_ctx_t s_psram_ctx;
  static const DRAM_ATTR char TAG[] = "esp_psram";
  
@@ -222,7 +222,7 @@
  #if CONFIG_IDF_TARGET_ESP32
  //If no function in esp_himem.c is used, this function will be linked into the
  //binary instead of the one in esp_himem.c, automatically making sure no memory
-@@ -520,78 +478,19 @@
+@@ -525,78 +483,19 @@
      return ESP_OK;
  }
  
@@ -310,7 +310,7 @@
      return ESP_OK;
  }
  
-@@ -643,31 +542,9 @@
+@@ -648,31 +547,9 @@
  #endif
  }
  
@@ -333,7 +333,7 @@
 -            return ESP_ERR_NO_MEM;
 -        }
 -
--        uint32_t caps[] = {0, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL, MALLOC_CAP_8BIT | MALLOC_CAP_32BIT};
+-        uint32_t caps[] = {0, MALLOC_CAP_DMA, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT | MALLOC_CAP_32BIT};
 -        esp_err_t e = heap_caps_add_region_with_caps(caps, (intptr_t)dma_heap, (intptr_t)dma_heap + next_size - 1);
 -        if (e != ESP_OK) {
 -            return e;

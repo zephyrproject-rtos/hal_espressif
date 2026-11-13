@@ -15,7 +15,7 @@
  #include "hal/adc_types.h"
  #include "hal/adc_hal_common.h"
  #include "hal/adc_ll.h"
-@@ -40,7 +41,7 @@
+@@ -37,7 +38,7 @@
  
  
  ESP_LOG_ATTR_TAG(TAG, "adc_share_hw_ctrl");
@@ -24,7 +24,7 @@
  
  
  #if SOC_ADC_CALIBRATION_V1_SUPPORTED
-@@ -126,17 +127,21 @@
+@@ -111,17 +112,21 @@
  /*---------------------------------------------------------------
              ADC Hardware Locks
  ---------------------------------------------------------------*/
@@ -50,7 +50,7 @@
      }
  
      return ESP_OK;
-@@ -145,13 +150,13 @@
+@@ -130,13 +135,13 @@
  esp_err_t adc_lock_release(adc_unit_t adc_unit)
  {
      if (adc_unit == ADC_UNIT_2) {
@@ -68,7 +68,7 @@
      }
  
      return ESP_OK;
-@@ -160,13 +165,13 @@
+@@ -145,13 +150,13 @@
  esp_err_t adc_lock_try_acquire(adc_unit_t adc_unit)
  {
      if (adc_unit == ADC_UNIT_1) {
@@ -84,7 +84,7 @@
              return ESP_ERR_TIMEOUT;
          }
      }
-@@ -194,7 +199,7 @@
+@@ -179,7 +184,7 @@
      return ESP_OK;
  }
  
@@ -93,7 +93,7 @@
  
  /*------------------------------------------------------------------------------
  * For those who use APB_SARADC periph
-@@ -230,9 +235,10 @@
+@@ -215,9 +220,10 @@
  #endif
          }
      } else if (s_adc_digi_ctrlr_cnt < 0) {
@@ -322,7 +322,7 @@
  #include <sys/lock.h>
  #include "sdkconfig.h"
  #if CONFIG_ETM_ENABLE_DEBUG_LOG
-@@ -455,7 +454,7 @@
+@@ -471,7 +470,7 @@
  }
  
  #if CONFIG_ETM_ENABLE_DEBUG_LOG
@@ -369,7 +369,7 @@
  /** Mask for all level flags */
 --- a/components/esp_hw_support/include/esp_private/esp_pmu.h
 +++ b/components/esp_hw_support/include/esp_private/esp_pmu.h
-@@ -67,7 +67,7 @@
+@@ -69,7 +69,7 @@
  #endif
  
  #if !SOC_RTC_TIMER_V1
@@ -472,1687 +472,27 @@
   * @brief Enable Wi-Fi and BT common module
   *
   * @note If @c wifi_bt_common_module_enable() is called a number of times,
---- a/components/esp_hw_support/include/esp_private/sleep_clock.h
-+++ b/components/esp_hw_support/include/esp_private/sleep_clock.h
-@@ -63,6 +63,16 @@
- esp_err_t sleep_clock_modem_retention_init(void *arg);
- #endif
- 
-+/**
-+ * @brief Initialize sleep retention modules for clock domains.
-+ *
-+ * Sets up retention for clock-related state used during sleep,
-+ * covering system and modem clock domains.
-+ *
-+ * @return ESP_OK on success
-+ */
-+esp_err_t sleep_clock_startup_init(void);
-+
- #ifdef __cplusplus
- }
- #endif
---- a/components/esp_hw_support/include/esp_private/sleep_sys_periph.h
-+++ b/components/esp_hw_support/include/esp_private/sleep_sys_periph.h
-@@ -8,6 +8,7 @@
- #include <stdint.h>
- #include <stdbool.h>
- #include "sdkconfig.h"
-+#include "esp_err.h"
- 
- #ifdef __cplusplus
- extern "C" {
-@@ -29,6 +30,21 @@
+--- a/components/esp_hw_support/include/esp_private/rtc_clk.h
++++ b/components/esp_hw_support/include/esp_private/rtc_clk.h
+@@ -26,7 +26,6 @@
   */
- bool peripheral_domain_pd_allowed(void);
+ void rtc_clk_cpu_set_to_default_config(void);
  
-+/**
-+ * @brief Initialize sleep retention for system peripherals.
-+ *
-+ * Registers and allocates REGDMA retention entries for system
-+ * peripherals (Interrupt Matrix, HP System, IO MUX, SPI MEM,
-+ * SysTimer, etc.) to allow the TOP power domain to be powered
-+ * off during light sleep.
-+ *
-+ * @return
-+ *      - ESP_OK on success
-+ *      - ESP_ERR_NO_MEM not enough memory for peripheral retention
-+ *      - ESP_ERR_INVALID_ARG if either of the arguments is out of range
-+ */
-+esp_err_t sleep_sys_periph_startup_init(void);
-+
- #ifdef __cplusplus
- }
- #endif
---- a/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c3/sleep_cpu.c
-@@ -8,15 +8,13 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
--#include "esp_heap_caps.h"
-+#include <zephyr/kernel.h>
- #include "hal/rtc_hal.h"
- #include "soc/rtc_periph.h"
- #include "soc/soc_caps.h"
-@@ -24,6 +22,22 @@
- #include "esp_private/sleep_event.h"
- #include "sdkconfig.h"
- 
-+static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
-+{
-+    (void)caps;
-+    void *ptr = k_aligned_alloc(alignment, n * size);
-+    if (ptr) {
-+        memset(ptr, 0, n * size);
-+    }
-+    return ptr;
-+}
-+
-+static inline void heap_caps_free(void *ptr)
-+{
-+    k_free(ptr);
-+}
-+
-+#define MALLOC_CAP_RETENTION 0
- 
- ESP_LOG_ATTR_TAG(TAG, "sleep");
- 
-@@ -55,7 +69,7 @@
-                                             MALLOC_CAP_RETENTION);
-         if (buf) {
-             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
--                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
-+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
-         } else {
-             return ESP_ERR_NO_MEM;
-         }
---- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_clock.c
-@@ -142,7 +142,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
+-#ifndef BOOTLOADER_BUILD
+ /**
+  * @brief Switch CPU clock source to XTAL, the PLL has different processing methods for different chips.
+  *        1. For earlier chips without PMU, there is no PMU module that can turn off the CPU's PLL, so it has to be
+@@ -40,7 +39,6 @@
+  *           to 40MHz to speed up the retention speed.
   */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "soc/soc_caps.h"
- #include "sdkconfig.h"
-@@ -174,6 +175,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
- 
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
---- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu.c
-@@ -8,15 +8,14 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
-+#include <zephyr/kernel.h>
- #include "riscv/csr.h"
- #include "soc/soc_caps.h"
- #include "soc/rtc_periph.h"
---- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_dynamic.c
-@@ -27,9 +27,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c5/sleep_cpu_static.c
-@@ -48,9 +48,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_clock.c
-@@ -116,7 +116,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "soc/soc_caps.h"
- #include "sdkconfig.h"
-@@ -174,6 +175,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
- 
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
---- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu.c
-@@ -8,15 +8,14 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
-+#include <zephyr/kernel.h>
- #include "riscv/csr.h"
- #include "soc/soc_caps.h"
- #include "soc/rtc_periph.h"
---- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_dynamic.c
-@@ -29,9 +29,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c61/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- 
- #include "soc/intpri_reg.h"
-@@ -50,9 +51,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_clock.c
-@@ -107,7 +107,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "sdkconfig.h"
- 
-@@ -168,6 +169,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
- 
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
---- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu.c
-@@ -9,15 +9,14 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
-+#include <zephyr/kernel.h>
- #include "riscv/csr.h"
- #include "soc/soc_caps.h"
- #include "soc/rtc_periph.h"
---- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_dynamic.c
-@@ -27,9 +27,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32c6/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- #include "soc/intpri_reg.h"
- #include "soc/extmem_reg.h"
-@@ -49,9 +50,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_clock.c
-@@ -109,7 +109,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "soc/soc_caps.h"
- #include "sdkconfig.h"
-@@ -169,6 +170,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
- 
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
---- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu.c
-@@ -8,7 +8,7 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "sdkconfig.h"
- #include "esp_attr.h"
---- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_dynamic.c
-@@ -28,9 +28,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h21/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- 
- #include "soc/intpri_reg.h"
-@@ -49,9 +50,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_clock.c
-@@ -110,7 +110,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "soc/soc_caps.h"
- #include "sdkconfig.h"
-@@ -169,6 +170,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
- 
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
---- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu.c
-@@ -8,7 +8,7 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "sdkconfig.h"
- #include "esp_attr.h"
-@@ -16,8 +16,7 @@
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
-+#include <zephyr/kernel.h>
- #include "riscv/csr.h"
- #include "soc/soc_caps.h"
- #include "soc/rtc_periph.h"
---- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_dynamic.c
-@@ -29,9 +29,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h2/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- 
- #include "soc/intpri_reg.h"
-@@ -51,9 +52,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_clock.c
-@@ -101,7 +101,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_asm.S
-@@ -5,6 +5,7 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
- #include "freertos/FreeRTOSConfig.h"
- #include "sdkconfig.h"
-@@ -177,6 +178,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
-     csrw    mtvec, t3
---- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu.c
-@@ -8,7 +8,7 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "sdkconfig.h"
- #include "esp_attr.h"
---- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_dynamic.c
-@@ -26,9 +26,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32h4/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_heap_caps.h"
- #include "soc/cache_reg.h"
-@@ -50,9 +51,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_clock.c
-@@ -64,7 +64,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_asm.S
-@@ -5,8 +5,8 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOSConfig.h"
- #include "sdkconfig.h"
- 
- #include "soc/cache_reg.h"
-@@ -19,7 +19,7 @@
-     .type       rv_core_critical_regs_frame,@object
-     .align      4
- rv_core_critical_regs_frame:
--    .rept (portNUM_PROCESSORS)
-+    .rept (CONFIG_MP_MAX_NUM_CPUS)
-     .word       0
-     .endr
- 
-@@ -179,6 +179,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
-     lw      t4, RV_SLP_CTX_MTVT(t0)
-     csrw    MTVT, t4
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu.c
-@@ -8,17 +8,16 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_check.h"
-+#include "esp_cpu.h"
- #include "esp_ipc_isr.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
--#include "freertos/portmacro.h"
-+#include <zephyr/kernel.h>
- #include "riscv/csr.h"
- #include "soc/clic_reg.h"
- #include "soc/rtc_periph.h"
-@@ -40,17 +39,17 @@
- #endif
- 
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
--static SPM_DRAM_ATTR _Atomic(smp_retention_state_t) s_smp_retention_state[portNUM_PROCESSORS];
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-+static SPM_DRAM_ATTR _Atomic(smp_retention_state_t) s_smp_retention_state[CONFIG_MP_MAX_NUM_CPUS];
- #endif
- 
--static bool s_fpu_saved[portNUM_PROCESSORS];
-+static bool s_fpu_saved[CONFIG_MP_MAX_NUM_CPUS];
- 
- ESP_LOG_ATTR_TAG(TAG, "sleep");
- 
- static SPM_DRAM_ATTR __attribute__((unused)) sleep_cpu_retention_t s_cpu_retention;
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- FORCE_INLINE_ATTR void save_csr_disable_global_int(uint32_t *mstatus_val, uint32_t *mintthresh_val)
- {
-@@ -266,17 +265,18 @@
- extern void rv_core_fpu_restore(RvCoreCriticalSleepFrame *frame);
- typedef uint32_t (* sleep_cpu_entry_cb_t)(uint32_t, uint32_t, uint32_t, bool);
- 
-+static inline SPM_IRAM_ATTR bool cpu_fpu_context_is_dirty(void)
-+{
-+    return (RV_READ_CSR(mstatus) & MSTATUS_FS) != 0;
-+}
-+
- static SPM_IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
-         uint32_t wakeup_opt, uint32_t reject_opt, uint32_t lslp_mem_inf_fpu, bool dslp)
- {
-     uint8_t core_id = esp_cpu_get_core_id();
-     bool reject = false;
-     RvCoreCriticalSleepFrame *frame = s_cpu_retention.retent.critical_frame[core_id];
--    /* mstatus is core privated CSR, do it near the core critical regs restore */
--    uint32_t mstatus = 0;
--    uint32_t mintthresh = 0;
--    save_csr_disable_global_int(&mstatus, &mintthresh);
--    s_fpu_saved[core_id] = xPortFPUContextIsDirty(core_id);
-+    s_fpu_saved[core_id] = cpu_fpu_context_is_dirty();
-     if (s_fpu_saved[core_id]) {
-         rv_core_fpu_save(frame);
-     }
-@@ -289,7 +289,7 @@
- #endif
-         REG_WRITE(RTC_SLEEP_WAKE_STUB_ADDR_REG, (uint32_t)rv_core_critical_regs_restore);
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-         atomic_store(&s_smp_retention_state[core_id], SMP_BACKUP_DONE);
-         while (atomic_load(&s_smp_retention_state[!core_id]) != SMP_BACKUP_DONE) {
-             ;
-@@ -306,7 +306,6 @@
-     if (s_fpu_saved[core_id]) {
-         rv_core_fpu_restore(frame);
-     }
--    restore_csr_enable_global_int(mstatus, mintthresh);
-     return reject ? reject : pmu_sleep_finish(dslp);
- }
- 
-@@ -315,7 +314,7 @@
- {
-     esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_CPU_TO_MEM_START, (void *)0);
-     uint8_t core_id = esp_cpu_get_core_id();
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     atomic_store(&s_smp_retention_state[core_id], SMP_BACKUP_START);
- #endif
-     cpu_domain_dev_regs_save(s_cpu_retention.retent.clic_frame[core_id]);
-@@ -327,6 +326,9 @@
-     update_retention_frame_crc((uint32_t*)frame, sizeof(RvCoreNonCriticalSleepFrame) - sizeof(long), (uint32_t *)(&frame->frame_crc));
- #endif
- 
-+    uint32_t mstatus = 0;
-+    uint32_t mintthresh = 0;
-+    save_csr_disable_global_int(&mstatus, &mintthresh);
-     esp_err_t err = do_cpu_retention(goto_sleep, wakeup_opt, reject_opt, lslp_mem_inf_fpu, dslp);
- 
-     if (err == ESP_OK) {
-@@ -334,7 +336,7 @@
-         validate_retention_frame_crc((uint32_t*)frame, sizeof(RvCoreNonCriticalSleepFrame) - sizeof(long), (uint32_t *)(&frame->frame_crc));
- #endif
-     }
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     // Start core1
-     if (core_id == 0) {
-         REG_SET_BIT(HP_SYS_CLKRST_SOC_CLK_CTRL0_REG, HP_SYS_CLKRST_REG_CORE1_CPU_CLK_EN);
-@@ -347,8 +349,9 @@
-         cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
-         rv_core_noncritical_regs_restore();
-     }
-+    restore_csr_enable_global_int(mstatus, mintthresh);
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
- #endif
-     return err;
-@@ -356,7 +359,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_init(void)
- {
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     return esp_sleep_cpu_retention_init_impl(& s_cpu_retention, s_smp_retention_state);
- #else
-     return esp_sleep_cpu_retention_init_impl(& s_cpu_retention);
-@@ -371,11 +374,11 @@
- bool cpu_domain_pd_allowed(void)
- {
-     bool allowed = true;
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         allowed &= (s_cpu_retention.retent.critical_frame[core_id] != NULL);
-         allowed &= (s_cpu_retention.retent.non_critical_frame[core_id] != NULL);
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         allowed &= (s_cpu_retention.retent.clic_frame[core_id] != NULL);
-     }
-     return allowed;
-@@ -383,7 +386,7 @@
- 
- esp_err_t sleep_cpu_configure(bool light_sleep_enable)
- {
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU
-     if (light_sleep_enable) {
-         ESP_RETURN_ON_ERROR(esp_sleep_cpu_retention_init(), TAG, "Failed to enable CPU power down during light sleep.");
-     } else {
-@@ -393,8 +396,8 @@
-     return ESP_OK;
- }
- 
--#if !CONFIG_FREERTOS_UNICORE
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
-+#if CONFIG_SMP
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU
- static SPM_IRAM_ATTR void smp_core_do_retention(void)
- {
-     esp_cpu_branch_prediction_disable();
-@@ -430,7 +433,7 @@
-         cpu_domain_dev_regs_save(s_cpu_retention.retent.clic_frame[core_id]);
-         RvCoreCriticalSleepFrame *frame_critical = s_cpu_retention.retent.critical_frame[core_id];
-         save_csr_disable_global_int(&mstatus, &mintthresh);
--        s_fpu_saved[core_id] = xPortFPUContextIsDirty(core_id);
-+        s_fpu_saved[core_id] = cpu_fpu_context_is_dirty();
-         if (s_fpu_saved[core_id]) {
-             rv_core_fpu_save(frame_critical);
-         }
-@@ -455,9 +458,9 @@
-             if (s_fpu_saved[core_id]) {
-                 rv_core_fpu_restore(frame_critical);
-             }
--            restore_csr_enable_global_int(mstatus, mintthresh);
-             cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
-             rv_core_noncritical_regs_restore();
-+            restore_csr_enable_global_int(mstatus, mintthresh);
-             atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
-         }
-     }
-@@ -477,7 +480,7 @@
- 
- void sleep_smp_cpu_sleep_prepare(void)
- {
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU
-     while (atomic_load(&s_smp_retention_state[!esp_cpu_get_core_id()]) != SMP_IDLE) {
-         ;
-     }
-@@ -489,7 +492,7 @@
- 
- void sleep_smp_cpu_wakeup_prepare(void)
- {
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU
-     uint8_t core_id = esp_cpu_get_core_id();
-     if (atomic_load(&s_smp_retention_state[core_id]) == SMP_RESTORE_DONE) {
-         ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-infinite-loop")
-@@ -503,4 +506,4 @@
-     esp_ipc_isr_release_other_cpu();
- #endif
- }
--#endif //!CONFIG_FREERTOS_UNICORE
-+#endif //CONFIG_SMP
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_dynamic.c
-@@ -15,7 +15,7 @@
- #include "sleep_cpu_retention.h"
- 
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- static void * cpu_domain_dev_sleep_frame_alloc_and_init(const cpu_domain_dev_regs_region_t *regions, const int region_num)
- {
-@@ -26,9 +26,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
-@@ -41,8 +41,8 @@
- 
- static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
- {
--    const static cpu_domain_dev_regs_region_t regions[portNUM_PROCESSORS][2] = {
--       [0 ... portNUM_PROCESSORS - 1] = {
-+    const static cpu_domain_dev_regs_region_t regions[CONFIG_MP_MAX_NUM_CPUS][2] = {
-+       [0 ... CONFIG_MP_MAX_NUM_CPUS - 1] = {
-             { .start = CLIC_INT_CONFIG_REG, .end = CLIC_INT_THRESH_REG + 4 },
-             { .start = CLIC_INT_CTRL_REG(0), .end = CLIC_INT_CTRL_REG(47) + 4 },
-         }
-@@ -50,10 +50,10 @@
-     return cpu_domain_dev_sleep_frame_alloc_and_init(regions[core_id], sizeof(regions[core_id]) / sizeof(cpu_domain_dev_regs_region_t));
- }
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, _Atomic(smp_retention_state_t) *s_smp_retention_state)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-             if (frame == NULL) {
-@@ -70,7 +70,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             if (frame == NULL) {
-@@ -79,7 +79,7 @@
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         atomic_init(&s_smp_retention_state[core_id], SMP_IDLE);
-     }
-     return ESP_OK;
-@@ -90,7 +90,7 @@
- #else
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-             if (frame == NULL) {
-@@ -107,7 +107,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             if (frame == NULL) {
-@@ -125,7 +125,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id]) {
-             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.critical_frame[core_id]);
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = NULL;
-@@ -136,7 +136,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = NULL;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id]) {
-             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.clic_frame[core_id]);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = NULL;
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_retention.h
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_retention.h
-@@ -8,10 +8,9 @@
- #define __SLEEP_CPU_RETENTION_H__
- 
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOS.h"
- #include "esp_err.h"
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- #include <stdatomic.h>
- #include "soc/hp_system_reg.h"
- typedef enum {
-@@ -40,13 +39,13 @@
-  */
- typedef struct {
-     struct {
--        RvCoreCriticalSleepFrame *critical_frame[portNUM_PROCESSORS];
--        RvCoreNonCriticalSleepFrame *non_critical_frame[portNUM_PROCESSORS];
--        cpu_domain_dev_sleep_frame_t *clic_frame[portNUM_PROCESSORS];
-+        RvCoreCriticalSleepFrame *critical_frame[CONFIG_MP_MAX_NUM_CPUS];
-+        RvCoreNonCriticalSleepFrame *non_critical_frame[CONFIG_MP_MAX_NUM_CPUS];
-+        cpu_domain_dev_sleep_frame_t *clic_frame[CONFIG_MP_MAX_NUM_CPUS];
-     } retent;
- } sleep_cpu_retention_t;
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, _Atomic(smp_retention_state_t) *s_smp_retention_state);
- #else
-     esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr);
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_cpu_static.c
-@@ -5,6 +5,7 @@
-  */
- 
- #include <string.h>
-+#include "esp_attr.h"
- #include "esp_check.h"
- #include "soc/clic_reg.h"
- 
-@@ -12,7 +13,7 @@
- #include "sleep_cpu_retention.h"
- 
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- #define R_CONCAT(s1, s2)    _R_CONCAT(s1, s2)
- #define _R_CONCAT(s1, s2)   s1 ## s2
-@@ -47,9 +48,9 @@
-         regs_frame_sz += regions[num].end - regions[num].start;
-     }
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
-@@ -72,22 +73,22 @@
- 
- static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
- {
--    static DRAM_ATTR cpu_domain_dev_regs_region_t regions[portNUM_PROCESSORS][2] = {
--       [0 ... portNUM_PROCESSORS - 1] = {
-+    static DRAM_ATTR cpu_domain_dev_regs_region_t regions[CONFIG_MP_MAX_NUM_CPUS][2] = {
-+       [0 ... CONFIG_MP_MAX_NUM_CPUS - 1] = {
-             { .start = CPU_DOMAIN_DEV_START_ADDR0, .end = CPU_DOMAIN_DEV_END_ADDR0 },
-             { .start = CPU_DOMAIN_DEV_START_ADDR1, .end = CPU_DOMAIN_DEV_END_ADDR1 },
-         }
-     };
--    static DRAM_ATTR uint8_t sleep_frame[portNUM_PROCESSORS][CPU_DOMAIN_DEV_TOTAL_SZ(2)] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t sleep_frame[CONFIG_MP_MAX_NUM_CPUS][CPU_DOMAIN_DEV_TOTAL_SZ(2)] __attribute__((aligned(4)));
-     return cpu_domain_dev_sleep_frame_alloc_and_init(regions[core_id], sizeof(regions[core_id]) / sizeof(regions[core_id][0]), sleep_frame[core_id]);
- }
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_ESP32_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, _Atomic(smp_retention_state_t) *s_smp_retention_state)
- {
--    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * portNUM_PROCESSORS] __attribute__((aligned(4)));
--    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* portNUM_PROCESSORS] __attribute__((aligned(4)));
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void * regs = rv_core_critical_regs + core_id * RV_SLEEP_CTX_FRMSZ;
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = (RvCoreCriticalSleepFrame *) regs;
-@@ -98,13 +99,13 @@
-         }
-     }
- 
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         atomic_init(&s_smp_retention_state[core_id], SMP_IDLE);
-     }
-     return ESP_OK;
-@@ -112,9 +113,9 @@
- #else
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * portNUM_PROCESSORS] __attribute__((aligned(4)));
--    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* portNUM_PROCESSORS] __attribute__((aligned(4)));
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void * regs = rv_core_critical_regs + core_id * RV_SLEEP_CTX_FRMSZ;
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = (RvCoreCriticalSleepFrame *) regs;
-@@ -125,7 +126,7 @@
-         }
-     }
- 
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-@@ -137,7 +138,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id]) {
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = NULL;
-             rv_core_critical_regs_frame[core_id] = NULL;
-@@ -146,7 +147,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = NULL;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id]) {
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = NULL;
-         }
---- a/components/esp_hw_support/lowpower/port/esp32p4/sleep_fpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32p4/sleep_fpu_asm.S
-@@ -5,7 +5,6 @@
-  */
- 
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOSConfig.h"
- #include "sdkconfig.h"
- 
-     .section    .spm.text,"ax"
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_clock.c
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_clock.c
-@@ -112,7 +112,7 @@
-     return ic && cr;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs       = { .create = { .handle = sleep_clock_system_retention_init, .arg = NULL } },
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_asm.S
-@@ -5,8 +5,8 @@
-  */
- 
- #include "soc/soc.h"
-+#include "riscv/encoding.h"
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOSConfig.h"
- #include "sdkconfig.h"
- #include "riscv/csr_clic.h"
- 
-@@ -15,7 +15,7 @@
-     .type       rv_core_critical_regs_frame,@object
-     .align      4
- rv_core_critical_regs_frame:
--    .rept (portNUM_PROCESSORS)
-+    .rept (CONFIG_MP_MAX_NUM_CPUS)
-     .word       0
-     .endr
- 
-@@ -173,6 +173,13 @@
-     lw      t1, RV_SLP_CTX_MIE(t0)
-     csrw    mie, t1
-     lw      t2, RV_SLP_CTX_MSTATUS(t0)
-+    /*
-+    PMP CSRs are lost in the CPU power-down and are only restored after this
-+    stub returns. MPRV must stay clear until then, otherwise the loads below
-+    are checked against an empty PMP table.
-+    */
-+    li      t1, ~MSTATUS_MPRV
-+    and     t2, t2, t1
-     csrw    mstatus, t2
-     lw      t3, RV_SLP_CTX_MTVEC(t0)
-     csrw    mtvec, t3
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu.c
-@@ -12,13 +12,13 @@
- 
- #include "esp_attr.h"
- #include "esp_check.h"
-+#include "esp_cpu.h"
- #include "esp_ipc_isr.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_rom_crc.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
--#include "freertos/portmacro.h"
-+#include <zephyr/sys/util.h>
-+#include <zephyr/kernel_structs.h>
- #include "riscv/csr.h"
- #include "soc/clic_reg.h"
- #include "soc/rtc_periph.h"
-@@ -40,17 +40,17 @@
- #endif
- 
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
--static DRAM_ATTR smp_retention_state_t s_smp_retention_state[portNUM_PROCESSORS];
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-+static DRAM_ATTR smp_retention_state_t s_smp_retention_state[CONFIG_MP_MAX_NUM_CPUS];
- #endif
- 
--static bool s_fpu_saved[portNUM_PROCESSORS];
-+static bool s_fpu_saved[CONFIG_MP_MAX_NUM_CPUS];
- 
- ESP_LOG_ATTR_TAG(TAG, "sleep");
- 
- static DRAM_ATTR __attribute__((unused)) sleep_cpu_retention_t s_cpu_retention;
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- FORCE_INLINE_ATTR uint32_t save_mstatus_and_disable_global_int(void)
- {
-@@ -291,15 +291,23 @@
- extern void rv_core_fpu_restore(RvCoreCriticalSleepFrame *frame);
- typedef uint32_t (* sleep_cpu_entry_cb_t)(uint32_t, uint32_t, uint32_t, bool);
- 
-+static inline IRAM_ATTR bool cpu_fpu_context_is_dirty(void)
-+{
-+#if defined(CONFIG_FPU_SHARING)
-+    if (atomic_ptr_get(&_current_cpu->arch.fpu_owner) != NULL) {
-+        return true;
-+    }
-+#endif
-+    return (RV_READ_CSR(mstatus) & MSTATUS_FS) != 0;
-+}
-+
- static IRAM_ATTR esp_err_t do_cpu_retention(sleep_cpu_entry_cb_t goto_sleep,
-         uint32_t wakeup_opt, uint32_t reject_opt, uint32_t lslp_mem_inf_fpu, bool dslp)
- {
-     uint8_t core_id = esp_cpu_get_core_id();
-     bool reject = false;
-     RvCoreCriticalSleepFrame *frame = s_cpu_retention.retent.critical_frame[core_id];
--    /* mstatus is core privated CSR, do it near the core critical regs restore */
--    uint32_t mstatus = save_mstatus_and_disable_global_int();
--    s_fpu_saved[core_id] = xPortFPUContextIsDirty(core_id);
-+    s_fpu_saved[core_id] = cpu_fpu_context_is_dirty();
-     if (s_fpu_saved[core_id]) {
-         rv_core_fpu_save(frame);
-     }
-@@ -312,7 +320,7 @@
- #endif
-         REG_WRITE(RTC_SLEEP_WAKE_STUB_ADDR_REG, (uint32_t)rv_core_critical_regs_restore);
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-         atomic_store(&s_smp_retention_state[core_id], SMP_BACKUP_DONE);
-         while (atomic_load(&s_smp_retention_state[!core_id]) != SMP_BACKUP_DONE) {
-             ;
-@@ -329,7 +337,6 @@
-     if (s_fpu_saved[core_id]) {
-         rv_core_fpu_restore(frame);
-     }
--    restore_mstatus(mstatus);
-     return reject ? reject : pmu_sleep_finish(dslp);
- }
- 
-@@ -338,9 +345,10 @@
- {
-     esp_sleep_execute_event_callbacks(SLEEP_EVENT_SW_CPU_TO_MEM_START, (void *)0);
-     uint8_t core_id = esp_cpu_get_core_id();
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     atomic_store(&s_smp_retention_state[core_id], SMP_BACKUP_START);
- #endif
-+    uint32_t mstatus = save_mstatus_and_disable_global_int();
-     cpu_domain_dev_regs_save(s_cpu_retention.retent.clic_frame[core_id]);
-     rv_core_noncritical_regs_save();
- 
-@@ -357,7 +365,7 @@
-         validate_retention_frame_crc((uint32_t*)frame, sizeof(RvCoreNonCriticalSleepFrame) - sizeof(long), (uint32_t *)(&frame->frame_crc));
- #endif
-     }
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     // Start core1
-     if (core_id == 0) {
-         REG_SET_BIT(HP_SYS_CLKRST_HPCORE1_CTRL0_REG, HP_SYS_CLKRST_REG_CORE1_CPU_CLK_EN);
-@@ -370,8 +378,9 @@
-         cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
-         rv_core_noncritical_regs_restore();
-     }
-+    restore_mstatus(mstatus);
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
- #endif
-     return err;
-@@ -379,7 +388,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_init(void)
- {
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     return esp_sleep_cpu_retention_init_impl(& s_cpu_retention, s_smp_retention_state);
- #else
-     return esp_sleep_cpu_retention_init_impl(& s_cpu_retention);
-@@ -394,11 +403,11 @@
- bool cpu_domain_pd_allowed(void)
- {
-     bool allowed = true;
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         allowed &= (s_cpu_retention.retent.critical_frame[core_id] != NULL);
-         allowed &= (s_cpu_retention.retent.non_critical_frame[core_id] != NULL);
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         allowed &= (s_cpu_retention.retent.clic_frame[core_id] != NULL);
-     }
-     return allowed;
-@@ -416,7 +425,7 @@
-     return ESP_OK;
- }
- 
--#if !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_SMP
- #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
- static IRAM_ATTR void smp_core_do_retention(void)
- {
-@@ -451,7 +460,7 @@
-         cpu_domain_dev_regs_save(s_cpu_retention.retent.clic_frame[core_id]);
-         RvCoreCriticalSleepFrame *frame_critical = s_cpu_retention.retent.critical_frame[core_id];
-         uint32_t mstatus = save_mstatus_and_disable_global_int();
--        s_fpu_saved[core_id] = xPortFPUContextIsDirty(core_id);
-+        s_fpu_saved[core_id] = cpu_fpu_context_is_dirty();
-         if (s_fpu_saved[core_id]) {
-             rv_core_fpu_save(frame_critical);
-         }
-@@ -476,9 +485,9 @@
-             if (s_fpu_saved[core_id]) {
-                 rv_core_fpu_restore(frame_critical);
-             }
--            restore_mstatus(mstatus);
-             cpu_domain_dev_regs_restore(s_cpu_retention.retent.clic_frame[core_id]);
-             rv_core_noncritical_regs_restore();
-+            restore_mstatus(mstatus);
-             atomic_store(&s_smp_retention_state[core_id], SMP_RESTORE_DONE);
-         }
-     }
-@@ -524,4 +533,4 @@
-     esp_ipc_isr_release_other_cpu();
- #endif
- }
--#endif //!CONFIG_FREERTOS_UNICORE
-+#endif //CONFIG_SMP
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_dynamic.c
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_dynamic.c
-@@ -15,7 +15,7 @@
- #include "sleep_cpu_retention.h"
- 
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- static void * cpu_domain_dev_sleep_frame_alloc_and_init(const cpu_domain_dev_regs_region_t *regions, const int region_num)
- {
-@@ -26,9 +26,9 @@
-     }
-     void *frame = heap_caps_malloc(sizeof(cpu_domain_dev_sleep_frame_t) + region_sz + regs_frame_sz, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-     if (frame) {
--        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
-+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
-         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
--        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
-         memset(regs_frame, 0, regs_frame_sz);
-         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
-             .region = region,
-@@ -41,8 +41,8 @@
- 
- static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
- {
--    const static cpu_domain_dev_regs_region_t regions[portNUM_PROCESSORS][3] = {
--       [0 ... portNUM_PROCESSORS - 1] = {
-+    const static cpu_domain_dev_regs_region_t regions[CONFIG_MP_MAX_NUM_CPUS][3] = {
-+       [0 ... CONFIG_MP_MAX_NUM_CPUS - 1] = {
-             { .start = CLIC_INT_CONFIG_REG, .end = CLIC_INT_CONFIG_REG + 4 },
-             { .start = CLIC_INT_THRESH_REG, .end = CLIC_INT_THRESH_REG + 4 },
-             { .start = CLIC_INT_CTRL_REG(0), .end = CLIC_INT_CTRL_REG(47) + 4 },
-@@ -51,10 +51,10 @@
-     return cpu_domain_dev_sleep_frame_alloc_and_init(regions[core_id], sizeof(regions[core_id]) / sizeof(cpu_domain_dev_regs_region_t));
- }
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, smp_retention_state_t *s_smp_retention_state)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-             if (frame == NULL) {
-@@ -71,7 +71,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             if (frame == NULL) {
-@@ -80,7 +80,7 @@
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         atomic_init(&s_smp_retention_state[core_id], SMP_IDLE);
-     }
-     return ESP_OK;
-@@ -91,7 +91,7 @@
- #else
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void *frame = heap_caps_calloc(1, RV_SLEEP_CTX_FRMSZ, MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL);
-             if (frame == NULL) {
-@@ -108,7 +108,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = (RvCoreNonCriticalSleepFrame *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             if (frame == NULL) {
-@@ -126,7 +126,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id]) {
-             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.critical_frame[core_id]);
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = NULL;
-@@ -137,7 +137,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = NULL;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id]) {
-             heap_caps_free((void *)sleep_cpu_retention_ptr->retent.clic_frame[core_id]);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = NULL;
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_retention.h
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_retention.h
-@@ -8,10 +8,9 @@
- #define __SLEEP_CPU_RETENTION_H__
- 
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOS.h"
- #include "esp_err.h"
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- #include <stdatomic.h>
- #include "soc/hp_system_reg.h"
- typedef enum {
-@@ -40,13 +39,13 @@
-  */
- typedef struct {
-     struct {
--        RvCoreCriticalSleepFrame *critical_frame[portNUM_PROCESSORS];
--        RvCoreNonCriticalSleepFrame *non_critical_frame[portNUM_PROCESSORS];
--        cpu_domain_dev_sleep_frame_t *clic_frame[portNUM_PROCESSORS];
-+        RvCoreCriticalSleepFrame *critical_frame[CONFIG_MP_MAX_NUM_CPUS];
-+        RvCoreNonCriticalSleepFrame *non_critical_frame[CONFIG_MP_MAX_NUM_CPUS];
-+        cpu_domain_dev_sleep_frame_t *clic_frame[CONFIG_MP_MAX_NUM_CPUS];
-     } retent;
- } sleep_cpu_retention_t;
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
-     esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, smp_retention_state_t *s_smp_retention_state);
- #else
-     esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr);
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_static.c
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_cpu_static.c
-@@ -12,7 +12,7 @@
- #include "sleep_cpu_retention.h"
- 
- 
--extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[portNUM_PROCESSORS];
-+extern RvCoreCriticalSleepFrame *rv_core_critical_regs_frame[CONFIG_MP_MAX_NUM_CPUS];
- 
- #define R_CONCAT(s1, s2)    _R_CONCAT(s1, s2)
- #define _R_CONCAT(s1, s2)   s1 ## s2
-@@ -62,23 +62,23 @@
- 
- static inline void * cpu_domain_clic_sleep_frame_alloc_and_init(uint8_t core_id)
- {
--    static DRAM_ATTR cpu_domain_dev_regs_region_t regions[portNUM_PROCESSORS][2] = {
--       [0 ... portNUM_PROCESSORS - 1] = {
-+    static DRAM_ATTR cpu_domain_dev_regs_region_t regions[CONFIG_MP_MAX_NUM_CPUS][2] = {
-+       [0 ... CONFIG_MP_MAX_NUM_CPUS - 1] = {
-             { .start = CLIC_INT_CONFIG_REG, .end = CLIC_INT_CONFIG_REG + 4 },
-             { .start = CLIC_INT_THRESH_REG, .end = CLIC_INT_THRESH_REG + 4 },
-             { .start = CLIC_INT_CTRL_REG(0), .end = CLIC_INT_CTRL_REG(47) + 4 },
-         }
-     };
--    static DRAM_ATTR uint8_t sleep_frame[portNUM_PROCESSORS][CPU_DOMAIN_DEV_TOTAL_SZ(2)] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t sleep_frame[CONFIG_MP_MAX_NUM_CPUS][CPU_DOMAIN_DEV_TOTAL_SZ(2)] __attribute__((aligned(4)));
-     return cpu_domain_dev_sleep_frame_alloc_and_init(regions[core_id], sizeof(regions[core_id]) / sizeof(regions[core_id][0]), sleep_frame[core_id]);
- }
- 
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr, smp_retention_state_t *s_smp_retention_state)
- {
--    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * portNUM_PROCESSORS] __attribute__((aligned(4)));
--    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* portNUM_PROCESSORS] __attribute__((aligned(4)));
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void * regs = rv_core_critical_regs + core_id * RV_SLEEP_CTX_FRMSZ;
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = (RvCoreCriticalSleepFrame *) regs;
-@@ -89,13 +89,13 @@
-         }
-     }
- 
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         atomic_init(&s_smp_retention_state[core_id], SMP_IDLE);
-     }
-     return ESP_OK;
-@@ -103,9 +103,9 @@
- #else
- esp_err_t esp_sleep_cpu_retention_init_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * portNUM_PROCESSORS] __attribute__((aligned(4)));
--    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* portNUM_PROCESSORS] __attribute__((aligned(4)));
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    static DRAM_ATTR uint8_t rv_core_critical_regs[RV_SLEEP_CTX_FRMSZ * CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    static DRAM_ATTR uint8_t rv_core_non_critical_regs[sizeof(RvCoreNonCriticalSleepFrame)* CONFIG_MP_MAX_NUM_CPUS] __attribute__((aligned(4)));
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id] == NULL) {
-             void * regs = rv_core_critical_regs + core_id * RV_SLEEP_CTX_FRMSZ;
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = (RvCoreCriticalSleepFrame *) regs;
-@@ -116,7 +116,7 @@
-         }
-     }
- 
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id] == NULL) {
-             void *frame = cpu_domain_clic_sleep_frame_alloc_and_init(core_id);
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = (cpu_domain_dev_sleep_frame_t *)frame;
-@@ -128,7 +128,7 @@
- 
- esp_err_t esp_sleep_cpu_retention_deinit_impl(sleep_cpu_retention_t *sleep_cpu_retention_ptr)
- {
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.critical_frame[core_id]) {
-             sleep_cpu_retention_ptr->retent.critical_frame[core_id] = NULL;
-             rv_core_critical_regs_frame[core_id] = NULL;
-@@ -137,7 +137,7 @@
-             sleep_cpu_retention_ptr->retent.non_critical_frame[core_id] = NULL;
-         }
-     }
--    for (uint8_t core_id = 0; core_id < portNUM_PROCESSORS; ++core_id) {
-+    for (uint8_t core_id = 0; core_id < CONFIG_MP_MAX_NUM_CPUS; ++core_id) {
-         if (sleep_cpu_retention_ptr->retent.clic_frame[core_id]) {
-             sleep_cpu_retention_ptr->retent.clic_frame[core_id] = NULL;
-         }
---- a/components/esp_hw_support/lowpower/port/esp32s31/sleep_fpu_asm.S
-+++ b/components/esp_hw_support/lowpower/port/esp32s31/sleep_fpu_asm.S
-@@ -5,7 +5,6 @@
-  */
- 
- #include "rvsleep-frames.h"
--#include "freertos/FreeRTOSConfig.h"
- #include "sdkconfig.h"
- 
-     .section    .iram1,"ax"
---- a/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
-+++ b/components/esp_hw_support/lowpower/port/esp32s3/sleep_cpu.c
-@@ -8,16 +8,14 @@
- #include <string.h>
- #include <inttypes.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include "esp_private/esp_cpu_internal.h"
- 
- #include "esp_attr.h"
- #include "esp_check.h"
- #include "esp_ipc_isr.h"
- #include "esp_sleep.h"
- #include "esp_log.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
--#include "esp_heap_caps.h"
-+#include <zephyr/kernel.h>
- #include "soc/rtc_periph.h"
- #include "soc/soc_caps.h"
- #include "esp_private/sleep_cpu.h"
-@@ -26,6 +24,23 @@
- #include "hal/rtc_hal.h"
- #include "esp32s3/rom/cache.h"
- 
-+static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
-+{
-+    (void)caps;
-+    void *ptr = k_aligned_alloc(alignment, n * size);
-+    if (ptr) {
-+        memset(ptr, 0, n * size);
-+    }
-+    return ptr;
-+}
-+
-+static inline void heap_caps_free(void *ptr)
-+{
-+    k_free(ptr);
-+}
-+
-+#define MALLOC_CAP_RETENTION 0
-+
- ESP_LOG_ATTR_TAG(TAG, "sleep");
- 
- typedef struct {
-@@ -48,9 +63,9 @@
- 
- static DRAM_ATTR  sleep_cpu_retention_t s_cpu_retention;
- 
-+static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
- 
- #if CONFIG_PM_RESTORE_CACHE_TAGMEM_AFTER_LIGHT_SLEEP
--static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
- static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t code_seg_size, uint32_t data_seg_vaddr, uint32_t data_seg_size)
- {
-     uint32_t sets;   /* i/d-cache total set counts */
-@@ -136,7 +151,7 @@
-                                             MALLOC_CAP_RETENTION);
-         if (buf) {
-             s_tag_mem->link_addr = rtc_cntl_hal_dma_link_init(buf,
--                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
-+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
-         } else {
-             s_tag_mem->icache.enable = 0;
-             s_tag_mem->dcache.enable = 0;
-@@ -171,7 +186,7 @@
-                                             MALLOC_CAP_RETENTION);
-         if (buf) {
-             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
--                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
-+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
-         } else {
-             return ESP_ERR_NO_MEM;
-         }
+ void rtc_clk_cpu_freq_set_xtal_for_sleep(void);
+-#endif
+ 
+ /**
+  * @brief Notify that the BBPLL has a new in-use consumer
 --- a/components/esp_hw_support/modem/include/modem/modem_clock_impl.h
 +++ b/components/esp_hw_support/modem/include/modem/modem_clock_impl.h
-@@ -113,7 +113,7 @@
+@@ -115,7 +115,7 @@
  
  typedef struct modem_clock_context {
      modem_clock_hal_context_t     *hal;
@@ -2182,105 +522,6 @@
  #include "sdkconfig.h"
  #include "esp_log.h"
  #include "esp_check.h"
---- a/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
-+++ b/components/esp_hw_support/mspi/mspi_intr/mspi_intr.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <inttypes.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
-@@ -4,7 +4,7 @@
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
-@@ -4,7 +4,7 @@
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
-@@ -4,7 +4,7 @@
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
-@@ -11,7 +11,7 @@
-  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "string.h"
- #include "esp_attr.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
-@@ -4,7 +4,7 @@
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
-@@ -13,7 +13,7 @@
- 
- #include <stdint.h>
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
-@@ -13,7 +13,7 @@
- 
- #include <stdint.h>
- #include <string.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "esp_attr.h"
- #include "esp_err.h"
---- a/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
-+++ b/components/esp_hw_support/mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
-@@ -11,7 +11,7 @@
-  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
-  */
- 
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include "sdkconfig.h"
- #include "string.h"
- #include "esp_attr.h"
 --- a/components/esp_hw_support/periph_ctrl.c
 +++ b/components/esp_hw_support/periph_ctrl.c
 @@ -3,7 +3,9 @@
@@ -2607,8 +848,8 @@
 +#endif /* SOC_TWAI_SUPPORTED */
 +#ifdef ESP32_SPI_DMA_MODULE
 +    case ESP32_SPI_DMA_MODULE:
-+        spi_dma_ll_enable_bus_clock(SPI1_HOST, true);
-+        spi_dma_ll_reset_register(SPI1_HOST);
++        spi_ll_dma_enable_bus_clock(SPI1_HOST, true);
++        spi_ll_dma_reset_register(SPI1_HOST);
 +        break;
 +#endif
 +#if SOC_GDMA_SUPPORTED
@@ -2968,7 +1209,7 @@
 +#endif /* SOC_TWAI_SUPPORTED */
 +#ifdef ESP32_SPI_DMA_MODULE
 +    case ESP32_SPI_DMA_MODULE:
-+        spi_dma_ll_enable_bus_clock(SPI1_HOST, false);
++        spi_ll_dma_enable_bus_clock(SPI1_HOST, false);
 +        break;
 +#endif
 +#if SOC_GDMA_SUPPORTED
@@ -3398,10 +1639,10 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -100,12 +100,12 @@
+@@ -102,12 +102,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -3610,10 +1851,10 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -100,12 +100,12 @@
+@@ -102,12 +102,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -3673,7 +1914,7 @@
  #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
 --- a/components/esp_hw_support/port/esp32c3/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32c3/rtc_clk.c
-@@ -107,7 +107,7 @@
+@@ -122,7 +122,7 @@
  
  void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
  {
@@ -3682,7 +1923,7 @@
      // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
      if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
          esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
-@@ -187,7 +187,7 @@
+@@ -202,7 +202,7 @@
      clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
      clk_ll_cpu_set_divider(1);
      clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
@@ -3691,7 +1932,7 @@
      esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
  }
  
-@@ -343,7 +343,7 @@
+@@ -358,7 +358,7 @@
      clk_ll_cpu_set_divider(div);
      /* switch clock source */
      clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
@@ -3782,9 +2023,9 @@
  }
 --- a/components/esp_hw_support/port/esp32c5/cpu_region_protect.c
 +++ b/components/esp_hw_support/port/esp32c5/cpu_region_protect.c
-@@ -31,7 +31,7 @@
- #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ((addr) & ~((SOC_MMU_PAGE_SIZE) - 1))
- #define ALIGN_UP(addr, align)  (((addr) + (align) - 1) & ~((align) - 1))
+@@ -19,7 +19,7 @@
+ #define ALIGN_UP_TO_MMU_PAGE_SIZE(addr)    ESP_ALIGN_UP(addr, SOC_MMU_PAGE_SIZE)
+ #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ESP_ALIGN_DOWN(addr, SOC_MMU_PAGE_SIZE)
  
 -static void esp_cpu_configure_invalid_regions(void)
 +void esp_cpu_configure_invalid_regions(void)
@@ -3845,10 +2086,10 @@
  static bool esp_clk_tree_initialized = false;
  
  void esp_clk_tree_initialize(void)
-@@ -141,12 +141,12 @@
+@@ -147,12 +147,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -3921,9 +2162,9 @@
 +#define V_DIG_MID_MUL10000  10860
 +
  #if CONFIG_ESP_ENABLE_PVT
- /*
- set pvt default param
-@@ -119,6 +160,9 @@
+ /**
+ * @brief Set PVT default param
+@@ -110,6 +151,9 @@
  
  #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
  
@@ -3933,18 +2174,18 @@
  #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
  #define RTC_CAL_32K_XTAL _Pragma ("GCC warning \"'RTC_CAL_32K_XTAL' macro is deprecated\"") CLK_CAL_32K_XTAL
  #define RTC_CAL_32K_OSC_SLOW _Pragma ("GCC warning \"'RTC_CAL_32K_OSC_SLOW' macro is deprecated\"") CLK_CAL_32K_OSC_SLOW
-@@ -325,7 +369,6 @@
+@@ -316,7 +360,6 @@
   */
  void rtc_clk_cpu_freq_set_xtal(void);
  
 -#ifndef BOOTLOADER_BUILD
  /**
-  * @brief Switch root clock source to PLL (only used by sleep) release root clock source locked by PMU
+  * @brief Release root clock source locked by PMU
   *
-@@ -338,7 +381,6 @@
-  * @param[in] Maximum CPU frequency, in MHz
+@@ -326,7 +369,6 @@
+  * the root clock source locking in the sleep process (a critical section).
   */
- void rtc_clk_cpu_freq_to_pll_and_pll_lock_release(int cpu_freq_mhz);
+ void rtc_clk_modem_pll_lock_release(void);
 -#endif
  
  /**
@@ -3960,113 +2201,6 @@
  RTC_DATA_ATTR
  #endif
  static rtc_io_status_t s_rtc_io_status = {
---- a/components/esp_hw_support/port/esp32c5/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32c5/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
-@@ -133,7 +133,6 @@
- 
-     /* HP core hardware wait time, microsecond */
-     const int hp_digital_power_up_wait_time_us = mc->hp.power_supply_wait_time_us + mc->hp.power_up_wait_time_us;
--    const int hp_control_wait_time_us = mc->hp.isolate_wait_time_us + mc->hp.reset_wait_time_us;
-     const int hp_regdma_wait_time_us = s_pmu_sleep_regdma_backup_enabled \
-                                 ? MAX(mc->hp.regdma_s2m_work_time_us + mc->hp.regdma_m2a_work_time_us, mc->hp.regdma_s2a_work_time_us) \
-                                 : 0;
-@@ -141,8 +140,10 @@
-     const int hp_clock_wait_time_us = ((sleep_flags & PMU_SLEEP_PD_XTAL) && !(sleep_flags & RTC_SLEEP_XTAL_AS_RTC_FAST)) \
-                                     ? mc->hp.xtal_wait_stable_time_us + mc->hp.pll_wait_stable_time_us \
-                                     : mc->hp.pll_wait_stable_time_us;
--    const int hp_hw_wait_time_us = mc->hp.analog_wait_time_us + hp_digital_power_up_wait_time_us + hp_clock_wait_time_us \
--                                     + hp_regdma_wait_time_us + hp_control_wait_time_us;
-+
-+    const int hp_control_wait_time_us = mc->hp.isolate_wait_time_us + mc->hp.reset_wait_time_us;
-+    const int hp_hw_wait_time_us = mc->hp.analog_wait_time_us + hp_digital_power_up_wait_time_us + hp_regdma_wait_time_us \
-+                                     + hp_clock_wait_time_us + hp_control_wait_time_us;
- 
-     /* When the SOC wakeup (lp timer or GPIO wakeup) and Modem wakeup (Beacon wakeup) complete, the soc
-      * wakeup will be delayed until the RF is turned on in Modem state.
-@@ -208,13 +209,13 @@
-     param->hp_sys.digital_power_supply_wait_cycle = rtc_time_us_to_fastclk(mc->hp.power_supply_wait_time_us, fastclk_period);
-     param->hp_sys.digital_power_up_wait_cycle     = rtc_time_us_to_fastclk(mc->hp.power_up_wait_time_us, fastclk_period);
-     param->hp_sys.pll_stable_wait_cycle           = rtc_time_us_to_fastclk(mc->hp.pll_wait_stable_time_us, fastclk_period);
--    param->hp_sys.isolate_wait_cycle              = rtc_time_us_to_fastclk(mc->hp.isolate_wait_time_us, fastclk_period);
--    param->hp_sys.reset_wait_cycle                = rtc_time_us_to_fastclk(mc->hp.reset_wait_time_us, fastclk_period);
- 
-     const int hw_wait_time_us = pmu_sleep_calculate_hw_wait_time(sleep_flags, slowclk_src, slowclk_period, fastclk_period);
-     const int modem_state_skip_time_us = mc->hp.regdma_m2a_work_time_us + mc->hp.system_dfs_up_work_time_us + mc->lp.min_slp_time_us;
-     const int modem_wakeup_wait_time_us = adjustment - hw_wait_time_us + modem_state_skip_time_us + mc->hp.regdma_rf_on_work_time_us;
-     param->hp_sys.modem_wakeup_wait_cycle         = rtc_time_us_to_fastclk(modem_wakeup_wait_time_us, fastclk_period);
-+    param->hp_sys.isolate_wait_cycle              = rtc_time_us_to_fastclk(mc->hp.isolate_wait_time_us, fastclk_period);
-+    param->hp_sys.reset_wait_cycle                = rtc_time_us_to_fastclk(mc->hp.reset_wait_time_us, fastclk_period);
- 
-     param->lp_sys.min_slp_slow_clk_cycle          = rtc_time_us_to_slowclk(mc->lp.min_slp_time_us, slowclk_period_fixed);
-     param->lp_sys.analog_wait_target_cycle        = rtc_time_us_to_slowclk(mc->lp.analog_wait_time_us, slowclk_period);
-@@ -243,6 +244,10 @@
-     )
- {
-     pmu_sleep_power_config_t power_default = PMU_SLEEP_POWER_CONFIG_DEFAULT(sleep_flags);
-+    config->power = power_default;
-+
-+    pmu_sleep_param_config_t param_default = PMU_SLEEP_PARAM_CONFIG_DEFAULT(sleep_flags);
-+    config->param = *pmu_sleep_param_config_default(&param_default, &power_default, sleep_flags, adjustment, slowclk_src, slowclk_period, fastclk_period);
- 
-     if (dslp) {
-         config->param.lp_sys.analog_wait_target_cycle  = rtc_time_us_to_slowclk(PMU_LP_ANALOG_WAIT_TARGET_TIME_DSLP_US, slowclk_period);
-@@ -265,16 +270,20 @@
-         analog_default.hp_sys.analog.dbias = get_lslp_hp_dbias();
-         analog_default.lp_sys[LP(SLEEP)].analog.dbias = PMU_LP_DBIAS_LIGHTSLEEP_0V7_DEFAULT;
- 
--        if (!(sleep_flags & PMU_SLEEP_PD_XTAL) || !(sleep_flags & PMU_SLEEP_PD_RC_FAST)){
-+        if (!(sleep_flags & PMU_SLEEP_PD_XTAL)){
-             analog_default.hp_sys.analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
-             analog_default.hp_sys.analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
--            analog_default.hp_sys.analog.dbias =  get_act_hp_dbias();
--            analog_default.hp_sys.analog.dbg_atten = 0;
-+            analog_default.hp_sys.analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
-+            analog_default.hp_sys.analog.dbias = get_act_hp_dbias();
- 
-             analog_default.lp_sys[LP(SLEEP)].analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
-             analog_default.lp_sys[LP(SLEEP)].analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
-+            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
-+            analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
-+        } else if (!(sleep_flags & PMU_SLEEP_PD_RC_FAST)) {
-+            analog_default.hp_sys.analog.dbias = get_act_hp_dbias();
-+            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_LIGHTSLEEP_NODROP;
-             analog_default.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
--            analog_default.lp_sys[LP(SLEEP)].analog.dbg_atten = 0;
-         }
- 
-         config->analog = analog_default;
-@@ -285,20 +294,16 @@
-         power_default.hp_sys.xtal.xpd_xtal = 1;
-         config->analog.hp_sys.analog.pd_cur = PMU_PD_CUR_SLEEP_ON;
-         config->analog.hp_sys.analog.bias_sleep = PMU_BIASSLP_SLEEP_ON;
--        config->analog.hp_sys.analog.dbg_atten = 0;
-+        config->analog.hp_sys.analog.dbg_atten = PMU_DBG_ATTEN_ACTIVE_DEFAULT;
-         config->analog.hp_sys.analog.dbias = get_act_hp_dbias();
-     }
- 
-     if (sleep_flags & RTC_SLEEP_LP_PERIPH_USE_RC_FAST) {
-         config->analog.hp_sys.analog.dbias = get_act_hp_dbias();
--        config->analog.lp_sys[LP(SLEEP)].analog.dbg_atten = 0;
-+        config->analog.lp_sys[LP(SLEEP)].analog.dbg_atten = PMU_DBG_ATTEN_LIGHTSLEEP_NODROP;
-         config->analog.lp_sys[LP(SLEEP)].analog.dbias = get_act_lp_dbias();
-     }
- 
--    config->power = power_default;
--    pmu_sleep_param_config_t param_default = PMU_SLEEP_PARAM_CONFIG_DEFAULT(sleep_flags);
--    config->param = *pmu_sleep_param_config_default(&param_default, &power_default, sleep_flags, adjustment, slowclk_src, slowclk_period, fastclk_period);
--
-     return config;
- }
- 
 --- a/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32c5/private_include/pmu_bit_defs.h
 @@ -14,7 +14,7 @@
@@ -4096,15 +2230,7 @@
  #define PMU_HP_XPD_DEEPSLEEP    0
 --- a/components/esp_hw_support/port/esp32c5/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32c5/rtc_clk.c
-@@ -25,6 +25,7 @@
- #include "esp_attr.h"
- #include "esp_private/esp_pmu.h"
- 
-+
- ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
- 
- // Current PLL frequency, in 480MHz. Zero if PLL is not enabled.
-@@ -537,7 +538,7 @@
+@@ -524,7 +524,7 @@
  
  uint32_t rtc_clk_apb_freq_get(void)
  {
@@ -4174,9 +2300,9 @@
  }
 --- a/components/esp_hw_support/port/esp32c61/cpu_region_protect.c
 +++ b/components/esp_hw_support/port/esp32c61/cpu_region_protect.c
-@@ -32,7 +32,7 @@
- #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ((addr) & ~((SOC_MMU_PAGE_SIZE) - 1))
- #define ALIGN_UP(addr, align)  (((addr) + (align) - 1) & ~((align) - 1))
+@@ -20,7 +20,7 @@
+ #define ALIGN_UP_TO_MMU_PAGE_SIZE(addr)    ESP_ALIGN_UP(addr, SOC_MMU_PAGE_SIZE)
+ #define ALIGN_DOWN_TO_MMU_PAGE_SIZE(addr)  ESP_ALIGN_DOWN(addr, SOC_MMU_PAGE_SIZE)
  
 -static void esp_cpu_configure_invalid_regions(void)
 +void esp_cpu_configure_invalid_regions(void)
@@ -4228,7 +2354,7 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -97,14 +97,17 @@
+@@ -99,14 +99,17 @@
          // some conditions is legal, e.g. -1 means external clock source
          return ESP_OK;
      }
@@ -4236,7 +2362,7 @@
 +     * value, matching C11 atomic_fetch_add/sub semantics.
 +     */
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -4309,9 +2435,9 @@
 +#define V_DIG_MID_MUL10000  10860
 +
  #if CONFIG_ESP_ENABLE_PVT
- /*
- set pvt default param
-@@ -119,6 +160,9 @@
+ /**
+ * @brief Set PVT default param
+@@ -110,6 +151,9 @@
  
  #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
  
@@ -4331,17 +2457,6 @@
  #include "soc/soc.h"
  #include "soc/rtc.h"
  #include "soc/regi2c_dig_reg.h"
---- a/components/esp_hw_support/port/esp32c61/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32c61/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
 --- a/components/esp_hw_support/port/esp32c61/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32c61/private_include/pmu_bit_defs.h
 @@ -14,7 +14,7 @@
@@ -4355,7 +2470,7 @@
  #define PMU_UART1_WAKEUP_EN         BIT(7)
 --- a/components/esp_hw_support/port/esp32c61/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32c61/rtc_clk.c
-@@ -389,7 +389,7 @@
+@@ -398,7 +398,7 @@
  
  uint32_t rtc_clk_apb_freq_get(void)
  {
@@ -4473,10 +2588,10 @@
          break;
      default:
          break;
-@@ -100,12 +100,12 @@
+@@ -102,12 +102,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -4572,9 +2687,9 @@
 +#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
 +
  #if CONFIG_ESP_ENABLE_PVT
- /*
- set pvt default param
-@@ -114,6 +147,15 @@
+ /**
+ * @brief Set PVT default param
+@@ -105,6 +138,15 @@
  
  #endif //#if CONFIG_ESP_ENABLE_PVT
  
@@ -4590,7 +2705,7 @@
  /**
   * @brief CPU clock configuration structure
   */
-@@ -126,6 +168,9 @@
+@@ -117,6 +159,9 @@
  
  #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
  
@@ -4611,17 +2726,6 @@
  RTC_DATA_ATTR
  #endif
  static rtc_io_status_t s_rtc_io_status = {
---- a/components/esp_hw_support/port/esp32c6/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32c6/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
 --- a/components/esp_hw_support/port/esp32c6/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32c6/private_include/pmu_bit_defs.h
 @@ -14,7 +14,7 @@
@@ -4635,7 +2739,7 @@
  #define PMU_UART1_WAKEUP_EN         BIT(7)
 --- a/components/esp_hw_support/port/esp32c6/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32c6/rtc_clk.c
-@@ -418,7 +418,7 @@
+@@ -427,7 +427,7 @@
  
  uint32_t rtc_clk_apb_freq_get(void)
  {
@@ -4764,7 +2868,7 @@
 @@ -130,12 +130,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -4831,17 +2935,6 @@
  // /*
  // set sleep_init default param
  // */
---- a/components/esp_hw_support/port/esp32h21/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32h21/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
 --- a/components/esp_hw_support/port/esp32h21/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32h21/private_include/pmu_bit_defs.h
 @@ -13,7 +13,7 @@
@@ -4905,10 +2998,10 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -96,12 +96,12 @@
+@@ -98,12 +98,12 @@
      }
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -5022,17 +3115,6 @@
  #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
  #define RTC_CAL_RC_SLOW _Pragma ("GCC warning \"'RTC_CAL_RC_SLOW' macro is deprecated\"") CLK_CAL_RC_SLOW
  #define RTC_CAL_RC32K _Pragma ("GCC warning \"'RTC_CAL_RC32K' macro is deprecated\"") CLK_CAL_RC32K
---- a/components/esp_hw_support/port/esp32h2/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32h2/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
 --- a/components/esp_hw_support/port/esp32h2/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32h2/private_include/pmu_bit_defs.h
 @@ -13,7 +13,7 @@
@@ -5046,7 +3128,7 @@
  #define PMU_BLE_SOC_WAKEUP_EN       BIT(10)
 --- a/components/esp_hw_support/port/esp32h2/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32h2/rtc_clk.c
-@@ -455,7 +455,7 @@
+@@ -469,7 +469,7 @@
  
  uint32_t rtc_clk_apb_freq_get(void)
  {
@@ -5142,21 +3224,10 @@
  // /*
  // set sleep_init default param
  // */
---- a/components/esp_hw_support/port/esp32h4/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32h4/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
 --- a/components/esp_hw_support/port/esp32h4/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32h4/private_include/pmu_bit_defs.h
 @@ -13,7 +13,7 @@
- #define PMU_EXT0_WAKEUP_EN          BIT(0)
+ #define PMU_VDDBAT_RECOVER_WAKEUP_EN BIT(0)
  #define PMU_EXT1_WAKEUP_EN          BIT(1)
  #define PMU_GPIO_WAKEUP_EN          BIT(2)
 -#define PMU_RTC_TIMER_WAKEUP_EN     BIT(4)
@@ -5196,16 +3267,7 @@
   */
 --- a/components/esp_hw_support/port/esp32p4/esp_clk_tree.c
 +++ b/components/esp_hw_support/port/esp32p4/esp_clk_tree.c
-@@ -5,7 +5,7 @@
-  */
- 
- #include <stdint.h>
--#include <stdatomic.h>
-+#include <zephyr/sys/atomic.h>
- #include "sdkconfig.h"
- #include "esp_clk_tree.h"
- #include "esp_err.h"
-@@ -69,7 +69,7 @@
+@@ -70,7 +70,7 @@
          clk_src_freq = clk_hal_cpu_get_freq_hz();
          break;
      case SOC_MOD_CLK_XTAL:
@@ -5214,7 +3276,7 @@
          break;
      case SOC_MOD_CLK_SYS:
          clk_src_freq = clk_hal_sys_get_freq_hz();
-@@ -78,34 +78,34 @@
+@@ -79,34 +79,34 @@
          clk_src_freq = clk_hal_apb_get_freq_hz();
          break;
      case SOC_MOD_CLK_PLL_F20M:
@@ -5258,7 +3320,7 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -122,10 +122,10 @@
+@@ -123,10 +123,10 @@
          clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
          break;
      case SOC_MOD_CLK_XTAL_D2:
@@ -5271,31 +3333,6 @@
          break;
      default:
          break;
-@@ -166,7 +166,7 @@
-     return ret;
- }
- 
--static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
-+static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
- static bool esp_clk_tree_initialized = false;
- 
- void esp_clk_tree_initialize(void)
-@@ -248,12 +248,12 @@
-     // other clock sources use the global reference counting
-     int16_t prev_ref_cnt = 0;
-     if (enable) {
--        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
-+        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
-     } else {
--        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
-+        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
-         if (prev_ref_cnt <= 0) {
-             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
--            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
-+            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
-             return ESP_OK;
-         }
-     }
 --- a/components/esp_hw_support/port/esp32p4/include/soc/rtc.h
 +++ b/components/esp_hw_support/port/esp32p4/include/soc/rtc.h
 @@ -48,7 +48,12 @@
@@ -5311,7 +3348,7 @@
  
  /* Delays for various clock sources to be enabled/switched.
   * All values are in microseconds.
-@@ -68,7 +73,32 @@
+@@ -68,6 +73,30 @@
  #define RTC_CNTL_SCK_DCAP_DEFAULT    128
  #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
  
@@ -5340,11 +3377,9 @@
 +#define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
 +
  #if CONFIG_ESP_ENABLE_PVT
-+
- #define PVT_CHANNEL0_SEL    49
- #define PVT_CHANNEL1_SEL    53
- #define PVT_CHANNEL0_CFG    0x13e80
-@@ -102,6 +132,15 @@
+ /**
+ * @brief Set PVT default param
+@@ -108,6 +137,15 @@
  
  #endif //#if CONFIG_ESP_ENABLE_PVT
  
@@ -5360,7 +3395,7 @@
  /**
   * @brief CPU clock configuration structure
   */
-@@ -114,6 +153,9 @@
+@@ -120,6 +158,9 @@
  
  #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
  
@@ -5381,53 +3416,6 @@
  RTC_DATA_ATTR
  #endif
  static rtc_io_status_t s_rtc_io_status = {
---- a/components/esp_hw_support/port/esp32p4/pmu_sleep.c
-+++ b/components/esp_hw_support/port/esp32p4/pmu_sleep.c
-@@ -6,7 +6,7 @@
- 
- #include <stdint.h>
- #include <stdlib.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <esp_types.h>
- #include "sdkconfig.h"
- #include "esp_err.h"
-@@ -451,10 +451,10 @@
-     }
- 
- 
--#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
-+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
-     // Disable PSRAM chip power supply
-     if (dslp) {
--        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), false);
-+        ldo_ll_enable(LDO_ID2UNIT(2), false);
-     }
- #endif
- 
-@@ -472,9 +472,9 @@
-     }
- 
-     if (dslp) {
--#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
-+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
-         // Enable PSRAM chip power supply after deepsleep request rejected
--        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), true);
-+        ldo_ll_enable(LDO_ID2UNIT(2), true);
- #endif
- #if CONFIG_P4_REV3_MSPI_CRASH_AFTER_POWER_UP_WORKAROUND
-         if (efuse_hal_chip_revision() == 300) {
---- a/components/esp_hw_support/port/esp32p4/pmu_sleep_clock_icg.c
-+++ b/components/esp_hw_support/port/esp32p4/pmu_sleep_clock_icg.c
-@@ -144,7 +144,7 @@
-     return ESP_OK;
- }
- 
--ESP_SYSTEM_INIT_FN(sleep_clock_icg_startup_init, SECONDARY, BIT(0), 106)
-+esp_err_t sleep_clock_icg_startup_init(void)
- {
-     sleep_clock_icg_init_args_t init_args = { .config = clock_icg_config, .size = ARRAY_SIZE(clock_icg_config) };
-     sleep_retention_module_init_param_t clock_icg_init_param = {
 --- a/components/esp_hw_support/port/esp32p4/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32p4/private_include/pmu_bit_defs.h
 @@ -23,7 +23,7 @@
@@ -5441,7 +3429,7 @@
  #define PMU_LP_CORE_TRAP_WAKEUP_EN      BIT(16)
 --- a/components/esp_hw_support/port/esp32p4/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32p4/rtc_clk.c
-@@ -534,7 +534,7 @@
+@@ -550,7 +550,7 @@
          denominator = 1;
          numerator = 0;
      }
@@ -5450,7 +3438,7 @@
      uint32_t mem_freq_hz = cpu_freq_hz / clk_ll_mem_get_divider();
      uint32_t sys_freq_hz = mem_freq_hz / clk_ll_sys_get_divider();
      return sys_freq_hz / clk_ll_apb_get_divider();
-@@ -586,21 +586,18 @@
+@@ -602,21 +602,18 @@
          }
      }
      // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
@@ -5753,7 +3741,7 @@
 @@ -128,12 +128,12 @@
  
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -5818,7 +3806,7 @@
  static rtc_io_status_t s_rtc_io_status = {
 --- a/components/esp_hw_support/port/esp32s2/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32s2/rtc_clk.c
-@@ -149,21 +149,21 @@
+@@ -167,21 +167,21 @@
          }
      }
      // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
@@ -5847,7 +3835,7 @@
      *_o_div = o_div;
      *_sdm0 = sdm0;
      *_sdm1 = sdm1;
-@@ -300,7 +300,7 @@
+@@ -318,7 +318,7 @@
      clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
      clk_ll_cpu_set_divider(1);
      clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
@@ -5856,7 +3844,7 @@
      esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
  
      if (cpu_freq_mhz < cur_config.freq_mhz) {
-@@ -476,7 +476,7 @@
+@@ -494,7 +494,7 @@
  #ifndef BOOTLOADER_BUILD
      systimer_ll_set_step_for_xtal(&SYSTIMER, systimer_us_to_ticks(1) / cpu_freq);
  #endif
@@ -5922,16 +3910,27 @@
  void sar_periph_ctrl_init(void)
 --- a/components/esp_hw_support/port/esp32s31/esp_clk_tree.c
 +++ b/components/esp_hw_support/port/esp32s31/esp_clk_tree.c
-@@ -5,7 +5,7 @@
-  */
+@@ -6,6 +6,7 @@
  
  #include <stdint.h>
--#include <stdatomic.h>
-+#include <zephyr/sys/atomic.h>
+ #include <assert.h>
++#include <zephyr/sys/util.h>
  #include "sdkconfig.h"
  #include "esp_clk_tree.h"
- #include "esp_err.h"
-@@ -71,31 +71,31 @@
+ #include "esp_attr.h"
+@@ -248,9 +249,9 @@
+     uint32_t up_hz;
+ 
+     if (clk_ll_ref_500m_get_src() == 0) {
+-        up_hz = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
++        up_hz = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
+     } else {
+-        up_hz = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
++        up_hz = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
+     }
+     return up_hz / div_num;
+ }
+@@ -268,13 +269,13 @@
          clk_src_freq = clk_hal_cpu_get_freq_hz();
          break;
      case SOC_MOD_CLK_XTAL:
@@ -5945,9 +3944,22 @@
 -        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ;
 +        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ(1);
          break;
-     case SOC_MOD_CLK_PLL_F80M:
+     case SOC_MOD_CLK_PLL_F25M:
+         clk_src_freq = esp_clk_tree_ref_500m_pll_get_freq_hz(clk_ll_pll_f25m_get_divider());
+@@ -283,28 +284,28 @@
+         clk_src_freq = esp_clk_tree_ref_500m_pll_get_freq_hz(clk_ll_pll_f50m_get_divider());
+         break;
+     case SOC_MOD_CLK_PLL_F60M:
+-        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_REF_F80M:
 -        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
 +        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+         break;
+     case SOC_MOD_CLK_PLL_F120M:
+-        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ;
++        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ(1);
          break;
      case SOC_MOD_CLK_PLL_F160M:
 -        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
@@ -5971,7 +3983,7 @@
          break;
      case SOC_MOD_CLK_APLL:
          clk_src_freq = clk_hal_apll_get_freq_hz();
-@@ -115,7 +115,7 @@
+@@ -324,7 +325,7 @@
          clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
          break;
      case SOC_MOD_CLK_XTAL_D2:
@@ -5980,19 +3992,42 @@
          break;
      case SOC_MOD_CLK_APB:
          clk_src_freq = clk_hal_apb_get_freq_hz();
-@@ -159,7 +159,7 @@
-     return ret;
- }
+@@ -370,38 +371,30 @@
  
--static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
-+static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
- static bool s_clk_tree_initialized = false;
- static int16_t s_cpll_ref_cnt = 0;
+ void esp_clk_tree_initialize(void)
+ {
+-    soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
+     soc_periph_flash_clk_src_t flash_clk_src = _mspi_timing_ll_get_flash_clk_src(MSPI_TIMING_LL_MSPI_ID_0);
+     soc_cpu_clk_src_t cpu_src = clk_ll_cpu_get_src();
+-    bool cpu_reset = (rst_reason == RESET_REASON_CPU_SW) || (rst_reason == RESET_REASON_CPU_MWDT) ||
+-                     (rst_reason == RESET_REASON_CPU_RWDT) || (rst_reason == RESET_REASON_CPU_JTAG) ||
+-                     (rst_reason == RESET_REASON_CPU_LOCKUP);
+-    if (!cpu_reset) {
+-        /* Cold boot only: gate / power-down clocks not in use. */
+-        if (cpu_src != SOC_CPU_CLK_SRC_PLL_F240M) {
+-            _clk_gate_ll_ref_240m_clk_en(false);
+-        }
+-        if (cpu_src != SOC_CPU_CLK_SRC_CPLL && flash_clk_src != FLASH_CLK_SRC_CPLL) {
+-            clk_ll_cpll_disable();
+-        }
+-#if !CONFIG_ESP_ENABLE_PVT
+-        // PLL_F160M must always on if PVT is enabled.
+-        _clk_gate_ll_ref_160m_clk_en(false);
+-#endif
+-        _clk_gate_ll_ref_120m_clk_en(false);
+-        _clk_gate_ll_ref_80m_clk_en(false);
+-        _clk_gate_ll_ref_60m_clk_en(false);
+-        _clk_gate_ll_ref_20m_clk_en(false);
+-        _clk_gate_ll_ref_50m_clk_en(false);
+-        _clk_gate_ll_ref_25m_clk_en(false);
+-        clk_ll_xtalx2_disable();
+-        HP_ALIVE_SYS.hp_clk_ctrl.hp_audio_pll_clk_en = 0;
+-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll2_clk_en = 0;
+-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll1_clk_en = 0;
+-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll0_clk_en = 0;
+-    }
  
-@@ -194,6 +194,23 @@
-     //_clk_gate_ll_ref_80m_clk_en(false);
-     //_clk_gate_ll_ref_160m_clk_en(false);
-     //if (s_pll_src_cg_ref_cnt[SOC_MOD_CLK_PLL_F240M] == 0) _clk_gate_ll_ref_240m_clk_en(false);
+     s_clk_tree_initialized = true;
 +
 +    /* Hold a reference on each PLL reference clock that is already running */
 +    const struct {
@@ -6001,63 +4036,24 @@
 +    } ref_clks[] = {
 +        { SOC_MOD_CLK_PLL_F20M, HP_SYS_CLKRST.ref_20m_ctrl0.reg_ref_20m_clk_en },
 +        { SOC_MOD_CLK_PLL_F25M, HP_SYS_CLKRST.ref_25m_ctrl0.reg_ref_25m_clk_en },
-+        { SOC_MOD_CLK_PLL_F80M, HP_SYS_CLKRST.ref_80m_ctrl0.reg_ref_80m_clk_en },
++        { SOC_MOD_CLK_PLL_F50M, HP_SYS_CLKRST.ref_50m_ctrl0.reg_ref_50m_clk_en },
++        { SOC_MOD_CLK_PLL_F60M, HP_SYS_CLKRST.ref_60m_ctrl0.reg_ref_60m_clk_en },
++        { SOC_MOD_CLK_REF_F80M, HP_SYS_CLKRST.ref_80m_ctrl0.reg_ref_80m_clk_en },
++        { SOC_MOD_CLK_PLL_F120M, HP_SYS_CLKRST.ref_120m_ctrl0.reg_ref_120m_clk_en },
 +        { SOC_MOD_CLK_PLL_F160M, HP_SYS_CLKRST.ref_160m_ctrl0.reg_ref_160m_clk_en },
 +        { SOC_MOD_CLK_PLL_F240M, HP_SYS_CLKRST.ref_240m_ctrl0.reg_ref_240m_clk_en },
 +    };
 +    for (size_t i = 0; i < ARRAY_SIZE(ref_clks); i++) {
-+        if (ref_clks[i].running && atomic_get(&s_pll_src_cg_ref_cnt[ref_clks[i].src]) == 0) {
-+            atomic_set(&s_pll_src_cg_ref_cnt[ref_clks[i].src], 1);
++        if (ref_clks[i].running) {
++            esp_clk_tree_acquire_src(ref_clks[i].src, NULL);
 +        }
 +    }
-     s_clk_tree_initialized = true;
- }
- 
-@@ -273,27 +290,26 @@
- 
-     // other clock sources use the global reference counting
-     if (enable) {
--        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
-+        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
-     } else {
--        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
-+        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
-         if (prev_ref_cnt <= 0) {
-             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
--            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
-+            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
-             return ESP_OK;
-         }
-     }
--    // TODO: IDF-15502
--    //if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
--    //    switch (clk_src) {
--    //        case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable(); break;
--    //        case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
--    //        case SOC_MOD_CLK_PLL_F25M:  ENABLE_CLK_GATE(clk_gate_ll_ref_25m_clk_en, enable);  break;
--    //        case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
--    //        case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
--    //        case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
--    //        default: break;
--    //    }
--    //}
-+    if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
-+        switch (clk_src) {
-+        case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable(); break;
-+        case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
-+        case SOC_MOD_CLK_PLL_F25M:  ENABLE_CLK_GATE(clk_gate_ll_ref_25m_clk_en, enable);  break;
-+        case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
-+        case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
-+        case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
-+        default: break;
-+        }
-+    }
- 
-     return ESP_OK;
- }
+ #if CONFIG_USJ_ENABLE_USB_SERIAL_JTAG || CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
+     /* Bootloader / USJ may keep BBPLL 480M on; declare a permanent hold. */
+     esp_clk_tree_acquire_src(SOC_MOD_CLK_BBPLL, NULL);
 --- a/components/esp_hw_support/port/esp32s31/include/soc/rtc.h
 +++ b/components/esp_hw_support/port/esp32s31/include/soc/rtc.h
-@@ -48,7 +48,6 @@
+@@ -49,7 +49,6 @@
   * - rtc_time: reading RTC counter, conversion between counter values and time
   */
  
@@ -6065,7 +4061,7 @@
  
  /* Delays for various clock sources to be enabled/switched.
   * All values are in microseconds.
-@@ -63,6 +62,15 @@
+@@ -64,6 +63,15 @@
  #define RTC_CNTL_SCK_DCAP_DEFAULT    128
  #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
  
@@ -6078,9 +4074,41 @@
 +#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
 +#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
 +
+ #if CONFIG_ESP_ENABLE_PVT
  /**
-  * @brief CPU clock configuration structure
+ * @brief Set PVT default param
+@@ -278,7 +286,6 @@
   */
+ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config);
+ 
+-#ifndef BOOTLOADER_BUILD
+ /**
+  * @brief Switch CPU frequency (optimized for speed)
+  *
+@@ -300,7 +307,6 @@
+  * @param config  CPU frequency configuration structure
+  */
+ void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config);
+-#endif
+ 
+ /**
+  * @brief Get the currently used CPU frequency configuration
+@@ -308,7 +314,6 @@
+  */
+ void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config);
+ 
+-#ifndef BOOTLOADER_BUILD
+ /**
+  * @brief Switch CPU clock source to XTAL
+  *
+@@ -329,7 +334,6 @@
+  * otherwise the HP root clock remains stuck at XTAL 40 MHz.
+  */
+ void rtc_clk_modem_pll_lock_release(void);
+-#endif
+ 
+ /**
+  * @brief Get the current APB frequency.
 --- a/components/esp_hw_support/port/esp32s31/private_include/pmu_bit_defs.h
 +++ b/components/esp_hw_support/port/esp32s31/private_include/pmu_bit_defs.h
 @@ -24,6 +24,7 @@
@@ -6093,7 +4121,7 @@
  #define PMU_ETM_WAKEUP_EN               BIT(17)
 --- a/components/esp_hw_support/port/esp32s31/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32s31/rtc_clk.c
-@@ -523,7 +523,7 @@
+@@ -512,7 +512,7 @@
          denominator = 1;
          numerator = 0;
      }
@@ -6102,7 +4130,7 @@
      uint32_t sys_freq_hz = cpu_freq_hz / clk_ll_sys_get_divider();
      return sys_freq_hz / clk_ll_apb_get_divider();
  }
-@@ -574,21 +574,21 @@
+@@ -619,21 +619,21 @@
          }
      }
      // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
@@ -6131,6 +4159,24 @@
      *_o_div = o_div;
      *_sdm0 = sdm0;
      *_sdm1 = sdm1;
+@@ -657,6 +657,8 @@
+     ANALOG_CLOCK_DISABLE();
+ }
+ 
++#endif
++
+ void rtc_dig_clk8m_enable(void)
+ {
+     clk_ll_rc_fast_digi_enable();
+@@ -674,6 +676,8 @@
+     return clk_ll_rc_fast_digi_is_enabled();
+ }
+ 
++#ifndef BOOTLOADER_BUILD
++
+ //------------------------------------MPLL-------------------------------------//
+ IRAM_ATTR void rtc_clk_mpll_disable(void)
+ {
 --- a/components/esp_hw_support/port/esp32s31/rtc_time.c
 +++ b/components/esp_hw_support/port/esp32s31/rtc_time.c
 @@ -37,16 +37,16 @@
@@ -6166,7 +4212,7 @@
      /* Start calibration */
      CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
      SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
-@@ -216,8 +216,7 @@
+@@ -219,8 +219,7 @@
  uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
  
  /// @brief if the calibration is used, we need to enable the timer group0 first
@@ -6240,10 +4286,10 @@
          break;
      case SOC_MOD_CLK_RTC_SLOW:
          clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
-@@ -109,12 +109,12 @@
+@@ -111,12 +111,12 @@
      }
      int16_t prev_ref_cnt = 0;
-     if (enable) {
+     if (acquire) {
 -        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
 +        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
      } else {
@@ -6308,7 +4354,7 @@
  static rtc_io_status_t s_rtc_io_status = {
 --- a/components/esp_hw_support/port/esp32s3/rtc_clk.c
 +++ b/components/esp_hw_support/port/esp32s3/rtc_clk.c
-@@ -123,7 +123,7 @@
+@@ -153,7 +153,7 @@
  
  void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
  {
@@ -6317,7 +4363,7 @@
      // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
      if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
          esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
-@@ -233,7 +233,7 @@
+@@ -263,7 +263,7 @@
      clk_ll_cpu_set_divider(1);
      /* switch clock source */
      clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
@@ -6326,7 +4372,7 @@
      esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
  
      if (cpu_freq_mhz < cur_config.freq_mhz) {
-@@ -410,7 +410,7 @@
+@@ -440,7 +440,7 @@
      clk_ll_cpu_set_divider(div);
      /* switch clock source */
      clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
@@ -6438,6 +4484,132 @@
  
  
  void sar_periph_ctrl_init(void)
+--- a/components/esp_hw_support/port/esp_clk_tree_apll.c
++++ b/components/esp_hw_support/port/esp_clk_tree_apll.c
+@@ -6,8 +6,8 @@
+ 
+ #include <inttypes.h>
+ #include <stdbool.h>
+-#include <stdatomic.h>
+-#include <sys/lock.h>
++#include <zephyr/kernel.h>
++#include <zephyr/sys/atomic.h>
+ #include "esp_check.h"
+ #include "esp_hw_log.h"
+ #include "esp_log.h"
+@@ -15,7 +15,7 @@
+ #include "soc/rtc.h"
+ 
+ ESP_HW_LOG_ATTR_TAG(s_tag, "esp_clk_tree_apll");
+-static _lock_t s_periph_apll_mutex;
++static K_MUTEX_DEFINE(s_periph_apll_mutex);
+ 
+ typedef struct {
+     uint32_t o_div;
+@@ -31,7 +31,7 @@
+ } apll_mode_t;
+ 
+ typedef struct {
+-    atomic_uint configured_freq_hz;
++    atomic_t configured_freq_hz;
+     int ref_cnt;
+     apll_mode_t mode;
+     apll_freq_config_t pending_config; // pending configuration for delayed acquisition
+@@ -43,7 +43,7 @@
+ {
+     ESP_RETURN_ON_FALSE(info, ESP_ERR_INVALID_ARG, s_tag, "invalid argument");
+ 
+-    info->frequency_hz = atomic_load(&s_apll_resource.configured_freq_hz);
++    info->frequency_hz = atomic_get(&s_apll_resource.configured_freq_hz);
+     info->config_valid = info->frequency_hz != 0;
+     return ESP_OK;
+ }
+@@ -53,7 +53,7 @@
+     bool acquire_allowed = true;
+     bool adjustable = config && config->flags.adjustable;
+ 
+-    _lock_acquire(&s_periph_apll_mutex);
++    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
+     apll_mode_t mode = s_apll_resource.mode;
+     bool idle = mode == APLL_MODE_IDLE;
+     if (adjustable) {
+@@ -67,7 +67,7 @@
+         if (idle) {
+             s_apll_resource.mode = adjustable ? APLL_MODE_ADJUSTABLE : APLL_MODE_FIXED;
+             rtc_clk_apll_enable(true);
+-            uint32_t configured_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
++            uint32_t configured_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
+             if (configured_freq_hz != 0) {
+                 apll_freq_config_t config_to_apply = s_apll_resource.pending_config;
+                 s_apll_resource.pending_config = (apll_freq_config_t) {};
+@@ -79,7 +79,7 @@
+             }
+         }
+     }
+-    _lock_release(&s_periph_apll_mutex);
++    k_mutex_unlock(&s_periph_apll_mutex);
+ 
+     ESP_RETURN_ON_FALSE(acquire_allowed, ESP_ERR_INVALID_STATE, s_tag,
+                         "can't acquire APLL, resource conflict or initialization in progress");
+@@ -89,19 +89,19 @@
+ esp_err_t esp_clk_tree_apll_release(void)
+ {
+     bool valid_state = true;
+-    _lock_acquire(&s_periph_apll_mutex);
++    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
+     if (s_apll_resource.ref_cnt <= 0) {
+         valid_state = false;
+     } else {
+         s_apll_resource.ref_cnt--;
+         if (s_apll_resource.ref_cnt == 0) {
+             s_apll_resource.mode = APLL_MODE_IDLE;
+-            atomic_store(&s_apll_resource.configured_freq_hz, 0);
++            atomic_set(&s_apll_resource.configured_freq_hz, 0);
+             s_apll_resource.pending_config = (apll_freq_config_t) {};
+             rtc_clk_apll_enable(false);
+         }
+     }
+-    _lock_release(&s_periph_apll_mutex);
++    k_mutex_unlock(&s_periph_apll_mutex);
+     ESP_RETURN_ON_FALSE(valid_state, ESP_ERR_INVALID_STATE, s_tag, "APLL released too many times");
+     return ESP_OK;
+ }
+@@ -116,8 +116,8 @@
+                         "APLL coefficients calculate failed");
+ 
+     esp_err_t ret = ESP_ERR_INVALID_STATE;
+-    _lock_acquire(&s_periph_apll_mutex);
+-    uint32_t configured_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
++    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
++    uint32_t configured_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
+     bool same_frequency = configured_freq_hz == resolved_freq_hz;
+     apll_mode_t mode = s_apll_resource.mode;
+     if (same_frequency) {
+@@ -140,10 +140,10 @@
+         ret = ESP_OK;
+     }
+     if (ret == ESP_OK && !same_frequency) {
+-        atomic_store(&s_apll_resource.configured_freq_hz, resolved_freq_hz);
++        atomic_set(&s_apll_resource.configured_freq_hz, resolved_freq_hz);
+     }
+-    uint32_t actual_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
+-    _lock_release(&s_periph_apll_mutex);
++    uint32_t actual_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
++    k_mutex_unlock(&s_periph_apll_mutex);
+ 
+     if (real_freq_hz) {
+         *real_freq_hz = actual_freq_hz;
+@@ -154,8 +154,8 @@
+ 
+ bool esp_clk_tree_apll_is_power_on(void)
+ {
+-    _lock_acquire(&s_periph_apll_mutex);
++    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
+     bool on = s_apll_resource.ref_cnt > 0;
+-    _lock_release(&s_periph_apll_mutex);
++    k_mutex_unlock(&s_periph_apll_mutex);
+     return on;
+ }
 --- a/components/esp_hw_support/port/esp_clk_tree_common.c
 +++ b/components/esp_hw_support/port/esp_clk_tree_common.c
 @@ -6,7 +6,6 @@
@@ -6457,7 +4629,7 @@
  /* Number of cycles for ~32kHz clocks calibration (rc_fast_d256, xtal32k, osc_slow, rc32k) */
  #define DEFAULT_32K_CLK_CAL_CYCLES  100
  /* Number of cycles for RC_FAST calibration */
-@@ -193,19 +192,19 @@
+@@ -232,19 +231,19 @@
          return esp_clk_tree_rc_fast_get_freq_hz(precision) / clk_ll_rc_fast_get_divider();
  #if SOC_CLK_LP_FAST_SUPPORT_LP_PLL
      case SOC_RTC_FAST_CLK_SRC_LP_PLL:
@@ -6481,17 +4653,8 @@
  #endif
      default:
          // Invalid clock source
-@@ -216,7 +215,7 @@
- 
- #if SOC_CLK_APLL_SUPPORTED
- // Current APLL frequency, in HZ. Zero if APLL is not enabled.
--static portMUX_TYPE __attribute__((unused)) s_periph_apll_spinlock = portMUX_INITIALIZER_UNLOCKED;
-+static esp_os_spinlock_t __attribute__((unused)) s_periph_apll_spinlock = ESP_OS_SPINLOCK_INIT;
- static uint32_t s_cur_apll_freq_hz = 0;
- static int s_apll_ref_cnt = 0;
- 
-@@ -313,17 +312,22 @@
- #endif /* SOC_CLK_APLL_SUPPORTED */
+@@ -254,17 +253,22 @@
+ }
  
  #if SOC_CLK_MPLL_SUPPORTED
 -static portMUX_TYPE __attribute__((unused)) s_periph_mpll_spinlock = portMUX_INITIALIZER_UNLOCKED;
@@ -6516,7 +4679,7 @@
      if (s_ldo_chan == NULL) {
          esp_ldo_channel_config_t ldo_mpll_config = {
              .chan_id = CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN,
-@@ -356,7 +360,7 @@
+@@ -298,7 +302,7 @@
      }
      esp_os_exit_critical(&s_periph_mpll_spinlock);
  
@@ -6525,7 +4688,7 @@
      if (release_ldo && s_ldo_chan) {
          esp_ldo_release_channel(s_ldo_chan);
          s_ldo_chan = NULL;
-@@ -379,8 +383,8 @@
+@@ -321,8 +325,8 @@
       * But when more than one peripheral refers MPLL, its frequency is not allowed to change once it is set */
      if (s_cur_mpll_freq_hz == 0 || s_mpll_ref_cnt < 2) {
          uint32_t xtal_freq_mhz = clk_hal_xtal_get_freq_mhz();
@@ -6536,7 +4699,7 @@
      } else {
          ret = ESP_ERR_INVALID_STATE;
      }
-@@ -419,7 +423,7 @@
+@@ -361,7 +365,7 @@
   *   request must match the currently applied (upstream / divider) value;
   *   otherwise return ESP_ERR_INVALID_STATE and report the active frequency.
   * ------------------------------------------------------------------------- */
@@ -6545,98 +4708,6 @@
  
  __attribute__((weak)) const esp_clk_tree_derived_clk_desc_t *
  esp_clk_tree_get_derived_clk_desc(soc_module_clk_t clk_src)
---- a/components/esp_hw_support/port/regdma_link.c
-+++ b/components/esp_hw_support/port/regdma_link.c
-@@ -38,7 +38,7 @@
-         memset(link, 0, buff ? sizeof(regdma_link_continuous_t) : (sizeof(regdma_link_continuous_t) + (len<<2)));
-         void *buf = buff ? buff : (void *)(link->buff);
-         link = regdma_link_init_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_continuous_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_continuous_t, head));
-     }
-     return NULL;
- }
-@@ -54,7 +54,7 @@
-         memset(link, 0, buff ? sizeof(regdma_link_addr_map_t) : (sizeof(regdma_link_addr_map_t) + (len<<2)));
-         void *buf = buff ? buff : (void *)(link->buff);
-         link = regdma_link_init_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_addr_map_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_addr_map_t, head));
-     }
-     return NULL;
- }
-@@ -66,7 +66,7 @@
-     if (link) {
-         memset(link, 0, sizeof(regdma_link_write_wait_t));
-         link = regdma_link_init_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
-     }
-     return NULL;
- }
-@@ -78,7 +78,7 @@
-     if (link) {
-         memset(link, 0, sizeof(regdma_link_write_wait_t));
-         link = regdma_link_init_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
-     }
-     return NULL;
- }
-@@ -94,7 +94,7 @@
-         memset(link, 0, buff ? sizeof(regdma_link_branch_continuous_t) : (sizeof(regdma_link_branch_continuous_t) + (len<<2)));
-         void *buf = buff ? buff : (void *)(link->buff);
-         link = regdma_link_init_branch_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_branch_continuous_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_branch_continuous_t, head));
-     }
-     return NULL;
- }
-@@ -110,7 +110,7 @@
-         memset(link, 0, buff ? sizeof(regdma_link_branch_addr_map_t) : (sizeof(regdma_link_branch_addr_map_t) + (len<<2)));
-         void *buf = buff ? buff : (void *)(link->buff);
-         link = regdma_link_init_branch_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_branch_addr_map_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_branch_addr_map_t, head));
-     }
-     return NULL;
- }
-@@ -122,7 +122,7 @@
-     if (link) {
-         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
-         link = regdma_link_init_branch_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
-     }
-     return NULL;
- }
-@@ -134,7 +134,7 @@
-     if (link) {
-         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
-         link = regdma_link_init_branch_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
--        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
-+        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
-     }
-     return NULL;
- }
-@@ -442,7 +442,7 @@
-     int it = (head.branch << 2) | head.mode;
-     assert(it < ARRAY_SIZE(stats_offset));
- 
--    return (regdma_link_stats_t *)(regdma_link_get_instance(link) + stats_offset[it]);
-+    return (regdma_link_stats_t *)((char *)regdma_link_get_instance(link) + stats_offset[it]);
- }
- ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-null-dereference")
- 
-@@ -480,7 +480,7 @@
-     regdma_link_stats_t *stat = regdma_link_get_stats(link);
-     stat->ref &= ~BIT(entry);
-     if (stat->ref == 0) {
--        free(regdma_link_get_instance(link));
-+        heap_caps_free(regdma_link_get_instance(link));
-     }
- }
- 
 --- a/components/esp_hw_support/regi2c_ctrl.c
 +++ b/components/esp_hw_support/regi2c_ctrl.c
 @@ -7,21 +7,21 @@
@@ -6792,7 +4863,7 @@
  #include "esp_private/sar_periph_ctrl.h"
  #include "esp_log.h"
  #include "esp_timer.h"
-@@ -19,7 +19,7 @@
+@@ -20,7 +20,7 @@
  #include "esp_private/adc_share_hw_ctrl.h"
  #include "esp_private/critical_section.h"
  
@@ -6801,7 +4872,7 @@
  
  
  /*------------------------------------------------------------------------------------------------------------
-@@ -61,11 +61,14 @@
+@@ -65,11 +65,14 @@
  {
      esp_os_enter_critical(&rtc_spinlock);
      s_temperature_sensor_power_cnt--;
@@ -6817,709 +4888,3 @@
      } else if (s_temperature_sensor_power_cnt == 0) {
          temperature_sensor_ll_enable(false);
          PERIPH_RCC_ATOMIC() {
---- a/components/esp_hw_support/sleep_console.c
-+++ b/components/esp_hw_support/sleep_console.c
-@@ -16,10 +16,6 @@
- 
- void sleep_console_usj_pad_backup_and_disable(void)
- {
--    // This function can be called in sleep process only, and sleep process code
--    // is in critical region and thread safe already, so to avoid build errors/warnings
--    // declare __DECLARE_RCC_ATOMIC_ENV here.
--    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
- 
-     s_usj_state.usj_clock_enabled = usb_serial_jtag_ll_module_is_enabled();
-     if (!s_usj_state.usj_clock_enabled) {
-@@ -37,10 +33,6 @@
- 
- void sleep_console_usj_pad_restore(void)
- {
--    // This function can be called in sleep process only, and sleep process code
--    // is in critical region and thread safe already, so to avoid build errors/warnings
--    // declare __DECLARE_RCC_ATOMIC_ENV here.
--    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
- 
-     usb_serial_jtag_ll_enable_bus_clock(true);
-     usb_serial_jtag_ll_phy_enable_pad(s_usj_state.usj_pad_enabled);
---- a/components/esp_hw_support/sleep_event.c
-+++ b/components/esp_hw_support/sleep_event.c
-@@ -6,6 +6,7 @@
- 
- #include <stddef.h>
- #include <string.h>
-+#include <zephyr/kernel.h>
- 
- #include "sdkconfig.h"
- #include "soc/soc_caps.h"
-@@ -14,19 +15,19 @@
- #include "esp_sleep.h"
- #include "esp_log.h"
- #include "esp_check.h"
--#include "freertos/FreeRTOS.h"
-+#include "esp_attr.h"
- 
- ESP_LOG_ATTR_TAG(TAG, "sleep_event");
- 
- #if CONFIG_ESP_SLEEP_EVENT_CALLBACKS
- esp_sleep_event_cbs_config_t g_sleep_event_cbs_config;
--static portMUX_TYPE s_sleep_event_mutex = portMUX_INITIALIZER_UNLOCKED;
-+static unsigned int s_sleep_event_mutex;
- 
- esp_err_t esp_sleep_register_event_callback(esp_sleep_event_cb_index_t event_id, const esp_sleep_event_cb_config_t *event_cb_conf) {
-     if (event_cb_conf == NULL || event_id >= SLEEP_EVENT_CB_INDEX_NUM) {
-         return ESP_ERR_INVALID_ARG;
-     }
--    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)heap_caps_malloc(sizeof(esp_sleep_event_cb_config_t), MALLOC_CAP_INTERNAL);
-+    esp_sleep_event_cb_config_t *new_config = (esp_sleep_event_cb_config_t *)k_malloc(sizeof(esp_sleep_event_cb_config_t));
-     if (new_config == NULL) {
-         return ESP_ERR_NO_MEM; /* Memory allocation failed */
-     }
-@@ -35,7 +36,7 @@
-     esp_sleep_event_cb_config_t **current_ptr = &(g_sleep_event_cbs_config.sleep_event_cb_config[event_id]);
-     while (*current_ptr != NULL) {
-         if (((*current_ptr)->cb) == (event_cb_conf->cb)) {
--            free(new_config);
-+            k_free(new_config);
-             esp_os_exit_critical(&s_sleep_event_mutex);
-             return ESP_FAIL;
-         }
-@@ -62,7 +63,7 @@
-         if (((*current_ptr)->cb) == cb) {
-             esp_sleep_event_cb_config_t *temp = *current_ptr;
-             *current_ptr = (*current_ptr)->next;
--            free(temp);
-+            k_free(temp);
-             break;
-         }
-         current_ptr = &((*current_ptr)->next);
---- a/components/esp_hw_support/sleep_gpio.c
-+++ b/components/esp_hw_support/sleep_gpio.c
-@@ -8,7 +8,7 @@
- #include <stdint.h>
- #include <string.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_system.h"
-@@ -119,7 +119,6 @@
- }
- #endif
- 
--#if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
- void esp_sleep_config_gpio_isolate(void)
- {
-     ESP_EARLY_LOGI(TAG, "Configure to isolate all GPIO pins in sleep state");
-@@ -192,7 +191,6 @@
-         }
-     }
- }
--#endif
- 
- #if !SOC_GPIO_SUPPORT_HOLD_SINGLE_IO_IN_DSLP || SOC_GPIO_NEED_SOFT_ISOLATE_DURING_PD
- IRAM_ATTR static void sleep_gpio_isolate_one_pin(gpio_num_t gpio_num)
---- a/components/esp_hw_support/sleep_modem.c
-+++ b/components/esp_hw_support/sleep_modem.c
-@@ -1,13 +1,13 @@
- /*
-- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
-+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
- 
- #include <stddef.h>
- #include <string.h>
--#include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/kernel.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_log.h"
- #include "esp_attr.h"
-@@ -35,7 +35,7 @@
- #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
- static bool s_modem_sleep = false;
- static uint8_t s_modem_prepare_ref = 0;
--static _lock_t s_modem_prepare_lock;
-+K_MUTEX_DEFINE(s_modem_prepare_lock);
- #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
- 
- #if CONFIG_MAC_BB_PD
-@@ -327,25 +327,24 @@
- void sleep_modem_register_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
-                                                          mac_bb_power_up_cb_t pu_cb)
- {
--    _lock_acquire(&s_modem_prepare_lock);
-+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
-     if (s_modem_prepare_ref++ == 0) {
-         esp_register_mac_bb_pd_callback(pd_cb);
-         esp_register_mac_bb_pu_callback(pu_cb);
-     }
--    _lock_release(&s_modem_prepare_lock);
-+    k_mutex_unlock(&s_modem_prepare_lock);
- }
- 
- void sleep_modem_unregister_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
-                                                            mac_bb_power_up_cb_t pu_cb)
- {
--    _lock_acquire(&s_modem_prepare_lock);
-+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
-     assert(s_modem_prepare_ref);
-     if (--s_modem_prepare_ref == 0) {
-         esp_unregister_mac_bb_pd_callback(pd_cb);
-         esp_unregister_mac_bb_pu_callback(pu_cb);
-     }
--    _lock_release(&s_modem_prepare_lock);
--
-+    k_mutex_unlock(&s_modem_prepare_lock);
- }
- 
- /**
---- a/components/esp_hw_support/sleep_modes.c
-+++ b/components/esp_hw_support/sleep_modes.c
-@@ -7,8 +7,8 @@
- #include <stddef.h>
- #include <string.h>
- #include <sys/lock.h>
--#include <sys/param.h>
- #include <inttypes.h>
-+#include <zephyr/kernel.h>
- 
- #include "esp_attr.h"
- #include "esp_rom_caps.h"
-@@ -31,8 +31,6 @@
- #include "esp_newlib.h"
- #include "esp_timer.h"
- #include "esp_ipc_isr.h"
--#include "freertos/FreeRTOS.h"
--#include "freertos/task.h"
- #include "soc/soc_caps.h"
- #include "soc/spi_pins.h"
- #include "soc/chip_revision.h"
-@@ -41,6 +39,7 @@
- #include "hal/efuse_hal.h"
- #include "hal/rtc_io_hal.h"
- #include "hal/clk_tree_hal.h"
-+#include "esp_cpu.h"
- 
- #if RNG_LL_NEEDS_RESET_WHEN_WAKEUP
- #include "hal/rng_ll.h"
-@@ -288,7 +287,7 @@
- #if SOC_PM_SUPPORT_PMU_CLK_ICG
-     int16_t clock_icg_refs[ESP_SLEEP_CLOCK_MAX];
- #endif
--    portMUX_TYPE lock;
-+    esp_os_spinlock_t lock;
-     uint64_t sleep_duration;
-     uint32_t wakeup_triggers;
- #if SOC_PM_SUPPORT_EXT1_WAKEUP
-@@ -340,7 +339,7 @@
- #if SOC_PM_SUPPORT_PMU_CLK_ICG
-     .clock_icg_refs[0 ... ESP_SLEEP_CLOCK_MAX - 1] = 0,
- #endif
--    .lock = portMUX_INITIALIZER_UNLOCKED,
-+    .lock = ESP_OS_SPINLOCK_INIT,
-     .ccount_ticks_record = 0,
-     .sleep_time_overhead_out = DEFAULT_SLEEP_OUT_OVERHEAD_US,
-     .wakeup_triggers = 0,
-@@ -353,7 +352,7 @@
- 
- /* Updating RTC_MEMORY_CRC_REG register via set_rtc_memory_crc()
-    is not thread-safe, so we need to disable interrupts before going to deep sleep. */
--static portMUX_TYPE __attribute__((unused)) spinlock_rtc_deep_sleep = portMUX_INITIALIZER_UNLOCKED;
-+static esp_os_spinlock_t __attribute__((unused)) spinlock_rtc_deep_sleep = ESP_OS_SPINLOCK_INIT;
- 
- ESP_LOG_ATTR_TAG(TAG, "sleep");
- 
-@@ -361,7 +360,7 @@
-    RTC_SLOW_ATTR is for ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE only, For other submodules, there is
-    no logical error if the ref_cnt is stored in DRAM. and ESP_SLEEP_USE_ADC_TSEN_MONITOR_MODE
-    will only be used on chips that support RTC_MEM */
--#if SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED
-+#if (SOC_RTC_FAST_MEM_SUPPORTED || SOC_RTC_SLOW_MEM_SUPPORTED)
- RTC_SLOW_ATTR
- #endif
- static int32_t s_sleep_sub_mode_ref_cnt[ESP_SLEEP_MODE_MAX] = { 0 };
-@@ -487,12 +486,12 @@
- void esp_default_wake_deep_sleep(void)
- {
-     /* Clear MMU for CPU 0 */
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     _DPORT_REG_WRITE(DPORT_PRO_CACHE_CTRL1_REG,
-                      _DPORT_REG_READ(DPORT_PRO_CACHE_CTRL1_REG) | DPORT_PRO_CACHE_MMU_IA_CLR);
-     _DPORT_REG_WRITE(DPORT_PRO_CACHE_CTRL1_REG,
-                      _DPORT_REG_READ(DPORT_PRO_CACHE_CTRL1_REG) & (~DPORT_PRO_CACHE_MMU_IA_CLR));
--#if CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY > 0
-+#if CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY > 0
-     // ROM code has not started yet, so we need to set delay factor
-     // used by esp_rom_delay_us first.
-     ets_update_cpu_frequency_rom(ets_get_detected_xtal_freq() / 1000000);
-@@ -501,7 +500,7 @@
-     // it can be used to give the flash chip some extra time to become ready.
-     // For later chips, we have EFUSE_FLASH_TPUW field to configure it and do
-     // this delay in the ROM.
--    esp_rom_delay_us(CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY);
-+    esp_rom_delay_us(CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY);
- #endif
- #elif CONFIG_IDF_TARGET_ESP32S2
-     REG_SET_BIT(EXTMEM_CACHE_DBG_INT_ENA_REG, EXTMEM_CACHE_DBG_EN);
-@@ -677,7 +676,7 @@
- #if CONFIG_MAC_BB_PD
-         mac_bb_power_down_cb_execute();
- #endif
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     esp_sleep_gpio_pupd_config_workaround_apply();
- #endif
- #if CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP && SOC_PM_CPU_RETENTION_BY_RTCCNTL
-@@ -743,7 +742,7 @@
- #if CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP && SOC_PM_CPU_RETENTION_BY_RTCCNTL
-     sleep_disable_cpu_retention();
- #endif
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     esp_sleep_gpio_pupd_config_workaround_unapply();
- #endif
- #if CONFIG_MAC_BB_PD
-@@ -808,7 +807,7 @@
-         s_config.rtc_clk_cal_period = rtc_clk_cal(CLK_CAL_RTC_SLOW, RTC_CLK_SRC_CAL_CYCLES);
-         esp_clk_slowclk_cal_set(s_config.rtc_clk_cal_period);
-     }
--#elif CONFIG_RTC_CLK_SRC_INT_RC && CONFIG_IDF_TARGET_ESP32S2
-+#elif CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_RC && CONFIG_IDF_TARGET_ESP32S2
-     s_config.rtc_clk_cal_period = rtc_clk_cal_cycling(CLK_CAL_RTC_SLOW, RTC_CLK_SRC_CAL_CYCLES);
-     esp_clk_slowclk_cal_set(s_config.rtc_clk_cal_period);
- #else
-@@ -942,7 +941,7 @@
-         } else
- #endif
-         {
--#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-+#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-             // Skip smp retention if CPU power domain power-down is not allowed
-             esp_sleep_cpu_skip_retention();
- #endif
-@@ -1061,9 +1060,9 @@
-     rtc_clk_cpu_freq_get_config(&cpu_freq_config);
-     rtc_clk_cpu_freq_set_xtal_for_sleep();
- 
--#if CONFIG_ULP_COPROC_ENABLED
-+#if CONFIG_ESP32_ULP_COPROC_ENABLED
-     // Enable ULP wakeup
--#if CONFIG_ULP_COPROC_TYPE_FSM
-+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
-     if (s_config.wakeup_triggers & RTC_ULP_TRIG_EN) {
- #ifdef CONFIG_IDF_TARGET_ESP32
-         rtc_hal_ulp_wakeup_enable();
-@@ -1072,18 +1071,18 @@
- #endif
-     }
- #endif
--#if CONFIG_ULP_COPROC_TYPE_RISCV
-+#if CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
-     if (s_config.wakeup_triggers & (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN)) {
-         rtc_hal_ulp_int_clear();
-     }
- #endif
--#if CONFIG_ULP_COPROC_TYPE_LP_CORE
-+#if CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
-     if (s_config.wakeup_triggers & (RTC_LP_CORE_TRIG_EN | RTC_LP_CORE_TRAP_TRIG_EN)) {
-         pmu_ll_hp_clear_sw_intr_status(&PMU);
-         pmu_ll_hp_clear_lp_cpu_exc_intr_status(&PMU);
-     }
- #endif
--#endif // CONFIG_ULP_COPROC_ENABLED
-+#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
- 
-     misc_modules_sleep_prepare(sleep_flags, deep_sleep);
- 
-@@ -1168,7 +1167,7 @@
- 
-     if (should_skip_sleep) {
-         result = ESP_ERR_SLEEP_REJECT;
--#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && !CONFIG_FREERTOS_UNICORE && SOC_PM_CPU_RETENTION_BY_SW
-+#if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && CONFIG_SMP && SOC_PM_CPU_RETENTION_BY_SW
-         esp_sleep_cpu_skip_retention();
- #endif
-     } else {
-@@ -1251,8 +1250,8 @@
-     // Must acquire all spinlocks which may be acquired during sleep process before stalling other core,
-     // otherwise deadlock may occur.
-     esp_os_enter_critical(&spinlock_rtc_deep_sleep);
--#if !CONFIG_FREERTOS_UNICORE
--    extern portMUX_TYPE rtc_spinlock;
-+#if CONFIG_SMP
-+    extern esp_os_spinlock_t rtc_spinlock;
-     esp_os_enter_critical_safe(&rtc_spinlock); // Maybe acquired from temp_sensor_get_raw_value by phy_close_rf callback
-     esp_clk_private_lock(); // Maybe acquired from esp_clk_slowclk_cal_set
- #endif
-@@ -1291,11 +1290,10 @@
- #if SOC_RTC_WDT_SUPPORTED
-     wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
-     bool rtc_wdt_was_enabled = wdt_hal_is_enabled(&rtc_wdt_ctx);    // If WDT was enabled in the user code, then do not change it here.
--    if (!rtc_wdt_was_enabled) {
--        sleep_rtc_wdt_prepare(true);
--    } else {
--        ESP_EARLY_LOGW(TAG, "RTC WDT is enabled and will not be reconfigured again!");
-+    if (rtc_wdt_was_enabled) {
-+        sleep_rtc_wdt_prepare(false);
-     }
-+    rtc_wdt_was_enabled = false;
- #endif /* SOC_RTC_WDT_SUPPORTED */
- 
- #if SOC_PMU_SUPPORTED
-@@ -1356,7 +1354,7 @@
- #endif
-     esp_ipc_isr_stall_resume();
-     esp_ipc_isr_release_other_cpu();
--#if !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_SMP
-     esp_clk_private_unlock();
-     esp_os_exit_critical_safe(&rtc_spinlock);
- #endif
-@@ -1408,7 +1406,7 @@
- #if SOC_PM_SUPPORT_TOP_PD
-         if (sleep_flags & PMU_SLEEP_PD_TOP) {
-             uint32_t flash_ready_hw_waited_time_us = pmu_sleep_get_wakup_retention_cost();
--            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ);
-+            uint32_t flash_ready_sw_waited_time_us = (esp_cpu_get_cycle_count() - s_config.ccount_ticks_record) / (esp_clk_cpu_freq() / MHZ(1));
-             uint32_t flash_ready_waited_time_us = flash_ready_hw_waited_time_us + flash_ready_sw_waited_time_us;
-             if (flash_enable_time_us > flash_ready_waited_time_us){
-                 flash_enable_time_us -= flash_ready_waited_time_us;
-@@ -1495,7 +1493,7 @@
-     }
- #endif
- 
--#if !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_SMP
- #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-     sleep_smp_cpu_sleep_prepare();
- #else
-@@ -1538,7 +1536,7 @@
-     // Re-calibrate the RTC clock
-     sleep_low_power_clock_calibration(false);
- 
--    uint32_t cur_cpu_freq = esp_clk_cpu_freq() / MHZ;
-+    uint32_t cur_cpu_freq = esp_clk_cpu_freq() / MHZ(1);
-     uint32_t xtal_freq = rtc_clk_xtal_freq_get();
-     if (s_config.overhead_out_need_remeasure) {
-         if (cur_cpu_freq < xtal_freq) {
-@@ -1570,17 +1568,15 @@
- #endif
-     int sleep_time_hw_adjustment = pmu_sleep_calculate_hw_wait_time(sleep_flags, rtc_clk_slow_src_get(), s_config.rtc_clk_cal_period, s_config.fast_clk_cal_period);
-     s_config.sleep_time_adjustment = sleep_time_sw_adjustment + sleep_time_hw_adjustment;
--    const int64_t min_sleep_duration_us = ((pmu_sleep_machine_constant_t *)PMU_instance()->mc)->lp.min_slp_time_us;
--#else // RTC_CNTL supported
-+#else
-     uint32_t rtc_cntl_xtl_buf_wait_slp_cycles = rtc_time_us_to_slowclk(RTC_CNTL_XTL_BUF_WAIT_SLP_US, s_config.rtc_clk_cal_period);
-     s_config.sleep_time_adjustment = LIGHT_SLEEP_TIME_OVERHEAD_US + sleep_time_overhead_in + s_config.sleep_time_overhead_out
-                                      + rtc_time_slowclk_to_us(rtc_cntl_xtl_buf_wait_slp_cycles + RTC_CNTL_CK8M_WAIT_SLP_CYCLES + RTC_CNTL_WAKEUP_DELAY_CYCLES, s_config.rtc_clk_cal_period);
--    const int64_t min_sleep_duration_us = rtc_time_slowclk_to_us(RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
- #endif
- 
-     // Decide if VDD_SDIO needs to be powered down;
-     // If it needs to be powered down, adjust sleep time.
--    const uint32_t flash_enable_time_us = ESP_SLEEP_WAIT_FLASH_READY_DEFAULT_DELAY_US + CONFIG_ESP_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY;
-+    const uint32_t flash_enable_time_us = ESP_SLEEP_WAIT_FLASH_READY_DEFAULT_DELAY_US + CONFIG_SOC_FAMILY_ESPRESSIF_SLEEP_WAIT_FLASH_READY_EXTRA_DELAY;
- 
-     /**
-      * If VDD_SDIO power domain is requested to be turned off, bit `RTC_SLEEP_PD_VDDSDIO`
-@@ -1601,11 +1597,7 @@
-         *    min_protect(2);
-         * 4. All the adjustment time which is s_config.sleep_time_adjustment below.
-         */
--#if SOC_PMU_SUPPORTED
--        uint32_t rtc_slowclk_us = rtc_time_slowclk_to_us(RTC_MODULE_SLEEP_PREPARE_CYCLES, s_config.rtc_clk_cal_period) + min_sleep_duration_us;
--#else
-         uint32_t rtc_slowclk_us = rtc_time_slowclk_to_us(RTC_MODULE_SLEEP_PREPARE_CYCLES + RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
--#endif
-         const uint32_t vddsdio_pd_sleep_duration = MAX(FLASH_PD_MIN_SLEEP_TIME_US,
-                         flash_enable_time_us + s_config.sleep_time_adjustment + rtc_slowclk_us);
- 
-@@ -1656,12 +1648,13 @@
-     if (!rtc_wdt_was_enabled) {
-         sleep_rtc_wdt_prepare(true);
-     } else {
--        ESP_EARLY_LOGW(TAG, "RTC WDT is enabled and will not be reconfigured again!");
-+        ESP_EARLY_LOGD(TAG, "RTC WDT is enabled and will not be reconfigured again!");
-     }
- #endif /* SOC_RTC_WDT_SUPPORTED */
- 
-     esp_err_t err = ESP_OK;
-     int64_t final_sleep_duration_us = (int64_t)s_config.sleep_duration - (int64_t)s_config.sleep_time_adjustment;
-+    int64_t min_sleep_duration_us = rtc_time_slowclk_to_us(RTC_CNTL_MIN_SLP_VAL_MIN, s_config.rtc_clk_cal_period);
- 
-     // reset light sleep wakeup flag before a new light sleep
-     s_light_sleep_wakeup = false;
-@@ -1704,7 +1697,7 @@
-         }
-         esp_set_time_from_rtc();
-     } else {
--#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-+#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-         esp_sleep_cpu_skip_retention();
- #endif
-     }
-@@ -1727,7 +1720,7 @@
-     }
- #endif
- 
--#if !CONFIG_FREERTOS_UNICORE
-+#if CONFIG_SMP
-     esp_ipc_isr_stall_resume();
- #if CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU && SOC_PM_CPU_RETENTION_BY_SW
-     sleep_smp_cpu_wakeup_prepare();
-@@ -1819,7 +1812,7 @@
-     } else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_UART4, RTC_UART4_TRIG_EN)) {
-         s_config.wakeup_triggers &= ~RTC_UART4_TRIG_EN;
- #endif
--#if CONFIG_ULP_COPROC_TYPE_FSM
-+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM
-     } else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_ULP, RTC_ULP_TRIG_EN)) {
-         s_config.wakeup_triggers &= ~RTC_ULP_TRIG_EN;
- #endif
-@@ -1840,10 +1833,10 @@
- 
- esp_err_t esp_sleep_enable_ulp_wakeup(void)
- {
--#ifndef CONFIG_ULP_COPROC_ENABLED
-+#ifndef CONFIG_ESP32_ULP_COPROC_ENABLED
-     return ESP_ERR_INVALID_STATE;
--#endif // CONFIG_ULP_COPROC_ENABLED
--#if CONFIG_IDF_TARGET_ESP32
-+#endif // CONFIG_ESP32_ULP_COPROC_ENABLED
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
- #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
-     ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
-     return ESP_ERR_NOT_SUPPORTED;
-@@ -1854,17 +1847,17 @@
-     }
- #endif //CONFIG_IDF_TARGET_ESP32
- 
--#if CONFIG_ULP_COPROC_TYPE_FSM && CONFIG_ULP_COPROC_TYPE_RISCV
-+#if CONFIG_ESP32_ULP_COPROC_TYPE_FSM && CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
-     s_config.wakeup_triggers |= (RTC_ULP_TRIG_EN | RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
-     return ESP_OK;
--#elif CONFIG_ULP_COPROC_TYPE_FSM
-+#elif CONFIG_ESP32_ULP_COPROC_TYPE_FSM
-     s_config.wakeup_triggers |= RTC_ULP_TRIG_EN;
-     return ESP_OK;
--#elif CONFIG_ULP_COPROC_TYPE_RISCV
-+#elif CONFIG_ESP32_ULP_COPROC_TYPE_RISCV
-     s_config.wakeup_triggers |= (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
-     return ESP_OK;
--#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
--    #if CONFIG_ULP_TRAP_WAKEUP
-+#elif CONFIG_ESP32_ULP_COPROC_TYPE_LP_CORE
-+    #if CONFIG_ESP32_ULP_TRAP_WAKEUP
-         s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN | RTC_LP_CORE_TRAP_TRIG_EN;
-     #else
-         s_config.wakeup_triggers |= RTC_LP_CORE_TRIG_EN;
-@@ -1872,7 +1865,7 @@
-     return ESP_OK;
- #else
-     return ESP_ERR_NOT_SUPPORTED;
--#endif //CONFIG_ULP_COPROC_TYPE_FSM
-+#endif //CONFIG_ESP32_ULP_COPROC_TYPE_FSM
- }
- 
- esp_err_t esp_sleep_enable_timer_wakeup(uint64_t time_in_us)
-@@ -1880,7 +1873,7 @@
- #if CONFIG_SOC_CLK_TREE_SUPPORTED
-     uint32_t lp_slow_freq_hz = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_APPROX);
-     assert(lp_slow_freq_hz);
--    if (time_in_us > ((BIT64(SOC_LP_TIMER_BIT_WIDTH_LO + SOC_LP_TIMER_BIT_WIDTH_HI) - 1) / lp_slow_freq_hz) * MHZ ) {
-+    if (time_in_us > ((BIT64(SOC_LP_TIMER_BIT_WIDTH_LO + SOC_LP_TIMER_BIT_WIDTH_HI) - 1) / lp_slow_freq_hz) * MHZ(1) ) {
-         return ESP_ERR_INVALID_ARG;
-     }
- #endif
-@@ -1993,7 +1986,7 @@
- 
- esp_err_t esp_sleep_enable_touchpad_wakeup(void)
- {
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
- #if ((defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) || (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT_V2))
-     ESP_LOGE(TAG, "Failed to enable wakeup when provide current to external 32kHz crystal");
-     return ESP_ERR_NOT_SUPPORTED;
-@@ -2044,7 +2037,7 @@
-     if (!esp_sleep_is_valid_wakeup_gpio(gpio_num)) {
-         return ESP_ERR_INVALID_ARG;
-     }
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
-         ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
-         return ESP_ERR_INVALID_STATE;
-@@ -2061,8 +2054,6 @@
- {
-     int rtc_gpio_num = s_config.ext0_rtc_gpio_num;
- #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
--    // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
--    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
-     rtcio_ll_enable_io_clock(true);
- #endif
-     rtcio_hal_ext0_set_wakeup_pin(rtc_gpio_num, s_config.ext0_trigger_level);
-@@ -2197,8 +2188,6 @@
-             continue;
-         }
- #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
--        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
--        int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
-         rtcio_ll_enable_io_clock(true);
- #endif
- #if SOC_RTCIO_INPUT_OUTPUT_SUPPORTED
-@@ -2274,8 +2263,6 @@
-     while (valid_wake_io_mask) {
-         int gpio_idx = __builtin_ctzll(valid_wake_io_mask);
- #if SOC_LP_IO_CLOCK_IS_INDEPENDENT
--        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
--        int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
-         rtcio_ll_enable_io_clock(true);
- #endif
-         __attribute__ ((unused)) gpio_int_type_t intr_type = (gpio_int_type_t)s_config.gpio_trigger_mode[gpio_idx];
-@@ -2353,7 +2340,7 @@
- #if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
-     ESP_LOGW(TAG, "%s wakeup source is not available if the peripheral power domain is powered down in sleep", "GPIO");
- #endif
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
-         ESP_LOGE(TAG, "Conflicting wake-up triggers: touch / ULP");
-         return ESP_ERR_INVALID_STATE;
-@@ -2854,7 +2841,7 @@
-         if (s_config.wakeup_triggers & (RTC_EXT0_TRIG_EN | RTC_GPIO_TRIG_EN)) {
-             s_config.domain[ESP_PD_DOMAIN_RTC_PERIPH].pd_option = ESP_PD_OPTION_ON;
-         }
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-         else if (s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) {
-             // On ESP32, forcing power up of RTC_PERIPH
-             // prevents ULP timer and touch FSMs from working correctly.
-@@ -2965,7 +2952,7 @@
-     }
- #endif
- 
--#if ((defined CONFIG_RTC_CLK_SRC_EXT_CRYS) && (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) && (SOC_PM_SUPPORT_RTC_PERIPH_PD))
-+#if ((defined CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS) && (defined CONFIG_RTC_EXT_CRYST_ADDIT_CURRENT) && (SOC_PM_SUPPORT_RTC_PERIPH_PD))
-     if ((s_config.wakeup_triggers & (RTC_TOUCH_TRIG_EN | RTC_ULP_TRIG_EN)) == 0) {
-         // If enabled EXT1 only and enable the additional current by touch, should be keep RTC_PERIPH power on.
-         pd_flags &= ~RTC_SLEEP_PD_RTC_PERIPH;
-@@ -3056,7 +3043,7 @@
-     }
- #endif
- 
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
-     if (s_sleep_sub_mode_ref_cnt[ESP_SLEEP_ANALOG_LOW_POWER_MODE]) {
-         sleep_flags |= RTC_SLEEP_WITH_LOWPOWER_ANALOG;
-     }
-@@ -3076,6 +3063,13 @@
-     }
- #endif
- 
-+#if SOC_RTC_WDT_SUPPORTED
-+    wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
-+    if (wdt_hal_is_enabled(&rtc_wdt_ctx) && !rwdt_ll_get_pause_in_sleep_en(rtc_wdt_ctx.rwdt_dev)) {
-+        sleep_flags |= RTC_SLEEP_USE_RTC_WDT;
-+    }
-+#endif
-+
- #if CONFIG_IDF_TARGET_ESP32P4
-     /* Due to esp32p4 eco0 hardware bug, if LP peripheral power domain is powerdowned in sleep, there will be a possibility of
-        triggering the EFUSE_CRC reset, so disable the power-down of this power domain on lightsleep for ECO0 version. */
-@@ -3167,7 +3161,7 @@
-     rtc_suppress_rom_log();
- }
- 
--#if CONFIG_IDF_TARGET_ESP32
-+#if CONFIG_IDF_TARGET_ESP32 && !defined(__ZEPHYR__)
- void esp_sleep_enable_lowpower_analog_mode(bool enable)
- {
-     esp_sleep_sub_mode_config(ESP_SLEEP_ANALOG_LOW_POWER_MODE, enable);
---- a/components/esp_hw_support/sleep_retention.c
-+++ b/components/esp_hw_support/sleep_retention.c
-@@ -5,9 +5,26 @@
-  */
- 
- #include <stddef.h>
-+#include <stdio.h>
- #include <string.h>
--#include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/kernel.h>
-+
-+/* Zephyr lock compatibility */
-+typedef struct k_mutex *_lock_t;
-+static struct k_mutex _retention_mutex;
-+static bool _retention_mutex_init = false;
-+#define _lock_init_recursive(lock) do { \
-+    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
-+    *(lock) = &_retention_mutex; \
-+} while(0)
-+#define _lock_close_recursive(lock) do { \
-+    *(lock) = NULL; \
-+} while(0)
-+#define _lock_acquire_recursive(lock) do { \
-+    if (!_retention_mutex_init) { k_mutex_init(&_retention_mutex); _retention_mutex_init = true; } \
-+    k_mutex_lock(&_retention_mutex, K_FOREVER); \
-+} while(0)
-+#define _lock_release_recursive(lock) k_mutex_unlock(&_retention_mutex)
- 
- #include "esp_err.h"
- #include "esp_attr.h"
-@@ -448,7 +465,9 @@
-             }
-         }
-     }
-+#if !defined(__ZEPHYR__) || defined(CONFIG_PICOLIBC)
-     fflush(out);
-+#endif
-     _lock_release_recursive(&s_retention.lock);
- }
- 
-@@ -1006,7 +1025,6 @@
- 
-     if (do_lock_release) {
-         _lock_close_recursive(&s_retention.lock);
--        s_retention.lock = NULL;
-     }
-     return err;
- }
---- a/components/esp_hw_support/sleep_system_peripheral.c
-+++ b/components/esp_hw_support/sleep_system_peripheral.c
-@@ -167,8 +167,7 @@
-     return err;
- }
- 
--#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
--ESP_SYSTEM_INIT_FN(sleep_sys_periph_startup_init, SECONDARY, BIT(0), 107)
-+esp_err_t sleep_sys_periph_startup_init(void)
- {
-     sleep_retention_module_init_param_t init_param = {
-         .cbs = { .create = { .handle = sleep_sys_periph_retention_init, .arg = NULL } },
-@@ -188,9 +187,8 @@
-             }
-         }
-     }
--    return ESP_OK;
-+    return err;
- }
--#endif
- 
- /**
-  * @brief Dummy function used to force linking this file.
---- a/components/esp_hw_support/sleep_wake_stub.c
-+++ b/components/esp_hw_support/sleep_wake_stub.c
-@@ -7,7 +7,7 @@
- #include <stddef.h>
- #include <string.h>
- #include <sys/lock.h>
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- 
- #include "esp_attr.h"
- #include "esp_sleep.h"

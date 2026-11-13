@@ -1,38 +1,35 @@
 --- a/components/esp_adc/adc_cali.c
 +++ b/components/esp_adc/adc_cali.c
-@@ -5,7 +5,6 @@
-  */
+@@ -62,7 +62,7 @@
+         return ret;
+     }
+     handle->ctx = NULL;
+-    free(handle);
++    heap_caps_free(handle);
  
- #include <string.h>
--#include <sys/cdefs.h>
- #include "esp_types.h"
- #include "sdkconfig.h"
- #include "esp_err.h"
+     return ESP_OK;
+ }
 --- a/components/esp_adc/adc_cali_curve_fitting.c
 +++ b/components/esp_adc/adc_cali_curve_fitting.c
-@@ -106,7 +106,7 @@
+@@ -97,7 +97,7 @@
  
- err:
-     if (scheme) {
--        free(scheme);
-+        heap_caps_free(scheme);
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
      }
      return ret;
  }
-@@ -115,10 +115,10 @@
+@@ -110,7 +110,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
  {
-     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
- 
--    free(handle->ctx);
-+    heap_caps_free(handle->ctx);
-     handle->ctx = NULL;
- 
--    free(handle);
-+    heap_caps_free(handle);
-     handle = NULL;
- 
+-    free(arg);
++    heap_caps_free(arg);
      return ESP_OK;
-@@ -187,11 +187,17 @@
+ }
+ 
+@@ -176,11 +176,17 @@
          return 0;
      }
  
@@ -54,7 +51,7 @@
  
 --- a/components/esp_adc/adc_common.c
 +++ b/components/esp_adc/adc_common.c
-@@ -56,7 +56,7 @@
+@@ -58,7 +58,7 @@
  /*---------------------------------------------------------------
              ADC Hardware Calibration
  ---------------------------------------------------------------*/
@@ -68,70 +65,58 @@
 @@ -206,7 +206,7 @@
  
  err:
-     if (scheme) {
--        free(scheme);
-+        heap_caps_free(scheme);
+     if (chars) {
+-        free(chars);
++        heap_caps_free(chars);
      }
      return ret;
  }
-@@ -230,10 +230,10 @@
+@@ -234,7 +234,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
  {
-     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
- 
--    free(handle->ctx);
-+    heap_caps_free(handle->ctx);
-     handle->ctx = NULL;
- 
--    free(handle);
-+    heap_caps_free(handle);
-     handle = NULL;
- 
+-    free(arg);
++    heap_caps_free(arg);
      return ESP_OK;
+ }
+ 
 --- a/components/esp_adc/esp32c2/adc_cali_line_fitting.c
 +++ b/components/esp_adc/esp32c2/adc_cali_line_fitting.c
-@@ -87,7 +87,7 @@
+@@ -78,7 +78,7 @@
  
- err:
-     if (scheme) {
--        free(scheme);
-+        heap_caps_free(scheme);
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
      }
      return ret;
  }
-@@ -96,10 +96,10 @@
+@@ -91,7 +91,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
  {
-     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
- 
--    free(handle->ctx);
-+    heap_caps_free(handle->ctx);
-     handle->ctx = NULL;
- 
--    free(handle);
-+    heap_caps_free(handle);
-     handle = NULL;
- 
+-    free(arg);
++    heap_caps_free(arg);
      return ESP_OK;
+ }
+ 
 --- a/components/esp_adc/esp32s2/adc_cali_line_fitting.c
 +++ b/components/esp_adc/esp32s2/adc_cali_line_fitting.c
-@@ -121,7 +121,7 @@
+@@ -109,7 +109,7 @@
  
- err:
-     if (scheme) {
--        free(scheme);
-+        heap_caps_free(scheme);
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
      }
      return ret;
  }
-@@ -130,10 +130,10 @@
+@@ -122,7 +122,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
  {
-     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
- 
--    free(handle->ctx);
-+    heap_caps_free(handle->ctx);
-     handle->ctx = NULL;
- 
--    free(handle);
-+    heap_caps_free(handle);
-     handle = NULL;
- 
+-    free(arg);
++    heap_caps_free(arg);
      return ESP_OK;
+ }
+ 

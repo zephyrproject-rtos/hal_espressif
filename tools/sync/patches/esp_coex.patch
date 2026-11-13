@@ -522,7 +522,7 @@
  void *esp_coex_common_spin_lock_create_wrapper(void)
  {
 -    portMUX_TYPE tmp = portMUX_INITIALIZER_UNLOCKED;
--    void *mux = malloc(sizeof(portMUX_TYPE));
+-    void *mux = heap_caps_malloc(sizeof(portMUX_TYPE), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
 -
 -    if (mux) {
 -        memcpy(mux, &tmp, sizeof(portMUX_TYPE));
@@ -764,7 +764,7 @@
  void *esp_coex_common_spin_lock_create_wrapper(void)
  {
 -    portMUX_TYPE tmp = portMUX_INITIALIZER_UNLOCKED;
--    void *mux = malloc(sizeof(portMUX_TYPE));
+-    void *mux = heap_caps_malloc(sizeof(portMUX_TYPE), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
 -
 -    if (mux) {
 -        memcpy(mux, &tmp, sizeof(portMUX_TYPE));
@@ -1169,10 +1169,10 @@
 +    return k_is_in_isr();
 +}
 +
- coex_adapter_funcs_t g_coex_adapter_funcs = {
-     ._version = COEX_ADAPTER_VERSION,
-     ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
-@@ -166,9 +213,9 @@
+ extern int ieee802154_intr_disable(void) __attribute__((weak));
+ extern int ieee802154_intr_enable(void) __attribute__((weak));
+ 
+@@ -185,9 +232,9 @@
      ._semphr_give_from_isr = esp_coex_semphr_give_from_isr_wrapper,
      ._semphr_take = esp_coex_common_semphr_take_wrapper,
      ._semphr_give = esp_coex_common_semphr_give_wrapper,
@@ -1185,8 +1185,8 @@
      ._esp_timer_get_time = esp_timer_get_time,
      ._env_is_chip = esp_coex_common_env_is_chip_wrapper,
      ._timer_disarm = esp_coex_common_timer_disarm_wrapper,
-@@ -179,3 +226,14 @@
-     ._xtal_freq_get = esp_coex_common_xtal_freq_get_wrapper,
+@@ -200,3 +247,14 @@
+     ._ieee802154_intr_enable = esp_coex_ieee802154_intr_enable_wrapper,
      ._magic = COEX_ADAPTER_MAGIC,
  };
 +
@@ -1272,7 +1272,7 @@
 -    void *mux = heap_caps_malloc(sizeof(portMUX_TYPE), MALLOC_CAP_8BIT|MALLOC_CAP_INTERNAL);
 -
 -    if (mux) {
--        memcpy(mux,&tmp,sizeof(portMUX_TYPE));
+-        memcpy(mux, &tmp, sizeof(portMUX_TYPE));
 -        return mux;
 +    unsigned int *wifi_spin_lock = (unsigned int *)wifi_malloc(sizeof(unsigned int));
 +    if (wifi_spin_lock == NULL) {

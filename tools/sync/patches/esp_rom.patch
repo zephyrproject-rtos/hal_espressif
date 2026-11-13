@@ -366,7 +366,7 @@
      UNDER_WRITE,
 --- a/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
 +++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
-@@ -143,12 +143,12 @@
+@@ -146,12 +146,12 @@
  phy_set_freq = 0x400011c8;
  phy_write_pll_cap = 0x400011cc;
  phy_read_pll_cap = 0x400011d0;
@@ -381,7 +381,7 @@
  phy_rfpll_cap_track = 0x400011ec;
  phy_txpwr_correct = 0x400011f4;
  phy_txpwr_cal_track = 0x400011f8;
-@@ -288,7 +288,7 @@
+@@ -291,7 +291,7 @@
  phy_spur_cal = 0x40001434;
  phy_spur_coef_cfg = 0x40001438;
  phy_bb_gain_index = 0x4000143c;

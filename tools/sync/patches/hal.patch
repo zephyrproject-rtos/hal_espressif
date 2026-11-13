@@ -1,14 +1,3 @@
---- a/components/hal/cache_hal.c
-+++ b/components/hal/cache_hal.c
-@@ -3,7 +3,7 @@
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <stdint.h>
- #include <stdbool.h>
- #include "esp_err.h"
 --- a/components/hal/efuse_hal.c
 +++ b/components/hal/efuse_hal.c
 @@ -4,7 +4,7 @@
@@ -75,16 +64,6 @@
  #include "soc/soc_caps.h"
  #include "hal/assert.h"
  #include "hal/efuse_hal.h"
---- a/components/hal/esp32/cache_hal_esp32.c
-+++ b/components/hal/esp32/cache_hal_esp32.c
-@@ -73,6 +73,7 @@
- {
-     //esp32 doesn't support invalidate certain addr
-     abort();
-+    return false; /* unreachable, silence compiler warning */
- }
- 
- void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, cache_preload_order_t order)
 --- a/components/hal/esp32/efuse_hal.c
 +++ b/components/hal/esp32/efuse_hal.c
 @@ -4,7 +4,7 @@
@@ -162,17 +141,6 @@
  #include "soc/soc_caps.h"
  #include "hal/assert.h"
  #include "hal/efuse_hal.h"
---- a/components/hal/mmu_hal.c
-+++ b/components/hal/mmu_hal.c
-@@ -3,7 +3,7 @@
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
--#include <sys/param.h>
-+#include <zephyr/sys/util.h>
- #include <stdint.h>
- #include <stdbool.h>
- #include "esp_err.h"
 --- a/components/hal/platform_port/include/hal/assert.h
 +++ b/components/hal/platform_port/include/hal/assert.h
 @@ -11,7 +11,8 @@
@@ -182,10 +150,10 @@
 -#if CONFIG_LIBC_PICOLIBC
 +#ifndef __noreturn
 +#if CONFIG_LIBC_PICOLIBC || defined(__ZEPHYR__)
- // TODO IDF-15569
- // #if defined(__cplusplus) && __cplusplus >= 201103L
- // #define __noreturn [[noreturn]]
-@@ -24,6 +25,7 @@
+ #if defined(__cplusplus) && __cplusplus >= 201103L
+ #define __noreturn [[noreturn]]
+ #elif __has_attribute(__noreturn__)
+@@ -22,6 +23,7 @@
  #else
  #define __noreturn
  #endif
