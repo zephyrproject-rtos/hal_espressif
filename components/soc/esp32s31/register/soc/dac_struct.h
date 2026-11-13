@@ -413,6 +413,7 @@ typedef struct {
     volatile dac_date_reg_t date;
 } dac_dev_t;
 
+extern dac_dev_t LP_DAC;
 
 #ifndef __cplusplus
 _Static_assert(sizeof(dac_dev_t) == 0x400, "Invalid size of dac_dev_t structure");
