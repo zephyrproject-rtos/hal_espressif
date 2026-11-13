@@ -50,6 +50,9 @@
 #if SOC_ADC_SUPPORTED
 #include <hal/adc_ll.h>
 #endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#include <hal/dac_ll.h>
+#endif
 #include <hal/timg_ll.h>
 #if SOC_TWAI_SUPPORTED
 #include <hal/twai_ll.h>
@@ -488,6 +491,15 @@ void non_shared_periph_module_enable(int periph)
 #endif
 #endif
 #endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#if ESP32_LP_DAC_MODULE >= 100
+    case ESP32_LP_DAC_MODULE:
+        dac_ll_reset_register();
+        dac_ll_clk_set_source(DAC_DIGI_CLK_SRC_DEFAULT);
+        dac_ll_clk_enable(true);
+        break;
+#endif
+#endif
 #if SOC_UHCI_SUPPORTED
 #ifdef ESP32_UHCI0_MODULE
     case ESP32_UHCI0_MODULE:
@@ -819,6 +831,13 @@ void non_shared_periph_module_disable(int periph)
         adc_ll_enable_bus_clock(false);
         break;
 #endif
+#endif
+#endif
+#if defined(ESP32_LP_DAC_MODULE) && SOC_DAC_SUPPORTED
+#if ESP32_LP_DAC_MODULE >= 100
+    case ESP32_LP_DAC_MODULE:
+        dac_ll_clk_enable(false);
+        break;
 #endif
 #endif
 #if SOC_UHCI_SUPPORTED
