@@ -31,7 +31,9 @@
 #include "esp_eap_client.h"
 #include "esp_common_i.h"
 #include "esp_owe_i.h"
+#ifndef __ZEPHYR__
 #include "esp_roaming.h"
+#endif
 
 #include "esp_wps.h"
 #include "esp_wps_i.h"

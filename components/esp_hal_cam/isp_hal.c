@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <string.h>
 #include "soc/soc_caps.h"
 #include "hal/assert.h"

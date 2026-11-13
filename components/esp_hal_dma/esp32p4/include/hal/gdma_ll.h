@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/hp_sys_clkrst_struct.h"
 #include "soc/soc_etm_source.h"
 #include "hal/config.h"
@@ -50,6 +50,12 @@
 #define GDMA_LL_AXI_GROUP_START_ID    1 // AXI GDMA group ID starts from 1
 #define GDMA_LL_AXI_NUM_GROUPS        1 // Number of AXI GDMA groups
 #define GDMA_LL_AXI_PAIRS_PER_GROUP   3 // Number of GDMA pairs in each AXI group
+
+/* Compat aliases for Zephyr GDMA driver (same as C5 gdma_ll.h) */
+#define GDMA_LL_M2M_FREE_PERIPH_ID_MASK          AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK
+#define GDMA_LL_RX_EVENT_MASK                     AHB_DMA_LL_RX_EVENT_MASK
+#define GDMA_LL_TX_EVENT_MASK                     AHB_DMA_LL_TX_EVENT_MASK
+#define gdma_ll_force_enable_reg_clock            ahb_dma_ll_force_enable_reg_clock
 
 #define GDMA_LL_PARALLEL_CRC_DATA_WIDTH 8  // Parallel CRC data width is fixed to 8bits
 #define GDMA_LL_AHB_MAX_CRC_BIT_WIDTH   32 // Max CRC bit width supported by AHB GDMA

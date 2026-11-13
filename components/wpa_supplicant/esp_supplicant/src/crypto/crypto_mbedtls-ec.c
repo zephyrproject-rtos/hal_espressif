@@ -8,7 +8,7 @@
 
 #include "esp_system.h"
 #include "esp_random.h"
-#include "mbedtls/bignum.h"
+#include "mbedtls/private/bignum.h"
 #include "mbedtls/esp_mbedtls_random.h"
 #if CONFIG_MBEDTLS_HARDWARE_ECC
 #include "ecc_impl.h"
@@ -20,7 +20,7 @@
 #include "sha256.h"
 #include "random.h"
 
-#include "mbedtls/ecp.h"
+#include "mbedtls/private/ecp.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/asn1write.h"
 #include "mbedtls/error.h"
@@ -2565,8 +2565,6 @@ void crypto_ec_key_debug_print(struct crypto_ec_key *key, const char *title)
  */
 struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t len)
 {
-    // Use mbedtls_pk_parse_public_key() to parse SubjectPublicKeyInfo
-    // This is the recommended replacement for the deprecated mbedtls_pk_parse_subpubkey()
     mbedtls_pk_context pk_ctx;
     mbedtls_pk_init(&pk_ctx);
 

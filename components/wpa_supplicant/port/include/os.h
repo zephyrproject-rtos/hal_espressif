@@ -17,12 +17,22 @@
 #include <sys/types.h>
 #include "esp_types.h"
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_err.h"
 #include "supplicant_opt.h"
 #include "esp_private/esp_wifi_private.h"
 #include "esp_wifi.h"
+#include "esp_heap_adapter.h"
+
+#ifdef __ZEPHYR__
+/* With -std=c17 these POSIX/BSD functions are not declared by default */
+char *strdup(const char *);
+size_t strlcpy(char *, const char *, size_t);
+
+char *z_strdup(const char *s);
+#endif
 
 /* Modifying datatype for platform and compiler independence */
 
@@ -213,31 +223,31 @@ static inline char *os_readfile(const char *name, size_t *len)
  */
 
 #ifndef os_malloc
-#define os_malloc(s) malloc((s))
+#define os_malloc(s) os_wpa_malloc_func((s))
 #endif
 #ifndef os_realloc
-#define os_realloc(p, s) realloc((p), (s))
+#define os_realloc(p, s) os_wpa_realloc_func((p), (s))
 #endif
 #ifndef os_zalloc
-#define os_zalloc(s) calloc(1, (s))
+#define os_zalloc(s) os_wpa_calloc_func(1, (s))
 #endif
 #ifndef os_calloc
-#define os_calloc(p, s) calloc((p), (s))
+#define os_calloc(p, s) os_wpa_calloc_func((p), (s))
 #endif
 
 #ifndef os_free
-#define os_free(p) free((p))
+#define os_free(p) os_wpa_free_func((p))
 #endif
 
 #ifndef os_bzero
-#define os_bzero(s, n) bzero(s, n)
+#define os_bzero(s, n) memset(s, 0, n)
 #endif
 
 #ifndef os_strdup
 #ifdef _MSC_VER
 #define os_strdup(s) _strdup(s)
 #else
-#define os_strdup(s) strdup(s)
+#define os_strdup(s) z_strdup(s)
 #endif
 #endif
 char * ets_strdup(const char *s);

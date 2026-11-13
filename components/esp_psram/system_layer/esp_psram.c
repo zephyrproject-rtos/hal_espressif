@@ -10,14 +10,12 @@
  *
  * When we add more types of external RAM memory, this can be made into a more intelligent dispatcher.
  *----------------------------------------------------------------------------------------------------*/
-#include <sys/param.h>
 #include <string.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "esp_heap_caps_init.h"
 #include "esp_psram.h"
 #include "esp_macros.h"
 #include "esp_mmu_map.h"
@@ -32,7 +30,6 @@
 #include "esp_private/esp_psram_impl.h"
 #include "esp_private/esp_psram_mspi.h"
 #include "esp_private/mspi_mem_barrier.h"
-#include "esp_private/startup_internal.h"
 #include "esp_private/esp_sys_event_app_init.h"
 #if SOC_SPIRAM_XIP_SUPPORTED
 #include "esp_private/mmu_psram_flash.h"
@@ -119,45 +116,6 @@ typedef struct {
 
 static psram_ctx_t s_psram_ctx;
 static const DRAM_ATTR char TAG[] = "esp_psram";
-
-ESP_SYSTEM_INIT_FN(psram_core_stage_init, CORE, BIT(0), 103)
-{
-    esp_err_t ret = ESP_FAIL;
-
-#if CONFIG_SPIRAM_BOOT_INIT && (CONFIG_SPIRAM_USE_CAPS_ALLOC || CONFIG_SPIRAM_USE_MALLOC)
-
-#if (CONFIG_IDF_TARGET_ESP32C5 && CONFIG_ESP32C5_REV_MIN_FULL <= 100) || (CONFIG_IDF_TARGET_ESP32C61 && CONFIG_ESP32C61_REV_MIN_FULL <= 100)
-    if (efuse_hal_chip_revision() <= 100) {
-        ESP_EARLY_LOGW(TAG, "Due to hardware issue on ESP32-C5/C61 (Rev v1.0), PSRAM contents won't be encrypted (for flash encryption enabled case)");
-        ESP_EARLY_LOGW(TAG, "Please avoid using PSRAM for security sensitive data e.g., TLS stack allocations (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC)");
-    }
-#endif
-    if (esp_psram_is_initialized()) {
-        ret = esp_psram_extram_add_to_heap_allocator();
-        if (ret != ESP_OK) {
-            ESP_EARLY_LOGE(TAG, "External RAM could not be added to heap!");
-            return ret;
-        }
-#if CONFIG_SPIRAM_USE_MALLOC
-        heap_caps_malloc_extmem_enable(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL);
-#endif
-    }
-#endif
-
-    ret = esp_psram_mspi_register_isr();
-    if (ret != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Failed to register PSRAM ISR!");
-        return ret;
-    }
-
-    ret = esp_psram_mspi_mb_init();
-    if (ret != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Failed to initialize PSRAM MSPI memory barrier!");
-        return ret;
-    }
-
-    return ret;
-}
 
 #if CONFIG_IDF_TARGET_ESP32
 //If no function in esp_himem.c is used, this function will be linked into the
@@ -525,78 +483,19 @@ esp_err_t esp_psram_init(void)
     return ESP_OK;
 }
 
+/* Zephyr uses its own heap management via shared_multi_heap */
 esp_err_t esp_psram_extram_add_to_heap_allocator(void)
 {
-    esp_err_t ret = ESP_FAIL;
+    return ESP_OK;
+}
 
-    uint32_t byte_aligned_caps[] = {MALLOC_CAP_SPIRAM | MALLOC_CAP_DEFAULT, 0, MALLOC_CAP_8BIT | MALLOC_CAP_32BIT | MALLOC_CAP_SIMD};
-    ret = heap_caps_add_region_with_caps(byte_aligned_caps,
-                                         s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].vaddr_start,
-                                         s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].vaddr_end);
-    if (ret != ESP_OK) {
-        return ret;
+esp_err_t esp_psram_get_mapped_region(intptr_t *out_vaddr, size_t *out_size)
+{
+    if (!s_psram_ctx.is_initialised) {
+        return ESP_ERR_INVALID_STATE;
     }
-
-    if (s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].size) {
-        assert(s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].vaddr_start);
-        uint32_t word_aligned_caps[] = {MALLOC_CAP_SPIRAM | MALLOC_CAP_DEFAULT, 0, MALLOC_CAP_32BIT};
-        ret = heap_caps_add_region_with_caps(word_aligned_caps,
-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].vaddr_start,
-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].vaddr_end);
-        if (ret != ESP_OK) {
-            return ret;
-        }
-    }
-
-    ESP_EARLY_LOGI(TAG, "Adding pool of %dK of PSRAM memory to heap allocator",
-                   (s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size + s_psram_ctx.regions_to_heap[PSRAM_MEM_32BIT_ALIGNED].size) / 1024);
-
-#if CONFIG_SPIRAM_ENC_EXEMPT
-    if (s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].size) {
-        // Only MALLOC_CAP_SPIRAM_NO_ENC: any other bit here would let generic 8BIT/32BIT
-        // allocations fall through to this region as a low-priority match.
-        uint32_t no_enc_caps[] = {MALLOC_CAP_SPIRAM_NO_ENC, 0, 0};
-        ret = heap_caps_add_region_with_caps(no_enc_caps,
-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_start,
-                                             s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].vaddr_end);
-        if (ret != ESP_OK) {
-            return ret;
-        }
-        ESP_EARLY_LOGI(TAG, "Adding pool of %dK of unencrypted PSRAM memory to heap allocator",
-                       (int)(s_psram_ctx.regions_to_heap[PSRAM_MEM_ENC_EXEMPT].size / 1024));
-    }
-#endif
-
-    // To allow using the page alignment gaps created while mapping the flash segments,
-    // the alignment gaps must be configured with correct memory protection configurations.
-#if CONFIG_SPIRAM_PRE_CONFIGURE_MEMORY_PROTECTION
-    // Here, SOC_MMU_DI_VADDR_SHARED is necessary because, for the targets that have separate data and instruction virtual address spaces,
-    // the SPIRAM gap created due to the alignment needed while placing the instruction segment in the instruction virtual address space
-    // cannot be added in heap because the region cannot be configured with write permissions.
-#if CONFIG_SPIRAM_FETCH_INSTRUCTIONS && SOC_MMU_DI_VADDR_SHARED
-    if ((uint32_t)&_instruction_reserved_end & (CONFIG_MMU_PAGE_SIZE - 1)) {
-        uint32_t instruction_alignment_gap_heap_start, instruction_alignment_gap_heap_end;
-        mmu_psram_get_instruction_alignment_gap_info(&instruction_alignment_gap_heap_start, &instruction_alignment_gap_heap_end);
-        ret = heap_caps_add_region_with_caps(byte_aligned_caps, instruction_alignment_gap_heap_start, instruction_alignment_gap_heap_end);
-        if (ret == ESP_OK) {
-            ESP_EARLY_LOGI(TAG, "Adding pool of %dK of PSRAM memory gap generated due to end address alignment of irom to the heap allocator", (instruction_alignment_gap_heap_end - instruction_alignment_gap_heap_start) / 1024);
-        }
-    }
-#endif /* CONFIG_SPIRAM_FETCH_INSTRUCTIONS */
-
-    // In the case of ESP32S2, the rodata is mapped to a read-only region (SOC_DROM0_ADDRESS_LOW - SOC_DROM0_ADDRESS_HIGH), thus we cannot add this region to the heap.
-#if CONFIG_SPIRAM_RODATA && !CONFIG_IDF_TARGET_ESP32S2
-    if ((uint32_t)&_rodata_reserved_end & (CONFIG_MMU_PAGE_SIZE - 1)) {
-        uint32_t rodata_alignment_gap_heap_start, rodata_alignment_gap_heap_end;
-        mmu_psram_get_rodata_alignment_gap_info(&rodata_alignment_gap_heap_start, &rodata_alignment_gap_heap_end);
-        ret = heap_caps_add_region_with_caps(byte_aligned_caps, rodata_alignment_gap_heap_start, rodata_alignment_gap_heap_end);
-        if (ret == ESP_OK) {
-            ESP_EARLY_LOGI(TAG, "Adding pool of %dK of PSRAM memory gap generated due to end address alignment of drom to the heap allocator", (rodata_alignment_gap_heap_end - rodata_alignment_gap_heap_start) / 1024);
-        }
-    }
-#endif /* CONFIG_SPIRAM_RODATA */
-#endif /* CONFIG_SPIRAM_PRE_CONFIGURE_MEMORY_PROTECTION */
-
+    *out_vaddr = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].vaddr_start;
+    *out_size = s_psram_ctx.regions_to_heap[PSRAM_MEM_8BIT_ALIGNED].size;
     return ESP_OK;
 }
 
@@ -648,31 +547,9 @@ bool IRAM_ATTR esp_psram_ptr_is_no_enc(const void *p)
 #endif
 }
 
+/* Not used in Zephyr */
 esp_err_t esp_psram_extram_reserve_dma_pool(size_t size)
 {
-    if (size == 0) {
-        return ESP_OK; //no-op
-    }
-
-    ESP_EARLY_LOGI(TAG, "Reserving pool of %dK of internal memory for DMA/internal allocations", size / 1024);
-    /* Pool may be allocated in multiple non-contiguous chunks, depending on available RAM */
-    while (size > 0) {
-        size_t next_size = heap_caps_get_largest_free_block(MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-        next_size = MIN(next_size, size);
-
-        ESP_EARLY_LOGD(TAG, "Allocating block of size %d bytes", next_size);
-        uint8_t *dma_heap = heap_caps_malloc(next_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-        if (!dma_heap || next_size == 0) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        uint32_t caps[] = {0, MALLOC_CAP_DMA, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT | MALLOC_CAP_32BIT};
-        esp_err_t e = heap_caps_add_region_with_caps(caps, (intptr_t)dma_heap, (intptr_t)dma_heap + next_size - 1);
-        if (e != ESP_OK) {
-            return e;
-        }
-        size -= next_size;
-    }
     return ESP_OK;
 }
 

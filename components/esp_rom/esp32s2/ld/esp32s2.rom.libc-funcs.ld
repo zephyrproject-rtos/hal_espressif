@@ -18,14 +18,19 @@ PROVIDE ( __assert_func = 0x4001a408 );
 bzero = 0x400078c8;
 div = 0x40000620;
 isascii = 0x4001aaec;
-isblank = 0x400078f8;
-iscntrl = 0x40007918;
-isgraph = 0x40007968;
-isprint = 0x40007980;
-ispunct = 0x40007994;
+/* Zephyr: locale-dependent ROM call, provided by the selected libc */
+/* isblank = 0x400078f8; */
+/* iscntrl = 0x40007918; */
+/* isgraph = 0x40007968; */
+/* isprint = 0x40007980; */
+/* ispunct = 0x40007994; */
+
 labs = 0x40000648;
 ldiv = 0x40000650;
-longjmp = 0x400005a4;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x400005a4; */
+/* setjmp  = 0x40000540; */
+
 memccpy = 0x4001ab00;
 memchr = 0x4001ab24;
 memcmp = 0x4001ab40;
@@ -34,7 +39,6 @@ memmove = 0x4001acb0;
 memrchr = 0x4001acec;
 memset = 0x4001ad3c;
 qsort = 0x400006f4;
-setjmp = 0x40000540;
 strcat = 0x4001ad90;
 strchr = 0x4001adb0;
 strcmp = 0x40007be4;
@@ -51,6 +55,8 @@ strrchr = 0x40008040;
 strsep = 0x4000806c;
 strspn = 0x4001aebc;
 strstr = 0x4001aee8;
-__strtok_r = 0x4001af18;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __strtok_r = 0x4001af18; */
+
 strtok_r = 0x4001af7c;
 toascii = 0x4001af90;

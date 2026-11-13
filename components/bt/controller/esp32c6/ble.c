@@ -42,12 +42,12 @@ void sync_stack_deinitEnv(void);
 int sync_stack_enable(void);
 void sync_stack_disable(void);
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 int dtm_stack_initEnv(void);
 void dtm_stack_deinitEnv(void);
 int dtm_stack_enable(void);
 void dtm_stack_disable(void);
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 int conn_stack_initEnv(void);
 void conn_stack_deinitEnv(void);
@@ -80,12 +80,12 @@ int pawrSync_stack_enable(void);
 void pawrSync_stack_disable(void);
 #endif // DEFAULT_BT_LE_PAWR_SUPPORTED
 
-#if CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#if CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
 int advFastTx_stack_initEnv(void);
 void advFastTx_stack_deinitEnv(void);
 int advFastTx_stack_enable(void);
 void advFastTx_stack_disable(void);
-#endif // CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#endif // CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
 
 #if (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
 void adv_stack_enableClearLegacyAdvVsCmd(bool en);
@@ -108,9 +108,9 @@ void scan_stack_enableSetScanADIOnlyFilterVsCmd(bool en);
 void extAdv_stack_setExtAdvConstantDidVsCmd(bool en);
 #endif // DEFAULT_BT_ADV_SEND_CONSTANT_DID
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
-#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
+#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
 extern void mmgmt_enableRxbufOptFeature(void);
-#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
+#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
 
 /* Local functions definition
  ***************************************************************************
@@ -140,11 +140,11 @@ void ble_stack_enableVsEvents(bool en)
     adv_stack_enableScanReqRxdVsEvent(en);
     conn_stack_enableChanMapUpdCompVsEvent(en);
 
-#if CONFIG_BT_LE_SLEEP_ENABLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     sleep_stack_enableWakeupVsEvent(en);
-#endif // CONFIG_BT_LE_SLEEP_ENABLE
+#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
 }
-#endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
+#endif /* (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED) */
 
 int ble_stack_initEnv(void)
 {
@@ -175,12 +175,12 @@ int ble_stack_initEnv(void)
         return rc;
     }
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     rc = dtm_stack_initEnv();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_initEnv();
@@ -218,20 +218,20 @@ int ble_stack_initEnv(void)
         return rc;
     }
 #endif // DEFAULT_BT_LE_PAWR_SUPPORTED
-#if CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#if CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
     rc = advFastTx_stack_initEnv();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#endif // CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
     return 0;
 }
 
 void ble_stack_deinitEnv(void)
 {
-#if CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#if CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
     advFastTx_stack_deinitEnv();
-#endif // CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#endif // CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
 #if DEFAULT_BT_LE_PAWR_SUPPORTED
     pawrSync_stack_deinitEnv();
     pawrBcast_stack_deinitEnv();
@@ -247,9 +247,9 @@ void ble_stack_deinitEnv(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_deinitEnv();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     dtm_stack_deinitEnv();
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
     sync_stack_deinitEnv();
     scan_stack_deinitEnv();
@@ -287,12 +287,12 @@ int ble_stack_enable(void)
         return rc;
     }
 
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     rc = dtm_stack_enable();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_enable();
@@ -317,20 +317,20 @@ int ble_stack_enable(void)
         return rc;
     }
 #endif // DEFAULT_BT_LE_PAWR_SUPPORTED
-#if CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#if CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
     rc = advFastTx_stack_enable();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#endif // CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
 #if (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
     ble_stack_enableVsCmds(true);
     ble_stack_enableVsEvents(true);
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
 
-#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
+#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
     mmgmt_enableRxbufOptFeature();
-#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
+#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
 
     return 0;
 }
@@ -341,9 +341,9 @@ void ble_stack_disable(void)
     ble_stack_enableVsEvents(false);
     ble_stack_enableVsCmds(false);
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
-#if CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#if CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
     advFastTx_stack_disable();
-#endif // CONFIG_BT_LE_CTRL_ADV_FAST_TX_EN
+#endif // CONFIG_ESP32_BT_LE_CTLR_ADV_FAST_TX_EN
 #if DEFAULT_BT_LE_PAWR_SUPPORTED
     pawrSync_stack_disable();
     pawrBcast_stack_disable();
@@ -354,9 +354,9 @@ void ble_stack_disable(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_disable();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_BT_LE_DTM_ENABLED
+#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     dtm_stack_disable();
-#endif // CONFIG_BT_LE_DTM_ENABLED
+#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
     sync_stack_disable();
     scan_stack_disable();
     extAdv_stack_disable();

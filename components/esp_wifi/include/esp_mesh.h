@@ -74,7 +74,20 @@
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "esp_mesh_internal.h"
-#include "lwip/ip_addr.h"
+
+/*
+ * The mesh IP address type is only used by the root node when bridging mesh
+ * traffic to an external IP network. Zephyr provides its own network stack,
+ * so the vendor LwIP header is replaced by a minimal self-contained type. It
+ * must stay layout-compatible with the vendor esp_ip4_addr_t (a single 32-bit
+ * address word) since the mesh blob accesses it by offset.
+ */
+#ifndef ESP_IP4_ADDR_DEFINED
+#define ESP_IP4_ADDR_DEFINED
+typedef struct {
+	uint32_t addr;
+} esp_ip4_addr_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {

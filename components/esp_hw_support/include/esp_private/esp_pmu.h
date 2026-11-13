@@ -69,7 +69,7 @@ extern "C" {
 #endif
 
 #if !SOC_RTC_TIMER_V1
-#define RTC_TIMER_TRIG_EN           PMU_RTC_TIMER_WAKEUP_EN  //!< Timer wakeup
+#define RTC_TIMER_TRIG_EN           PMU_LP_TIMER_WAKEUP_EN  //!< Timer wakeup
 #else
 #define RTC_TIMER_TRIG_EN           0
 #endif

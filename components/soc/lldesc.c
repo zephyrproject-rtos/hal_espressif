@@ -29,7 +29,7 @@ void lldesc_setup_link_constrained(lldesc_t *dmadesc, const void *data, int len,
         dmadesc[n].owner = 1;
         dmadesc[n].qe.stqe_next = &dmadesc[n + 1];
         len -= dmachunklen;
-        data += dmachunklen;
+        data = (const uint8_t *)data + dmachunklen;
         n++;
     }
     dmadesc[n - 1].eof = 1; //Mark last DMA desc as end of stream.

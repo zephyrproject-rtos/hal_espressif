@@ -31,6 +31,9 @@
 #include "soc/hp_sys_clkrst_reg.h"
 #include "soc/lp_clkrst_reg.h"
 #include "soc/hp_system_reg.h"
+#include "soc/hp_sys_clkrst_struct.h"
+#include "soc/h264_struct.h"
+#include "soc/h264_dma_struct.h"
 #include "hal/uart_ll.h"
 #include "hal/sec_ll.h"
 #include "hal/gdma_ll.h"
@@ -96,6 +99,26 @@ void esp_system_reset_modules_on_exit(void)
     // AHB DMA can still be moving data from/to PSRAM, stop it as well.
     SET_PERI_REG_MASK(HP_SYS_CLKRST_HP_RST_EN1_REG, HP_SYS_CLKRST_REG_RST_EN_AHB_PDMA);
     CLEAR_PERI_REG_MASK(HP_SYS_CLKRST_HP_RST_EN1_REG, HP_SYS_CLKRST_REG_RST_EN_AHB_PDMA);
+
+    // Idle the H264 encoder's own DMA, an AXI master, before RST_EN_H264 (TRM 41.7.3, 41.5.2.4):
+    // stop the core, then abort each channel; TX 3 and 4 are aborted through the RX 5 registers.
+    if (HP_SYS_CLKRST.soc_clk_ctrl1.reg_h264_sys_clk_en &&
+        HP_SYS_CLKRST.peri_clk_ctrl26.reg_h264_clk_en) {
+        h264_dev_t *h264 = (h264_dev_t *)DR_REG_H264_CORE_BASE;
+        h264_dma_dev_t *h264_dma = (h264_dma_dev_t *)DR_REG_H264_DMA_2D_BASE;
+
+        h264->sys_ctrl.sys_rst_pulse = 1;
+        for (int i = 0; i < 3; i++) {
+            h264_dma->dma_out_ch[i].conf0.out_cmd_disable = 1;
+            while (!h264_dma->dma_out_ch[i].state.out_reset_avail);
+        }
+        for (int i = 0; i < 5; i++) {
+            h264_dma->dma_in_ch[i].conf0.in_cmd_disable = 1;
+            while (!h264_dma->dma_in_ch[i].state.in_reset_avail);
+        }
+        h264_dma->dma_in_ch5.conf0.in_cmd_disable = 1;
+        while (!h264_dma->dma_in_ch5.state.in_reset_avail);
+    }
 
     // H264 has its own H264_DMA engine, which none of the aborts above cover.
     SET_PERI_REG_MASK(HP_SYS_CLKRST_HP_RST_EN2_REG, HP_SYS_CLKRST_REG_RST_EN_H264);

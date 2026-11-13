@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+/* TF-PSA-Crypto exposes legacy MPI declarations under mbedtls/private/. */
 #include_next "mbedtls/private/bignum.h"
 #include "sdkconfig.h"
 

@@ -7,11 +7,12 @@
 #include <stdint.h>
 #include <string.h>
 #include "sdkconfig.h"
-#include "freertos/portmacro.h"
+#include <zephyr/irq.h>
 #include "soc/periph_defs.h"
 #include "soc/soc.h"
 #include "hal/ieee802154_periph.h"
 #include "esp_private/esp_modem_clock.h"
+#include "esp_private/critical_section.h"
 #include "esp_check.h"
 #include "esp_coex_i154.h"
 #include "esp_err.h"
@@ -33,19 +34,17 @@
 #include "esp_ieee802154_multipan.h"
 #endif
 
-#if CONFIG_PM_ENABLE
-#include "esp_pm.h"
-#include "esp_private/esp_clk.h"
+#if CONFIG_IEEE802154_SLEEP_ENABLE
 #include "esp_private/sleep_retention.h"
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG
 #define IEEE802154_LINK_OWNER  ENTRY(3)
 #else
 #define IEEE802154_LINK_OWNER  ENTRY(0) | ENTRY(2)
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG
-#endif // CONFIG_PM_ENABLE
-#if CONFIG_PM_ENABLE || SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+#endif // CONFIG_IEEE802154_SLEEP_ENABLE
+#if CONFIG_IEEE802154_SLEEP_ENABLE || SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 #include "esp_private/sleep_modem.h"
-#endif // CONFIG_PM_ENABLE || SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+#endif // CONFIG_IEEE802154_SLEEP_ENABLE || SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 
 static bool s_rf_closed = true;
 #define CCA_DETECTION_TIME 8
@@ -83,7 +82,7 @@ static volatile bool s_pending_rx_stop = false;
 static uint8_t s_rx_index = 0;
 static uint8_t s_enh_ack_frame[128];
 static uint8_t s_recent_rx_frame_info_index;
-static portMUX_TYPE s_ieee802154_spinlock = portMUX_INITIALIZER_UNLOCKED;
+static esp_os_spinlock_t s_ieee802154_spinlock = ESP_OS_SPINLOCK_INIT;
 static intr_handle_t s_ieee802154_isr_handle = NULL;
 
 static esp_err_t ieee802154_sleep_init(void);
@@ -818,12 +817,12 @@ static IRAM_ATTR void isr_handle_ed_done(void)
 
 IRAM_ATTR void ieee802154_enter_critical(void)
 {
-    portENTER_CRITICAL(&s_ieee802154_spinlock);
+    esp_os_enter_critical(&s_ieee802154_spinlock);
 }
 
 IRAM_ATTR void ieee802154_exit_critical(void)
 {
-    portEXIT_CRITICAL(&s_ieee802154_spinlock);
+    esp_os_exit_critical(&s_ieee802154_spinlock);
 }
 
 IEEE802154_NOINLINE static void ieee802154_isr(void *arg)
@@ -1178,11 +1177,11 @@ esp_err_t ieee802154_receive_at(uint32_t time, uint32_t duration)
     return ESP_OK;
 }
 
-#if CONFIG_PM_ENABLE
+#if CONFIG_IEEE802154_SLEEP_ENABLE
 static esp_err_t ieee802154_sleep_retention_init(void *arg)
 {
     esp_err_t err = ESP_OK;
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
     #define N_REGS_IEEE802154() (((IEEE802154_MAC_DATE_REG - IEEE802154_REG_BASE) / 4) + 1)
     const static sleep_retention_entries_config_t ieee802154_mac_regs_retention[] = {
         [0] = { .config = REGDMA_LINK_CONTINUOUS_INIT(REGDMA_MODEM_IEEE802154_LINK(0x00), IEEE802154_REG_BASE, IEEE802154_REG_BASE, N_REGS_IEEE802154(), 0, 0), .owner = IEEE802154_LINK_OWNER },
@@ -1193,12 +1192,12 @@ static esp_err_t ieee802154_sleep_retention_init(void *arg)
 #endif
     return err;
 }
-#endif // CONFIG_PM_ENABLE
+#endif // CONFIG_IEEE802154_SLEEP_ENABLE
 
 static esp_err_t ieee802154_sleep_init(void)
 {
     esp_err_t err = ESP_OK;
-#if CONFIG_PM_ENABLE
+#if CONFIG_IEEE802154_SLEEP_ENABLE
     sleep_retention_module_init_param_t init_param = {
         .cbs = { .create = { .handle = ieee802154_sleep_retention_init, .arg = NULL } },
         .attribute = SLEEP_RETENTION_MODULE_ATTR_ATTACH
@@ -1215,14 +1214,14 @@ static esp_err_t ieee802154_sleep_init(void)
     sleep_modem_register_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                    sleep_modem_mac_bb_power_up_prepare);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
-#endif // CONFIG_PM_ENABLE
+#endif // CONFIG_IEEE802154_SLEEP_ENABLE
     return err;
 }
 
 static esp_err_t ieee802154_sleep_deinit(void)
 {
     esp_err_t err = ESP_OK;
-#if CONFIG_PM_ENABLE
+#if CONFIG_IEEE802154_SLEEP_ENABLE
     err = sleep_retention_module_detach(SLEEP_RETENTION_MODULE_802154_MAC);
     ESP_RETURN_ON_ERROR(err, IEEE802154_TAG, "ieee802154 sleep retention detach error");
     err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_802154_MAC);
@@ -1233,7 +1232,7 @@ static esp_err_t ieee802154_sleep_deinit(void)
     sleep_modem_unregister_mac_bb_module_prepare_callback(sleep_modem_mac_bb_power_down_prepare,
                                                      sleep_modem_mac_bb_power_up_prepare);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
-#endif // CONFIG_PM_ENABLE
+#endif // CONFIG_IEEE802154_SLEEP_ENABLE
     return err;
 }
 

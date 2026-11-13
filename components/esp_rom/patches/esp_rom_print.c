@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_rom_caps.h"
 #include "esp_rom_sys.h"
 #include "rom/ets_sys.h"

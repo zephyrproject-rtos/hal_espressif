@@ -8,7 +8,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include "esp_private/esp_cpu_internal.h"
 
 #include "esp_attr.h"
 #include "esp_check.h"
@@ -16,9 +16,7 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "esp_macros.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_heap_caps.h"
+#include <zephyr/kernel.h>
 #include "soc/rtc_periph.h"
 #include "soc/soc_caps.h"
 #include "esp_private/sleep_cpu.h"
@@ -26,6 +24,23 @@
 #include "sdkconfig.h"
 #include "hal/rtc_hal.h"
 #include "esp32s3/rom/cache.h"
+
+static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
+{
+    (void)caps;
+    void *ptr = k_aligned_alloc(alignment, n * size);
+    if (ptr) {
+        memset(ptr, 0, n * size);
+    }
+    return ptr;
+}
+
+static inline void heap_caps_free(void *ptr)
+{
+    k_free(ptr);
+}
+
+#define MALLOC_CAP_RETENTION 0
 
 ESP_LOG_ATTR_TAG(TAG, "sleep");
 
@@ -49,9 +64,9 @@ typedef struct {
 
 static DRAM_ATTR  sleep_cpu_retention_t s_cpu_retention;
 
+static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
 
 #if CONFIG_PM_RESTORE_CACHE_TAGMEM_AFTER_LIGHT_SLEEP
-static rtc_cntl_sleep_cache_tag_retent_t *s_tag_mem = &s_cpu_retention.retent.tagmem;
 static uint32_t cache_tagmem_retention_setup(uint32_t code_seg_vaddr, uint32_t code_seg_size, uint32_t data_seg_vaddr, uint32_t data_seg_size)
 {
     uint32_t sets;   /* i/d-cache total set counts */
@@ -137,7 +152,7 @@ static esp_err_t esp_sleep_tagmem_pd_low_init(void)
                                             MALLOC_CAP_RETENTION);
         if (buf) {
             s_tag_mem->link_addr = rtc_cntl_hal_dma_link_init(buf,
-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, tagmem_sz, NULL);
         } else {
             s_tag_mem->icache.enable = 0;
             s_tag_mem->dcache.enable = 0;
@@ -172,7 +187,7 @@ esp_err_t esp_sleep_cpu_pd_low_init(void)
                                             MALLOC_CAP_RETENTION);
         if (buf) {
             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
         } else {
             return ESP_ERR_NO_MEM;
         }

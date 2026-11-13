@@ -122,7 +122,7 @@ bool rtc_clk_8md256_enabled(void)
 
 void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
 {
-#ifndef BOOTLOADER_BUILD
+#if !defined(BOOTLOADER_BUILD)
     // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
     if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
         esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
@@ -202,7 +202,7 @@ static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
     clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
     clk_ll_cpu_set_divider(1);
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
-    rtc_clk_apb_freq_update(80 * MHZ);
+    rtc_clk_apb_freq_update(80 * MHZ(1));
     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
 }
 
@@ -358,7 +358,7 @@ static FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
     clk_ll_cpu_set_divider(div);
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
-    rtc_clk_apb_freq_update(cpu_freq * MHZ);
+    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
 }
 
 static void rtc_clk_cpu_freq_to_rc_fast(void)

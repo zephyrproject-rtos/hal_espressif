@@ -1,3 +1,4 @@
+
 /*
  * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
@@ -67,7 +68,7 @@ static const int WPS_SCAN_RETRY_TIMEOUT_SECS = 2;
 // Callback structure for handling WPS events within the Wi-Fi task
 static struct wps_sm_funcs *s_wps_sm_cb = NULL;
 
-const char *wps_model_number = CONFIG_IDF_TARGET;
+const char *wps_model_number = CONFIG_SOC_SERIES;
 
 /* API lock to ensure thread safety for public WPS functions */
 void *s_wps_api_lock = NULL;  /* Used in WPS/WPS-REG public API only, never be freed */
@@ -265,9 +266,9 @@ static bool wps_parse_scan_result(struct wps_scan_ie *scan)
     }
 
     esp_wifi_get_mode(&op_mode);
-    if ((op_mode != WIFI_MODE_STA)
+    if ((op_mode != ESP32_WIFI_MODE_STA)
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-            && (op_mode != WIFI_MODE_APSTA)
+            && (op_mode != ESP32_WIFI_MODE_APSTA)
 #endif
        ) {
         return false;
@@ -1640,9 +1641,9 @@ static int wps_check_wifi_mode(void)
 
     if (
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-        mode == WIFI_MODE_AP ||
+        mode == ESP32_WIFI_MODE_AP ||
 #endif
-        mode == WIFI_MODE_NULL) {
+        mode == ESP32_WIFI_MODE_NULL) {
         wpa_printf(MSG_ERROR, "WPS: Invalid Wi-Fi mode for WPS: %d ", mode);
         return ESP_ERR_WIFI_MODE;
     }

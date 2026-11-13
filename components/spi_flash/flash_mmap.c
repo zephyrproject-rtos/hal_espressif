@@ -8,8 +8,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
+#include <zephyr/kernel.h>
 #include "sdkconfig.h"
 #include "esp_bit_defs.h"
 #include "esp_attr.h"
@@ -59,49 +58,32 @@ extern char _rodata_reserved_end;
 // This lock allows external caller (flash driver) freezing the mmap flash pages when erasing.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct {
-    _lock_t outer_mux;
+    struct k_spinlock outer_mux;
     bool frozen;
     int freezing_wait_count;
     int acquired_count; //minus value means number of waiting callers
-    SemaphoreHandle_t semphr_freeze;
-    SemaphoreHandle_t semphr_acq;
+    struct k_sem semphr_freeze;
+    struct k_sem semphr_acq;
 } mmap_lock_t;
 
 static mmap_lock_t s_mmap_lock;
 
 static esp_err_t mmap_lock_init(void)
 {
-    esp_err_t ret = ESP_OK;
-    _lock_init(&s_mmap_lock.outer_mux);
     s_mmap_lock.frozen = false;
     s_mmap_lock.freezing_wait_count = 0;
     s_mmap_lock.acquired_count = 0;
 
-    s_mmap_lock.semphr_freeze = xSemaphoreCreateBinary();
-    if (s_mmap_lock.semphr_freeze == NULL) {
-        ret = ESP_ERR_NO_MEM;
-        goto err;
-    }
-
-    s_mmap_lock.semphr_acq = xSemaphoreCreateBinary();
-    if (s_mmap_lock.semphr_acq == NULL) {
-        ret = ESP_ERR_NO_MEM;
-        goto err;
-    }
+    k_sem_init(&s_mmap_lock.semphr_freeze, 0, 1);
+    k_sem_init(&s_mmap_lock.semphr_acq, 0, 1);
     return ESP_OK;
-err:
-    if (s_mmap_lock.semphr_freeze != NULL) {
-        vSemaphoreDelete(s_mmap_lock.semphr_freeze);
-        s_mmap_lock.semphr_freeze = NULL;
-    }
-    return ret;
 }
 
 static void mmap_lock_acquire(void)
 {
     mmap_lock_t* const lock = &s_mmap_lock;
     bool wait = false;
-    _lock_acquire(&lock->outer_mux);
+    k_spinlock_key_t key = k_spin_lock(&lock->outer_mux);
     if (!lock->frozen) {
         assert(lock->acquired_count >= 0);
         lock->acquired_count++;
@@ -111,11 +93,11 @@ static void mmap_lock_acquire(void)
         lock->acquired_count--;
         wait = true;
     }
-    _lock_release(&lock->outer_mux);
+    k_spin_unlock(&lock->outer_mux, key);
 
     if (wait) {
         //Wait for event
-        xSemaphoreTake(lock->semphr_acq, portMAX_DELAY);
+        k_sem_take(&lock->semphr_acq, K_FOREVER);
     }
 }
 
@@ -123,7 +105,7 @@ static void mmap_lock_release(void)
 {
     mmap_lock_t* const lock = &s_mmap_lock;
     bool wakeup_freeze = false;
-    _lock_acquire(&lock->outer_mux);
+    k_spinlock_key_t key = k_spin_lock(&lock->outer_mux);
     assert(lock->acquired_count > 0);
     assert(lock->frozen == false);
     lock->acquired_count--;
@@ -134,11 +116,11 @@ static void mmap_lock_release(void)
         lock->frozen = true;
         wakeup_freeze = true;
     }
-    _lock_release(&lock->outer_mux);
+    k_spin_unlock(&lock->outer_mux, key);
 
     if (wakeup_freeze) {
         //Wake up one freezing request
-        xSemaphoreGive(lock->semphr_freeze);
+        k_sem_give(&lock->semphr_freeze);
     }
 }
 
@@ -146,7 +128,7 @@ static void mmap_lock_freeze(void)
 {
     mmap_lock_t* const lock = &s_mmap_lock;
     bool wait = false;
-    _lock_acquire(&lock->outer_mux);
+    k_spinlock_key_t key = k_spin_lock(&lock->outer_mux);
     if (lock->acquired_count > 0 || lock->frozen) {
         //If frozen, or already acquired, register one event and wait for it
         lock->freezing_wait_count++;
@@ -154,11 +136,11 @@ static void mmap_lock_freeze(void)
     } else {
         lock->frozen = true;
     }
-    _lock_release(&lock->outer_mux);
+    k_spin_unlock(&lock->outer_mux, key);
 
     if (wait) {
         //Wait for event trigger
-        xSemaphoreTake(lock->semphr_freeze, portMAX_DELAY);
+        k_sem_take(&lock->semphr_freeze, K_FOREVER);
     }
 }
 
@@ -169,7 +151,7 @@ static void mmap_lock_unfreeze(void)
     int wakeup_acq_count = 0;
     assert(lock->frozen);
     assert(lock->acquired_count <= 0);
-    _lock_acquire(&lock->outer_mux);
+    k_spinlock_key_t key = k_spin_lock(&lock->outer_mux);
     if (lock->acquired_count < 0) {
         //acquiring requests has higher priority than freezing request
         lock->frozen = false;
@@ -183,15 +165,15 @@ static void mmap_lock_unfreeze(void)
         //otherwise no one owns the lock
         lock->frozen = false;
     }
-    _lock_release(&lock->outer_mux);
+    k_spin_unlock(&lock->outer_mux, key);
 
     if (wakeup_frozen) {
         //Wake one freezing request
-        xSemaphoreGive(lock->semphr_freeze);
+        k_sem_give(&lock->semphr_freeze);
     } else {
         //Wake up all acquiring requests
         for (int i = 0; i < wakeup_acq_count; i++) {
-            xSemaphoreGive(lock->semphr_acq);
+            k_sem_give(&lock->semphr_acq);
         }
     }
 }
@@ -326,10 +308,10 @@ esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_flag_t fla
 
 err:
     if (vaddr_list) {
-        free(vaddr_list);
+        k_free(vaddr_list);
     }
     if (block) {
-        free(block);
+        k_free(block);
     }
     return ret;
 }
@@ -404,7 +386,10 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
     bool mmap_lock_acquired = false;
 
     int block_num = s_find_non_contiguous_block_nums(pages, page_count);
-    int paddr_blocks[block_num][2];
+    int (*paddr_blocks)[2] = k_calloc(block_num, sizeof(int[2]));
+    if (!paddr_blocks) {
+        return ESP_ERR_NO_MEM;
+    }
     s_merge_contiguous_pages(pages, page_count, block_num, paddr_blocks);
     s_pages_to_bytes(paddr_blocks, block_num);
 
@@ -463,6 +448,7 @@ esp_err_t spi_flash_mmap_pages(const int *pages, size_t page_count, spi_flash_mm
         mmap_lock_release();
     }
 
+    k_free(paddr_blocks);
     return ESP_OK;
 
 err:
@@ -470,14 +456,15 @@ err:
         esp_mmu_unmap((void *)vaddr_list[i]);
     }
     if (vaddr_list) {
-        free(vaddr_list);
+        k_free(vaddr_list);
     }
     if (mmap_lock_acquired) {
         mmap_lock_release();
     }
     if (block) {
-        free(block);
+        k_free(block);
     }
+    k_free(paddr_blocks);
     return ret;
 }
 
@@ -505,8 +492,8 @@ void spi_flash_munmap(spi_flash_mmap_handle_t handle)
 
     mmap_lock_release();
 
-    free(block->vaddr_list);
-    free(block);
+    k_free(block->vaddr_list);
+    k_free(block);
 }
 
 #else //!MMAP_ROM_IMPL_ENABLED

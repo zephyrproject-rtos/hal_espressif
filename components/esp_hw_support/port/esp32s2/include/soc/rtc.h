@@ -11,6 +11,7 @@
 #include "soc/soc.h"
 #include "soc/clk_tree_defs.h"
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,8 +49,6 @@ extern "C" {
  * - rtc_sleep: entry into sleep modes
  * - rtc_init: initialization
  */
-
-#define MHZ (1000000)
 
 #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
 #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)

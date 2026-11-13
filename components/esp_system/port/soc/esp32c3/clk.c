@@ -5,9 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -34,11 +32,9 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
 #define RTC_XTAL_CAL_RETRY 3
-
-#define MHZ (1000000)
 
 /* Indicates that this 32k oscillator gets input from external oscillator, rather
  * than a crystal.
@@ -100,11 +96,11 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SLOW_CLK_32K_XTAL);
-#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);
@@ -269,9 +265,6 @@ __attribute__((weak)) void esp_perip_clk_init(void)
                            SYSTEM_WIFI_CLK_UNUSED_BIT12;
 
 #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
-        /* This function only called on startup thus is thread safe. To avoid build errors/warnings
-         * declare __DECLARE_RCC_ATOMIC_ENV here. */
-        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
         // Disable USB-Serial-JTAG clock and it's pad if not used
         usb_serial_jtag_ll_phy_enable_pad(false);   // should not reset USJ registers in the code below, otherwises, usb pad will be enabled again
         usb_serial_jtag_ll_enable_bus_clock(false);

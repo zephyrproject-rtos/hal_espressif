@@ -548,6 +548,15 @@ uint16_t uart_hal_get_max_rx_timeout_thrd(uart_hal_context_t *hal);
  */
 #define uart_hal_get_rxd_edge_cnt(hal) uart_ll_get_rxd_edge_cnt((hal)->dev)
 
+/**
+ * @brief Get the UART port number
+ *
+ * @param hal Context of the HAL layer
+ *
+ * @return UART port number
+ */
+int8_t uart_hal_get_port_num(uart_hal_context_t *hal);
+
 #ifdef __cplusplus
 }
 #endif

@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <math.h>
 #include "hal/mipi_dsi_hal.h"
 #include "hal/mipi_dsi_ll.h"
@@ -304,6 +304,7 @@ uint32_t mipi_dsi_hal_host_dpi_calculate_divider(mipi_dsi_hal_context_t *hal, fl
     hal->expect_dpi_clock_freq_mhz = expect_dpi_clk_mhz;
     hal->real_dpi_clock_freq_mhz = clk_src_mhz / (float)div;
     HAL_LOGD(TAG, "dpi clk: src=%.2f MHz, expect=%.2f MHz, div=%" PRIu32 ", real=%.2f MHz",
-             clk_src_mhz, expect_dpi_clk_mhz, div, hal->real_dpi_clock_freq_mhz);
+             (double)clk_src_mhz, (double)expect_dpi_clk_mhz, div,
+             (double)hal->real_dpi_clock_freq_mhz);
     return div;
 }

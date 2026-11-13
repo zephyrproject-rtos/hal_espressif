@@ -7,7 +7,7 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "hal/assert.h"
 #include "hal/mpi_types.h"
 #include "soc/hwcrypto_periph.h"

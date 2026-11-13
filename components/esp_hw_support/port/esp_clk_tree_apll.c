@@ -6,8 +6,8 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include <stdatomic.h>
-#include <sys/lock.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 #include "esp_check.h"
 #include "esp_hw_log.h"
 #include "esp_log.h"
@@ -15,7 +15,7 @@
 #include "soc/rtc.h"
 
 ESP_HW_LOG_ATTR_TAG(s_tag, "esp_clk_tree_apll");
-static _lock_t s_periph_apll_mutex;
+static K_MUTEX_DEFINE(s_periph_apll_mutex);
 
 typedef struct {
     uint32_t o_div;
@@ -31,7 +31,7 @@ typedef enum {
 } apll_mode_t;
 
 typedef struct {
-    atomic_uint configured_freq_hz;
+    atomic_t configured_freq_hz;
     int ref_cnt;
     apll_mode_t mode;
     apll_freq_config_t pending_config; // pending configuration for delayed acquisition
@@ -43,7 +43,7 @@ esp_err_t esp_clk_tree_apll_get_info(esp_clk_tree_apll_info_t *info)
 {
     ESP_RETURN_ON_FALSE(info, ESP_ERR_INVALID_ARG, s_tag, "invalid argument");
 
-    info->frequency_hz = atomic_load(&s_apll_resource.configured_freq_hz);
+    info->frequency_hz = atomic_get(&s_apll_resource.configured_freq_hz);
     info->config_valid = info->frequency_hz != 0;
     return ESP_OK;
 }
@@ -53,7 +53,7 @@ esp_err_t esp_clk_tree_apll_acquire(const esp_clk_tree_src_config_t *config)
     bool acquire_allowed = true;
     bool adjustable = config && config->flags.adjustable;
 
-    _lock_acquire(&s_periph_apll_mutex);
+    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
     apll_mode_t mode = s_apll_resource.mode;
     bool idle = mode == APLL_MODE_IDLE;
     if (adjustable) {
@@ -67,7 +67,7 @@ esp_err_t esp_clk_tree_apll_acquire(const esp_clk_tree_src_config_t *config)
         if (idle) {
             s_apll_resource.mode = adjustable ? APLL_MODE_ADJUSTABLE : APLL_MODE_FIXED;
             rtc_clk_apll_enable(true);
-            uint32_t configured_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
+            uint32_t configured_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
             if (configured_freq_hz != 0) {
                 apll_freq_config_t config_to_apply = s_apll_resource.pending_config;
                 s_apll_resource.pending_config = (apll_freq_config_t) {};
@@ -79,7 +79,7 @@ esp_err_t esp_clk_tree_apll_acquire(const esp_clk_tree_src_config_t *config)
             }
         }
     }
-    _lock_release(&s_periph_apll_mutex);
+    k_mutex_unlock(&s_periph_apll_mutex);
 
     ESP_RETURN_ON_FALSE(acquire_allowed, ESP_ERR_INVALID_STATE, s_tag,
                         "can't acquire APLL, resource conflict or initialization in progress");
@@ -89,19 +89,19 @@ esp_err_t esp_clk_tree_apll_acquire(const esp_clk_tree_src_config_t *config)
 esp_err_t esp_clk_tree_apll_release(void)
 {
     bool valid_state = true;
-    _lock_acquire(&s_periph_apll_mutex);
+    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
     if (s_apll_resource.ref_cnt <= 0) {
         valid_state = false;
     } else {
         s_apll_resource.ref_cnt--;
         if (s_apll_resource.ref_cnt == 0) {
             s_apll_resource.mode = APLL_MODE_IDLE;
-            atomic_store(&s_apll_resource.configured_freq_hz, 0);
+            atomic_set(&s_apll_resource.configured_freq_hz, 0);
             s_apll_resource.pending_config = (apll_freq_config_t) {};
             rtc_clk_apll_enable(false);
         }
     }
-    _lock_release(&s_periph_apll_mutex);
+    k_mutex_unlock(&s_periph_apll_mutex);
     ESP_RETURN_ON_FALSE(valid_state, ESP_ERR_INVALID_STATE, s_tag, "APLL released too many times");
     return ESP_OK;
 }
@@ -116,8 +116,8 @@ esp_err_t esp_clk_tree_apll_freq_set(uint32_t expt_freq_hz, uint32_t *real_freq_
                         "APLL coefficients calculate failed");
 
     esp_err_t ret = ESP_ERR_INVALID_STATE;
-    _lock_acquire(&s_periph_apll_mutex);
-    uint32_t configured_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
+    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
+    uint32_t configured_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
     bool same_frequency = configured_freq_hz == resolved_freq_hz;
     apll_mode_t mode = s_apll_resource.mode;
     if (same_frequency) {
@@ -140,10 +140,10 @@ esp_err_t esp_clk_tree_apll_freq_set(uint32_t expt_freq_hz, uint32_t *real_freq_
         ret = ESP_OK;
     }
     if (ret == ESP_OK && !same_frequency) {
-        atomic_store(&s_apll_resource.configured_freq_hz, resolved_freq_hz);
+        atomic_set(&s_apll_resource.configured_freq_hz, resolved_freq_hz);
     }
-    uint32_t actual_freq_hz = atomic_load(&s_apll_resource.configured_freq_hz);
-    _lock_release(&s_periph_apll_mutex);
+    uint32_t actual_freq_hz = atomic_get(&s_apll_resource.configured_freq_hz);
+    k_mutex_unlock(&s_periph_apll_mutex);
 
     if (real_freq_hz) {
         *real_freq_hz = actual_freq_hz;
@@ -154,8 +154,8 @@ esp_err_t esp_clk_tree_apll_freq_set(uint32_t expt_freq_hz, uint32_t *real_freq_
 
 bool esp_clk_tree_apll_is_power_on(void)
 {
-    _lock_acquire(&s_periph_apll_mutex);
+    k_mutex_lock(&s_periph_apll_mutex, K_FOREVER);
     bool on = s_apll_resource.ref_cnt > 0;
-    _lock_release(&s_periph_apll_mutex);
+    k_mutex_unlock(&s_periph_apll_mutex);
     return on;
 }

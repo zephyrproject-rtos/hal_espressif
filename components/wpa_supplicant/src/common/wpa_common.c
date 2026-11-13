@@ -339,14 +339,19 @@ static int rsn_key_mgmt_to_bitfield(const u8 *s)
 		return WPA_KEY_MGMT_FT_PSK;
 #endif /* CONFIG_IEEE80211R */
 #ifdef CONFIG_IEEE80211W
-#ifdef CONFIG_WPA3_SAE
+        /* The SAE selectors are recognized regardless of CONFIG_WPA3_SAE so
+         * that scan results classify a WPA3 network as SAE instead of open.
+         * ESP-IDF solves this with a dedicated scan-only parser reached
+         * through a wpa_funcs entry the current Wi-Fi libraries do not call.
+         * Drop this local change once the libraries and the scan-only parser
+         * are picked up by a HAL sync.
+         */
         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE)
                 return WPA_KEY_MGMT_SAE;
         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE_EXT_KEY)
                 return WPA_KEY_MGMT_SAE_EXT_KEY;
         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_FT_SAE)
                 return WPA_KEY_MGMT_FT_SAE;
-#endif /* CONFIG_WPA3_SAE */
 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_802_1X_SHA256)
 		return WPA_KEY_MGMT_IEEE8021X_SHA256;
 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_PSK_SHA256)

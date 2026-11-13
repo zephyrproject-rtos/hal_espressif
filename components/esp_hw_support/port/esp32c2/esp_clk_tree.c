@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <stdatomic.h>
+#include <zephyr/sys/atomic.h>
 #include "esp_clk_tree.h"
 #include "esp_err.h"
 #include "esp_check.h"
@@ -18,7 +18,7 @@
 
 ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
 
-static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
+static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
 
 esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_src_freq_precision_t precision,
 uint32_t *freq_value)
@@ -33,16 +33,16 @@ uint32_t *freq_value)
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F40M:
-        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F60M:
-        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -102,12 +102,12 @@ esp_err_t esp_clk_tree_manage_src(soc_module_clk_t clk_src, bool acquire,
 
     int16_t prev_ref_cnt = 0;
     if (acquire) {
-        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
     } else {
-        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
         if (prev_ref_cnt <= 0) {
             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
+            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
             return ESP_OK;
         }
     }

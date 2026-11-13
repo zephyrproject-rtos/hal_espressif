@@ -49,6 +49,9 @@ typedef lp_wdt_dev_t rwdt_dev_t;
 #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
 
+#define rwdt_ll_get_pause_in_sleep_en(hw) \
+        lpwdt_ll_get_pause_in_sleep_en(hw)
+
 #define rwdt_ll_set_chip_reset_en(hw, enable) \
         lpwdt_ll_set_chip_reset_en(hw, enable)
 

@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/param.h>  // For MIN/MAX(a, b)
+#include <zephyr/sys/util.h>
 #include <soc/soc.h>
 #include <soc/soc_memory_layout.h>
 #include "soc/io_mux_reg.h"
@@ -323,7 +323,7 @@ static esp_err_t dpd_exit_func(void)
     return ESP_OK;
 }
 
-ESP_SYSTEM_INIT_FN(init_flash_dpd, CORE, BIT(0), 125)
+esp_err_t init_flash_dpd(void)
 {
     // Register DPD function pointers
     static spi_flash_dpd_funcs_t dpd_funcs = {

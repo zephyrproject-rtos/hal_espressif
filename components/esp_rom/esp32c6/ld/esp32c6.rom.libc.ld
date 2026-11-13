@@ -3,12 +3,22 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* longjmp = 0x40000570; */
+/* setjmp  = 0x40000574; */
+
 esp_rom_newlib_init_common_mutexes = 0x400004a4;
 memset = 0x400004a8;
 strlen = 0x400004c8;
 strstr = 0x400004cc;
 bzero = 0x400004d0;
-sbrk = 0x400004d8;
+/* The ROM implementations below route through
+ * syscall_table_ptr, which this port never installs, and
+ * would fault on a NULL pointer if a libc build ever
+ * referenced them. Keep the compiled libc versions instead.
+ */
+/* sbrk = 0x400004d8; */
 isascii = 0x400004e4;
 isblank = 0x400004e8;
 iscntrl = 0x400004ec;
@@ -31,8 +41,6 @@ strrchr = 0x4000055c;
 strsep = 0x40000560;
 strspn = 0x40000564;
 strtok_r = 0x40000568;
-longjmp = 0x40000570;
-setjmp = 0x40000574;
 abs = 0x40000578;
 div = 0x4000057c;
 labs = 0x40000580;

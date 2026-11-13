@@ -162,7 +162,7 @@ void ets_delay_us(uint32_t us)
     }
 }
 
-void __attribute__((constructor)) ets_ops_set_rom_patches(void)
+void ets_ops_set_rom_patches(void)
 {
     /* Copy ROM default function table into our patch table */
     memcpy(&ets_ops_patch_table_ptr, ets_ops_table_ptr, sizeof(struct ets_ops));

@@ -26,7 +26,6 @@
 #include "rsn_supp/wpa.h"
 #include "esp_private/wifi.h"
 #include "esp_wifi_types_generic.h"
-#include "esp_roaming.h"
 
 extern bool current_task_is_wifi_task(void);
 

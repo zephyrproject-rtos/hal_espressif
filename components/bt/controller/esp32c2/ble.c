@@ -50,9 +50,9 @@ void ble_stack_enableVsEvents(bool en)
 #if DEFAULT_BT_LE_ROLE_CENTROL || DEFAULT_BT_LE_ROLE_PERIPHERAL
     conn_stack_enableChanMapUpdCompVsEvent(en);
 #endif // DEFAULT_BT_LE_ROLE_CENTROL || DEFAULT_BT_LE_ROLE_PERIPHERAL
-#if CONFIG_BT_LE_SLEEP_ENABLE
+#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
     sleep_stack_enableWakeupVsEvent(en);
-#endif // CONFIG_BT_LE_SLEEP_ENABLE
+#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 }
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
 

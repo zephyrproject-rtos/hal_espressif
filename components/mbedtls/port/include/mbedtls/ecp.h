@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+/* TF-PSA-Crypto exposes legacy EC declarations under mbedtls/private/. */
 #include_next "mbedtls/private/ecp.h"
 #include "sdkconfig.h"
 

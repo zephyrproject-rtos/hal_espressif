@@ -22,14 +22,19 @@ uart_hal_context_t hal = {
     .dev = (uart_dev_t *)UART_LL_GET_HW(LP_UART_NUM_0),
 };
 
-static esp_err_t lp_core_uart_check_timeout(uint32_t intr_mask, int32_t timeout, uint32_t timeout_start)
+static esp_err_t lp_core_uart_check_timeout(uint32_t intr_mask, int32_t timeout, uint32_t *cycle_count)
 {
-    if (ulp_lp_core_is_timeout_elapsed(timeout_start, timeout)) {
-        /* Disable and clear interrupt bits */
-        uart_hal_disable_intr_mask(&hal, intr_mask);
-        uart_hal_clr_intsts_mask(&hal, intr_mask);
+    if (timeout > -1) {
+        /* If the timeout value is not -1, delay for 1 CPU cycle and keep track of cycles */
+        ulp_lp_core_delay_cycles(1);
+        (*cycle_count)++;
+        if (*cycle_count >= (uint32_t)timeout) {
+            /* Disable and clear interrupt bits */
+            uart_hal_disable_intr_mask(&hal, intr_mask);
+            uart_hal_clr_intsts_mask(&hal, intr_mask);
 
-        return ESP_ERR_TIMEOUT;
+            return ESP_ERR_TIMEOUT;
+        }
     }
 
     return ESP_OK;
@@ -101,12 +106,12 @@ esp_err_t lp_core_uart_write_bytes(uart_port_t lp_uart_num, const void *src, siz
     int32_t remaining_bytes = size;
     esp_err_t ret = ESP_OK;
     uint32_t intr_status = 0;
-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
+    uint32_t to = 0;
 
     while (remaining_bytes > 0) {
         /* Write to the Tx FIFO */
         tx_len = 0;
-        uart_hal_write_txfifo(&hal, src + bytes_sent, remaining_bytes, &tx_len);
+        uart_hal_write_txfifo(&hal, (const uint8_t *)src + bytes_sent, remaining_bytes, &tx_len);
 
         if (tx_len) {
             /* We have managed to write some data to the Tx FIFO. Check Tx interrupt status */
@@ -124,7 +129,7 @@ esp_err_t lp_core_uart_write_bytes(uart_port_t lp_uart_num, const void *src, siz
                 }
 
                 /* Check for transaction timeout */
-                ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
+                ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
                 if (ret == ESP_ERR_TIMEOUT) {
                     /* Timeout. Clear interrupt status and break */
                     uart_hal_clr_intsts_mask(&hal, intr_mask);
@@ -137,7 +142,7 @@ esp_err_t lp_core_uart_write_bytes(uart_port_t lp_uart_num, const void *src, siz
             remaining_bytes -= tx_len;
         } else {
             /* Tx FIFO does not have empty slots. Check for transaction timeout */
-            ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
+            ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
             if (ret == ESP_ERR_TIMEOUT) {
                 /* Timeout. Clear interrupt status and break */
                 uart_hal_clr_intsts_mask(&hal, intr_mask);
@@ -177,7 +182,7 @@ int lp_core_uart_read_bytes(uart_port_t lp_uart_num, void *buf, size_t size, int
     int32_t remaining_bytes = size;
     esp_err_t ret = ESP_OK;
     uint32_t intr_status = 0;
-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
+    uint32_t to = 0;
 
     while (remaining_bytes > 0) {
         /* Drain only as many bytes as fit in the remaining buffer space */
@@ -185,7 +190,7 @@ int lp_core_uart_read_bytes(uart_port_t lp_uart_num, void *buf, size_t size, int
         rx_len = (fifo_len < remaining_bytes) ? fifo_len : remaining_bytes;
 
         if (rx_len > 0) {
-            uart_hal_read_rxfifo(&hal, (uint8_t *)(buf + bytes_rcvd), &rx_len);
+            uart_hal_read_rxfifo(&hal, (uint8_t *)buf + bytes_rcvd, &rx_len);
             bytes_rcvd += rx_len;
             remaining_bytes -= rx_len;
 
@@ -210,10 +215,10 @@ int lp_core_uart_read_bytes(uart_port_t lp_uart_num, void *buf, size_t size, int
 
             /* Progress was made; restart the timeout window so callers with
              * a finite timeout can tolerate gaps between bursts. */
-            timeout_start = ulp_lp_core_get_cpu_cycles();
+            to = 0;
         } else {
             /* FIFO empty. Honour the caller's timeout. */
-            ret = lp_core_uart_check_timeout(intr_mask, timeout, timeout_start);
+            ret = lp_core_uart_check_timeout(intr_mask, timeout, &to);
             if (ret == ESP_ERR_TIMEOUT) {
                 uart_hal_clr_intsts_mask(&hal, intr_mask);
                 break;

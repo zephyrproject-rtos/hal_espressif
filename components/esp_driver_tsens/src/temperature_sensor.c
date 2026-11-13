@@ -20,7 +20,7 @@
 #include "esp_types.h"
 #include "esp_heap_caps.h"
 #include "esp_clk_tree.h"
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "driver/temperature_sensor.h"
 #include "esp_private/periph_ctrl.h"
 #include "temperature_sensor_private.h"
@@ -99,9 +99,7 @@ static void IRAM_ATTR temperature_sensor_isr(void *arg)
         }
     }
 
-    if (cbs_yield) {
-        portYIELD_FROM_ISR();
-    }
+    (void)cbs_yield;
 }
 #endif // SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
 
@@ -195,7 +193,7 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
     ESP_RETURN_ON_FALSE(tsens->fsm == TEMP_SENSOR_FSM_INIT, ESP_ERR_INVALID_STATE, TAG, "tsens not in init state");
 
     if (s_tsens_attribute_copy) {
-        free(s_tsens_attribute_copy);
+        heap_caps_free(s_tsens_attribute_copy);
     }
     s_tsens_attribute_copy = NULL;
 
@@ -218,7 +216,7 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
 
     temperature_sensor_power_release();
 
-    free(tsens);
+    heap_caps_free(tsens);
     return ESP_OK;
 }
 
@@ -288,7 +286,7 @@ static float parse_temp_sensor_raw_value(int16_t tsens_raw)
     if (s_deltaT == INT_MIN) { //suggests that the value is not initialized
         read_delta_t_from_efuse();
     }
-    float result = tsens_raw - (float)s_deltaT / 10.0;
+    float result = tsens_raw - (float)s_deltaT / 10.0f;
     return result;
 }
 
@@ -348,8 +346,8 @@ esp_err_t temperature_sensor_set_delta_threshold(temperature_sensor_handle_t tse
 
     temperature_sensor_ll_set_sample_rate(0xffff);
     temperature_sensor_ll_wakeup_mode(TEMPERATURE_SENSOR_LL_WAKE_DELTA);
-    temperature_sensor_ll_set_th_high_val((uint8_t)(delta_cfg->increase_delta / TEMPERATURE_SENSOR_LL_ADC_FACTOR));
-    temperature_sensor_ll_set_th_low_val((uint8_t)(delta_cfg->decrease_delta / TEMPERATURE_SENSOR_LL_ADC_FACTOR));
+    temperature_sensor_ll_set_th_high_val((uint8_t)((float)delta_cfg->increase_delta / (float)TEMPERATURE_SENSOR_LL_ADC_FACTOR));
+    temperature_sensor_ll_set_th_low_val((uint8_t)((float)delta_cfg->decrease_delta / (float)TEMPERATURE_SENSOR_LL_ADC_FACTOR));
 
     return ret;
 }

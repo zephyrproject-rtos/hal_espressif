@@ -22,7 +22,13 @@
 #include "esp32c61/rom/rtc.h"
 #include "hal/misc.h"
 
-#define MHZ                 (1000000)
+/* Zephyr's sys/util.h provides a function-like MHZ(x) macro; use the
+ * same form here to avoid a collision with the original object-like
+ * MHZ definition.
+ */
+#ifndef MHZ
+#define MHZ(x)              ((x) * 1000000UL)
+#endif
 
 #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
 #define CLK_LL_PLL_120M_FREQ_MHZ   (120)

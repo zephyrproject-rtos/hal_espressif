@@ -5,7 +5,7 @@
  */
 
 #include <stdlib.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "hal/dw_gdma_hal.h"
 #include "hal/dw_gdma_ll.h"
 

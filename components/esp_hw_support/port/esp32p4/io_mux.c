@@ -16,7 +16,7 @@
 
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
 
-#if CONFIG_ULP_COPROC_ENABLED
+#if CONFIG_ESP32_ULP_COPROC_ENABLED
 RTC_DATA_ATTR
 #endif
 static rtc_io_status_t s_rtc_io_status = {

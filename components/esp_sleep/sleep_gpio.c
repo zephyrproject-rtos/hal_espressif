@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_attr.h"
 #include "esp_system.h"
@@ -118,7 +118,6 @@ void esp_sleep_gpio_pupd_config_workaround_unapply(void)
 }
 #endif // CONFIG_IDF_TARGET_ESP32
 
-#if CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND || CONFIG_PM_SLP_DISABLE_GPIO
 void esp_sleep_config_gpio_isolate(void)
 {
     ESP_EARLY_LOGI(TAG, "Configure to isolate all GPIO pins in sleep state");
@@ -197,7 +196,6 @@ void esp_sleep_enable_gpio_switch(bool enable)
         }
     }
 }
-#endif
 
 #if !SOC_GPIO_SUPPORT_HOLD_SINGLE_IO_IN_DSLP || SOC_GPIO_NEED_SOFT_ISOLATE_DURING_PD
 IRAM_ATTR static void sleep_gpio_isolate_one_pin(gpio_num_t gpio_num)

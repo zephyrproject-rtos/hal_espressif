@@ -107,7 +107,7 @@ static inline void ulp_riscv_gpio_pulldown_disable(gpio_num_t gpio_num)
     CLEAR_PERI_REG_MASK(RTC_IO_TOUCH_PAD0_REG + gpio_num * 4, RTC_IO_TOUCH_PAD0_RDE);
 }
 
-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
+#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
 
 /**
  * @brief Set RTC IO interrupt type and handler
@@ -130,7 +130,7 @@ esp_err_t ulp_riscv_gpio_isr_register(gpio_num_t gpio_num, ulp_riscv_gpio_int_ty
  */
 esp_err_t ulp_riscv_gpio_isr_deregister(gpio_num_t gpio_num);
 
-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
 
 #ifdef __cplusplus
 }

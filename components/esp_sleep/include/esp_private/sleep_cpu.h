@@ -67,7 +67,7 @@ esp_err_t esp_sleep_cpu_retention(uint32_t (*goto_sleep)(uint32_t, uint32_t, uin
 #endif // SOC_PM_CPU_RETENTION_BY_SW
 #endif // CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
 
-#if !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
+#if CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
 /**
  * Start the software CPU retention synchronization.
  *
@@ -95,7 +95,7 @@ void sleep_cpu_retention_finish(void);
  * Notify the other core that this sleep does not require retention.
  */
 void esp_sleep_cpu_skip_retention(void);
-#endif // !CONFIG_FREERTOS_UNICORE && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
+#endif // CONFIG_SMP && CONFIG_PM_ESP_SLEEP_POWER_DOWN_CPU
 
 #ifdef __cplusplus
 }

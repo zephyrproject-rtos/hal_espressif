@@ -9,9 +9,11 @@
 #include "esp_err.h"
 #include "esp_task.h"
 #include "esp_attr.h"
+#include <zephyr/kernel.h>
+#include "esp_private/critical_section.h"
 
 /* Spinlock used to protect access to the hardware registers. */
-portMUX_TYPE s_time_update_lock = portMUX_INITIALIZER_UNLOCKED;
+esp_os_spinlock_t s_time_update_lock = ESP_OS_SPINLOCK_INIT;
 
 /* Alarm values to generate interrupt on match
  * [0] - for ESP_TIMER_TASK alarms,
@@ -21,12 +23,12 @@ uint64_t timestamp_id[2] = { UINT64_MAX, UINT64_MAX };
 
 void esp_timer_impl_lock(void)
 {
-    portENTER_CRITICAL(&s_time_update_lock);
+    esp_os_enter_critical(&s_time_update_lock);
 }
 
 void esp_timer_impl_unlock(void)
 {
-    portEXIT_CRITICAL(&s_time_update_lock);
+    esp_os_exit_critical(&s_time_update_lock);
 }
 
 #ifndef CONFIG_IDF_TARGET_LINUX
@@ -61,7 +63,7 @@ static inline void ESP_TIMER_IRAM_ATTR esp_timer_impl_rearm_alarm(void)
 
 uint32_t ESP_TIMER_IRAM_ATTR esp_timer_impl_claim_due_alarms(void)
 {
-    portENTER_CRITICAL_ISR(&s_time_update_lock);
+    esp_os_enter_critical_isr(&s_time_update_lock);
     uint64_t now = esp_timer_impl_get_time();
     uint32_t due_mask = 0;
     for (unsigned alarm_id = 0; alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]); ++alarm_id) {
@@ -71,7 +73,7 @@ uint32_t ESP_TIMER_IRAM_ATTR esp_timer_impl_claim_due_alarms(void)
         }
     }
     esp_timer_impl_rearm_alarm();
-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
+    esp_os_exit_critical_isr(&s_time_update_lock);
     return due_mask;
 }
 #endif

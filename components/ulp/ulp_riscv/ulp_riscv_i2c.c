@@ -45,7 +45,7 @@ rtc_io_dev_t *rtc_io_dev = &RTCIO;
 #define MICROSEC_TO_RTC_FAST_CLK(period)    (period) * ((float)(SOC_CLK_RC_FAST_FREQ_APPROX) / (1000000.0))
 
 /* Read/Write timeout (number of iterations)*/
-#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ULP_RISCV_I2C_RW_TIMEOUT
+#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ESP32_ULP_RISCV_I2C_RW_TIMEOUT
 
 /* RTC I2C lock */
 static portMUX_TYPE rtc_i2c_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -273,13 +273,13 @@ static inline esp_err_t ulp_riscv_i2c_wait_for_interrupt(int32_t ticks_to_wait)
             break;
         }
 
-        if ((uint32_t)ticks_to_wait != (uint32_t) -1) {
+        if (ticks_to_wait > -1) {
             /* If the ticks_to_wait value is not -1, keep track of ticks and
              * break from the loop once the timeout is reached.
              */
             vTaskDelay(1);
             to++;
-            if (to >= (uint32_t)ticks_to_wait) {
+            if (to >= ticks_to_wait) {
                 ret = ESP_ERR_TIMEOUT;
                 break;
             }

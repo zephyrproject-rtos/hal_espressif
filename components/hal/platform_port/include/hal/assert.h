@@ -11,7 +11,8 @@
 extern "C" {
 #endif
 
-#if CONFIG_LIBC_PICOLIBC
+#ifndef __noreturn
+#if CONFIG_LIBC_PICOLIBC || defined(__ZEPHYR__)
 #if defined(__cplusplus) && __cplusplus >= 201103L
 #define __noreturn [[noreturn]]
 #elif __has_attribute(__noreturn__)
@@ -21,6 +22,7 @@ extern "C" {
 #endif
 #else
 #define __noreturn
+#endif
 #endif
 
 __noreturn void __assert_func(const char *file, int line, const char *func, const char *expr);

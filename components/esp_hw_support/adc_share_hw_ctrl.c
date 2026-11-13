@@ -17,12 +17,13 @@
  * - adc locks, to prevent concurrently using adc hw
  */
 
+#include <zephyr/kernel.h>
+
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "sys/lock.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
 #include "hal/adc_types.h"
 #include "hal/adc_hal_common.h"
 #include "hal/adc_ll.h"
@@ -37,7 +38,7 @@
 
 
 ESP_LOG_ATTR_TAG(TAG, "adc_share_hw_ctrl");
-extern portMUX_TYPE rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
 
 #if SOC_ADC_CALIBRATION_V1_SUPPORTED
@@ -111,17 +112,21 @@ int IRAM_ATTR adc_get_hw_calibration_chan_compens(adc_unit_t adc_n, adc_channel_
 /*---------------------------------------------------------------
             ADC Hardware Locks
 ---------------------------------------------------------------*/
-static _lock_t adc1_lock;
-static _lock_t adc2_lock;
+K_MUTEX_DEFINE(adc1_lock);
+K_MUTEX_DEFINE(adc2_lock);
+
+#define ADC_LOCK_ACQUIRE(lock) do { k_mutex_lock(lock, K_FOREVER); } while(0)
+#define ADC_LOCK_RELEASE(lock) do { k_mutex_unlock(lock); } while(0)
+#define ADC_LOCK_TRY_ACQUIRE(lock) ((k_mutex_lock(lock, K_NO_WAIT) == 0) ? 0 : -1)
 
 esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        _lock_acquire(&adc1_lock);
+        ADC_LOCK_ACQUIRE(&adc1_lock);
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        _lock_acquire(&adc2_lock);
+        ADC_LOCK_ACQUIRE(&adc2_lock);
     }
 
     return ESP_OK;
@@ -130,13 +135,13 @@ esp_err_t adc_lock_acquire(adc_unit_t adc_unit)
 esp_err_t adc_lock_release(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_2) {
-        ESP_RETURN_ON_FALSE(((uint32_t *)adc2_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
-        _lock_release(&adc2_lock);
+        ESP_RETURN_ON_FALSE((adc2_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc2 lock release without acquiring");
+        ADC_LOCK_RELEASE(&adc2_lock);
     }
 
     if (adc_unit == ADC_UNIT_1) {
-        ESP_RETURN_ON_FALSE(((uint32_t *)adc1_lock != NULL), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
-        _lock_release(&adc1_lock);
+        ESP_RETURN_ON_FALSE((adc1_lock.lock_count != 0), ESP_ERR_INVALID_STATE, TAG, "adc1 lock release without acquiring");
+        ADC_LOCK_RELEASE(&adc1_lock);
     }
 
     return ESP_OK;
@@ -145,13 +150,13 @@ esp_err_t adc_lock_release(adc_unit_t adc_unit)
 esp_err_t adc_lock_try_acquire(adc_unit_t adc_unit)
 {
     if (adc_unit == ADC_UNIT_1) {
-        if (_lock_try_acquire(&adc1_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(&adc1_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }
 
     if (adc_unit == ADC_UNIT_2) {
-        if (_lock_try_acquire(&adc2_lock) == -1) {
+        if (ADC_LOCK_TRY_ACQUIRE(&adc2_lock) == -1) {
             return ESP_ERR_TIMEOUT;
         }
     }
@@ -179,7 +184,7 @@ esp_err_t adc2_wifi_release(void)
     return ESP_OK;
 }
 
-static portMUX_TYPE __attribute__((unused)) s_spinlock = portMUX_INITIALIZER_UNLOCKED;
+static esp_os_spinlock_t __attribute__((unused)) s_spinlock = ESP_OS_SPINLOCK_INIT;
 
 /*------------------------------------------------------------------------------
 * For those who use APB_SARADC periph
@@ -215,9 +220,10 @@ void adc_apb_periph_free(void)
 #endif
         }
     } else if (s_adc_digi_ctrlr_cnt < 0) {
+        s_adc_digi_ctrlr_cnt = 0;
         esp_os_exit_critical(&s_spinlock);
         ESP_LOGE(TAG, "%s called, but `s_adc_digi_ctrlr_cnt == 0`", __func__);
-        abort();
+        return;
     }
 
     esp_os_exit_critical(&s_spinlock);

@@ -12,7 +12,6 @@ extern "C" {
 
 #include "sdkconfig.h"
 #include <stdint.h>
-#include <stdbool.h>
 #include "ulp_riscv_register_ops.h"
 #include "ulp_riscv_interrupt.h"
 #include "ulp_riscv_cpu_freq_shared.h"
@@ -95,26 +94,6 @@ static inline uint32_t ulp_riscv_get_cpu_cycles(void)
 }
 
 /**
- * @brief Check whether an mcycle-based timeout has elapsed.
- *
- * @note A timeout value of -1 means "wait forever".
- *       Other values are interpreted as unsigned cycle counts.
- *
- * @param start_cycle_count Cycle counter value captured at timeout start.
- * @param cycles_to_wait Timeout in CPU cycles, or -1 to disable timeout.
- *
- * @return true if timeout elapsed, false otherwise.
- */
-static inline bool ulp_riscv_is_timeout_elapsed(uint32_t start_cycle_count, int32_t cycles_to_wait)
-{
-    if (cycles_to_wait == -1) {
-        return false;
-    }
-
-    return (ulp_riscv_get_cpu_cycles() - start_cycle_count) >= (uint32_t)cycles_to_wait;
-}
-
-/**
  * @brief Makes the co-processor busy-wait for a certain number of CPU cycles.
  *
  * @note This function is not accurate for delays shorter than 20 cycles because the
@@ -165,7 +144,7 @@ void ulp_riscv_delay_us(uint32_t delay_us);
  */
 void ulp_riscv_gpio_wakeup_clear(void);
 
-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
+#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
 /**
  * @brief Enable ULP RISC-V SW Interrupt
  *
@@ -207,12 +186,12 @@ void ulp_riscv_trigger_sw_intr(void);
  */
 #define ULP_RISCV_EXIT_CRITICAL()   asm volatile (".word 0x0600600b");
 
-#else /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
+#else /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
 
 #define ULP_RISCV_ENTER_CRITICAL()
 #define ULP_RISCV_EXIT_CRITICAL()
 
-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
 
 #ifdef __cplusplus
 }

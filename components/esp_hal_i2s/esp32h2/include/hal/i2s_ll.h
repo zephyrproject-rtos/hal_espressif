@@ -1242,6 +1242,7 @@ static inline void i2s_ll_rx_set_etm_threshold(i2s_dev_t *hw, uint32_t thresh)
     hw->etm_conf.etm_rx_receive_word_num = thresh;
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1260,6 +1261,7 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Check whether I2S TX PCM2PDM converter is supported on the specified port

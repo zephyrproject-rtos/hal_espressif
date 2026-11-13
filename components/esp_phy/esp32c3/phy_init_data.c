@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "zephyr_compat.h"
 #include "sdkconfig.h"
 #include "phy_init_data.h"
 

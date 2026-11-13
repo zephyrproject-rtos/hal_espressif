@@ -33,12 +33,12 @@ extern "C" {
   * @brief Wi-Fi mode type
   */
 typedef enum {
-    WIFI_MODE_NULL = 0,  /**< Null mode */
-    WIFI_MODE_STA,       /**< Wi-Fi station mode */
-    WIFI_MODE_AP,        /**< Wi-Fi soft-AP mode */
-    WIFI_MODE_APSTA,     /**< Wi-Fi station + soft-AP mode */
-    WIFI_MODE_NAN,       /**< Wi-Fi NAN mode */
-    WIFI_MODE_MAX
+    ESP32_WIFI_MODE_NULL = 0,  /**< Null mode */
+    ESP32_WIFI_MODE_STA,       /**< Wi-Fi station mode */
+    ESP32_WIFI_MODE_AP,        /**< Wi-Fi soft-AP mode */
+    ESP32_WIFI_MODE_APSTA,     /**< Wi-Fi station + soft-AP mode */
+    ESP32_WIFI_MODE_NAN,       /**< Wi-Fi NAN mode */
+    ESP32_WIFI_MODE_MAX
 } wifi_mode_t;
 
 /**
@@ -52,6 +52,12 @@ typedef enum {
 #endif
     WIFI_IF_MAX     /**< Maximum number of interfaces */
 } wifi_interface_t;
+
+/* Zephyr compat: preserve esp_interface_t and ESP_IF_* symbols */
+typedef wifi_interface_t esp_interface_t;
+#define ESP_IF_WIFI_STA WIFI_IF_STA
+#define ESP_IF_WIFI_AP  WIFI_IF_AP
+#define ESP_IF_MAX      WIFI_IF_MAX
 
 typedef enum {
     WIFI_OFFCHAN_TX_CANCEL,   /**< Cancel off-channel transmission */
@@ -216,8 +222,8 @@ typedef enum {
   * @brief Wi-Fi scan type
   */
 typedef enum {
-    WIFI_SCAN_TYPE_ACTIVE = 0,  /**< Active scan */
-    WIFI_SCAN_TYPE_PASSIVE,     /**< Passive scan */
+    ESP32_WIFI_SCAN_TYPE_ACTIVE = 0,  /**< Active scan */
+    ESP32_WIFI_SCAN_TYPE_PASSIVE,     /**< Passive scan */
 } wifi_scan_type_t;
 
 /**

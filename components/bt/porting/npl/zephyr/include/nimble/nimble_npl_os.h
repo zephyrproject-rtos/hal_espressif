@@ -12,12 +12,9 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
-#include "freertos/timers.h"
+#include <zephyr/kernel.h>
 #include "esp_timer.h"
+#include "esp_attr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,7 +72,7 @@ struct ble_npl_sem {
  * file instead and static inline wrapper just calls proper implementation.
  * We need declarations of these functions and they are defined in header below.
  */
-#include "npl_freertos.h"
+#include "npl_zephyr.h"
 
 struct npl_funcs_t {
     bool (*p_ble_npl_os_started)(void);

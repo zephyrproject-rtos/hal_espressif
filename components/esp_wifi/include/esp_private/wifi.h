@@ -20,12 +20,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include <zephyr/kernel.h>
 #include "sys/queue.h"
 #include "esp_err.h"
 #include "esp_wifi_types.h"
-#include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_smartconfig.h"
 #include "wifi_types.h"
@@ -40,8 +38,8 @@ extern "C" {
 #endif
 
 typedef struct {
-    QueueHandle_t handle; /**< FreeRTOS queue handler */
-    void *storage;        /**< storage for FreeRTOS queue */
+    void *handle; /**< queue handler */
+    void *storage;        /**< storage for queue */
 } wifi_static_queue_t;
 
 /**
@@ -885,7 +883,7 @@ void esp_wifi_power_domain_on(void);
  */
 void esp_wifi_power_domain_off(void);
 
-#if (CONFIG_FREERTOS_USE_TICKLESS_IDLE && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
 /**
   * @brief     Get wifi mac sleep retention hardware context configuration and size
   *

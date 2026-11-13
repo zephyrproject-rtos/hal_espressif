@@ -19,8 +19,6 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "sdkconfig.h"
 
 #if CONFIG_ESP_TIMER_IN_IRAM
@@ -159,11 +157,3 @@ void esp_timer_impl_init_system_time(void);
  */
 uint32_t esp_timer_impl_claim_due_alarms(void);
 #endif
-
-/**
- * @brief Get the task handle used to dispatch esp_timer task callbacks.
- *
- * This is used by linux timer implementations to notify the esp_timer task
- * without exposing the task handle outside the component implementation.
- */
-TaskHandle_t esp_timer_impl_get_timer_task_handle(void);

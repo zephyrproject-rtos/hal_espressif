@@ -9,12 +9,10 @@
 #include "sdkconfig.h"
 #include "esp_types.h"
 #include "esp_log.h"
+#include <zephyr/kernel.h>
 #include "soc/rtc_periph.h"
 #include "soc/rtc.h"
 #include "soc/periph_defs.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
 #include "esp_intr_alloc.h"
 #include "sys/lock.h"
 #include "esp_private/rtc_ctrl.h"
@@ -40,7 +38,7 @@ ESP_LOG_ATTR_TAG(TAG, "rtc_module");
 #endif
 
 // rtc_spinlock is used by other peripheral drivers
-portMUX_TYPE rtc_spinlock = portMUX_INITIALIZER_UNLOCKED;
+esp_os_spinlock_t rtc_spinlock = ESP_OS_SPINLOCK_INIT;
 
 #if SOC_LP_PERIPH_SHARE_INTERRUPT // TODO: IDF-8008
 
@@ -68,7 +66,7 @@ typedef struct rtc_isr_handler_ {
 
 static DRAM_ATTR SLIST_HEAD(rtc_isr_handler_list_, rtc_isr_handler_) s_rtc_isr_handler_list =
         SLIST_HEAD_INITIALIZER(s_rtc_isr_handler_list);
-static DRAM_ATTR portMUX_TYPE __attribute__((unused)) s_rtc_isr_handler_list_lock = portMUX_INITIALIZER_UNLOCKED;
+static DRAM_ATTR esp_os_spinlock_t s_rtc_isr_handler_list_lock = ESP_OS_SPINLOCK_INIT;
 static intr_handle_t s_rtc_isr_handle;
 
 IRAM_ATTR static void rtc_isr(void* arg)
@@ -119,7 +117,7 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg, uint32_t r
         return err;
     }
 
-    rtc_isr_handler_t* item = heap_caps_malloc(sizeof(*item), MALLOC_CAP_INTERNAL);
+    rtc_isr_handler_t* item = k_malloc(sizeof(*item));
     if (item == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -160,7 +158,7 @@ esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg)
             if (it->flags & RTC_INTR_FLAG_IRAM) {
                 s_rtc_isr_noniram_hook_relieve(it->mask);
             }
-            free(it);
+            k_free(it);
             break;
         }
         prev = it;

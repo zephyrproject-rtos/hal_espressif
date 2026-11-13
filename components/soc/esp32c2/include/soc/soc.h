@@ -140,7 +140,7 @@
 //}}
 
 //Periheral Clock {{
-#define  APB_CLK_FREQ                                (SOC_XTAL_FREQ_MHZ * 1000000 )
+#define  APB_CLK_FREQ                                (CONFIG_XTAL_FREQ * 1000000 )
 #define  MODEM_REQUIRED_MIN_APB_CLK_FREQ             ( 80*1000000 )
 //}}
 

@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "hal/assert.h"
 #include "hal/misc.h"
 #include "soc/spi_mem_struct.h"

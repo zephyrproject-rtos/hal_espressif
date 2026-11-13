@@ -21,7 +21,8 @@
 #include "soc/timer_group_reg.h"
 #include "soc/rtc.h"
 #include "hal/lact_ll.h"
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
+#include "esp_private/critical_section.h"
 
 /**
  * @file esp_timer_lac.c
@@ -74,11 +75,8 @@ ESP_LOG_ATTR_TAG(TAG, "esp_timer_impl");
 #define NOT_USED 0xBAD00FAD
 
 /* Interrupt handle returned by the interrupt allocator */
-#ifdef CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
-#define ISR_HANDLERS (CONFIG_FREERTOS_NUMBER_OF_CORES)
-#else
+/* Zephyr uses single ISR handler */
 #define ISR_HANDLERS (1)
-#endif
 static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
 
 /* Function from the upper layer to be called when the interrupt happens.
@@ -87,7 +85,7 @@ static intr_handle_t s_timer_interrupt_handle[ISR_HANDLERS] = { NULL };
 static intr_handler_t s_alarm_handler = NULL;
 
 /* Spinlock used to protect access to the hardware registers. */
-extern portMUX_TYPE s_time_update_lock;
+extern esp_os_spinlock_t s_time_update_lock;
 
 /* Alarm values to generate interrupt on match */
 extern uint64_t timestamp_id[2];
@@ -133,7 +131,7 @@ int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")
 void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
     assert(alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]));
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
     if (timestamp != UINT64_MAX) {
@@ -148,16 +146,16 @@ void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigne
             now_time = esp_timer_impl_get_counter_reg();
             int64_t delta = (int64_t)alarm.val - (int64_t)now_time;
             if (delta <= 0 && REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST) == 0) {
-                // new alarm is less than the counter and the interrupt flag is not set
+                /* new alarm is less than the counter and the interrupt flag is not set */
                 offset += llabs(delta) + LACT_TICKS_PER_US * 2;
                 alarm.val = now_time + offset;
             } else {
-                // finish if either (alarm > counter) or the interrupt flag is already set.
+                /* finish if either (alarm > counter) or the interrupt flag is already set. */
                 break;
             }
         } while (1);
     }
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
 static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
@@ -172,7 +170,7 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
     static volatile uint32_t processed_by = NOT_USED;
     static volatile bool pending_alarm = false;
     /* CRITICAL section ensures the read/clear is atomic between cores */
-    portENTER_CRITICAL_ISR(&s_time_update_lock);
+    esp_os_enter_critical_isr(&s_time_update_lock);
     if (REG_GET_FIELD(INT_ST_REG, TIMG_LACT_INT_ST)) {
         // Clear interrupt status
         REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
@@ -184,11 +182,11 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
                 pending_alarm = false;
                 // Clear interrupt status
                 REG_WRITE(INT_CLR_REG, TIMG_LACT_INT_CLR);
-                portEXIT_CRITICAL_ISR(&s_time_update_lock);
+                esp_os_exit_critical_isr(&s_time_update_lock);
 
                 (*s_alarm_handler)(arg);
 
-                portENTER_CRITICAL_ISR(&s_time_update_lock);
+                esp_os_enter_critical_isr(&s_time_update_lock);
                 // Another alarm could have occurred while were handling the previous alarm.
                 // Check if we need to call the s_alarm_handler again:
                 //   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
@@ -202,18 +200,18 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
             pending_alarm = true;
         }
     }
-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
+    esp_os_exit_critical_isr(&s_time_update_lock);
 #endif // ISR_HANDLERS != 1
 }
 
 void esp_timer_impl_set(uint64_t new_us)
 {
-    portENTER_CRITICAL(&s_time_update_lock);
+    esp_os_enter_critical(&s_time_update_lock);
     timer_64b_reg_t dst = { .val = new_us * LACT_TICKS_PER_US };
     REG_WRITE(LOAD_LO_REG, dst.lo);
     REG_WRITE(LOAD_HI_REG, dst.hi);
     REG_WRITE(LOAD_REG, 1);
-    portEXIT_CRITICAL(&s_time_update_lock);
+    esp_os_exit_critical(&s_time_update_lock);
 }
 
 void esp_timer_impl_advance(int64_t time_diff_us)
@@ -248,7 +246,10 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    if (s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()] != NULL) {
+    /* Re-init hardware in case it was reset by another driver (e.g. SPI flash) */
+    esp_timer_impl_early_init();
+
+    if (s_timer_interrupt_handle[0] != NULL) {
         ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -262,7 +263,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     esp_err_t err = esp_intr_alloc(INTR_SOURCE_LACT, isr_flags,
                                    &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
+                                   &s_timer_interrupt_handle[0]);
 
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "Can not allocate ISR handler (0x%0x)", err);
@@ -276,16 +277,16 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
         * will not cause issues in practice.
         */
         REG_SET_BIT(INT_ENA_REG, TIMG_LACT_INT_ENA);
-        portENTER_CRITICAL_SAFE(&s_time_update_lock);
-        lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ / LACT_TICKS_PER_US);
-        portEXIT_CRITICAL_SAFE(&s_time_update_lock);
-        // Set the step for the sleep mode when the timer will work
-        // from a slow_clk frequency instead of the APB frequency.
+        esp_os_enter_critical_safe(&s_time_update_lock);
+        lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), esp_clk_apb_freq() / MHZ(1) / LACT_TICKS_PER_US);
+        esp_os_exit_critical_safe(&s_time_update_lock);
+        /* Set the step for the sleep mode when the timer will work
+         * from a slow_clk frequency instead of the APB frequency. */
         uint32_t slowclk_ticks_per_us = esp_clk_slowclk_cal_get() * LACT_TICKS_PER_US;
         REG_SET_FIELD(RTC_STEP_REG, TIMG_LACT_RTC_STEP_LEN, slowclk_ticks_per_us);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
+    err = esp_intr_enable(s_timer_interrupt_handle[0]);
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
     }
@@ -315,12 +316,12 @@ void esp_timer_impl_deinit(void)
 
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     timer_64b_reg_t alarm = {
         .lo = REG_READ(ALARM_LO_REG),
         .hi = REG_READ(ALARM_HI_REG)
     };
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
     return alarm.val;
 }
 

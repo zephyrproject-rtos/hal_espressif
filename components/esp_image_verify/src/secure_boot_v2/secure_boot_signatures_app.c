@@ -12,7 +12,7 @@
 #include "esp_log.h"
 #include "esp_image_format.h"
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "esp_secure_boot.h"
 #include "esp_ota_ops.h"
 #include "esp_efuse.h"

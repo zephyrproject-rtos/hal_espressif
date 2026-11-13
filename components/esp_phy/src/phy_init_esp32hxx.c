@@ -5,11 +5,12 @@
  */
 
 #include "esp_attr.h"
-#include "freertos/portmacro.h"
+#include <zephyr/kernel.h>
 #include "esp_phy_init.h"
 #include "esp_private/phy.h"
 #include "esp_timer.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/critical_section.h"
 #include "esp_log.h"
 
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
@@ -38,7 +39,8 @@ static uint8_t s_phy_modem_init_ref = 0;
 #endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
 #endif // CONFIG_ESP_PHY_HW_SWITCH_RF
 
-static DRAM_ATTR portMUX_TYPE s_phy_int_mux = portMUX_INITIALIZER_UNLOCKED;
+/* PHY spinlock for libphy.a */
+static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
 
 extern void phy_version_print(void);
 
@@ -46,31 +48,21 @@ extern void phy_version_print(void);
 bool btdm_lp_check_phy_etm_task_triggered(void);
 void btdm_lp_disable_etm_phy_retention_task(void);
 #endif // CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
-static _lock_t s_phy_access_lock;
+K_MUTEX_DEFINE(s_phy_access_lock);
 
 /* Reference count of enabling PHY */
 static bool s_phy_is_enabled = false;
 
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    if (xPortInIsrContext()) {
-        portENTER_CRITICAL_ISR(&s_phy_int_mux);
-
-    } else {
-        portENTER_CRITICAL(&s_phy_int_mux);
-    }
-    // Interrupt level will be stored in current tcb, so always return zero.
+    esp_os_enter_critical(&s_phy_int_mux);
     return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
-    // Param level don't need any more, ignore it.
-    if (xPortInIsrContext()) {
-        portEXIT_CRITICAL_ISR(&s_phy_int_mux);
-    } else {
-        portEXIT_CRITICAL(&s_phy_int_mux);
-    }
+    (void)level;
+    esp_os_exit_critical(&s_phy_int_mux);
 }
 
 #if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
@@ -96,7 +88,7 @@ static void phy_disable_etm_phy_retention_link(void)
 
 void esp_phy_enable(esp_phy_modem_t modem)
 {
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     if (phy_get_modem_flag() == 0) {
 #if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
         phy_disable_etm_phy_retention_link();
@@ -146,12 +138,12 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(true, modem);
 #endif
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 }
 
 void esp_phy_disable(esp_phy_modem_t modem)
 {
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(false, modem);
 #endif
@@ -179,18 +171,18 @@ void esp_phy_disable(esp_phy_modem_t modem)
         modem_clock_module_disable(PERIPH_PHY_MODULE);
 #endif
     }
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 }
 
-_lock_t phy_get_lock(void)
+struct k_mutex *phy_get_lock(void)
 {
-    return s_phy_access_lock;
+    return &s_phy_access_lock;
 }
 
 void esp_phy_modem_init(uint8_t modem)
 {
 #if CONFIG_ESP_PHY_HW_SWITCH_RF
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 #if SOC_PM_REGDMA_MODEM_LINK_PROTECT
     s_phy_modem_init_ref++;
     pau_regdma_register_modem_link_protect(phy_regi2c_lock_apply);
@@ -198,18 +190,18 @@ void esp_phy_modem_init(uint8_t modem)
     if (sleep_modem_phy_init(modem) != ESP_OK) {
         ESP_LOGE(TAG, "failed to initialize sleep modem phy");
     }
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #endif // CONFIG_ESP_PHY_HW_SWITCH_RF
 }
 
 void esp_phy_modem_deinit(uint8_t modem)
 {
 #if CONFIG_ESP_PHY_HW_SWITCH_RF
-    _lock_acquire(&s_phy_access_lock);
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
 
 #if SOC_PM_REGDMA_MODEM_LINK_PROTECT
     if (s_phy_modem_init_ref == 0) {
-        _lock_release(&s_phy_access_lock);
+        k_mutex_unlock(&s_phy_access_lock);
         return;
     }
     s_phy_modem_init_ref--;
@@ -218,6 +210,6 @@ void esp_phy_modem_deinit(uint8_t modem)
     }
 #endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
     sleep_modem_phy_deinit(modem);
-    _lock_release(&s_phy_access_lock);
+    k_mutex_unlock(&s_phy_access_lock);
 #endif // CONFIG_ESP_PHY_HW_SWITCH_RF
 }

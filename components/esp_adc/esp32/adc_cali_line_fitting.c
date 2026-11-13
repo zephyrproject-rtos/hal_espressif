@@ -206,7 +206,7 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
 
 err:
     if (chars) {
-        free(chars);
+        heap_caps_free(chars);
     }
     return ret;
 }
@@ -234,7 +234,7 @@ esp_err_t adc_cali_delete_scheme_line_fitting(adc_cali_handle_t handle)
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t delete_cali_ctx(void *arg)
 {
-    free(arg);
+    heap_caps_free(arg);
     return ESP_OK;
 }
 

@@ -12,7 +12,7 @@
 // Set the maximum log level for DAC driver
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #endif
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "driver/dac_types.h"
 #include "hal/dac_types.h"
 #include "hal/dac_types_private.h"
@@ -22,6 +22,7 @@
 #include "esp_err.h"
 #include "esp_attr.h"
 #include "esp_heap_caps.h"
+#include "esp_private/critical_section.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,19 +37,19 @@ ESP_LOG_ATTR_TAG(TAG, "dac");
  * - ESP32-S31: dedicated DAC register block, use dac_priv_spinlock
  */
 #if SOC_IS(ESP32) || SOC_IS(ESP32S2)
-extern portMUX_TYPE rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
-#define DAC_ENTER_CRITICAL()         portENTER_CRITICAL(&rtc_spinlock)
-#define DAC_EXIT_CRITICAL()          portEXIT_CRITICAL(&rtc_spinlock)
-#define DAC_ENTER_CRITICAL_SAFE()    portENTER_CRITICAL_SAFE(&rtc_spinlock)
-#define DAC_EXIT_CRITICAL_SAFE()     portEXIT_CRITICAL_SAFE(&rtc_spinlock)
+#define DAC_ENTER_CRITICAL()         esp_os_enter_critical(&rtc_spinlock)
+#define DAC_EXIT_CRITICAL()          esp_os_exit_critical(&rtc_spinlock)
+#define DAC_ENTER_CRITICAL_SAFE()    esp_os_enter_critical_safe(&rtc_spinlock)
+#define DAC_EXIT_CRITICAL_SAFE()     esp_os_exit_critical_safe(&rtc_spinlock)
 #else
-extern portMUX_TYPE dac_priv_spinlock;
+extern esp_os_spinlock_t dac_priv_spinlock;
 
-#define DAC_ENTER_CRITICAL()         portENTER_CRITICAL(&dac_priv_spinlock)
-#define DAC_EXIT_CRITICAL()          portEXIT_CRITICAL(&dac_priv_spinlock)
-#define DAC_ENTER_CRITICAL_SAFE()    portENTER_CRITICAL_SAFE(&dac_priv_spinlock)
-#define DAC_EXIT_CRITICAL_SAFE()     portEXIT_CRITICAL_SAFE(&dac_priv_spinlock)
+#define DAC_ENTER_CRITICAL()         esp_os_enter_critical(&dac_priv_spinlock)
+#define DAC_EXIT_CRITICAL()          esp_os_exit_critical(&dac_priv_spinlock)
+#define DAC_ENTER_CRITICAL_SAFE()    esp_os_enter_critical_safe(&dac_priv_spinlock)
+#define DAC_EXIT_CRITICAL_SAFE()     esp_os_exit_critical_safe(&dac_priv_spinlock)
 #endif // SOC_IS(ESP32) || SOC_IS(ESP32S2)
 
 #define DAC_NULL_POINTER_CHECK(p)     ESP_RETURN_ON_FALSE((p), ESP_ERR_INVALID_ARG, TAG, "input parameter '"#p"' is NULL")

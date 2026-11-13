@@ -5,6 +5,7 @@
  */
 
 #include "sdkconfig.h"
+#include "zephyr_compat.h"
 #include "phy_init_data.h"
 
 const char phy_init_magic_pre[] = PHY_INIT_MAGIC;

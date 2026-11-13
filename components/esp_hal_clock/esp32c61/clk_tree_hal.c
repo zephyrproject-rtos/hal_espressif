@@ -16,7 +16,7 @@ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
     case SOC_CPU_CLK_SRC_PLL_F160M:
         return CLK_LL_PLL_160M_FREQ_MHZ;
     case SOC_CPU_CLK_SRC_RC_FAST:
-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
+        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
     default:
         // Unknown CPU_CLK mux input
         HAL_ASSERT(false);
@@ -28,14 +28,14 @@ uint32_t clk_hal_cpu_get_freq_hz(void)
 {
     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
     uint32_t divider = clk_ll_cpu_get_divider();
-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
+    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
 }
 
 static uint32_t clk_hal_ahb_get_freq_hz(void)
 {
     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
     uint32_t divider = clk_ll_ahb_get_divider();
-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / divider;
+    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / divider;
 }
 
 uint32_t clk_hal_apb_get_freq_hz(void)

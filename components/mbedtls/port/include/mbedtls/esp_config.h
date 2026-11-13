@@ -195,7 +195,7 @@
 #ifdef CONFIG_MBEDTLS_HARDWARE_SHA
     #define ESP_SHA_DRIVER_ENABLED
     #define MBEDTLS_PSA_ACCEL_ALG_HMAC
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
     #if SOC_SHA_SUPPORT_SHA1
         #define MBEDTLS_PSA_ACCEL_ALG_SHA_1
         #undef MBEDTLS_PSA_BUILTIN_ALG_SHA_1
@@ -239,7 +239,7 @@
 #else
 #if !defined(MBEDTLS_PSA_BUILTIN_ALG_HMAC)
     /* If ROM MD5 is not enabled, use the builtin HMAC algorithm for HMAC(MD5) operations */
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
 #endif
 #endif /* MBEDTLS_PSA_BUILTIN_ALG_HMAC */
 
@@ -618,6 +618,7 @@
  *
  * Comment this macro to disable FIXED POINT curves optimisation.
  */
+#undef MBEDTLS_ECP_FIXED_POINT_OPTIM
 #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
 #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
 #else
@@ -2010,6 +2011,7 @@
 #ifdef CONFIG_MBEDTLS_CHACHA20_C
 #define PSA_WANT_KEY_TYPE_CHACHA20 1
 #else
+#undef MBEDTLS_CHACHA20_C
 #undef PSA_WANT_KEY_TYPE_CHACHA20
 #endif
 
@@ -2020,11 +2022,12 @@
  *
  * Module:  library/chachapoly.c
  *
- * This module requires: MBEDTLS_CHACHA20_C
+ * This module requires: MBEDTLS_CHACHA20_C, MBEDTLS_POLY1305_C
  */
 #ifdef CONFIG_MBEDTLS_CHACHAPOLY_C
 #define PSA_WANT_ALG_CHACHA20_POLY1305 1
 #else
+#undef MBEDTLS_CHACHAPOLY_C
 #undef PSA_WANT_ALG_CHACHA20_POLY1305
 #endif
 
@@ -2508,6 +2511,20 @@
 #define MBEDTLS_PLATFORM_C
 
 /**
+ * \def MBEDTLS_POLY1305_C
+ *
+ * Enable the Poly1305 MAC algorithm.
+ *
+ * Module:  library/poly1305.c
+ * Caller:  library/chachapoly.c
+ */
+#ifdef CONFIG_MBEDTLS_POLY1305_C
+#define MBEDTLS_POLY1305_C
+#else
+#undef MBEDTLS_POLY1305_C
+#endif
+
+/**
  * \def MBEDTLS_RIPEMD160_C
  *
  * Enable the RIPEMD-160 hash algorithm.
@@ -2572,7 +2589,7 @@
  *            on it, and considering stronger message digests instead.
  *
  */
-#if CONFIG_MBEDTLS_SHA1_C
+#if defined(CONFIG_MBEDTLS_SHA1_C) || defined(CONFIG_PSA_WANT_ALG_SHA_1)
 #define PSA_WANT_ALG_SHA_1 1
 #else
 #undef PSA_WANT_ALG_SHA_1
@@ -2611,7 +2628,7 @@
  *
  * This module adds support for SHA-384 and SHA-512.
  */
-#ifdef CONFIG_MBEDTLS_SHA512_C
+#if defined(CONFIG_MBEDTLS_SHA512_C) || defined(CONFIG_PSA_WANT_ALG_SHA_512)
 #define PSA_WANT_ALG_SHA_512 1
 #else
 #undef PSA_WANT_ALG_SHA_512
@@ -2632,7 +2649,7 @@
  *
  * Comment to disable SHA-384
  */
-#ifdef CONFIG_MBEDTLS_SHA384_C
+#if defined(CONFIG_MBEDTLS_SHA384_C) || defined(CONFIG_PSA_WANT_ALG_SHA_384)
 #define PSA_WANT_ALG_SHA_384 1
 #else
 #undef PSA_WANT_ALG_SHA_384
@@ -2654,12 +2671,17 @@
  * This module adds support for SHA-224 and SHA-256.
  * This module is required for the SSL/TLS 1.2 PRF function.
  */
-#ifdef CONFIG_MBEDTLS_SHA256_C
+#if defined(CONFIG_MBEDTLS_SHA256_C) || defined(CONFIG_PSA_WANT_ALG_SHA_256)
 #define PSA_WANT_ALG_SHA_256 1
-#define PSA_WANT_ALG_SHA_224 1
 #else
 #undef PSA_WANT_ALG_SHA_256
 #undef MBEDTLS_PSA_ACCEL_ALG_SHA_256
+#endif
+
+#if defined(CONFIG_MBEDTLS_SHA224_C) || defined(CONFIG_MBEDTLS_SHA256_C) || \
+    defined(CONFIG_PSA_WANT_ALG_SHA_224)
+#define PSA_WANT_ALG_SHA_224 1
+#else
 #undef PSA_WANT_ALG_SHA_224
 #undef MBEDTLS_PSA_ACCEL_ALG_SHA_224
 #endif
@@ -2704,7 +2726,7 @@
 #define PSA_WANT_ALG_SHA3_512 1
 #if !defined(MBEDTLS_PSA_BUILTIN_ALG_HMAC)
     /* If SHA3 is enabled, use the builtin HMAC algorithm for HMAC(SHA3) operations */
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
 #endif /* MBEDTLS_PSA_BUILTIN_ALG_HMAC */
 #else
 #undef PSA_WANT_ALG_SHA3_224

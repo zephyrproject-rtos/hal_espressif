@@ -54,7 +54,7 @@
 #include "esp_wifi_types.h"
 #include "esp_event.h"
 #include "esp_wifi_crypto_types.h"
-#include "esp_wifi_default.h"
+#include "zephyr_compat.h"
 
 #ifdef __cplusplus
 extern "C" {

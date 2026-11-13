@@ -2000,7 +2000,7 @@ esp_err_t esp_wifi_nan_sync_start(const wifi_nan_sync_config_t *nan_cfg)
 #endif
     NAN_DATA_UNLOCK();
 
-    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_NAN), TAG, "Set mode NAN failed");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(ESP32_WIFI_MODE_NAN), TAG, "Set mode NAN failed");
 
     memcpy(&config.nan, nan_cfg, sizeof(wifi_nan_sync_config_t));
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_NAN, &config), TAG, "Setting NAN config failed");
@@ -3022,7 +3022,7 @@ esp_err_t esp_wifi_nan_get_peer_info(char *svc_name, uint8_t *peer_mac, struct n
 esp_err_t esp_wifi_nan_usd_start(void)
 {
     if (!s_usd_in_progress) {
-        ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), "NAN-USD", "Setting STA mode failed");
+        ESP_RETURN_ON_ERROR(esp_wifi_set_mode(ESP32_WIFI_MODE_STA), "NAN-USD", "Setting STA mode failed");
         ESP_RETURN_ON_ERROR(esp_nan_usd_init(), "NAN-USD", "Failed to initialise NAN USD engine");
         s_usd_in_progress = true;
         ESP_LOGI(TAG, "NaN-USD Started");

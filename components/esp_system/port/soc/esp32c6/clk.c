@@ -5,9 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "soc/soc.h"
@@ -27,11 +25,9 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
 #define RTC_XTAL_CAL_RETRY 3
-
-#define MHZ (1000000)
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 static __attribute__((unused)) void recalib_bbpll(void);
@@ -46,7 +42,7 @@ void esp_rtc_init(void)
     recalib_bbpll();
 #endif
 
-#if !CONFIG_IDF_ENV_FPGA
+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
     pmu_init();
 #endif
 }
@@ -76,9 +72,9 @@ __attribute__((weak)) void esp_clk_init(void)
 #endif
 
     modem_clock_deselect_all_module_lp_clock_source();
-#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_XTAL32K);
-#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_OSC_SLOW);
 #else
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_RC_SLOW);

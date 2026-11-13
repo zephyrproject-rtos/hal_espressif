@@ -53,26 +53,6 @@ static inline uint32_t ulp_lp_core_get_cpu_cycles(void)
 }
 
 /**
- * @brief Check whether an mcycle-based timeout has elapsed.
- *
- * @note A timeout value of -1 means "wait forever".
- *       Other values are interpreted as unsigned cycle counts.
- *
- * @param start_cycle_count Cycle counter value captured at timeout start.
- * @param cycles_to_wait Timeout in CPU cycles, or -1 to disable timeout.
- *
- * @return true if timeout elapsed, false otherwise.
- */
-static inline bool ulp_lp_core_is_timeout_elapsed(uint32_t start_cycle_count, int32_t cycles_to_wait)
-{
-    if (cycles_to_wait == -1) {
-        return false;
-    }
-
-    return (ulp_lp_core_get_cpu_cycles() - start_cycle_count) >= (uint32_t)cycles_to_wait;
-}
-
-/**
  * @brief Makes the co-processor busy-wait for a certain number of microseconds.
  *
  * @note The maximum supported delay depends on the LP core clock source and frequency.

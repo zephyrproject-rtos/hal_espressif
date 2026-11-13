@@ -5,9 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -41,11 +39,9 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
 #define RTC_XTAL_CAL_RETRY 3
-
-#define MHZ (1000000)
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
@@ -53,8 +49,8 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
 
 void esp_rtc_init(void)
 {
-#if !CONFIG_IDF_ENV_FPGA
-    pmu_init();
+#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
+	pmu_init();
 #endif
 }
 
@@ -64,16 +60,7 @@ __attribute__((weak)) void esp_clk_init(void)
     assert((rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_48M) || (rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M));
 
     rtc_clk_8m_enable(true);
-#if CONFIG_RTC_FAST_CLK_SRC_RC_FAST
     rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
-#elif CONFIG_RTC_FAST_CLK_SRC_XTAL
-    rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_XTAL);
-    if (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_FAST_USE_XTAL_MODE] == 0) {
-        esp_sleep_sub_mode_config(ESP_SLEEP_RTC_FAST_USE_XTAL_MODE, true);
-    }
-#else
-#error "No RTC fast clock source configured"
-#endif
 #endif //!CONFIG_IDF_ENV_FPGA
 
 #if defined(CONFIG_BOOTLOADER_WDT_ENABLE) && SOC_RTC_WDT_SUPPORTED
@@ -92,9 +79,9 @@ __attribute__((weak)) void esp_clk_init(void)
 #endif
 
     modem_clock_deselect_all_module_lp_clock_source();
-#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_XTAL32K);
-#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_OSC_SLOW);
 #else
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_RC_SLOW);

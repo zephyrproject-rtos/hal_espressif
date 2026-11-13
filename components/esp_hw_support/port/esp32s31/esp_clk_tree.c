@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_clk_tree.h"
 #include "esp_attr.h"
@@ -248,9 +249,9 @@ static uint32_t esp_clk_tree_ref_500m_pll_get_freq_hz(uint32_t div_num)
     uint32_t up_hz;
 
     if (clk_ll_ref_500m_get_src() == 0) {
-        up_hz = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        up_hz = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
     } else {
-        up_hz = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        up_hz = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
     }
     return up_hz / div_num;
 }
@@ -268,13 +269,13 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = SOC_XTAL_FREQ_40M * MHZ;
+        clk_src_freq = SOC_XTAL_FREQ_40M * MHZ(1);
         break;
     case SOC_MOD_CLK_SYS:
         clk_src_freq = clk_hal_sys_get_freq_hz();
         break;
     case SOC_MOD_CLK_PLL_F20M:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F25M:
         clk_src_freq = esp_clk_tree_ref_500m_pll_get_freq_hz(clk_ll_pll_f25m_get_divider());
@@ -283,28 +284,28 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = esp_clk_tree_ref_500m_pll_get_freq_hz(clk_ll_pll_f50m_get_divider());
         break;
     case SOC_MOD_CLK_PLL_F60M:
-        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_REF_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F120M:
-        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_CPLL:
-        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_BBPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_MPLL:
-        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
+        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
         break;
     case SOC_MOD_CLK_APLL:
         clk_src_freq = clk_hal_apll_get_freq_hz();
@@ -324,7 +325,7 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
         break;
     case SOC_MOD_CLK_APB:
         clk_src_freq = clk_hal_apb_get_freq_hz();
@@ -370,38 +371,30 @@ esp_err_t esp_clk_tree_src_set_freq_hz(soc_module_clk_t clk_src, uint32_t expt_f
 
 void esp_clk_tree_initialize(void)
 {
-    soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
     soc_periph_flash_clk_src_t flash_clk_src = _mspi_timing_ll_get_flash_clk_src(MSPI_TIMING_LL_MSPI_ID_0);
     soc_cpu_clk_src_t cpu_src = clk_ll_cpu_get_src();
-    bool cpu_reset = (rst_reason == RESET_REASON_CPU_SW) || (rst_reason == RESET_REASON_CPU_MWDT) ||
-                     (rst_reason == RESET_REASON_CPU_RWDT) || (rst_reason == RESET_REASON_CPU_JTAG) ||
-                     (rst_reason == RESET_REASON_CPU_LOCKUP);
-    if (!cpu_reset) {
-        /* Cold boot only: gate / power-down clocks not in use. */
-        if (cpu_src != SOC_CPU_CLK_SRC_PLL_F240M) {
-            _clk_gate_ll_ref_240m_clk_en(false);
-        }
-        if (cpu_src != SOC_CPU_CLK_SRC_CPLL && flash_clk_src != FLASH_CLK_SRC_CPLL) {
-            clk_ll_cpll_disable();
-        }
-#if !CONFIG_ESP_ENABLE_PVT
-        // PLL_F160M must always on if PVT is enabled.
-        _clk_gate_ll_ref_160m_clk_en(false);
-#endif
-        _clk_gate_ll_ref_120m_clk_en(false);
-        _clk_gate_ll_ref_80m_clk_en(false);
-        _clk_gate_ll_ref_60m_clk_en(false);
-        _clk_gate_ll_ref_20m_clk_en(false);
-        _clk_gate_ll_ref_50m_clk_en(false);
-        _clk_gate_ll_ref_25m_clk_en(false);
-        clk_ll_xtalx2_disable();
-        HP_ALIVE_SYS.hp_clk_ctrl.hp_audio_pll_clk_en = 0;
-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll2_clk_en = 0;
-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll1_clk_en = 0;
-        HP_ALIVE_SYS.hp_clk_ctrl.hp_sdio_pll0_clk_en = 0;
-    }
 
     s_clk_tree_initialized = true;
+
+    /* Hold a reference on each PLL reference clock that is already running */
+    const struct {
+        soc_module_clk_t src;
+        bool running;
+    } ref_clks[] = {
+        { SOC_MOD_CLK_PLL_F20M, HP_SYS_CLKRST.ref_20m_ctrl0.reg_ref_20m_clk_en },
+        { SOC_MOD_CLK_PLL_F25M, HP_SYS_CLKRST.ref_25m_ctrl0.reg_ref_25m_clk_en },
+        { SOC_MOD_CLK_PLL_F50M, HP_SYS_CLKRST.ref_50m_ctrl0.reg_ref_50m_clk_en },
+        { SOC_MOD_CLK_PLL_F60M, HP_SYS_CLKRST.ref_60m_ctrl0.reg_ref_60m_clk_en },
+        { SOC_MOD_CLK_REF_F80M, HP_SYS_CLKRST.ref_80m_ctrl0.reg_ref_80m_clk_en },
+        { SOC_MOD_CLK_PLL_F120M, HP_SYS_CLKRST.ref_120m_ctrl0.reg_ref_120m_clk_en },
+        { SOC_MOD_CLK_PLL_F160M, HP_SYS_CLKRST.ref_160m_ctrl0.reg_ref_160m_clk_en },
+        { SOC_MOD_CLK_PLL_F240M, HP_SYS_CLKRST.ref_240m_ctrl0.reg_ref_240m_clk_en },
+    };
+    for (size_t i = 0; i < ARRAY_SIZE(ref_clks); i++) {
+        if (ref_clks[i].running) {
+            esp_clk_tree_acquire_src(ref_clks[i].src, NULL);
+        }
+    }
 #if CONFIG_USJ_ENABLE_USB_SERIAL_JTAG || CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
     /* Bootloader / USJ may keep BBPLL 480M on; declare a permanent hold. */
     esp_clk_tree_acquire_src(SOC_MOD_CLK_BBPLL, NULL);

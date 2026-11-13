@@ -13,7 +13,7 @@
 #include "esp_secure_boot.h"
 #include "psa/crypto.h"
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "mbedtls/pk.h"
 
 #ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME

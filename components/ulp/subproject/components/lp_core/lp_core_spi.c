@@ -35,11 +35,17 @@ static volatile bool s_slave_armed = false;
 
 static inline esp_err_t lp_core_spi_wait_for_interrupt(int32_t cycles_to_wait)
 {
-    uint32_t timeout_start = ulp_lp_core_get_cpu_cycles();
+    uint32_t to = 0;
     while (!lp_spi_ll_get_int_trans_done(lp_spi_dev)) {
-        if (ulp_lp_core_is_timeout_elapsed(timeout_start, cycles_to_wait)) {
-            lp_spi_ll_clear_int_trans_done(lp_spi_dev);
-            return ESP_ERR_TIMEOUT;
+        if (cycles_to_wait > -1) {
+            /* If the cycles_to_wait value is not -1, keep track of cycles and
+             * break from the loop once the timeout is reached.
+             */
+            to++;
+            if (to >= cycles_to_wait) {
+                lp_spi_ll_clear_int_trans_done(lp_spi_dev);
+                return ESP_ERR_TIMEOUT;
+            }
         }
     }
 

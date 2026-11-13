@@ -2412,7 +2412,7 @@ esp_err_t esp_supp_dpp_init(void)
     int eloop_ret;
 
     wifi_mode_t mode = 0;
-    if (esp_wifi_get_mode(&mode) || ((mode != WIFI_MODE_STA) && (mode != WIFI_MODE_APSTA))) {
+    if (esp_wifi_get_mode(&mode) || ((mode != ESP32_WIFI_MODE_STA) && (mode != ESP32_WIFI_MODE_APSTA))) {
         wpa_printf(MSG_ERROR, "DPP: failed to init as not in station mode.");
         return ESP_ERR_DPP_FAILURE;
     }

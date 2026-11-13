@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 #include "dac_priv_common.h"
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "hal/dac_periph.h"
 #include "hal/dac_types.h"
 #include "hal/dac_ll.h"
@@ -19,7 +19,7 @@
 #include "esp_log.h"
 
 #if ! (SOC_IS(ESP32) || SOC_IS(ESP32S2))
-portMUX_TYPE dac_priv_spinlock = portMUX_INITIALIZER_UNLOCKED;
+esp_os_spinlock_t dac_priv_spinlock = ESP_OS_SPINLOCK_INIT;
 #endif // ! (SOC_IS(ESP32) || SOC_IS(ESP32S2))
 
 /*---------------------------------------------------------------

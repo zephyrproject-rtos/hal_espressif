@@ -6,7 +6,7 @@
 
 
 #include "soc/soc_caps.h"
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -20,7 +20,7 @@
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/critical_section.h"
 
-extern __attribute__((unused)) portMUX_TYPE rtc_spinlock;
+extern __attribute__((unused)) esp_os_spinlock_t rtc_spinlock;
 
 
 /*------------------------------------------------------------------------------------------------------------
@@ -65,11 +65,14 @@ void temperature_sensor_power_release(void)
 {
     esp_os_enter_critical(&rtc_spinlock);
     s_temperature_sensor_power_cnt--;
+    if (s_temperature_sensor_power_cnt < 0) {
+        s_temperature_sensor_power_cnt = 0;
+    }
     /* Sanity check */
     if (s_temperature_sensor_power_cnt < 0) {
         esp_os_exit_critical(&rtc_spinlock);
         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
-        abort();
+        return;
     } else if (s_temperature_sensor_power_cnt == 0) {
         temperature_sensor_ll_enable(false);
         PERIPH_RCC_ATOMIC() {

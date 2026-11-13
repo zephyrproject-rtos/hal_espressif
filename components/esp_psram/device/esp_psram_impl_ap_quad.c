@@ -25,6 +25,22 @@
 
 static const char* TAG = "quad_psram";
 
+/*
+ * ISSI PSRAM uses a different size encoding in the density bits:
+ *
+ *   Manufacturer    |  density=0  |  density=1  |  density=2
+ *   --------------------------------------------------------
+ *   Generic (AP)    |    2MB      |     4MB     |     8MB
+ *   ISSI            |    1MB      |     2MB     |     4MB
+ */
+typedef enum {
+    PSRAM_MNF_GENERIC = 0,
+    PSRAM_MNF_ISSI,
+    PSRAM_MNF_MAX
+} psram_manufacturer_t;
+
+static psram_manufacturer_t s_psram_manufacturer = PSRAM_MNF_GENERIC;
+
 static uint32_t s_psram_size = 0;   //this stands for physical psram size in bytes
 static void config_psram_spi_phases(void);
 
@@ -385,18 +401,36 @@ esp_err_t esp_psram_impl_enable(void)
     }
     ESP_EARLY_LOGV(TAG, "MFID: 0x%x", PSRAM_QUAD_MFID(psram_id));
 
+    /* Detect manufacturer to select appropriate size lookup table */
+    if (PSRAM_QUAD_MFID(psram_id) == PSRAM_QUAD_MFID_ISSI) {
+        s_psram_manufacturer = PSRAM_MNF_ISSI;
+    } else {
+        s_psram_manufacturer = PSRAM_MNF_GENERIC;
+    }
+
+    /* Size lookup table indexed by [manufacturer][density] */
+    static const uint32_t psram_size_lut[PSRAM_MNF_MAX][3] = {
+        [PSRAM_MNF_GENERIC] = {PSRAM_SIZE_2MB, PSRAM_SIZE_4MB, PSRAM_SIZE_8MB},
+        [PSRAM_MNF_ISSI]    = {PSRAM_SIZE_1MB, PSRAM_SIZE_2MB, PSRAM_SIZE_4MB},
+    };
+
     if (PSRAM_QUAD_IS_64MBIT_TRIAL(psram_id)) {
         s_psram_size = PSRAM_SIZE_8MB;
     } else {
         uint8_t density = PSRAM_QUAD_SIZE_ID(psram_id);
         const int eid = PSRAM_QUAD_EID_BIT_47_40(psram_id);
-        s_psram_size = density == 0x0 ? PSRAM_SIZE_2MB :
-                       density == 0x1 ? PSRAM_SIZE_4MB :
-                       density == 0x2 ? PSRAM_SIZE_8MB :
-                       /* Do not use `density` for QEMU PSRAM since we don't want any future QSPI PSRAM
-                        * that are 16MB or 32MB to be interpreted as QEMU PSRAM devices */
-                       eid == PSRAM_QUAD_QEMU_16MB_ID ? PSRAM_SIZE_16MB :
-                       eid == PSRAM_QUAD_QEMU_32MB_ID ? PSRAM_SIZE_32MB : 0;
+
+        if (density <= 2) {
+            s_psram_size = psram_size_lut[s_psram_manufacturer][density];
+        } else if (eid == PSRAM_QUAD_QEMU_16MB_ID) {
+            /* Do not use `density` for QEMU PSRAM since we don't want any future QSPI PSRAM
+             * that are 16MB or 32MB to be interpreted as QEMU PSRAM devices */
+            s_psram_size = PSRAM_SIZE_16MB;
+        } else if (eid == PSRAM_QUAD_QEMU_32MB_ID) {
+            s_psram_size = PSRAM_SIZE_32MB;
+        } else {
+            s_psram_size = 0;
+        }
 
         if (PSRAM_QUAD_MFID(psram_id) == PSRAM_QUAD_MFID_AP && (s_psram_size == PSRAM_SIZE_8MB) && s_check_2tmode()) {
             //2t mode is only valid for EID[47:45] == 0x10 chips

@@ -12,6 +12,14 @@
 #include "esp_err.h"
 #include "esp_intr_types.h"
 
+/*
+ * Include Zephyr interrupt controller header first to get its flag definitions.
+ * This prevents redefinition warnings when Zephyr headers are included later.
+ */
+#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +52,7 @@ extern "C" {
 #define ESP_INTR_FLAG_SHARED_PRIVATE (1<<12) ///< Interrupt can be shared with `*_bind` functions only
 
 #define ESP_INTR_FLAG_LOWMED    (ESP_INTR_FLAG_LEVEL1|ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3) ///< Low and medium prio interrupts. These can be handled in C.
+#undef ESP_INTR_FLAG_HIGH
 #define ESP_INTR_FLAG_HIGH      (ESP_INTR_FLAG_LEVEL4|ESP_INTR_FLAG_LEVEL5|ESP_INTR_FLAG_LEVEL6|ESP_INTR_FLAG_NMI) ///< High level interrupts. Need to be handled in assembly.
 
 /** Mask for all level flags */

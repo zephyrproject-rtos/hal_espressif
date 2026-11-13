@@ -19,9 +19,9 @@ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
     case SOC_CPU_CLK_SRC_PLL:
         return clk_ll_bbpll_get_freq_mhz();
     case SOC_CPU_CLK_SRC_RC_FAST:
-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
+        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
     case SOC_CPU_CLK_SRC_APLL:
-        return clk_hal_apll_get_freq_hz() / MHZ;
+        return clk_hal_apll_get_freq_hz() / MHZ(1);
     default:
         // Unknown CPU_CLK mux input
         HAL_ASSERT(false);
@@ -34,7 +34,7 @@ uint32_t clk_hal_cpu_get_freq_hz(void)
     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
     switch (source) {
     case SOC_CPU_CLK_SRC_PLL:
-        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ;
+        return clk_ll_cpu_get_freq_mhz_from_pll() * MHZ(1);
     case SOC_CPU_CLK_SRC_APLL: {
         uint32_t apll_freq_hz = clk_hal_apll_get_freq_hz();
         uint32_t divider = clk_ll_cpu_get_divider_from_apll();
@@ -45,7 +45,7 @@ uint32_t clk_hal_cpu_get_freq_hz(void)
         return apll_freq_hz / divider;
     }
     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...
-        return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
+        return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
     }
 }
 
@@ -55,7 +55,7 @@ static uint32_t clk_hal_ahb_get_freq_hz(void)
     switch (clk_ll_cpu_get_src()) {
     case SOC_CPU_CLK_SRC_PLL:
         // AHB_CLK is a fixed value when CPU_CLK is clocked from PLL
-        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ;
+        return CLK_LL_AHB_MAX_FREQ_MHZ * MHZ(1);
     case SOC_CPU_CLK_SRC_APLL:
         return clk_hal_cpu_get_freq_hz() >> 1;
     default: // SOC_CPU_CLK_SRC_XTAL, SOC_CPU_CLK_SRC_RC_FAST...

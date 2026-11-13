@@ -5,6 +5,7 @@
  */
 
 #include <string.h>
+#include "esp_attr.h"
 #include "esp_check.h"
 
 #include "soc/intpri_reg.h"
@@ -51,9 +52,9 @@ static void * cpu_domain_dev_sleep_frame_init(const cpu_domain_dev_regs_region_t
         regs_frame_sz += regions[num].end - regions[num].start;
     }
     if (frame) {
-        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)(frame + sizeof(cpu_domain_dev_sleep_frame_t));
+        cpu_domain_dev_regs_region_t *region = (cpu_domain_dev_regs_region_t *)((uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t));
         memcpy(region, regions, region_num * sizeof(cpu_domain_dev_regs_region_t));
-        void *regs_frame = frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
+        void *regs_frame = (uint8_t *)frame + sizeof(cpu_domain_dev_sleep_frame_t) + region_sz;
         memset(regs_frame, 0, regs_frame_sz);
         *(cpu_domain_dev_sleep_frame_t *)frame = (cpu_domain_dev_sleep_frame_t) {
             .region = region,

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "esp_log.h"
 #include "string.h"
-#include <sys/param.h> // For MIN/MAX
+#include <zephyr/sys/util.h>
 
 #include "hal/spi_flash_hal.h"
 #include "spi_flash_defs.h"

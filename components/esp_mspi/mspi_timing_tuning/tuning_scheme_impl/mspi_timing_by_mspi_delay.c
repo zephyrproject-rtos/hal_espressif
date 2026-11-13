@@ -11,7 +11,7 @@
  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "string.h"
 #include "esp_attr.h"

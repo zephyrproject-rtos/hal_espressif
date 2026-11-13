@@ -91,8 +91,8 @@ typedef struct {
     bool octal_mode_en;     ///< Octal spi flash mode enable bit 1: enable, 0: disable.
     bool using_timing_tuning;               ///< System exist SPI0/1 timing tuning, using value from system directly if set to 1.
     esp_flash_io_mode_t default_io_mode;        ///< Default flash io mode.
-    int freq_mhz;         ///< SPI flash clock speed (MHZ).
-    int clock_src_freq;    ///< SPI flash clock source (MHZ).
+    int freq_mhz;         ///< SPI flash clock speed (MHz).
+    int clock_src_freq;    ///< SPI flash clock source (MHz).
     uint8_t tsus_val;     ///< Tsus value of suspend (us).
     uint8_t trs_val;     ///< Trs value of suspend (us)
     bool auto_waiti_pes;  ///< True for auto-wait idle after suspend command. False for using time delay.

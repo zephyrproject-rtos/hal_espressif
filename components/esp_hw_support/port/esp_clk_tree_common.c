@@ -6,7 +6,6 @@
 
 #include <assert.h>
 #include <stdbool.h>
-#include <freertos/FreeRTOS.h>
 #include "esp_private/esp_clk_tree_common.h"
 #include "esp_private/esp_clk_tree_derived.h"
 #include "esp_private/critical_section.h"
@@ -48,7 +47,7 @@ struct esp_clk_tree_calibrated_freq_t {
 static esp_clk_tree_calibrated_freq_t s_calibrated_freq = {};
 
 /* Number of cycles for RTC_SLOW_CLK calibration */
-#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define RTC_SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 /* Number of cycles for ~32kHz clocks calibration (rc_fast_d256, xtal32k, osc_slow, rc32k) */
 #define DEFAULT_32K_CLK_CAL_CYCLES  100
 /* Number of cycles for RC_FAST calibration */
@@ -232,19 +231,19 @@ uint32_t esp_clk_tree_lp_fast_get_freq_hz(esp_clk_tree_src_freq_precision_t prec
         return esp_clk_tree_rc_fast_get_freq_hz(precision) / clk_ll_rc_fast_get_divider();
 #if SOC_CLK_LP_FAST_SUPPORT_LP_PLL
     case SOC_RTC_FAST_CLK_SRC_LP_PLL:
-        return clk_ll_lp_pll_get_freq_mhz() * MHZ;
+        return clk_ll_lp_pll_get_freq_mhz() * MHZ(1);
 #endif
 #if SOC_CLK_LP_FAST_SUPPORT_XTAL
     case SOC_RTC_FAST_CLK_SRC_XTAL:
-        return clk_hal_xtal_get_freq_mhz() * MHZ;
+        return clk_hal_xtal_get_freq_mhz() * MHZ(1);
 #endif
 #if SOC_CLK_LP_FAST_SUPPORT_XTAL_D2
     case SOC_RTC_FAST_CLK_SRC_XTAL_D2:
-        return clk_hal_xtal_get_freq_mhz() * MHZ >> 1;
+        return clk_hal_xtal_get_freq_mhz() * MHZ(1) >> 1;
 #endif
 #if SOC_CLK_LP_FAST_SUPPORT_XTAL_D4
     case SOC_RTC_FAST_CLK_SRC_XTAL_D4:
-        return clk_hal_xtal_get_freq_mhz() * MHZ >> 2;
+        return clk_hal_xtal_get_freq_mhz() * MHZ(1) >> 2;
 #endif
     default:
         // Invalid clock source
@@ -254,17 +253,22 @@ uint32_t esp_clk_tree_lp_fast_get_freq_hz(esp_clk_tree_src_freq_precision_t prec
 }
 
 #if SOC_CLK_MPLL_SUPPORTED
-static portMUX_TYPE __attribute__((unused)) s_periph_mpll_spinlock = portMUX_INITIALIZER_UNLOCKED;
+static esp_os_spinlock_t __attribute__((unused)) s_periph_mpll_spinlock = ESP_OS_SPINLOCK_INIT;
 static uint32_t s_cur_mpll_freq_hz = 0;
 static int s_mpll_ref_cnt = 0;
-#if CONFIG_ESP_LDO_RESERVE_PSRAM
+#if CONFIG_ESP_LDO_RESERVE_PSRAM && !defined(CONFIG_REGULATOR_ESP32)
 static esp_ldo_channel_handle_t s_ldo_chan = NULL;
 #endif
 
 esp_err_t IRAM_ATTR esp_clk_tree_mpll_acquire(void)
 {
     // power up LDO for the MPLL
-#if CONFIG_ESP_LDO_RESERVE_PSRAM
+    /* When the Zephyr esp32 regulator driver is built, it owns the
+     * PSRAM/MPLL LDO channel (boot-on, always-on). Skip the hal_espressif
+     * acquire/release path here to avoid double-enable and a release on the
+     * always-on regulator.
+     */
+#if CONFIG_ESP_LDO_RESERVE_PSRAM && !defined(CONFIG_REGULATOR_ESP32)
     if (s_ldo_chan == NULL) {
         esp_ldo_channel_config_t ldo_mpll_config = {
             .chan_id = CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN,
@@ -298,7 +302,7 @@ void esp_clk_tree_mpll_release(void)
     }
     esp_os_exit_critical(&s_periph_mpll_spinlock);
 
-#if defined(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN) && CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN != -1
+#if defined(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN) && CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN != -1 && !defined(CONFIG_REGULATOR_ESP32)
     if (release_ldo && s_ldo_chan) {
         esp_ldo_release_channel(s_ldo_chan);
         s_ldo_chan = NULL;
@@ -321,8 +325,8 @@ esp_err_t IRAM_ATTR esp_clk_tree_mpll_freq_set(uint32_t expt_freq_hz, uint32_t *
      * But when more than one peripheral refers MPLL, its frequency is not allowed to change once it is set */
     if (s_cur_mpll_freq_hz == 0 || s_mpll_ref_cnt < 2) {
         uint32_t xtal_freq_mhz = clk_hal_xtal_get_freq_mhz();
-        rtc_clk_mpll_configure(xtal_freq_mhz, expt_freq_hz / MHZ, false);
-        s_cur_mpll_freq_hz = clk_ll_mpll_get_freq_mhz(xtal_freq_mhz) * MHZ;
+        rtc_clk_mpll_configure(xtal_freq_mhz, expt_freq_hz / MHZ(1), false);
+        s_cur_mpll_freq_hz = clk_ll_mpll_get_freq_mhz(xtal_freq_mhz) * MHZ(1);
     } else {
         ret = ESP_ERR_INVALID_STATE;
     }
@@ -361,7 +365,7 @@ end:
  *   request must match the currently applied (upstream / divider) value;
  *   otherwise return ESP_ERR_INVALID_STATE and report the active frequency.
  * ------------------------------------------------------------------------- */
-static portMUX_TYPE __attribute__((unused)) s_derived_clk_spinlock = portMUX_INITIALIZER_UNLOCKED;
+static esp_os_spinlock_t __attribute__((unused)) s_derived_clk_spinlock = ESP_OS_SPINLOCK_INIT;
 
 __attribute__((weak)) const esp_clk_tree_derived_clk_desc_t *
 esp_clk_tree_get_derived_clk_desc(soc_module_clk_t clk_src)

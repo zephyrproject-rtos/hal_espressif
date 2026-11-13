@@ -10,27 +10,27 @@
 #include "assert.h"
 #include "sdkconfig.h"
 #include "esp_efuse_table.h"
+#include "esp_rom_sys.h"
 
 ESP_LOG_ATTR_TAG(TAG, "efuse");
 
 #if !NON_OS_BUILD
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include <sys/lock.h>
-static _lock_t s_efuse_lock;
+#include <string.h>
+#include <zephyr/kernel.h>
+K_MUTEX_DEFINE(s_efuse_lock);
 #endif
 
 void esp_efuse_lock_acquire(void)
 {
 #if !NON_OS_BUILD
-    _lock_acquire_recursive(&s_efuse_lock);
+    k_mutex_lock(&s_efuse_lock, K_FOREVER);
 #endif
 }
 
 void esp_efuse_lock_release(void)
 {
 #if !NON_OS_BUILD
-    _lock_release_recursive(&s_efuse_lock);
+    k_mutex_unlock(&s_efuse_lock);
 #endif
 }
 
@@ -50,7 +50,7 @@ esp_err_t esp_efuse_read_field_blob(const esp_efuse_desc_t* field[], void* dst, 
             err = esp_efuse_utility_process(field, dst, dst_size_bits, esp_efuse_utility_fill_buff);
 #ifndef NON_OS_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
-                vTaskDelay(1);
+                esp_rom_delay_us(1000);
             }
 #endif // NON_OS_BUILD
         } while (err == ESP_ERR_DAMAGED_READING);
@@ -78,7 +78,7 @@ esp_err_t esp_efuse_read_field_cnt(const esp_efuse_desc_t* field[], size_t* out_
             err = esp_efuse_utility_process(field, out_cnt, 0, esp_efuse_utility_count_once);
 #ifndef NON_OS_BUILD
             if (err == ESP_ERR_DAMAGED_READING) {
-                vTaskDelay(1);
+                esp_rom_delay_us(1000);
             }
 #endif // NON_OS_BUILD
         } while (err == ESP_ERR_DAMAGED_READING);

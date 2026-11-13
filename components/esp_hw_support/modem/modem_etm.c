@@ -5,7 +5,6 @@
  */
 
 #include <stdlib.h>
-#include <sys/cdefs.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "esp_check.h"

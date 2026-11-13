@@ -49,11 +49,11 @@ typedef struct {
 
 /**
  * @brief Reserve the interrupts on the core where Bluetooth will run.
- * The macro CONFIG_BTDM_CTRL_PINNED_TO_CORE is only defined if Bluetooth controller is enabled.
+ * The macro CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE is only defined if Bluetooth controller is enabled.
  * It is set to the core where it will run.
  */
-#ifdef CONFIG_BTDM_CTRL_PINNED_TO_CORE
-    #if CONFIG_BTDM_CTRL_PINNED_TO_CORE == 0
+#ifdef CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE
+    #if CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 0
         /* Interrupt 1 is used by Bluetooth UART HCI, check code above */
         #define CORE_0_INTERRUPT_1  STATE_INTERRUPT_1
         #define CORE_1_INTERRUPT_1  0
@@ -69,7 +69,7 @@ typedef struct {
         /* Interrupt 25 may be used by Bluetooth BR/EDR and BLE controller */
         #define CORE_0_INTERRUPT_25 STATE_INTERRUPT_25
         #define CORE_1_INTERRUPT_25 0
-    #elif CONFIG_BTDM_CTRL_PINNED_TO_CORE == 1
+    #elif CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE == 1
         /* Interrupt 1 is used by Bluetooth UART HCI, check code above */
         #define CORE_0_INTERRUPT_1  0
         #define CORE_1_INTERRUPT_1  STATE_INTERRUPT_1

@@ -6,7 +6,6 @@
 
 #include <stdlib.h>
 #include <stdatomic.h>
-#include <sys/cdefs.h>
 #include <sys/lock.h>
 #include "sdkconfig.h"
 #if CONFIG_ETM_ENABLE_DEBUG_LOG
@@ -471,7 +470,7 @@ esp_err_t esp_etm_dump(FILE *out_stream)
 }
 
 #if CONFIG_ETM_ENABLE_DEBUG_LOG
-__attribute__((constructor))
+
 static void etm_override_default_log_level(void)
 {
     esp_log_level_set(TAG, ESP_LOG_VERBOSE);

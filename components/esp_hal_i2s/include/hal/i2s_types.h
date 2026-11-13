@@ -26,6 +26,7 @@ typedef enum {
     I2S_SLOT_MODE_STEREO = 2,        /*!< I2S channel slot format stereo, transmit different data in different slots for tx mode, receive the data in all slots for rx mode. */
 } i2s_slot_mode_t;
 
+#ifndef __ZEPHYR__
 /**
  * @brief I2S channel direction
  */
@@ -33,6 +34,7 @@ typedef enum {
     I2S_DIR_RX = BIT(0),            /*!< I2S channel direction RX */
     I2S_DIR_TX = BIT(1),            /*!< I2S channel direction TX */
 } i2s_dir_t;
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief I2S controller role

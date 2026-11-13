@@ -8,7 +8,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -16,8 +16,7 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "esp_rom_crc.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <zephyr/kernel.h>
 #include "riscv/csr.h"
 #include "soc/soc_caps.h"
 #include "soc/rtc_periph.h"

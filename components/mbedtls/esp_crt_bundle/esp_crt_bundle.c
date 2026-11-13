@@ -5,7 +5,7 @@
  */
 #include <string.h>
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_check.h"
 #include "esp_crt_bundle.h"

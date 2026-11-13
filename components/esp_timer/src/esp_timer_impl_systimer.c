@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_timer_impl.h"
 #include "esp_err.h"
@@ -18,7 +18,8 @@
 #include "esp_private/esp_clk.h"
 #include "esp_private/systimer.h"
 #include "esp_private/periph_ctrl.h"
-#include "freertos/FreeRTOS.h"
+#include "esp_private/critical_section.h"
+#include <zephyr/kernel.h>
 #include "hal/systimer_ll.h"
 #include "hal/systimer_types.h"
 #include "hal/systimer_hal.h"
@@ -55,7 +56,7 @@ static intr_handler_t s_alarm_handler = NULL;
 static systimer_hal_context_t systimer_hal;
 
 /* Spinlock used to protect access to the hardware registers. */
-extern portMUX_TYPE s_time_update_lock;
+extern esp_os_spinlock_t s_time_update_lock;
 
 /* Alarm values to generate interrupt on match */
 extern uint64_t timestamp_id[2];
@@ -77,17 +78,17 @@ int64_t esp_timer_get_time(void) __attribute__((alias("esp_timer_impl_get_time")
 void ESP_TIMER_IRAM_ATTR esp_timer_impl_set_alarm_id(uint64_t timestamp, unsigned alarm_id)
 {
     assert(alarm_id < sizeof(timestamp_id) / sizeof(timestamp_id[0]));
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     timestamp_id[alarm_id] = timestamp;
     timestamp = MIN(timestamp_id[0], timestamp_id[1]);
     systimer_hal_set_alarm_target(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, timestamp);
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
 static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
 {
 #if ISR_HANDLERS == 1
-    // clear the interrupt
+    /* clear the interrupt */
     systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
     /* Call the upper layer handler */
     (*s_alarm_handler)(arg);
@@ -95,56 +96,56 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_isr(void *arg)
     static volatile uint32_t processed_by = NOT_USED;
     static volatile bool pending_alarm = false;
     /* CRITICAL section ensures the read/clear is atomic between cores */
-    portENTER_CRITICAL_ISR(&s_time_update_lock);
+    esp_os_enter_critical_isr(&s_time_update_lock);
     if (systimer_ll_is_alarm_int_fired(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER)) {
-        // Clear interrupt status
+        /* Clear interrupt status */
         systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
-        // Is the other core already processing a previous alarm?
+        /* Is the other core already processing a previous alarm? */
         if (processed_by == NOT_USED) {
-            // Current core is not processing an alarm yet
-            processed_by = xPortGetCoreID();
+            /* Current core is not processing an alarm yet */
+            processed_by = 0;
             do {
                 pending_alarm = false;
-                // Clear interrupt status
+                /* Clear interrupt status */
                 systimer_ll_clear_alarm_int(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER);
-                portEXIT_CRITICAL_ISR(&s_time_update_lock);
+                esp_os_exit_critical_isr(&s_time_update_lock);
 
                 (*s_alarm_handler)(arg);
 
-                portENTER_CRITICAL_ISR(&s_time_update_lock);
-                // Another alarm could have occurred while were handling the previous alarm.
-                // Check if we need to call the s_alarm_handler again:
-                //   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
-                //   2) handle pending alarm that was cleared by the other core in time when this core worked with the current alarm.
+                esp_os_enter_critical_isr(&s_time_update_lock);
+                /* Another alarm could have occurred while were handling the previous alarm.
+                 * Check if we need to call the s_alarm_handler again:
+                 *   1) if the alarm has already been fired, it helps to handle it immediately without an additional ISR call.
+                 *   2) handle pending alarm that was cleared by the other core in time when this core worked with the current alarm. */
             } while (systimer_ll_is_alarm_int_fired(systimer_hal.dev, SYSTIMER_ALARM_ESPTIMER) || pending_alarm);
             processed_by = NOT_USED;
         } else {
-            // Current core arrived at ISR but the other core is still handling a previous alarm.
-            // Once we already cleared the ISR status we need to let the other core know that it was.
-            // Set the flag to handle the current alarm by the other core later.
+            /* Current core arrived at ISR but the other core is still handling a previous alarm.
+             * Once we already cleared the ISR status we need to let the other core know that it was.
+             * Set the flag to handle the current alarm by the other core later. */
             pending_alarm = true;
         }
     }
-    portEXIT_CRITICAL_ISR(&s_time_update_lock);
-#endif // ISR_HANDLERS != 1
+    esp_os_exit_critical_isr(&s_time_update_lock);
+#endif
 }
 
 void esp_timer_impl_set(uint64_t new_us)
 {
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     systimer_counter_value_t new_count = {
         .val = systimer_hal.us_to_ticks(new_us),
     };
     systimer_ll_set_counter_value(systimer_hal.dev, SYSTIMER_COUNTER_ESPTIMER, new_count.val);
     systimer_ll_apply_counter_value(systimer_hal.dev, SYSTIMER_COUNTER_ESPTIMER);
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
 void esp_timer_impl_advance(int64_t time_diff_us)
 {
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     systimer_hal_counter_value_advance(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, time_diff_us);
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
 }
 
 esp_err_t esp_timer_impl_early_init(void)
@@ -175,7 +176,7 @@ esp_err_t esp_timer_impl_early_init(void)
     systimer_hal_connect_alarm_counter(&systimer_hal, SYSTIMER_ALARM_ESPTIMER, SYSTIMER_COUNTER_ESPTIMER);
 
     for (unsigned cpuid = 0; cpuid < SOC_CPU_CORES_NUM; ++cpuid) {
-        bool can_stall = (cpuid < portNUM_PROCESSORS);
+        bool can_stall = (cpuid < 1);
         systimer_hal_counter_can_stall_by_cpu(&systimer_hal, SYSTIMER_COUNTER_ESPTIMER, cpuid, can_stall);
     }
 
@@ -184,7 +185,7 @@ esp_err_t esp_timer_impl_early_init(void)
 
 esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 {
-    if (s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()] != NULL) {
+    if (s_timer_interrupt_handle[0] != NULL) {
         ESP_EARLY_LOGE(TAG, "timer ISR is already initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -201,7 +202,7 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET2_INTR_SOURCE, isr_flags,
                                    &timer_alarm_isr, NULL,
-                                   &s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
+                                   &s_timer_interrupt_handle[0]);
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "esp_intr_alloc failed (0x%x)", err);
         return err;
@@ -209,14 +210,10 @@ esp_err_t esp_timer_impl_init(intr_handler_t alarm_handler)
 
     if (s_alarm_handler == NULL) {
         s_alarm_handler = alarm_handler;
-        /* TODO: if SYSTIMER is used for anything else, access to SYSTIMER_INT_ENA_REG has to be
-        * protected by a shared spinlock. Since this code runs as part of early startup, this
-        * is practically not an issue.
-        */
         systimer_hal_enable_alarm_int(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
     }
 
-    err = esp_intr_enable(s_timer_interrupt_handle[(ISR_HANDLERS == 1) ? 0 : xPortGetCoreID()]);
+    err = esp_intr_enable(s_timer_interrupt_handle[0]);
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "Can not enable ISR (0x%0x)", err);
     }
@@ -241,9 +238,9 @@ void esp_timer_impl_deinit(void)
 
 uint64_t esp_timer_impl_get_alarm_reg(void)
 {
-    portENTER_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_enter_critical_safe(&s_time_update_lock);
     uint64_t val = systimer_hal_get_alarm_value(&systimer_hal, SYSTIMER_ALARM_ESPTIMER);
-    portEXIT_CRITICAL_SAFE(&s_time_update_lock);
+    esp_os_exit_critical_safe(&s_time_update_lock);
     return val;
 }
 

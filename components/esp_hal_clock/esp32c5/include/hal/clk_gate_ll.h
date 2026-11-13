@@ -9,7 +9,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_attr.h"
+#include "soc/soc.h"
 #include "soc/reset_reasons.h"
+#include "soc/periph_defs.h"
+#include "soc/pcr_reg.h"
 #include "soc/pcr_struct.h"
 #include "soc/ahb_dma_struct.h"
 #include "soc/lpperi_struct.h"
@@ -27,6 +30,96 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+static inline uint32_t periph_ll_get_clk_en_mask(shared_periph_module_t periph)
+{
+    switch (periph) {
+    case PERIPH_TIMG0_MODULE:
+        return PCR_TG0_CLK_EN;
+    case PERIPH_TIMG1_MODULE:
+        return PCR_TG1_CLK_EN;
+    case PERIPH_UHCI0_MODULE:
+        return PCR_UHCI_CLK_EN;
+    case PERIPH_SYSTIMER_MODULE:
+        return PCR_SYSTIMER_CLK_EN;
+    default:
+        return 0;
+    }
+}
+
+static inline uint32_t periph_ll_get_rst_en_mask(shared_periph_module_t periph, bool enable)
+{
+    (void)enable;
+
+    switch (periph) {
+    case PERIPH_TIMG0_MODULE:
+        return PCR_TG0_RST_EN;
+    case PERIPH_TIMG1_MODULE:
+        return PCR_TG1_RST_EN;
+    case PERIPH_UHCI0_MODULE:
+        return PCR_UHCI_RST_EN;
+    case PERIPH_SYSTIMER_MODULE:
+        return PCR_SYSTIMER_RST_EN;
+    default:
+        return 0;
+    }
+}
+
+static inline uint32_t periph_ll_get_clk_en_reg(shared_periph_module_t periph)
+{
+    switch (periph) {
+    case PERIPH_TIMG0_MODULE:
+        return PCR_TIMERGROUP0_CONF_REG;
+    case PERIPH_TIMG1_MODULE:
+        return PCR_TIMERGROUP1_CONF_REG;
+    case PERIPH_UHCI0_MODULE:
+        return PCR_UHCI_CONF_REG;
+    case PERIPH_SYSTIMER_MODULE:
+        return PCR_SYSTIMER_CONF_REG;
+    default:
+        return 0;
+    }
+}
+
+static inline uint32_t periph_ll_get_rst_en_reg(shared_periph_module_t periph)
+{
+    switch (periph) {
+    case PERIPH_TIMG0_MODULE:
+        return PCR_TIMERGROUP0_CONF_REG;
+    case PERIPH_TIMG1_MODULE:
+        return PCR_TIMERGROUP1_CONF_REG;
+    case PERIPH_UHCI0_MODULE:
+        return PCR_UHCI_CONF_REG;
+    case PERIPH_SYSTIMER_MODULE:
+        return PCR_SYSTIMER_CONF_REG;
+    default:
+        return 0;
+    }
+}
+
+static inline void periph_ll_enable_clk_clear_rst(shared_periph_module_t periph)
+{
+    SET_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
+    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, true));
+}
+
+static inline void periph_ll_disable_clk_set_rst(shared_periph_module_t periph)
+{
+    CLEAR_PERI_REG_MASK(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph));
+    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
+}
+
+static inline void periph_ll_reset(shared_periph_module_t periph)
+{
+    SET_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
+    CLEAR_PERI_REG_MASK(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false));
+}
+
+static inline bool IRAM_ATTR periph_ll_periph_enabled(shared_periph_module_t periph)
+{
+    return REG_GET_BIT(periph_ll_get_rst_en_reg(periph), periph_ll_get_rst_en_mask(periph, false)) == 0 &&
+           REG_GET_BIT(periph_ll_get_clk_en_reg(periph), periph_ll_get_clk_en_mask(periph)) != 0;
+}
 
 /**
  * Enable or disable the clock gate for ref_12m.

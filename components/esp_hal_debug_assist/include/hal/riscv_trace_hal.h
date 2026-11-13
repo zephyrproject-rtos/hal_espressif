@@ -129,7 +129,6 @@ void riscv_trace_hal_set_filter(riscv_trace_hal_context_t *ctx, const riscv_trac
 FORCE_INLINE_ATTR void riscv_trace_hal_stop_all_encoders(void)
 {
     /* Nothing else runs here, so the RCC lock is not taken */
-    int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
     if (!riscv_trace_ll_is_bus_clock_enabled()) {
         return;
     }

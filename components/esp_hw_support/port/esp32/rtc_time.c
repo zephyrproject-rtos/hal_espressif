@@ -66,7 +66,7 @@ static uint32_t rtc_clk_cal_internal(soc_clk_freq_calculation_src_t cal_clk_sel,
     } else {
         expected_freq = SOC_CLK_RC_SLOW_FREQ_APPROX; /* 150k internal oscillator */
     }
-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
+    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
     /* Check if the required number of slowclk_cycles may result in an overflow of TIMG_RTC_CALI_VALUE */
     soc_xtal_freq_t xtal_freq = rtc_clk_xtal_freq_get();
     if (xtal_freq == SOC_XTAL_FREQ_AUTO) {
@@ -194,9 +194,8 @@ uint32_t rtc_clk_freq_cal(uint32_t cal_val)
 
 uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
 
-/// @brief if the calibration is used, we need to enable the timer group0 first
-__attribute__((constructor))
-static void enable_timer_group0_for_calibration(void)
+/* @brief if the calibration is used, we need to enable the timer group0 first */
+static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
 {
 #ifndef BOOTLOADER_BUILD
     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {

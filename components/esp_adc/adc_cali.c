@@ -62,7 +62,7 @@ esp_err_t adc_cali_delete_scheme(adc_cali_handle_t handle)
         return ret;
     }
     handle->ctx = NULL;
-    free(handle);
+    heap_caps_free(handle);
 
     return ESP_OK;
 }

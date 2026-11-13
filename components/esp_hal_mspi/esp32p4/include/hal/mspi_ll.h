@@ -658,9 +658,9 @@ static inline uint32_t mspi_timing_ll_get_invalid_dqs_mask(uint8_t spi_num)
         return REG_GET_FIELD(SPI_MEM_C_CTRL_REG, SPI_MEM_C_FDUMMY_RIN);
     } else if (spi_num == MSPI_TIMING_LL_MSPI_ID_1) {
         return REG_GET_FIELD(SPI1_MEM_C_CTRL_REG, SPI1_MEM_C_FDUMMY_RIN);
-    } else {
-        HAL_ASSERT(false);
     }
+    HAL_ASSERT(false);
+    return 0;
 }
 
 /**

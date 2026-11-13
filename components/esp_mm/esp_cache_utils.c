@@ -4,14 +4,13 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 
-#include <sys/param.h>
 #include <inttypes.h>
 #include <string.h>
 #include "sys/lock.h"
 #include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "esp_memory_utils.h"
 #include "soc/soc_caps.h"
 #include "hal/cache_hal.h"
@@ -19,6 +18,7 @@
 #include "esp_private/esp_cache_private.h"
 #include "esp_private/critical_section.h"
 #include "esp_cpu.h"
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 void esp_cache_suspend_ext_mem_cache(void)
 {
@@ -47,7 +47,7 @@ void esp_cache_freeze_ext_mem_cache(void)
 {
 #if (CONFIG_SPIRAM && SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE)
 #if !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
-    int cpuid = xPortGetCoreID();
+    int cpuid = esp_cpu_get_core_id();
     uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
     esp_cpu_stall(other_cpuid);
 #else
@@ -107,6 +107,11 @@ void esp_cache_freeze_caches_disable_interrupts(void)
      * - disable non-iram interrupt on current core
      * - current core call cache freeze
      * - external access from other cores will hang on cache
+     *
+     * Freezing stalls the other core on its next cache access rather than
+     * faulting it, so unlike the flash-write path this does not need to park
+     * the peer. Keep it that way: parking here would take the pause lock
+     * below s_spinlock and invert the order used by the flash path.
      */
     esp_intr_noniram_disable();
     esp_cache_freeze_ext_mem_cache();

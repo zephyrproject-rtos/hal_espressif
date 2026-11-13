@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include "sdkconfig.h"
+#include "esp_attr.h"
 #include "esp_efuse.h"
 #include "esp_efuse_utility.h"
 #include "esp_efuse_table.h"

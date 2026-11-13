@@ -1054,6 +1054,7 @@ static inline void i2s_ll_tx_stop_on_fifo_empty(i2s_dev_t *hw, bool en)
     hw->conf1.tx_stop_en = en;
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1072,6 +1073,7 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Check whether I2S TX PCM2PDM converter is supported on the specified port

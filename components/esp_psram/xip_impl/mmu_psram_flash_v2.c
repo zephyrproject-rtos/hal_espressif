@@ -11,7 +11,7 @@
  */
 
 #include <stdbool.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <string.h>
 #include "sdkconfig.h"
 #include "esp_log.h"

@@ -21,8 +21,6 @@
 #include "hal/log.h"
 #include "esp32s3/rom/rtc.h"
 
-#define MHZ                 (1000000)
-
 #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
 #define CLK_LL_PLL_160M_FREQ_MHZ   (160)
 #define CLK_LL_PLL_240M_FREQ_MHZ   (240)

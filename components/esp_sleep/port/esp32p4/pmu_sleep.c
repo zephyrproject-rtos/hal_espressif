@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <esp_types.h>
 #include "sdkconfig.h"
 #include "esp_err.h"
@@ -441,10 +441,10 @@ SPM_IRAM_ATTR uint32_t pmu_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt,
     }
 
 
-#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
     // Disable PSRAM chip power supply
     if (dslp) {
-        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), false);
+        ldo_ll_enable(LDO_ID2UNIT(2), false);
     }
 #endif
 
@@ -462,9 +462,9 @@ SPM_IRAM_ATTR uint32_t pmu_sleep_start(uint32_t wakeup_opt, uint32_t reject_opt,
     }
 
     if (dslp) {
-#if CONFIG_SPIRAM && CONFIG_ESP_LDO_RESERVE_PSRAM
+#if CONFIG_SPIRAM && CONFIG_REGULATOR_ESP32
         // Enable PSRAM chip power supply after deepsleep request rejected
-        ldo_ll_enable(LDO_ID2UNIT(CONFIG_ESP_LDO_CHAN_PSRAM_DOMAIN), true);
+        ldo_ll_enable(LDO_ID2UNIT(2), true);
 #endif
 #if CONFIG_P4_REV3_MSPI_CRASH_AFTER_POWER_UP_WORKAROUND
         if (efuse_hal_chip_revision() == 300) {

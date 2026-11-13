@@ -12,6 +12,7 @@
 #include "soc/rtc_periph.h"
 #include "soc/clk_tree_defs.h"
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,8 +50,6 @@ extern "C" {
  * - rtc_sleep: entry into sleep modes
  * - rtc_init: initialization
  */
-
-#define MHZ (1000000)
 
 /* Delays for various clock sources to be enabled/switched.
  * All values are in microseconds.

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "soc/soc_caps.h"
 #include "hal/adc_oneshot_hal.h"
 #include "hal/adc_hal_common.h"
@@ -34,6 +34,7 @@ void adc_oneshot_hal_init(adc_oneshot_hal_ctx_t *hal, const adc_oneshot_hal_cfg_
     hal->clk_src = config->clk_src;
     hal->clk_src_freq_hz = config->clk_src_freq_hz;
     hal->disable_dac_output = config->disable_dac_output;
+    hal->conv_timeout_us = config->conv_timeout_us;
 }
 
 void adc_oneshot_hal_channel_config(adc_oneshot_hal_ctx_t *hal, const adc_oneshot_hal_chan_cfg_t *config, adc_channel_t chan)
@@ -132,6 +133,9 @@ static void adc_hal_onetime_start(adc_unit_t unit, uint32_t clk_src_freq_hz, uin
 #endif
 }
 
+/* Default upper bound for a single oneshot conversion, in microseconds */
+#define ADC_ONESHOT_READ_TIMEOUT_US    (2 * 1000)
+
 bool adc_oneshot_hal_convert(adc_oneshot_hal_ctx_t *hal, int *out_raw)
 {
     bool valid = true;
@@ -147,8 +151,18 @@ bool adc_oneshot_hal_convert(adc_oneshot_hal_ctx_t *hal, int *out_raw)
     adc_oneshot_ll_enable(hal->unit);
 
     adc_hal_onetime_start(hal->unit, hal->clk_src_freq_hz, &read_delay_us);
+    /* The conversion done event never fires if a shared analog block
+     * (SAR power, regi2c clock or the modem ADC front-end) is gated by
+     * a concurrent user such as the Wi-Fi modem sleep, so bound the
+     * wait instead of polling forever.
+     */
+    uint32_t timeout_us = hal->conv_timeout_us ? hal->conv_timeout_us : ADC_ONESHOT_READ_TIMEOUT_US;
     while (!adc_oneshot_ll_get_event(event)) {
-        ;
+        if (timeout_us-- == 0) {
+            adc_oneshot_ll_disable_all_unit();
+            return false;
+        }
+        esp_rom_delay_us(1);
     }
     esp_rom_delay_us(read_delay_us);
     *out_raw = adc_oneshot_ll_get_raw_result(hal->unit);

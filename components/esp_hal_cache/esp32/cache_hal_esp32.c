@@ -73,6 +73,7 @@ bool cache_hal_invalidate_addr(uint32_t vaddr, uint32_t size)
 {
     //esp32 doesn't support invalidate certain addr
     abort();
+    return false; /* unreachable, silence compiler warning */
 }
 
 void cache_hal_preload(uint32_t cache_level, cache_type_t type, uint32_t vaddr, uint32_t size, cache_preload_order_t order)

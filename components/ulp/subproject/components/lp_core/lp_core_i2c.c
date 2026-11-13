@@ -5,7 +5,7 @@
  */
 
 #include "sdkconfig.h"
-#include <sys/param.h>  /* For MIN macro */
+#include <zephyr/sys/util.h>
 #include "soc/soc_caps.h"
 #include "ulp_lp_core_i2c.h"
 #include "ulp_lp_core_utils.h"
@@ -67,7 +67,7 @@ static void lp_core_i2c_format_cmd(uint32_t cmd_idx, uint8_t op_code, uint8_t ac
 static inline esp_err_t lp_core_i2c_wait_for_interrupt(uint32_t intr_mask, int32_t cycles_to_wait)
 {
     uint32_t intr_status = 0;
-    uint32_t start = ulp_lp_core_get_cpu_cycles();
+    uint32_t to = 0;
 
     while (1) {
         i2c_ll_get_intr_raw_mask(dev, &intr_status);
@@ -95,10 +95,17 @@ static inline esp_err_t lp_core_i2c_wait_for_interrupt(uint32_t intr_mask, int32
             break;
         }
 
-        if (ulp_lp_core_is_timeout_elapsed(start, cycles_to_wait)) {
-            /* Timeout. Clear interrupt bits and return an error */
-            i2c_ll_clear_intr_mask(dev, intr_mask);
-            return ESP_ERR_TIMEOUT;
+        if (cycles_to_wait > -1) {
+            /* If the cycles_to_wait value is not -1, keep track of cycles and
+             * break from the loop once the timeout is reached.
+             */
+            ulp_lp_core_delay_cycles(1);
+            to++;
+            if (to >= cycles_to_wait) {
+                /* Timeout. Clear interrupt bits and return an error */
+                i2c_ll_clear_intr_mask(dev, intr_mask);
+                return ESP_ERR_TIMEOUT;
+            }
         }
     }
 

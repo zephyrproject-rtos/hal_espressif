@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <stdatomic.h>
+#include <zephyr/sys/atomic.h>
 #include "sdkconfig.h"
 #include "esp_clk_tree.h"
 #include "esp_err.h"
@@ -33,19 +33,19 @@ uint32_t *freq_value)
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_SPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -60,7 +60,7 @@ uint32_t *freq_value)
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
         break;
     default:
         break;
@@ -78,7 +78,7 @@ esp_err_t esp_clk_tree_src_set_freq_hz(soc_module_clk_t clk_src, uint32_t expt_f
     return ESP_ERR_NOT_SUPPORTED;
 }
 
-static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
+static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
 static bool esp_clk_tree_initialized = false;
 
 void esp_clk_tree_initialize(void)
@@ -147,12 +147,12 @@ esp_err_t esp_clk_tree_manage_src(soc_module_clk_t clk_src, bool acquire,
 
     int16_t prev_ref_cnt = 0;
     if (acquire) {
-        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
     } else {
-        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
         if (prev_ref_cnt <= 0) {
             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
+            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
             return ESP_OK;
         }
     }

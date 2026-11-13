@@ -21,8 +21,6 @@
 #include "hal/log.h"
 #include "esp32c2/rom/rtc.h"
 
-#define MHZ                 (1000000)
-
 #define CLK_LL_PLL_40M_FREQ_MHZ    (40)
 #define CLK_LL_PLL_60M_FREQ_MHZ    (60)
 #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
@@ -664,8 +662,8 @@ static inline __attribute__((always_inline)) uint32_t clk_ll_apb_load_freq_hz(vo
     // Read from RTC storage register
     uint32_t apb_freq_hz = (READ_PERI_REG(RTC_APB_FREQ_REG) & UINT16_MAX) << 12;
     // Round to the nearest MHz
-    apb_freq_hz += MHZ / 2;
-    uint32_t remainder = apb_freq_hz % MHZ;
+    apb_freq_hz += MHZ(1) / 2;
+    uint32_t remainder = apb_freq_hz % MHZ(1);
     return apb_freq_hz - remainder;
 }
 

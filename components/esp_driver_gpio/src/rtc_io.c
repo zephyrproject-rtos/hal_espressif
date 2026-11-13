@@ -10,7 +10,8 @@
 #include "esp_check.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/io_mux.h"
-#include "freertos/FreeRTOS.h"
+#include "esp_private/critical_section.h"
+#include <zephyr/kernel.h>
 #include "driver/rtc_io.h"
 #include "driver/lp_io.h"
 #include "hal/rtc_io_hal.h"
@@ -22,9 +23,11 @@
 
 static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
-extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
-#define RTCIO_ENTER_CRITICAL()  portENTER_CRITICAL(&rtc_spinlock)
-#define RTCIO_EXIT_CRITICAL()  portEXIT_CRITICAL(&rtc_spinlock)
+#if SOC_RTCIO_PIN_COUNT > 0
+static esp_os_spinlock_t s_rtcio_spinlock = ESP_OS_SPINLOCK_INIT;
+#define RTCIO_ENTER_CRITICAL()  esp_os_enter_critical(&s_rtcio_spinlock)
+#define RTCIO_EXIT_CRITICAL()   esp_os_exit_critical(&s_rtcio_spinlock)
+#endif
 
 bool rtc_gpio_is_valid_gpio(gpio_num_t gpio_num)
 {

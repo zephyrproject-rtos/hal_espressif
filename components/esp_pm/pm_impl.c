@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <assert.h>
 
 #include "sdkconfig.h"
@@ -83,8 +83,6 @@
 #endif
 #endif /* !SOC_LP_PERIPH_SHARE_INTERRUPT */
 #endif /* CONFIG_PM_TICKLESS_IDLE_WAITI */
-
-#define MHZ (1000000)
 
 #ifdef CONFIG_FREERTOS_SYSTICK_USES_CCOUNT
 /* CCOMPARE update timeout, in CPU cycles. Any value above ~600 cycles will work
@@ -461,9 +459,9 @@ esp_err_t esp_pm_configure(const void* vconfig)
     }
 
 #ifdef REF_CLK_DIV_MIN
-    int xtal_freq_mhz = esp_clk_xtal_freq() / MHZ;
-    if (min_freq_mhz < xtal_freq_mhz && min_freq_mhz * MHZ / REF_CLK_FREQ < REF_CLK_DIV_MIN) {
-        ESP_LOGW(TAG, "min_freq_mhz should be >= %d", REF_CLK_FREQ * REF_CLK_DIV_MIN / MHZ);
+    int xtal_freq_mhz = esp_clk_xtal_freq() / MHZ(1);
+    if (min_freq_mhz < xtal_freq_mhz && min_freq_mhz * MHZ(1) / REF_CLK_FREQ < REF_CLK_DIV_MIN) {
+        ESP_LOGW(TAG, "min_freq_mhz should be >= %d", REF_CLK_FREQ * REF_CLK_DIV_MIN / MHZ(1));
         return ESP_ERR_INVALID_ARG;
     }
 #endif
@@ -489,9 +487,9 @@ esp_err_t esp_pm_configure(const void* vconfig)
 #else
     /* Maximum SOC APB clock frequency is 40 MHz, maximum Modem (WiFi,
      * Bluetooth, etc..) APB clock frequency is 80 MHz */
-    int apb_clk_freq = esp_clk_apb_freq() / MHZ;
+    int apb_clk_freq = esp_clk_apb_freq() / MHZ(1);
 #if (CONFIG_ESP_WIFI_ENABLED || CONFIG_BT_ENABLED || CONFIG_IEEE802154_ENABLED) && SOC_PHY_SUPPORTED && !SOC_MODEM_APB_CLOCK_IS_INDEPENDENT
-    apb_clk_freq = MAX(apb_clk_freq, MODEM_REQUIRED_MIN_APB_CLK_FREQ / MHZ);
+    apb_clk_freq = MAX(apb_clk_freq, MODEM_REQUIRED_MIN_APB_CLK_FREQ / MHZ(1));
 #endif
     int apb_max_freq = MIN(max_freq_mhz, apb_clk_freq); /* CPU frequency in APB_MAX mode */
 #endif
@@ -617,7 +615,7 @@ static void IRAM_ATTR on_freq_update(uint32_t old_ticks_per_us, uint32_t ticks_p
 #ifdef CONFIG_FREERTOS_SYSTICK_USES_CCOUNT
 #ifdef XT_RTOS_TIMER_INT
     /* Calculate new tick divisor */
-    _xt_tick_divisor = ticks_per_us * MHZ / XT_TICK_PER_SEC;
+    _xt_tick_divisor = ticks_per_us * MHZ(1) / XT_TICK_PER_SEC;
 #endif
 
     int core_id = xPortGetCoreID();
@@ -1328,7 +1326,7 @@ void esp_pm_impl_init(void)
 #endif
 
 #ifdef CONFIG_PM_DFS_INIT_AUTO
-    int xtal_freq_mhz = esp_clk_xtal_freq() / MHZ;
+    int xtal_freq_mhz = esp_clk_xtal_freq() / MHZ(1);
     esp_pm_config_t cfg = {
         .max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
         .min_freq_mhz = xtal_freq_mhz,

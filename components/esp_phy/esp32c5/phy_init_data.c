@@ -5,6 +5,7 @@
  */
 
 #include "sdkconfig.h"
+#include "zephyr_compat.h"
 #include "soc/soc_caps.h"
 #include "phy_init_data.h"
 #include "esp_private/phy.h"
@@ -277,9 +278,10 @@ const esp_phy_init_data_t phy_init_data= { {
 
 const char __attribute__((section(".rodata"))) phy_init_magic_post[] = PHY_INIT_MAGIC;
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_ESP_PHY_HW_SWITCH_RF)
+#include <zephyr/kernel.h>
 #include "esp_private/sleep_retention.h"
 uint8_t s_phy_fe_retention_ref = 0;
-static _lock_t s_phy_fe_retention_lock;
+static K_MUTEX_DEFINE(s_phy_fe_retention_lock);
 static const char* TAG = "phy_sleep";
 
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_ESP_PHY_HW_SWITCH_RF)
@@ -383,7 +385,7 @@ static esp_err_t sleep_retention_phy_fe_init(void *arg)
 
 esp_err_t esp_phy_fe_sleep_data_init(void)
 {
-    _lock_acquire(&s_phy_fe_retention_lock);
+    k_mutex_lock(&s_phy_fe_retention_lock, K_FOREVER);
     if (s_phy_fe_retention_ref++ == 0) {
         sleep_retention_module_init_param_t init_param = {
             .cbs     = { .create = { .handle = sleep_retention_phy_fe_init, .arg = NULL } },
@@ -393,19 +395,19 @@ esp_err_t esp_phy_fe_sleep_data_init(void)
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "PHY FE sleep retention init failed");
             s_phy_fe_retention_ref --;
-            _lock_release(&s_phy_fe_retention_lock);
+            k_mutex_unlock(&s_phy_fe_retention_lock);
             return err;
         }
     }
-    _lock_release(&s_phy_fe_retention_lock);
+    k_mutex_unlock(&s_phy_fe_retention_lock);
     return ESP_OK;
 }
 
 void esp_phy_fe_sleep_data_deinit(void)
 {
-    _lock_acquire(&s_phy_fe_retention_lock);
+    k_mutex_lock(&s_phy_fe_retention_lock, K_FOREVER);
     if (s_phy_fe_retention_ref == 0) {
-        _lock_release(&s_phy_fe_retention_lock);
+        k_mutex_unlock(&s_phy_fe_retention_lock);
         return;
     }
 
@@ -415,6 +417,6 @@ void esp_phy_fe_sleep_data_deinit(void)
             ESP_LOGW(TAG, "PHY FE sleep retention deinit failed");
         }
     }
-    _lock_release(&s_phy_fe_retention_lock);
+    k_mutex_unlock(&s_phy_fe_retention_lock);
 }
 #endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_ESP_PHY_HW_SWITCH_RF)

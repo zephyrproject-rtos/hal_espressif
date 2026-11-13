@@ -13,7 +13,6 @@
 #include <stdbool.h>
 
 #include "mem_api.h"
-#include "esp_nimble_mem.h"
 #if CONFIG_BT_NIMBLE_ENABLED
 #include "os/os_trace_api.h"
 #include "syscfg/syscfg.h"

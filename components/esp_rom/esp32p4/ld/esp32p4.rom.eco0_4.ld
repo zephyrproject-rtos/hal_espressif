@@ -328,6 +328,12 @@ esprv_intc_int_set_priority = 0x4fc005b8;
 esprv_intc_int_set_threshold = 0x4fc005bc;
 esprv_intc_int_enable = 0x4fc005c0;
 esprv_intc_int_disable = 0x4fc005c4;
+/*
+ * ZEPHYR: the pre-v3 ROM does not export esprv_intc_int_set_type. The ROM
+ * function it would alias is also buggy for edge-type interrupts. Zephyr
+ * builds esp_rom_clic.c, which provides a C implementation of esprv_int_set_type
+ * for pre-v3 silicon, so no ROM symbol is needed here.
+ */
 PROVIDE( intr_handler_set = 0x4fc005cc );
 intr_matrix_set = 0x4fc005d0;
 ets_intr_lock = 0x4fc005d4;

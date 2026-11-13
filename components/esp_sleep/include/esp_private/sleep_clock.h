@@ -63,6 +63,16 @@ esp_err_t sleep_clock_system_retention_init(void *arg);
 esp_err_t sleep_clock_modem_retention_init(void *arg);
 #endif
 
+/**
+ * @brief Initialize sleep retention modules for clock domains.
+ *
+ * Sets up retention for clock-related state used during sleep,
+ * covering system and modem clock domains.
+ *
+ * @return ESP_OK on success
+ */
+esp_err_t sleep_clock_startup_init(void);
+
 #ifdef __cplusplus
 }
 #endif

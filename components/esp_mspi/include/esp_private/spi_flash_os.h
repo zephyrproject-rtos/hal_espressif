@@ -178,6 +178,13 @@ typedef struct {
 esp_err_t spi_flash_dpd_register_funcs(spi_flash_dpd_funcs_t *dpd_funcs);
 
 /**
+ * @brief Register the main flash DPD enter/exit functions
+ *
+ * @return ESP_OK on success
+ */
+esp_err_t init_flash_dpd(void);
+
+/**
  * @brief Get the duration of entering deep power-down mode.
  *
  * @return Entering deep power-down mode time(tDp), in microseconds.

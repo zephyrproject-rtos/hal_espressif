@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <string.h>
 
 #include "esp_cpu.h"
@@ -361,15 +361,19 @@ esp_err_t esp_flash_init(esp_flash_t *chip)
     return rom_spiflash_api_funcs->end(chip, err);
 }
 
-// Note: This function is only used for internal. Only call this function to initialize the main flash.
-// (flash chip on SPI1 CS0)
+/*
+ * Note: This function is only used for internal. Only call this function to initialize the main flash.
+ * (flash chip on SPI1 CS0)
+ */
 esp_err_t esp_flash_init_main(esp_flash_t *chip)
 {
-    // Chip init flow
-    // 1. Read chip id
-    // 2. (optional) Detect chip vendor
-    // 3. Get basic parameters of the chip (size, dummy count, etc.)
-    // 4. Init chip into desired mode (without breaking the cache!)
+    /*
+     * Chip init flow
+     * 1. Read chip id
+     * 2. (optional) Detect chip vendor
+     * 3. Get basic parameters of the chip (size, dummy count, etc.)
+     * 4. Init chip into desired mode (without breaking the cache!)
+     */
     esp_err_t err = ESP_OK;
     bool octal_mode;
 

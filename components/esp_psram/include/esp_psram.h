@@ -58,6 +58,22 @@ size_t esp_psram_get_size(void);
  */
 bool esp_psram_ptr_is_no_enc(const void *p);
 
+/**
+ * @brief Get the mapped PSRAM region address and size (Zephyr only)
+ *
+ * Returns the virtual address and size of the PSRAM region mapped by
+ * esp_psram_init(). Used by Zephyr's shared_multi_heap to register
+ * the PSRAM heap at the correct runtime-determined address.
+ *
+ * @param[out] out_vaddr  Mapped virtual start address
+ * @param[out] out_size   Mapped region size in bytes
+ *
+ * @return
+ *        - ESP_OK:                On success
+ *        - ESP_ERR_INVALID_STATE: PSRAM not initialized
+ */
+esp_err_t esp_psram_get_mapped_region(intptr_t *out_vaddr, size_t *out_size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -17,7 +17,8 @@
 #include "esp_private/phy.h"
 #include "esp_phy.h"
 #include "esp_attr.h"
-#include "freertos/FreeRTOS.h"
+
+#include <zephyr/kernel.h>
 
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 #include "hal/temperature_sensor_ll.h"
@@ -62,7 +63,7 @@ static volatile int64_t s_wifi_prev_timestamp;
 #if CONFIG_IEEE802154_ENABLED || CONFIG_BT_ENABLED
 static volatile int64_t s_bt_154_prev_timestamp;
 #endif
-#define PHY_TRACK_PLL_PERIOD_IN_US (CONFIG_ESP_PHY_PLL_TRACK_PERIOD_MS * 1000)
+#define PHY_TRACK_PLL_PERIOD_IN_US 1000000
 static void phy_track_pll_internal(void);
 #endif
 #if SOC_PM_REGDMA_MODEM_LINK_PROTECT
@@ -156,10 +157,10 @@ static void phy_track_pll_internal(void)
 
 static void phy_track_pll_timer_callback(void* arg)
 {
-    _lock_t phy_lock = phy_get_lock();
-    _lock_acquire(&phy_lock);
+    struct k_mutex *phy_lock = phy_get_lock();
+    k_mutex_lock(phy_lock, K_FOREVER);
     phy_track_pll_internal();
-    _lock_release(&phy_lock);
+    k_mutex_unlock(phy_lock);
 }
 
 void phy_track_pll_init(void)

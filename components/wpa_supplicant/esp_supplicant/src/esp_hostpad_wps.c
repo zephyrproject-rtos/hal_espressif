@@ -157,7 +157,7 @@ int wifi_ap_wps_deinit(void)
 
 static int wifi_ap_wps_enable_internal(const esp_wps_config_t *config)
 {
-    wifi_mode_t mode = WIFI_MODE_NULL;
+    wifi_mode_t mode = ESP32_WIFI_MODE_NULL;
     enum wps_owner owner;
 
     if (esp_wifi_get_user_init_flag_internal() == 0) {
@@ -170,7 +170,7 @@ static int wifi_ap_wps_enable_internal(const esp_wps_config_t *config)
         return ESP_FAIL;
     }
 
-    if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA) {
+    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_WIFI_MODE_APSTA) {
         wpa_printf(MSG_ERROR, "wps enable: mode=%d does not include AP", mode);
         return ESP_ERR_WIFI_MODE;
     }
@@ -290,12 +290,12 @@ int esp_wifi_ap_wps_disable(void)
 
 static int wifi_ap_wps_start_internal(const unsigned char *pin)
 {
-    wifi_mode_t mode = WIFI_MODE_NULL;
+    wifi_mode_t mode = ESP32_WIFI_MODE_NULL;
     int prev_wps_status;
     enum wps_owner owner;
 
     esp_wifi_get_mode(&mode);
-    if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA) {
+    if (mode != ESP32_WIFI_MODE_AP && mode != ESP32_WIFI_MODE_APSTA) {
         wpa_printf(MSG_ERROR, "wps start: mode=%d does not include AP", mode);
         return ESP_ERR_WIFI_MODE;
     }

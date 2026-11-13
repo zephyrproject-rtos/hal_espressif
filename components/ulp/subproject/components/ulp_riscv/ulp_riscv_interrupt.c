@@ -11,7 +11,7 @@
 #include "ulp_riscv_gpio.h"
 #include "soc/sens_reg.h"
 
-#if CONFIG_ULP_RISCV_INTERRUPT_ENABLE
+#if CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE
 
 #define ULP_RISCV_TIMER_INT                         (1 << 0U)   /* Internal Timer Interrupt */
 #define ULP_RISCV_EBREAK_ECALL_ILLEGAL_INSN_INT     (1 << 1U)   /* EBREAK, ECALL or Illegal instruction */
@@ -134,4 +134,4 @@ void __attribute__((weak)) _ulp_riscv_interrupt_handler(uint32_t q1)
     }
 }
 
-#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
+#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */

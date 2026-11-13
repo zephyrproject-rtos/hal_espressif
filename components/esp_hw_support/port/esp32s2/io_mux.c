@@ -7,15 +7,12 @@
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_private/io_mux.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_private/critical_section.h"
 #include "hal/rtc_io_ll.h"
 
-#define RTCIO_RCC_ATOMIC() \
-    for (int _rc_cnt = 1; \
-    _rc_cnt ? (esp_os_enter_critical(&rtc_spinlock), 1) : 0;     \
-    esp_os_exit_critical(&rtc_spinlock), _rc_cnt--)
+#define RTCIO_RCC_ATOMIC()  PERIPH_RCC_ATOMIC()
 
-extern portMUX_TYPE rtc_spinlock;
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_io_mux_spinlock);
 
 static rtc_io_status_t s_rtc_io_status = {

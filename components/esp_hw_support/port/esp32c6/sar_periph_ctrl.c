@@ -15,9 +15,9 @@
  */
 
 #include <sys/lock.h>
+#include <zephyr/kernel.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/regi2c_ctrl.h"
 #include "esp_private/esp_modem_clock.h"
@@ -28,8 +28,8 @@
 #include "hal/temperature_sensor_ll.h"
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
-extern portMUX_TYPE rtc_spinlock;
-static _lock_t adc_reset_lock;
+extern esp_os_spinlock_t rtc_spinlock;
+K_MUTEX_DEFINE(adc_reset_lock);
 
 
 void sar_periph_ctrl_init(void)
@@ -78,9 +78,10 @@ static void s_sar_power_release(void)
     esp_os_enter_critical_safe(&rtc_spinlock);
     s_sar_power_on_cnt--;
     if (s_sar_power_on_cnt < 0) {
+        s_sar_power_on_cnt = 0;
         esp_os_exit_critical_safe(&rtc_spinlock);
         ESP_LOGE(TAG, "%s called, but s_sar_power_on_cnt == 0", __func__);
-        abort();
+        return;
     } else if (s_sar_power_on_cnt == 0) {
         sar_ctrl_ll_set_power_mode_from_pwdet(SAR_CTRL_LL_POWER_FSM);
     }
@@ -151,10 +152,10 @@ void sar_periph_ctrl_adc_reset(void)
 
 void adc_reset_lock_acquire(void)
 {
-    _lock_acquire(&adc_reset_lock);
+    k_mutex_lock(&adc_reset_lock, K_FOREVER);
 }
 
 void adc_reset_lock_release(void)
 {
-    _lock_release(&adc_reset_lock);
+    k_mutex_unlock(&adc_reset_lock);
 }

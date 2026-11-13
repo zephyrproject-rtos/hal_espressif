@@ -17,7 +17,6 @@
 #include "hal/gpio_hal.h"
 #include "esp_rom_gpio.h"
 #include "esp_private/cache_utils.h"
-#include "esp_private/log_util.h"
 #include "esp_private/startup_internal.h"
 #include "esp_spi_flash_counters.h"
 #include "esp_rom_spiflash.h"
@@ -451,8 +450,8 @@ esp_err_t spi_bus_remove_flash_device(esp_flash_t *chip)
     if (dev_handle) {
         spi_bus_lock_unregister_dev(dev_handle);
     }
-    free(chip->host);
-    free(chip);
+    heap_caps_free(chip->host);
+    heap_caps_free(chip);
     return ret;
 }
 
@@ -500,7 +499,6 @@ esp_err_t esp_flash_init_default_chip(void)
     // Only these chips have efuses for spi pin configuration.
     cfg.iomux = esp_rom_efuse_get_flash_gpio_info() == 0 ?  true : false;
     #endif
-
     #if CONFIG_ESPTOOLPY_OCT_FLASH
     // Default value. When `CONFIG_ESPTOOLPY_FLASH_MODE_AUTO_DETECT` selected, if the selected mode not consistent with
     // hardware, will be overwritten in s_esp_flash_choose_correct_mode.
@@ -526,7 +524,6 @@ esp_err_t esp_flash_init_default_chip(void)
     #endif // SOC_SPI_MEM_SUPPORT_TIMING_TUNING
 
     cfg.clock_src_freq = spi_flash_ll_get_source_clock_freq_mhz(cfg.host_id);
-
     #if CONFIG_SPI_FLASH_AUTO_SUSPEND
     if (TSUS_VAL_SUSPEND > 400 || TSUS_VAL_SUSPEND < 20) {
         // Assume that the tsus value cannot larger than 400 (because the performance might be really bad)
@@ -580,7 +577,6 @@ esp_err_t esp_flash_init_default_chip(void)
     }
     if (default_chip.size < legacy_chip->chip_size) {
         ESP_EARLY_LOGE(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Probe failed.", default_chip.size/1024, legacy_chip->chip_size/1024);
-        return ESP_ERR_FLASH_SIZE_NOT_MATCH;
     }
 
     if (default_chip.size > legacy_chip->chip_size) {
@@ -642,7 +638,7 @@ esp_err_t esp_flash_app_init(void)
     return err;
 }
 
-#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP && !defined(__ZEPHYR__)
 ESP_SYSTEM_INIT_FN(init_flash, CORE, BIT(0), 130)
 {
 #if CONFIG_SPI_FLASH_ROM_IMPL

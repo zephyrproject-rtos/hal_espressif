@@ -48,7 +48,7 @@
 
 #define TAG "esp_adapter"
 
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
 extern void wifi_pm_sleep_lock_acquire(void);
 extern void wifi_pm_sleep_lock_release(void);
 #endif
@@ -358,14 +358,14 @@ static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, 
 
 static void IRAM_ATTR wifi_pm_sleep_lock_acquire_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_pm_sleep_lock_acquire();
 #endif
 }
 
 static void IRAM_ATTR wifi_pm_sleep_lock_release_wrapper(void)
 {
-#ifdef CONFIG_PM_ENABLE
+#ifdef CONFIG_PM
     wifi_pm_sleep_lock_release();
 #endif
 }

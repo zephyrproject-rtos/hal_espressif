@@ -1235,6 +1235,7 @@ static inline void i2s_ll_tx_pdm_line_mode(i2s_dev_t *hw, i2s_pdm_tx_line_mode_t
     hw->tx_pcm2pdm_conf.tx_dac_2out_en = line_mode != I2S_PDM_TX_ONE_LINE_DAC;
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1253,6 +1254,7 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Check whether I2S TX PCM2PDM converter is supported on the specified port

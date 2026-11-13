@@ -207,14 +207,14 @@ esp_err_t ulp_riscv_load_binary(const uint8_t* program_binary, size_t program_si
     if (program_binary == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
+    if (program_size_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
         return ESP_ERR_INVALID_SIZE;
     }
 
     uint8_t* base = (uint8_t*) RTC_SLOW_MEM;
 
     //Start by clearing memory reserved with zeros, this will also will initialize the bss:
-    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
+    hal_memset(base, 0, CONFIG_ESP32_ULP_COPROC_RESERVE_MEM);
     hal_memcpy(base, program_binary, program_size_bytes);
 
     return ESP_OK;

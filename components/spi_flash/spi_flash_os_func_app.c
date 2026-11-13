@@ -6,12 +6,10 @@
 
 #include <assert.h>
 #include <stdarg.h>
-#include <sys/lock.h>
-#include <sys/param.h>  //For max/min
+#include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
 #include "esp_attr.h"
 #include "esp_private/system_internal.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "hal/spi_types.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
@@ -71,7 +69,7 @@ typedef struct {
     uint32_t start_flags;          // Flags passed to start() function, used to determine if freq_limit was called
 } app_func_arg_t;
 
-static const char TAG[] = "spi_flash";
+static const char TAG[] __attribute__((unused)) = "spi_flash";
 
 static inline void on_spi_released(app_func_arg_t* ctx);
 static inline void on_spi_acquired(app_func_arg_t* ctx);
@@ -95,7 +93,7 @@ static IRAM_ATTR esp_err_t acquire_spi_bus_lock(void *arg)
     spi_bus_lock_dev_handle_t dev_lock = ((app_func_arg_t *)arg)->dev_lock;
 
     // wait for other devices (or cache) to finish their operation
-    esp_err_t ret = spi_bus_lock_acquire_start(dev_lock, portMAX_DELAY);
+    esp_err_t ret = spi_bus_lock_acquire_start(dev_lock, UINT32_MAX);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -176,34 +174,7 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
 
 #else //CONFIG_IDF_TARGET_ESP32
 
-#if CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
-static void disable_scheduler(void)
-{
-    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-#   ifdef CONFIG_FREERTOS_SMP
-        //Note: Scheduler suspension behavior changed in FreeRTOS SMP
-        vTaskPreemptionDisable(NULL);
-#   else
-        // Disable scheduler on the current CPU
-        vTaskSuspendAll();
-#   endif // CONFIG_FREERTOS_SMP
-    }
-}
-
-static void restore_scheduler(void)
-{
-    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-#   ifdef CONFIG_FREERTOS_SMP
-        //Note: Scheduler suspension behavior changed in FreeRTOS SMP
-        vTaskPreemptionEnable(NULL);
-#   else
-        xTaskResumeAll();
-#   endif // CONFIG_FREERTOS_SMP
-    }
-}
-#endif   //CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
-
-static _lock_t s_spi1_flash_mutex;  //Lock preventing concurrent access to SPI1 Flash operations.
+K_MUTEX_DEFINE(s_spi1_flash_mutex);  //Lock preventing concurrent access to SPI1 Flash operations.
 
 static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
 {
@@ -242,7 +213,11 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
 #   if !MMAP_EXECUTABLES_FROM_FLASH
     // XIP from PSRAM/RAM app: cache accesses go to PSRAM/RAM, not flash.
     // Mutex serializes concurrent SPI1 access.
-    _lock_acquire(&s_spi1_flash_mutex);
+    // k_mutex_lock requires a thread context: skip the lock while the kernel is
+    // not yet running, execution is single-threaded until then.
+    if (k_can_yield()) {
+        k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    }
     if (!(flags & ESP_FLASH_START_FLAG_NO_READ) || !flash_mmap_remain()) {
         // When read, or write while no mmap page remaining, we can keep the cache enabled.
         ctx->current_op_type = OP_TYPE_MMAP_LOCK;
@@ -258,10 +233,9 @@ static IRAM_ATTR esp_err_t spi1_start(void *arg, uint32_t flags)
 #   endif
 
 #else //CONFIG_SPI_FLASH_AUTO_SUSPEND
-    _lock_acquire(&s_spi1_flash_mutex);
-#   if CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
-    disable_scheduler();
-#   endif // CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
+    if (k_can_yield()) {
+        k_mutex_lock(&s_spi1_flash_mutex, K_FOREVER);
+    }
     ctx->current_op_type = OP_TYPE_SCHEDULER_DIS;
 
 #endif //CONFIG_SPI_FLASH_AUTO_SUSPEND
@@ -299,18 +273,19 @@ static IRAM_ATTR esp_err_t spi1_end(void *arg)
         assert(ctx->current_op_type == OP_TYPE_CACHE_DIS);
         cache_enable(NULL);
     }
-    _lock_release(&s_spi1_flash_mutex);
+    if (k_can_yield()) {
+        k_mutex_unlock(&s_spi1_flash_mutex);
+    }
 #   else
     assert(ctx->current_op_type == OP_TYPE_CACHE_DIS);
     cache_enable(NULL);
 #   endif
 
 #else //!CONFIG_SPI_FLASH_AUTO_SUSPEND
-#   if CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
-    restore_scheduler();
-#   endif // CONFIG_SPI_FLASH_DISABLE_SCHEDULER_IN_SUSPEND
     assert(ctx->current_op_type == OP_TYPE_SCHEDULER_DIS);
-    _lock_release(&s_spi1_flash_mutex);
+    if (k_can_yield()) {
+        k_mutex_unlock(&s_spi1_flash_mutex);
+    }
 
 #endif //!CONFIG_SPI_FLASH_AUTO_SUSPEND
 
@@ -342,11 +317,17 @@ static esp_err_t spi_flash_os_check_yield(void *arg, uint32_t chip_status, uint3
 
 static esp_err_t spi_flash_os_yield(void *arg, uint32_t* out_status)
 {
-    if (likely(xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)) {
-#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_TICKS
-        vTaskDelay(CONFIG_SPI_FLASH_ERASE_YIELD_TICKS);
+    /* k_sleep needs a context that can block. k_can_yield() is false
+     * before the kernel is up, in an ISR, with IRQs locked, and from the
+     * idle thread. The flash coredump backend writes from the fatal
+     * handler: on Xtensa that is still an ISR; on RISC-V it is not, but
+     * the trap has cleared MIE, so the IRQs-locked check skips the sleep.
+     */
+    if (k_can_yield()) {
+#ifdef CONFIG_SPI_FLASH_ERASE_YIELD_MS
+        k_sleep(K_MSEC(CONFIG_SPI_FLASH_ERASE_YIELD_MS));
 #else
-        vTaskDelay(1);
+        k_sleep(K_MSEC(1));
 #endif
     }
     on_spi_yielded((app_func_arg_t*)arg);
@@ -361,29 +342,30 @@ static esp_err_t delay_us(void *arg, uint32_t us)
 
 static void* get_buffer_malloc(void* arg, size_t reqest_size, size_t* out_size)
 {
-    /* Allocate temporary internal buffer to use for the actual read. If the preferred size
-        doesn't fit in free internal memory, allocate the largest available free block.
-
-        (May need to shrink read_chunk_size and retry due to race conditions with other tasks
-        also allocating from the heap.)
-    */
+    /* Allocate temporary internal buffer for the actual read. If the preferred
+     * size doesn't fit in free memory, halve the request and retry so we
+     * degrade gracefully under memory pressure instead of failing outright.
+     * Zephyr's libc heap doesn't expose a "largest free block" query, so we
+     * use exponential backoff down to a minimum of 64 bytes.
+     */
     void* ret = NULL;
-    unsigned retries = 5;
-    size_t read_chunk_size = reqest_size;
-    while(ret == NULL && retries--) {
-        size_t largest_free = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-        read_chunk_size = MIN(read_chunk_size, largest_free);
-        read_chunk_size = (read_chunk_size + 3) & ~3;
-        ret = heap_caps_malloc(read_chunk_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    size_t read_chunk_size = MAX((reqest_size + 3) & ~3, 64);
+
+    while (ret == NULL && read_chunk_size >= 64) {
+        ret = k_malloc(read_chunk_size);
+        if (ret == NULL) {
+            read_chunk_size = (read_chunk_size / 2) & ~3;
+        }
     }
+
     ESP_LOGV(TAG, "allocate temp buffer: %p (%d)", ret, read_chunk_size);
-    *out_size = (ret != NULL? read_chunk_size: 0);
+    *out_size = (ret != NULL ? read_chunk_size : 0);
     return ret;
 }
 
 static void release_buffer_malloc(void* arg, void *temp_buf)
 {
-    free(temp_buf);
+    k_free(temp_buf);
 }
 
 static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_t size)
@@ -415,7 +397,7 @@ static esp_err_t main_flash_region_protected(void* arg, size_t start_addr, size_
     return ESP_OK;
 }
 
-static void main_flash_op_status(uint32_t op_status)
+static void __attribute__((unused)) main_flash_op_status(uint32_t op_status)
 {
     bool is_erasing = op_status & SPI_FLASH_OS_IS_ERASING_STATUS_FLAG;
     spi_flash_set_erasing_flag(is_erasing);
@@ -472,8 +454,7 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
         return ESP_ERR_INVALID_ARG;
     }
 
-    chip->os_func_data = heap_caps_malloc(sizeof(app_func_arg_t),
-                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    chip->os_func_data = k_malloc(sizeof(app_func_arg_t));
     if (chip->os_func_data == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -491,7 +472,7 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
             chip->os_func = &esp_flash_spi23_default_os_functions;
             break;
         default:
-            free(chip->os_func_data);
+            k_free(chip->os_func_data);
             chip->os_func_data = NULL;
             return ESP_ERR_INVALID_ARG;
     }
@@ -516,7 +497,7 @@ esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip, spi_bus_lock_dev_hand
         }
         // SPI bus lock is possibly not used on SPI1 bus
         *out_dev_handle = dev_handle;
-        free(chip->os_func_data);
+        k_free(chip->os_func_data);
     }
     chip->os_func = NULL;
     chip->os_func_data = NULL;
@@ -528,7 +509,6 @@ esp_err_t esp_flash_app_init_os_functions(void)
     esp_err_t err = ESP_OK;
 
 #if !CONFIG_IDF_TARGET_ESP32
-    _lock_init(&s_spi1_flash_mutex);
     err = flash_mmap_lock_init();
     if (err != ESP_OK) {
         return err;
@@ -554,9 +534,15 @@ esp_err_t esp_flash_app_init_os_functions(void)
 esp_err_t esp_flash_app_enable_os_functions(esp_flash_t* chip)
 {
     main_flash_arg = (app_func_arg_t) {
+#ifdef __ZEPHYR__
+        // No SPI bus lock and no esp_partition table: flash_map does the region checks.
+        .dev_lock = NULL,
+        .require_partition_protection = false,
+#else
         .dev_lock = g_spi_lock_main_flash_dev,
-        .no_protect = false, // Required for the main flash chip
         .require_partition_protection = true,
+#endif
+        .no_protect = false, // Required for the main flash chip
     };
     chip->os_func = &esp_flash_spi1_default_os_functions;
     chip->os_func_data = &main_flash_arg;
@@ -604,38 +590,66 @@ esp_err_t esp_flash_set_dangerous_write_protection(esp_flash_t *chip, const bool
 // Valid task execution interval: continuous time with the cache enabled, which is longer than
 // CONFIG_SPI_FLASH_ERASE_YIELD_TICKS. Yield time shorter than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS is
 // not treated as valid interval.
+/* The yield bookkeeping runs with the cache enabled: check_yield() is called
+ * before start(), released() after end() has restored the cache, and yielded()
+ * after the sleep. Any kernel time source is safe there.
+ */
+#if defined(__ZEPHYR__) && defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+static inline uint32_t spi_flash_os_time_us(void)
+{
+    return (uint32_t)k_ticks_to_us_floor64(k_uptime_ticks());
+}
+#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_MS * 1000)
+#elif defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+#define spi_flash_os_time_us() ((uint32_t)esp_system_get_time())
+#define SPI_FLASH_YIELD_TICKS_US (CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000)
+#endif
+
 static inline IRAM_ATTR bool on_spi_check_yield(app_func_arg_t* ctx)
 {
-#ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-    uint32_t time = esp_system_get_time();
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    uint32_t time = spi_flash_os_time_us();
     // We handle the reset here instead of in `on_spi_acquired()`, when acquire() and release() is
-    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one `esp_system_get_time()` call
-    if ((time - ctx->released_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_TICKS * portTICK_PERIOD_MS * 1000) {
+    // larger than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, to save one time query
+    if ((time - ctx->released_since_us) >= SPI_FLASH_YIELD_TICKS_US) {
         // Reset the acquired time as if the yield has just happened.
         ctx->acquired_since_us = time;
     } else if ((time - ctx->acquired_since_us) >= CONFIG_SPI_FLASH_ERASE_YIELD_DURATION_MS * 1000) {
         return true;
     }
-#endif
     return false;
+#else
+    (void)ctx;
+    return false;
+#endif
 }
+
 static inline IRAM_ATTR void on_spi_released(app_func_arg_t* ctx)
 {
-#ifdef CONFIG_SPI_FLASH_YIELD_DURING_ERASE
-    ctx->released_since_us = esp_system_get_time();
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    ctx->released_since_us = spi_flash_os_time_us();
+#else
+    (void)ctx;
 #endif
 }
 
 static inline IRAM_ATTR void on_spi_acquired(app_func_arg_t* ctx)
 {
+#if defined(__ZEPHYR__)
+    (void)ctx;
+#else
     // Ideally, when the time after `on_spi_released()` before this function is called is larger
     // than CONFIG_SPI_FLASH_ERASE_YIELD_TICKS, the acquired time should be reset. We assume the
     // time after `on_spi_check_yield()` before this function is so short that we can do the reset
     // in that function instead.
+#endif
 }
 
 static inline IRAM_ATTR void on_spi_yielded(app_func_arg_t* ctx)
 {
-    uint32_t time = esp_system_get_time();
-    ctx->acquired_since_us = time;
+#if defined(CONFIG_SPI_FLASH_YIELD_DURING_ERASE)
+    ctx->acquired_since_us = spi_flash_os_time_us();
+#else
+    (void)ctx;
+#endif
 }

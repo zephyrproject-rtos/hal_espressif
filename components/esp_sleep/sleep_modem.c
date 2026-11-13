@@ -6,8 +6,8 @@
 
 #include <stddef.h>
 #include <string.h>
-#include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_log.h"
 #include "esp_attr.h"
@@ -35,7 +35,7 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 #if SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 static bool s_modem_sleep = false;
 static uint8_t s_modem_prepare_ref = 0;
-static _lock_t s_modem_prepare_lock;
+K_MUTEX_DEFINE(s_modem_prepare_lock);
 #endif // SOC_PM_RETENTION_HAS_CLOCK_BUG && CONFIG_MAC_BB_PD
 
 #if CONFIG_MAC_BB_PD
@@ -131,7 +131,6 @@ void mac_bb_power_up_cb_execute(void)
 
 #if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 typedef struct sleep_modem_config {
-    _lock_t phy_link_lock;
     void    *phy_link;
     union {
         struct {
@@ -144,6 +143,7 @@ typedef struct sleep_modem_config {
 } sleep_modem_config_t;
 
 static sleep_modem_config_t s_sleep_modem = { .phy_link = NULL, .flags = 0 };
+K_MUTEX_DEFINE(s_phy_link_lock);
 
 bool IRAM_ATTR sleep_modem_wifi_modem_state_is_enabled(void)
 {
@@ -155,9 +155,9 @@ esp_err_t sleep_modem_phy_init(sleep_modem_type_t modem_mask)
     esp_err_t err = ESP_OK;
     void *link = NULL;
 
-    _lock_acquire(&s_sleep_modem.phy_link_lock);
+    k_mutex_lock(&s_phy_link_lock, K_FOREVER);
     if (s_sleep_modem.modem_mask & modem_mask) {
-        _lock_release(&s_sleep_modem.phy_link_lock);
+        k_mutex_unlock(&s_phy_link_lock);
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -168,21 +168,21 @@ esp_err_t sleep_modem_phy_init(sleep_modem_type_t modem_mask)
             if (err == ESP_OK) {
                 s_sleep_modem.phy_link = link;
             } else {
-                _lock_release(&s_sleep_modem.phy_link_lock);
+                k_mutex_unlock(&s_phy_link_lock);
                 return err;
             }
         }
     }
     s_sleep_modem.modem_mask |= modem_mask;
-    _lock_release(&s_sleep_modem.phy_link_lock);
+    k_mutex_unlock(&s_phy_link_lock);
     return err;
 }
 
 __attribute__((unused)) void sleep_modem_phy_deinit(sleep_modem_type_t modem_mask)
 {
-    _lock_acquire(&s_sleep_modem.phy_link_lock);
+    k_mutex_lock(&s_phy_link_lock, K_FOREVER);
     if (!(s_sleep_modem.modem_mask & modem_mask)) {
-        _lock_release(&s_sleep_modem.phy_link_lock);
+        k_mutex_unlock(&s_phy_link_lock);
         return;
     }
 
@@ -192,7 +192,7 @@ __attribute__((unused)) void sleep_modem_phy_deinit(sleep_modem_type_t modem_mas
         s_sleep_modem.phy_link = NULL;
         s_sleep_modem.flags = 0;
     }
-    _lock_release(&s_sleep_modem.phy_link_lock);
+    k_mutex_unlock(&s_phy_link_lock);
 }
 
 void IRAM_ATTR sleep_modem_phy_retention_complete(void)
@@ -355,25 +355,24 @@ static void esp_pm_light_sleep_default_params_config(int min_freq_mhz, int max_f
 void sleep_modem_register_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                          mac_bb_power_up_cb_t pu_cb)
 {
-    _lock_acquire(&s_modem_prepare_lock);
+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
     if (s_modem_prepare_ref++ == 0) {
         esp_register_mac_bb_pd_callback(pd_cb);
         esp_register_mac_bb_pu_callback(pu_cb);
     }
-    _lock_release(&s_modem_prepare_lock);
+    k_mutex_unlock(&s_modem_prepare_lock);
 }
 
 void sleep_modem_unregister_mac_bb_module_prepare_callback(mac_bb_power_down_cb_t pd_cb,
                                                            mac_bb_power_up_cb_t pu_cb)
 {
-    _lock_acquire(&s_modem_prepare_lock);
+    k_mutex_lock(&s_modem_prepare_lock, K_FOREVER);
     assert(s_modem_prepare_ref);
     if (--s_modem_prepare_ref == 0) {
         esp_unregister_mac_bb_pd_callback(pd_cb);
         esp_unregister_mac_bb_pu_callback(pu_cb);
     }
-    _lock_release(&s_modem_prepare_lock);
-
+    k_mutex_unlock(&s_modem_prepare_lock);
 }
 
 /**

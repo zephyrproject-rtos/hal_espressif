@@ -185,15 +185,14 @@ void ulp_lp_core_stop_lp_core(void)
     ulp_lp_core_sleep_start_lp_core();
 }
 
-void __attribute__((noreturn)) abort(void)
-{
-    // By calling abort users expect some panic message to be printed,
-    // so cause an exception like it is done in HP core's version of abort().
-    // If CONFIG_ULP_PANIC_OUTPUT_ENABLE is YES then panic handler will print smth
-    // If debugger is attached it will stop here and user can inspect the backtrace.
-    esp_cpu_dbgr_break();
-    while (1); // to make compiler happy about noreturn attr
-}
+// #if IS_ULP_COCPU
+// void __attribute__((noreturn)) abort(void)
+// {
+//     /* Cause an exception so a debugger can inspect the backtrace */
+//     esp_cpu_dbgr_break();
+//     while (1);
+// }
+// #endif
 
 void __attribute__((noreturn)) ulp_lp_core_abort(void)
 {

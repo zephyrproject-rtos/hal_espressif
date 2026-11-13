@@ -191,8 +191,7 @@ error:
     return err;
 }
 
-#if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP
-ESP_SYSTEM_INIT_FN(sleep_sys_periph_startup_init, SECONDARY, BIT(0), 107)
+esp_err_t sleep_sys_periph_startup_init(void)
 {
     sleep_retention_module_init_param_t init_param = {
         .cbs = { .create = { .handle = sleep_sys_periph_retention_init, .arg = NULL } },
@@ -212,9 +211,8 @@ ESP_SYSTEM_INIT_FN(sleep_sys_periph_startup_init, SECONDARY, BIT(0), 107)
             }
         }
     }
-    return ESP_OK;
+    return err;
 }
-#endif
 
 /**
  * @brief Dummy function used to force linking this file.

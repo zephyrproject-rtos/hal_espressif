@@ -8,19 +8,19 @@
 The linker will link constructor (adc2_init_code_calibration) only when any sections inside the same file (adc2_cal_include) is used.
 Don't put any other code into this file. */
 
-#include "freertos/FreeRTOS.h"
+#include <zephyr/kernel.h>
 #include "hal/adc_types.h"
 #include "hal/adc_hal_common.h"
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/critical_section.h"
 
-extern portMUX_TYPE rtc_spinlock;
+extern esp_os_spinlock_t rtc_spinlock;
 
 /**
  * @brief Set initial code to ADC2 after calibration. ADC2 RTC and ADC2 PWDET controller share the initial code.
  *        This API be called in before `app_main()`.
  */
-static __attribute__((constructor)) void adc2_init_code_calibration(void)
+static void adc2_init_code_calibration(void)
 {
     adc_hal_calibration_init(ADC_UNIT_2);
     adc_calc_hw_calibration_code(ADC_UNIT_2, ADC_ATTEN_DB_12);
@@ -32,5 +32,6 @@ static __attribute__((constructor)) void adc2_init_code_calibration(void)
 /** Don't call `adc2_cal_include` in user code. */
 void adc2_cal_include(void)
 {
-    /* When this empty function is called, the `adc2_init_code_calibration` constructor will be linked and executed before the app.*/
+    /* In Zephyr, constructors don't work the same way. Call the calibration directly. */
+    adc2_init_code_calibration();
 }

@@ -50,8 +50,6 @@ void bootloader_console_init(void)
 void bootloader_console_init(void)
 {
     const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
-    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused)); // To avoid build errors/warnings about __DECLARE_RCC_ATOMIC_ENV
-
     // Install rom uart printf as console.
     esp_rom_install_uart_printf();
 
@@ -100,7 +98,7 @@ void bootloader_console_init(void)
     // Set configured UART console baud rate
     uint32_t clock_hz = rtc_clk_apb_freq_get();
 #if ESP_ROM_UART_CLK_IS_XTAL
-    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ; // From esp32-s3 on, UART clk source is selected to XTAL in ROM
+    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ(1); // From esp32-s3 on, UART clk source is selected to XTAL in ROM
 #endif
     _uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
 }

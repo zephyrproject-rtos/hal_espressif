@@ -1370,6 +1370,7 @@ static inline bool i2s_ll_get_etm_rx_threshold_event_status(i2s_dev_t *hw)
     }
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1388,6 +1389,7 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Check whether I2S TX PCM2PDM converter is supported on the specified port

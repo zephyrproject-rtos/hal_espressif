@@ -15,7 +15,7 @@
 #include "esp32/rom/sha.h"
 #include "uECC_verify_antifault.h"
 
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include <string.h>
 
 ESP_LOG_ATTR_TAG(TAG, "secure_boot");

@@ -58,7 +58,7 @@ esp_err_t adc_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int * con
 /*---------------------------------------------------------------
             ADC Hardware Calibration
 ---------------------------------------------------------------*/
-static __attribute__((constructor)) void adc_hw_calibration(void)
+static void adc_hw_calibration(void)
 {
     ANALOG_CLOCK_ENABLE();
     //Calculate all ICode

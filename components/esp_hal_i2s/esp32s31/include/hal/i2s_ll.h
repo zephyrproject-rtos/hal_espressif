@@ -756,6 +756,7 @@ static inline void i2s_ll_rx_set_destination(i2s_dev_t *hw, bool to_bt)
     hw->destination.rx_destination = to_bt ? 1 : 0;
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  *
@@ -772,6 +773,7 @@ static inline void i2s_ll_set_destination(i2s_dev_t *hw, i2s_dir_t dir, i2s_dest
         i2s_ll_rx_set_destination(hw, to_bt);
     }
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Configure TX WS signal width
@@ -1898,6 +1900,7 @@ static inline void i2s_ll_tx_set_hw_fifo_sync_static_suppl_data(i2s_dev_t *hw, u
     hw->hw_sync_data.tx_hw_sync_suppl_data = data;
 }
 
+#ifndef __ZEPHYR__
 /**
  * @brief Get I2S interrupt status register address
  */
@@ -1963,6 +1966,7 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
         return false;
     }
 }
+#endif /* __ZEPHYR__ */
 
 /**
  * @brief Check whether I2S TX PCM2PDM converter is supported on the specified port

@@ -5,9 +5,7 @@
  */
 
 #include <stdint.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -26,7 +24,6 @@
 #endif
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_clk.h"
-#include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
 
 ESP_LOG_ATTR_TAG(TAG, "clk");
@@ -35,10 +32,10 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
 
-#ifdef CONFIG_RTC_XTAL_CAL_RETRY
-#define RTC_XTAL_CAL_RETRY CONFIG_RTC_XTAL_CAL_RETRY
+#ifdef CLOCK_CONTROL_ESP32_RTC_XTAL_CAL_RETRY
+#define RTC_XTAL_CAL_RETRY CLOCK_CONTROL_ESP32_RTC_XTAL_CAL_RETRY
 #else
 #define RTC_XTAL_CAL_RETRY 1
 #endif
@@ -98,11 +95,11 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SLOW_CLK_32K_XTAL);
-#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);

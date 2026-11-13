@@ -11,6 +11,7 @@
 #include "soc/soc.h"
 #include "soc/clk_tree_defs.h"
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,8 +49,6 @@ extern "C" {
  * - rtc_sleep: entry into sleep modes
  * - rtc_init: initialization
  */
-
-#define MHZ (1000000)
 
 #define RTC_SLOW_CLK_X32K_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
 #define RTC_SLOW_CLK_8MD256_CAL_TIMEOUT_THRES(cycles)  (cycles << 12)
@@ -153,6 +152,9 @@ typedef struct rtc_cpu_freq_config_s {
 } rtc_cpu_freq_config_t;
 
 #define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+
+#define RTC_VDDSDIO_TIEH_1_8V 0 //!< TIEH field value for 1.8V VDDSDIO
+#define RTC_VDDSDIO_TIEH_3_3V 1 //!< TIEH field value for 3.3V VDDSDIO
 
 #define RTC_CAL_RTC_MUX _Pragma ("GCC warning \"'RTC_CAL_RTC_MUX' macro is deprecated\"") CLK_CAL_RTC_SLOW
 #define RTC_CAL_8MD256 _Pragma ("GCC warning \"'RTC_CAL_8MD256' macro is deprecated\"") CLK_CAL_RC_FAST_D256

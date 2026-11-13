@@ -5,7 +5,8 @@
  */
 
 #include <stdint.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
+#include "esp_hw_log.h"
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -19,7 +20,6 @@
 #include "soc/regi2c_lp_bias.h"
 #include "soc/regi2c_ulp.h"
 #include "soc/regi2c_dig_reg.h"
-#include "esp_hw_log.h"
 #include "esp_err.h"
 #include "esp_attr.h"
 #include "esp_private/mspi_timing_tuning.h"

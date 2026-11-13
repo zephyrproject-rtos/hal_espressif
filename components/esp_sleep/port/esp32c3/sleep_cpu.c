@@ -8,15 +8,13 @@
 #include <string.h>
 #include <inttypes.h>
 #include <sys/lock.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_sleep.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_heap_caps.h"
+#include <zephyr/kernel.h>
 #include "hal/rtc_hal.h"
 #include "soc/rtc_periph.h"
 #include "soc/soc_caps.h"
@@ -24,6 +22,22 @@
 #include "esp_private/sleep_event.h"
 #include "sdkconfig.h"
 
+static inline void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
+{
+    (void)caps;
+    void *ptr = k_aligned_alloc(alignment, n * size);
+    if (ptr) {
+        memset(ptr, 0, n * size);
+    }
+    return ptr;
+}
+
+static inline void heap_caps_free(void *ptr)
+{
+    k_free(ptr);
+}
+
+#define MALLOC_CAP_RETENTION 0
 
 ESP_LOG_ATTR_TAG(TAG, "sleep");
 
@@ -55,7 +69,7 @@ esp_err_t esp_sleep_cpu_pd_low_init(void)
                                             MALLOC_CAP_RETENTION);
         if (buf) {
             s_cpu_retention.retent.cpu_pd_mem = rtc_cntl_hal_dma_link_init(buf,
-                                  buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
+                                  (uint8_t *)buf + RTC_HAL_DMA_LINK_NODE_SIZE, SOC_RTC_CNTL_CPU_PD_RETENTION_MEM_SIZE, NULL);
         } else {
             return ESP_ERR_NO_MEM;
         }

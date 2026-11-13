@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
-#include <sys/param.h>
+#include <zephyr/sys/util.h>
 
 #include "bootloader_sha.h"
 #include "soc/soc_caps.h"

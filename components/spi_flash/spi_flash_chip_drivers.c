@@ -60,6 +60,10 @@ static const spi_flash_chip_t *default_registered_chips[] = {
     NULL,
 };
 
+/* Zephyr: This function references chip symbols that may not be defined.
+ * Disable it for Zephyr builds - it only prints informational warnings.
+ */
+#ifndef __ZEPHYR__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress"
 void spi_flash_chip_list_check(esp_flash_t *chip, uint32_t device_id) {
@@ -108,6 +112,12 @@ void spi_flash_chip_list_check(esp_flash_t *chip, uint32_t device_id) {
     }
 }
 #pragma GCC diagnostic pop
+#else
+void spi_flash_chip_list_check(esp_flash_t *chip, uint32_t device_id) {
+    (void)chip;
+    (void)device_id;
+}
+#endif /* __ZEPHYR__ */
 
 #else
 //When the config option is enabled, user should provide this struct themselves.

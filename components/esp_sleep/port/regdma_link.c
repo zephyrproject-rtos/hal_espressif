@@ -38,7 +38,7 @@ void * regdma_link_new_continuous(void *backup, void *buff, int len, void *resto
         memset(link, 0, buff ? sizeof(regdma_link_continuous_t) : (sizeof(regdma_link_continuous_t) + (len<<2)));
         void *buf = buff ? buff : (void *)(link->buff);
         link = regdma_link_init_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_continuous_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_continuous_t, head));
     }
     return NULL;
 }
@@ -54,7 +54,7 @@ void * regdma_link_new_addr_map(void *backup, void *buff, uint32_t bitmap[4], in
         memset(link, 0, buff ? sizeof(regdma_link_addr_map_t) : (sizeof(regdma_link_addr_map_t) + (len<<2)));
         void *buf = buff ? buff : (void *)(link->buff);
         link = regdma_link_init_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_addr_map_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_addr_map_t, head));
     }
     return NULL;
 }
@@ -66,7 +66,7 @@ void * regdma_link_new_write(void *backup, uint32_t value, uint32_t mask, void *
     if (link) {
         memset(link, 0, sizeof(regdma_link_write_wait_t));
         link = regdma_link_init_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
     }
     return NULL;
 }
@@ -78,7 +78,7 @@ void * regdma_link_new_wait(void *backup, uint32_t value, uint32_t mask, void *n
     if (link) {
         memset(link, 0, sizeof(regdma_link_write_wait_t));
         link = regdma_link_init_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_write_wait_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_write_wait_t, head));
     }
     return NULL;
 }
@@ -94,7 +94,7 @@ void * regdma_link_new_branch_continuous(void *backup, void *buff, int len, void
         memset(link, 0, buff ? sizeof(regdma_link_branch_continuous_t) : (sizeof(regdma_link_branch_continuous_t) + (len<<2)));
         void *buf = buff ? buff : (void *)(link->buff);
         link = regdma_link_init_branch_continuous(link, buf, backup, len, restore, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_branch_continuous_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_branch_continuous_t, head));
     }
     return NULL;
 }
@@ -110,7 +110,7 @@ void * regdma_link_new_branch_addr_map(void *backup, void *buff, uint32_t bitmap
         memset(link, 0, buff ? sizeof(regdma_link_branch_addr_map_t) : (sizeof(regdma_link_branch_addr_map_t) + (len<<2)));
         void *buf = buff ? buff : (void *)(link->buff);
         link = regdma_link_init_branch_addr_map(link, buf, backup, bitmap, len, restore, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_branch_addr_map_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_branch_addr_map_t, head));
     }
     return NULL;
 }
@@ -122,7 +122,7 @@ void * regdma_link_new_branch_write(void *backup, uint32_t value, uint32_t mask,
     if (link) {
         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
         link = regdma_link_init_branch_write(link, backup, value, mask, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
     }
     return NULL;
 }
@@ -134,7 +134,7 @@ void * regdma_link_new_branch_wait(void *backup, uint32_t value, uint32_t mask, 
     if (link) {
         memset(link, 0, sizeof(regdma_link_branch_write_wait_t));
         link = regdma_link_init_branch_wait(link, backup, value, mask, next, skip_b, skip_r, id, module);
-        return (void *)((void *)link + offsetof(regdma_link_branch_write_wait_t, head));
+        return (void *)((char *)link + offsetof(regdma_link_branch_write_wait_t, head));
     }
     return NULL;
 }
@@ -442,7 +442,7 @@ static regdma_link_stats_t * regdma_link_get_stats(void *link)
     int it = (head.branch << 2) | head.mode;
     assert(it < ARRAY_SIZE(stats_offset));
 
-    return (regdma_link_stats_t *)(regdma_link_get_instance(link) + stats_offset[it]);
+    return (regdma_link_stats_t *)((char *)regdma_link_get_instance(link) + stats_offset[it]);
 }
 ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-null-dereference")
 
@@ -480,7 +480,7 @@ static void regdma_link_destroy_wrapper(void *link, int entry, int depth)
     regdma_link_stats_t *stat = regdma_link_get_stats(link);
     stat->ref &= ~BIT(entry);
     if (stat->ref == 0) {
-        free(regdma_link_get_instance(link));
+        heap_caps_free(regdma_link_get_instance(link));
     }
 }
 

@@ -9,7 +9,19 @@
 #include "soc/chip_revision.h"
 #include "hal/efuse_hal.h"
 
-#include "soc/rtc_cntl_periph.h"
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3  // TODO: IDF-5645
+#include "soc/rtc_cntl_reg.h"
+#elif CONFIG_IDF_TARGET_ESP32S31
+#include "soc/rtc_wdt_reg.h"
+#include "soc/rtc_timer_reg.h"
+#include "soc/lp_analog_peri_reg.h"
+#include "soc/pmu_reg.h"
+#else
+#include "soc/lp_wdt_reg.h"
+#include "soc/lp_timer_reg.h"
+#include "soc/lp_analog_peri_reg.h"
+#include "soc/pmu_reg.h"
+#endif
 
 #if CONFIG_IDF_TARGET_ESP32
 #include "hal/clk_tree_ll.h"

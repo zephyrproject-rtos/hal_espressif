@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <sys/param.h>
+#include <zephyr/kernel.h>
+#include <zephyr/init.h>
+#include <zephyr/sys/util.h>
 #include <stdarg.h>
 #include <string.h>
 #include "soc/soc.h"
@@ -13,16 +15,16 @@
 #include "esp_err.h"
 #include "esp_task.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "esp_timer_impl.h"
 #include "esp_compiler.h"
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_timer_private.h"
 #include "esp_private/system_internal.h"
+#include "esp_private/critical_section.h"
 #include "sdkconfig.h"
+
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #ifdef CONFIG_ESP_TIMER_PROFILING
 #define WITH_PROFILING 1
@@ -88,12 +90,17 @@ static LIST_HEAD(esp_inactive_timer_list, esp_timer) s_inactive_timers[ESP_TIMER
     [0 ...(ESP_TIMER_MAX - 1)] = LIST_HEAD_INITIALIZER(s_timers)
 };
 #endif
-// task used to dispatch timer callbacks
-static TaskHandle_t s_timer_task;
 
-// lock protecting s_timers, s_inactive_timers
-static portMUX_TYPE s_timer_lock[ESP_TIMER_MAX] = {
-    [0 ...(ESP_TIMER_MAX - 1)] = portMUX_INITIALIZER_UNLOCKED
+K_KERNEL_STACK_MEMBER(timer_task_stack, CONFIG_ESP32_TIMER_TASK_STACK_SIZE);
+// task used to dispatch timer callbacks
+static struct k_thread s_timer_task;
+/* counting semaphore used to notify the timer task from ISR */
+static struct k_sem s_timer_semaphore;
+static bool s_timer_task_created = false;
+
+/* lock key for critical sections */
+static esp_os_spinlock_t s_timer_lock_key[ESP_TIMER_MAX] = {
+    [0 ... ESP_TIMER_MAX - 1] = ESP_OS_SPINLOCK_INIT,
 };
 
 // Callback execution is serialized within each dispatch method.
@@ -106,7 +113,7 @@ static size_t s_pending_delete_count[ESP_TIMER_MAX];
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 // For ISR dispatch method, a callback function of the timer may require a context switch
-static volatile BaseType_t s_isr_dispatch_need_yield = pdFALSE;
+static volatile bool s_isr_dispatch_need_yield = false;
 #endif // CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 
 esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
@@ -119,7 +126,7 @@ esp_err_t esp_timer_create(const esp_timer_create_args_t* args,
             args->dispatch_method < 0 || args->dispatch_method >= ESP_TIMER_MAX) {
         return ESP_ERR_INVALID_ARG;
     }
-    esp_timer_handle_t result = (esp_timer_handle_t) heap_caps_calloc(1, sizeof(*result), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    esp_timer_handle_t result = (esp_timer_handle_t) k_calloc(1, sizeof(*result));
     if (result == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -336,11 +343,11 @@ esp_err_t esp_timer_stop_blocking(esp_timer_handle_t timer, uint32_t timeout_tic
         // we need to wait for the callback to complete here.
 
         // In ISR context: do not wait to avoid blocking
-        if (xPortInIsrContext()) {
+        if (k_is_in_isr()) {
             return ESP_ERR_NOT_FINISHED;
         }
 
-        if (xTaskGetCurrentTaskHandle() == s_timer_task) {
+        if (k_current_get() == &s_timer_task) {
             // Called from the esp_timer task context (i.e., the callback owner is a TASK-dispatch timer).
             // Concurrency model:
             // - TASK-dispatch callbacks are executed by a single esp_timer task and are strictly serialized.
@@ -360,15 +367,15 @@ esp_err_t esp_timer_stop_blocking(esp_timer_handle_t timer, uint32_t timeout_tic
             return ESP_ERR_NOT_FINISHED;
         }
 
-        TickType_t start_time = xTaskGetTickCount();
+        int64_t start_time = k_uptime_get();
         while (!callback_has_completed(dispatch_method, completed_seq)) {
-            if (timeout_ticks != (uint32_t) portMAX_DELAY) {
-                TickType_t elapsed = xTaskGetTickCount() - start_time;
-                if (elapsed >= timeout_ticks) {
+            if (timeout_ticks != (uint32_t) K_FOREVER.ticks) {
+                int64_t elapsed = k_uptime_get() - start_time;
+                if (elapsed >= k_ticks_to_ms_floor64(timeout_ticks)) {
                     return ESP_ERR_TIMEOUT;
                 }
             }
-            vTaskDelay(1);
+            k_sleep(K_MSEC(1));
         }
     }
 
@@ -413,12 +420,7 @@ esp_err_t esp_timer_delete(esp_timer_handle_t timer)
     timer_list_unlock(dispatch_method);
 
     if (notify_task) {
-        if (xPortInIsrContext()) {
-            // Deletion is asynchronous; do not yield inside an ISR callback.
-            vTaskNotifyGiveFromISR(s_timer_task, NULL);
-        } else {
-            xTaskNotifyGive(s_timer_task);
-        }
+        k_sem_give(&s_timer_semaphore);
     }
     return err;
 }
@@ -506,12 +508,12 @@ static ESP_TIMER_IRAM_ATTR bool timer_armed(esp_timer_handle_t timer)
 
 static ESP_TIMER_IRAM_ATTR void timer_list_lock(esp_timer_dispatch_t timer_type)
 {
-    portENTER_CRITICAL_SAFE(&s_timer_lock[timer_type]);
+    esp_os_enter_critical_safe(&s_timer_lock_key[timer_type]);
 }
 
 static ESP_TIMER_IRAM_ATTR void timer_list_unlock(esp_timer_dispatch_t timer_type)
 {
-    portEXIT_CRITICAL_SAFE(&s_timer_lock[timer_type]);
+    esp_os_exit_critical_safe(&s_timer_lock_key[timer_type]);
 }
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
@@ -603,7 +605,7 @@ static void __attribute__((noinline, noclone)) timer_process_deletes(void)
         while (timer != NULL) {
             // Only use forward links: the detached nodes' back-links are no longer valid.
             esp_timer_handle_t next = LIST_NEXT(timer, list_entry);
-            free(timer);
+            k_free(timer);
             timer = next;
             ++deleted_count;
         }
@@ -618,10 +620,14 @@ static void __attribute__((noinline, noclone)) timer_process_deletes(void)
     }
 }
 
-static void timer_task(void* arg)
+static void timer_task(void *p1, void *p2, void *p3)
 {
+    ARG_UNUSED(p1);
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
+
     while (true) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        k_sem_take(&s_timer_semaphore, K_FOREVER);
         // all deferred events are processed at a time
         timer_process_alarm(ESP_TIMER_TASK);
         timer_process_deletes();
@@ -631,17 +637,15 @@ static void timer_task(void* arg)
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 ESP_TIMER_IRAM_ATTR void esp_timer_isr_dispatch_need_yield(void)
 {
-#ifndef CONFIG_ESP_TIMER_IMPL_LINUX
-    assert(xPortInIsrContext());
-#endif
-    s_isr_dispatch_need_yield = pdTRUE;
+    __ASSERT(k_is_in_isr(), "esp_timer_isr_dispatch_need_yield must be called from ISR context");
+    s_isr_dispatch_need_yield = true;
 }
 
 #endif
 
-static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void* arg)
+static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void *arg)
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    ARG_UNUSED(arg);
 
 #ifdef CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
     uint32_t due_alarm_mask = esp_timer_impl_claim_due_alarms();
@@ -651,29 +655,20 @@ static void ESP_TIMER_IRAM_ATTR timer_alarm_handler(void* arg)
         timers_to_delete = timer_process_alarm(ESP_TIMER_ISR);
     }
 
-    xHigherPriorityTaskWoken = s_isr_dispatch_need_yield;
-    s_isr_dispatch_need_yield = pdFALSE;
+    /* The kernel reschedules on ISR exit, no explicit yield is needed. */
+    s_isr_dispatch_need_yield = false;
 
     if (due_alarm_mask & (1U << ESP_TIMER_TASK) || timers_to_delete) {
-        vTaskNotifyGiveFromISR(s_timer_task, &xHigherPriorityTaskWoken);
+        k_sem_give(&s_timer_semaphore);
     }
 #else
-    vTaskNotifyGiveFromISR(s_timer_task, &xHigherPriorityTaskWoken);
+    k_sem_give(&s_timer_semaphore);
 #endif
-
-    if (xHigherPriorityTaskWoken == pdTRUE) {
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-    }
 }
 
 static ESP_TIMER_IRAM_ATTR inline bool is_initialized(void)
 {
-    return s_timer_task != NULL;
-}
-
-TaskHandle_t esp_timer_impl_get_timer_task_handle(void)
-{
-    return s_timer_task;
+    return s_timer_task_created;
 }
 
 static esp_err_t init_timer_task(void)
@@ -683,40 +678,44 @@ static esp_err_t init_timer_task(void)
         ESP_EARLY_LOGE(TAG, "Task is already initialized");
         err = ESP_ERR_INVALID_STATE;
     } else {
-        int ret = xTaskCreatePinnedToCore(
-                      &timer_task, "esp_timer",
-                      ESP_TASK_TIMER_STACK, NULL, ESP_TASK_TIMER_PRIO,
-                      &s_timer_task, CONFIG_ESP_TIMER_TASK_AFFINITY);
-        if (ret != pdPASS) {
-            ESP_EARLY_LOGE(TAG, "Not enough memory to create timer task");
-            err = ESP_ERR_NO_MEM;
-        }
+        k_sem_init(&s_timer_semaphore, 0, 1);
+
+        /* Pin to the configured core (create suspended, pin, then start) to keep
+         * the timer task on the same core as the Wi-Fi/BLE stacks it serves.
+         */
+        k_tid_t tid = k_thread_create(&s_timer_task, timer_task_stack,
+                        CONFIG_ESP32_TIMER_TASK_STACK_SIZE,
+                        timer_task, NULL, NULL, NULL,
+                        K_PRIO_PREEMPT(CONFIG_ESP32_TIMER_TASK_PRIO), 0,
+                        IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
+        k_thread_name_set(&s_timer_task, "esp_timer");
+
+#if defined(CONFIG_SMP)
+#if defined(CONFIG_SCHED_CPU_MASK) && defined(CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID)
+        k_thread_cpu_pin(tid, CONFIG_SOC_ESP32_TIMER_TASK_CORE_ID);
+#endif
+        k_thread_start(tid);
+#else
+        ARG_UNUSED(tid);
+#endif
+        s_timer_task_created = true;
     }
     return err;
 }
 
 static void deinit_timer_task(void)
 {
-    if (s_timer_task) {
-        vTaskDelete(s_timer_task);
-        s_timer_task = NULL;
+    if (s_timer_task_created) {
+        k_thread_abort(&s_timer_task);
+        s_timer_task_created = false;
     }
 }
 
 esp_err_t esp_timer_init(void)
 {
     esp_err_t err = ESP_OK;
-#ifndef CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
+
     err = init_timer_task();
-#else
-    /* This function will be run on all cores if CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY is enabled,
-     * We do it that way because we need to allocate the timer ISR on MULTIPLE cores.
-     * timer task will be created by CPU0.
-     */
-    if (xPortGetCoreID() == 0) {
-        err = init_timer_task();
-    }
-#endif // CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
     if (err == ESP_OK) {
         err = esp_timer_impl_init(&timer_alarm_handler);
         if (err != ESP_OK) {
@@ -727,31 +726,9 @@ esp_err_t esp_timer_init(void)
     return err;
 }
 
-#if CONFIG_ESP_TIMER_ISR_AFFINITY_CPU0
-#define ESP_TIMER_INIT_MASK BIT(0)
-#elif CONFIG_ESP_TIMER_ISR_AFFINITY_CPU1
-#define ESP_TIMER_INIT_MASK BIT(1)
-#elif CONFIG_ESP_TIMER_ISR_AFFINITY_NO_AFFINITY
-#define ESP_TIMER_INIT_MASK ESP_SYSTEM_INIT_ALL_CORES
-#endif // CONFIG_ESP_TIMER_ISR_AFFINITY_*
-
-/*
- * This function initializes a task and ISR that esp_timer uses.
- *
- * We keep the esp_timer initialization function here to allow the linker
- * to automatically include esp_timer_init_os if other components call esp_timer APIs.
- * If no other code calls esp_timer APIs, then esp_timer_init_os will be skipped.
-*/
-ESP_SYSTEM_INIT_FN(esp_timer_init_os, SECONDARY, ESP_TIMER_INIT_MASK, 100)
-{
-    esp_err_t err = ESP_OK;
-    if (is_initialized()) {
-        err = ESP_OK;
-    } else {
-        err = esp_timer_init();
-    }
-    return err;
-}
+#if defined(CONFIG_WIFI_ESP32) || defined(CONFIG_BT_ESP32) || defined(CONFIG_IEEE802154_ESP32)
+SYS_INIT(esp_timer_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+#endif
 
 esp_err_t esp_timer_deinit(void)
 {
@@ -869,7 +846,7 @@ esp_err_t esp_timer_dump(FILE* stream)
      */
     size_t buf_size = TIMER_INFO_LINE_LEN * (timer_count + 3);
     /* buf_size is the snprintf size, including NUL; keep one extra byte as slack. */
-    char* print_buf = calloc(1, buf_size + 1);
+    char* print_buf = k_calloc(1, buf_size + 1);
     if (print_buf == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -907,7 +884,7 @@ esp_err_t esp_timer_dump(FILE* stream)
         fputs(print_buf, stream);
     }
 
-    free(print_buf);
+    k_free(print_buf);
     return ESP_OK;
 }
 

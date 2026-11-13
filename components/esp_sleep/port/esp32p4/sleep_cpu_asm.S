@@ -5,8 +5,8 @@
  */
 
 #include "soc/soc.h"
+#include "riscv/encoding.h"
 #include "rvsleep-frames.h"
-#include "freertos/FreeRTOSConfig.h"
 #include "sdkconfig.h"
 
 #include "soc/cache_reg.h"
@@ -19,7 +19,7 @@
     .type       rv_core_critical_regs_frame,@object
     .align      4
 rv_core_critical_regs_frame:
-    .rept (portNUM_PROCESSORS)
+    .rept (CONFIG_MP_MAX_NUM_CPUS)
     .word       0
     .endr
 
@@ -179,6 +179,13 @@ rv_core_critical_regs_restore:
     lw      t1, RV_SLP_CTX_MIE(t0)
     csrw    mie, t1
     lw      t2, RV_SLP_CTX_MSTATUS(t0)
+    /*
+    PMP CSRs are lost in the CPU power-down and are only restored after this
+    stub returns. MPRV must stay clear until then, otherwise the loads below
+    are checked against an empty PMP table.
+    */
+    li      t1, ~MSTATUS_MPRV
+    and     t2, t2, t1
     csrw    mstatus, t2
     lw      t4, RV_SLP_CTX_MTVT(t0)
     csrw    MTVT, t4

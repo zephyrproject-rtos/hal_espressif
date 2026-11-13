@@ -20,25 +20,33 @@
  ***************************************/
 
 /* Functions */
-_isatty_r = 0x4fc00294;
-strdup = 0x4fc002f0;
-strndup = 0x4fc00314;
-rand_r = 0x4fc0034c;
-rand = 0x4fc00350;
-srand = 0x4fc00354;
-atoi = 0x4fc00360;
-atol = 0x4fc00364;
-strtol = 0x4fc00368;
-strtoul = 0x4fc0036c;
-fflush = 0x4fc00370;
-_fflush_r = 0x4fc00374;
-_fwalk = 0x4fc00378;
-_fwalk_reent = 0x4fc0037c;
-__smakebuf_r = 0x4fc00380;
-__swhatbuf_r = 0x4fc00384;
-__swbuf_r = 0x4fc00388;
-__swbuf = 0x4fc0038c;
-__swsetup_r = 0x4fc00390;
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* _isatty_r = 0x4fc00294; */
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* strdup       = 0x4fc002f0; */
+/* strndup      = 0x4fc00314; */
+/* rand_r       = 0x4fc0034c; */
+/* rand         = 0x4fc00350; */
+/* srand        = 0x4fc00354; */
+/* atoi         = 0x4fc00360; */
+/* atol         = 0x4fc00364; */
+/* strtol       = 0x4fc00368; */
+/* strtoul      = 0x4fc0036c; */
+/* fflush       = 0x4fc00370; */
+/* _fflush_r    = 0x4fc00374; */
+/* _fwalk       = 0x4fc00378; */
+/* _fwalk_reent = 0x4fc0037c; */
+
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __smakebuf_r = 0x4fc00380; */
+/* __swhatbuf_r = 0x4fc00384; */
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf_r = 0x4fc00388; */
+
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swbuf = 0x4fc0038c; */
+/* Zephyr: reentrant ROM call, provided by the selected libc */
+/* __swsetup_r = 0x4fc00390; */
 toupper = 0x4fc002cc;
 tolower = 0x4fc002d0;
 isalnum = 0x4fc0029c;

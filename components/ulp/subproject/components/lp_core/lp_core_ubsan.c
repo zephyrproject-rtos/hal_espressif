@@ -88,7 +88,7 @@ static void __ubsan_maybe_debugbreak(void)
 
 __attribute__((noreturn)) static void __ubsan_default_handler(struct source_location *loc, const char *func)
 {
-#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
+#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
     lp_core_printf("LP_CORE: Undefined behavior of type '%s' @\r\n"
                    "%s:%d\r\n", func, loc->file_name, loc->line);
 #endif

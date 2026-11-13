@@ -5,20 +5,20 @@
  */
 
 #include <stdint.h>
-#include "sys/lock.h"
 #include "esp_check.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_private/btbb.h"
+
+#include <zephyr/kernel.h>
 
 #define BTBB_ENABLE_VERSION_PRINT 1
 
-static _lock_t s_btbb_access_lock;
+K_MUTEX_DEFINE(s_btbb_access_lock);
 /* Reference count of enabling BT BB */
 static uint8_t s_btbb_access_ref = 0;
 
 
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
 #include "esp_private/sleep_retention.h"
 #include "btbb_retention_reg.h"
 #include "esp_private/phy.h"
@@ -90,19 +90,19 @@ static esp_err_t btbb_sleep_retention_enable(void)
     }
     return err;
 }
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
 
 void esp_btbb_enable(void)
 {
-    _lock_acquire(&s_btbb_access_lock);
+    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
     if (s_btbb_access_ref == 0) {
         bt_bb_v2_init_cmplx(BTBB_ENABLE_VERSION_PRINT);
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
         esp_err_t err = ESP_OK;
 #if (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
         err = esp_phy_fe_sleep_data_init();
         if (err != ESP_OK) {
-            _lock_release(&s_btbb_access_lock);
+            k_mutex_unlock(&s_btbb_access_lock);
             return;
         }
 #endif // (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
@@ -112,25 +112,25 @@ void esp_btbb_enable(void)
 #if (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
             esp_phy_fe_sleep_data_deinit();
 #endif // (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
-            _lock_release(&s_btbb_access_lock);
+            k_mutex_unlock(&s_btbb_access_lock);
             return;
         }
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
     }
     s_btbb_access_ref++;
-    _lock_release(&s_btbb_access_lock);
+    k_mutex_unlock(&s_btbb_access_lock);
 }
 
 void esp_btbb_disable(void)
 {
-    _lock_acquire(&s_btbb_access_lock);
+    k_mutex_lock(&s_btbb_access_lock, K_FOREVER);
     if (s_btbb_access_ref && (--s_btbb_access_ref == 0)) {
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
         btbb_sleep_retention_disable();
 #if (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
         esp_phy_fe_sleep_data_deinit();
 #endif // (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_BT_LE_SLEEP_ENABLE || CONFIG_BT_CTRL_SLEEP_ENABLE || CONFIG_IEEE802154_SLEEP_ENABLE)
     }
-    _lock_release(&s_btbb_access_lock);
+    k_mutex_unlock(&s_btbb_access_lock);
 }
