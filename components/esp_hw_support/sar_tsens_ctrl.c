@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 
 #include "soc/soc_caps.h"
-#include <zephyr/kernel.h>
+#include "freertos/FreeRTOS.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_sleep.h"
 
 #if SOC_TEMP_SENSOR_SUPPORTED
 #include "hal/temperature_sensor_ll.h"
@@ -19,7 +20,7 @@
 #include "esp_private/adc_share_hw_ctrl.h"
 #include "esp_private/critical_section.h"
 
-extern __attribute__((unused)) esp_os_spinlock_t rtc_spinlock;
+extern __attribute__((unused)) portMUX_TYPE rtc_spinlock;
 
 
 /*------------------------------------------------------------------------------------------------------------
@@ -53,6 +54,9 @@ void temperature_sensor_power_acquire(void)
         // Initialize HAL layer with the same tsens_idx
         temperature_sensor_hal_init();
         timer1 = esp_timer_get_time();
+#if SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION && !SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN
+        esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+#endif
     }
     esp_os_exit_critical(&rtc_spinlock);
 }
@@ -61,14 +65,11 @@ void temperature_sensor_power_release(void)
 {
     esp_os_enter_critical(&rtc_spinlock);
     s_temperature_sensor_power_cnt--;
-    if (s_temperature_sensor_power_cnt < 0) {
-        s_temperature_sensor_power_cnt = 0;
-    }
     /* Sanity check */
     if (s_temperature_sensor_power_cnt < 0) {
         esp_os_exit_critical(&rtc_spinlock);
         ESP_LOGE(TAG_TSENS, "%s called, but s_temperature_sensor_power_cnt == 0", __func__);
-        return;
+        abort();
     } else if (s_temperature_sensor_power_cnt == 0) {
         temperature_sensor_ll_enable(false);
         PERIPH_RCC_ATOMIC() {
@@ -78,6 +79,9 @@ void temperature_sensor_power_release(void)
         adc_apb_periph_free();
 #endif
         regi2c_saradc_disable();
+#if SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION && !SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN
+        esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+#endif
     }
     esp_os_exit_critical(&rtc_spinlock);
 }

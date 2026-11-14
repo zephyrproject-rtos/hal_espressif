@@ -132,7 +132,6 @@
 #define SOC_ADC_DIG_CTRL_SUPPORTED              1
 #define SOC_ADC_DMA_SUPPORTED                   1
 #define SOC_ADC_PERIPH_NUM                      (2)
-#define SOC_ADC_CHANNEL_NUM(PERIPH_NUM)         ((PERIPH_NUM==0)? 8: 10)
 #define SOC_ADC_ATTEN_NUM                       (4)
 
 /*!< Digital */
@@ -392,5 +391,5 @@
 #define SOC_PHY_COMBO_MODULE                  (1) /*!< Support Wi-Fi, BT and BLE*/
 
 /*--------------------------- EMAC --------------------------------*/
-#define SOC_EMAC_RMII_CLK_OUT_INTERNAL_LOOPBACK     (1) /*!< REF RMII CLK output is looped back internally */
+#define SOC_EMAC_RMII_CLK_OUT_INTERNAL_LOOPBACK     (1) /*!< REF RMII CLK output is ONLY looped back internally */
 #define SOC_EMAC_REF_CLK_FROM_APLL                 (1)      /*!< RMII REF CLK can use APLL as internal clock source */

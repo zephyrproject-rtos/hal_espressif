@@ -43,7 +43,7 @@ static esp_err_t lp_adc_validate_unit(adc_unit_t unit_id)
 
 static esp_err_t lp_adc_validate_channel(adc_unit_t unit_id, adc_channel_t channel)
 {
-    if (channel >= SOC_ADC_CHANNEL_NUM(unit_id)) {
+    if (channel >= ADC_LL_CHANNEL_NUM(unit_id)) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -152,7 +152,7 @@ esp_err_t lp_core_lp_adc_read_channel_raw(adc_unit_t unit_id, adc_channel_t chan
     adc_oneshot_ll_enable(unit_id);
     adc_oneshot_ll_set_channel(unit_id, channel);
 
-    adc_oneshot_ll_start(unit_id);
+    adc_oneshot_ll_start(unit_id, true);
     while (!adc_oneshot_ll_get_event(event)) {
         ;
     }

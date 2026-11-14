@@ -14,7 +14,7 @@
 #define EMAC_PTP_INIT_TIMEOUT_US (10)
 #endif // SOC_EMAC_IEEE1588V2_SUPPORTED
 
-static uint8_t emac_crs_div_table[] = {
+static uint8_t emac_csr_div_table[] = {
     42,
     62,
     16,
@@ -37,16 +37,7 @@ static esp_err_t emac_hal_flush_trans_fifo(emac_hal_context_t *hal)
 
 void emac_hal_init(emac_hal_context_t *hal)
 {
-    hal->dma_regs = &EMAC_DMA;
-    hal->mac_regs = &EMAC_MAC;
-#if SOC_IS(ESP32)
-    hal->ext_regs = &EMAC_EXT;
-#else
-    hal->ext_regs = NULL;
-#endif
-#if SOC_EMAC_IEEE1588V2_SUPPORTED
-    hal->ptp_regs = &EMAC_PTP;
-#endif
+    *hal = emac_hal_get_context();
 }
 
 esp_err_t emac_hal_ref_clock_select(emac_hal_context_t *hal, int sel)
@@ -78,11 +69,11 @@ esp_err_t emac_hal_ref_clock_div(emac_hal_context_t *hal, int div)
 
 void emac_hal_find_set_closest_csr_clock_range(emac_hal_context_t *hal, int mdc_freq_hz, int freq_hz)
 {
-    int min_diff = abs(freq_hz / emac_crs_div_table[0] - mdc_freq_hz);
+    int min_diff = abs(freq_hz / emac_csr_div_table[0] - mdc_freq_hz);
     uint32_t best_div = 0;
 
-    for (int i = 1; i < sizeof(emac_crs_div_table) / sizeof(emac_crs_div_table[0]); i++) {
-        int cur_diff = abs(freq_hz / emac_crs_div_table[i] - mdc_freq_hz);
+    for (int i = 1; i < sizeof(emac_csr_div_table) / sizeof(emac_csr_div_table[0]); i++) {
+        int cur_diff = abs(freq_hz / emac_csr_div_table[i] - mdc_freq_hz);
         if (cur_diff < min_diff) {
             min_diff = cur_diff;
             best_div = i;
@@ -356,7 +347,8 @@ static inline uint32_t nanosecond2subsecond(emac_hal_context_t *hal, uint32_t na
 
 esp_err_t emac_hal_get_rxdesc_timestamp(emac_hal_context_t *hal, eth_dma_rx_descriptor_t *rxdesc, uint32_t *seconds, uint32_t *nano_seconds)
 {
-    if (!rxdesc->RDES0.TSAvailIPChecksumErrGiantFrame) {
+    eth_dma_rdes0_t rdes0 = { .Value = rxdesc->RDES0.Value };
+    if (!rdes0.TSAvailIPChecksumErrGiantFrame) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -366,13 +358,15 @@ esp_err_t emac_hal_get_rxdesc_timestamp(emac_hal_context_t *hal, eth_dma_rx_desc
     if (nano_seconds) {
         *nano_seconds = subsecond2nanosecond(hal, rxdesc->TimeStampLow);
     }
-    rxdesc->RDES0.TSAvailIPChecksumErrGiantFrame = 0;
+    rdes0.TSAvailIPChecksumErrGiantFrame = 0;
+    rxdesc->RDES0.Value = rdes0.Value;
     return ESP_OK;
 }
 
 esp_err_t emac_hal_get_txdesc_timestamp(emac_hal_context_t *hal, eth_dma_tx_descriptor_t *txdesc, uint32_t *seconds, uint32_t *nano_seconds)
 {
-    if (txdesc->TDES0.Own == EMAC_LL_DMADESC_OWNER_DMA || !txdesc->TDES0.TxTimestampStatus) {
+    eth_dma_tdes0_t tdes0 = { .Value = txdesc->TDES0.Value };
+    if (tdes0.Own == EMAC_LL_DMADESC_OWNER_DMA || !tdes0.TxTimestampStatus) {
         return ESP_ERR_INVALID_STATE;
     }
     if (seconds) {
@@ -381,7 +375,8 @@ esp_err_t emac_hal_get_txdesc_timestamp(emac_hal_context_t *hal, eth_dma_tx_desc
     if (nano_seconds) {
         *nano_seconds = subsecond2nanosecond(hal, txdesc->TimeStampLow);
     }
-    txdesc->TDES0.TxTimestampStatus = 0;
+    tdes0.TxTimestampStatus = 0;
+    txdesc->TDES0.Value = tdes0.Value;
     return ESP_OK;
 }
 
@@ -423,7 +418,7 @@ esp_err_t emac_hal_ptp_start(emac_hal_context_t *hal, const emac_hal_ptp_config_
          * ———————————— = ————————————— ==> Increment = ————————————— ≈ —————————
          *   Increment        2^31                           10^9         0.465
          */
-        base_increment = config->ptp_req_accuracy_ns / 0.465f;
+        base_increment = config->ptp_req_accuracy_ns / 0.465;
     }
     emac_ll_set_ts_sub_second_incre_val(hal->ptp_regs, base_increment);
     /* Set Update Mode */
@@ -448,7 +443,7 @@ esp_err_t emac_hal_ptp_start(emac_hal_context_t *hal, const emac_hal_ptp_config_
             increment_ns = (double)base_increment * 1.0e9 / (double)(1ULL << 31);
         }
         uint32_t base_addend = (uint32_t)((double)(1ULL << 32) *
-                                          (double)config->ptp_clk_src_period_ns /
+                                          config->ptp_clk_src_period_ns /
                                           increment_ns);
         emac_ll_set_ts_addend_val(hal->ptp_regs, base_addend);
         emac_ll_ts_addend_do_update(hal->ptp_regs);

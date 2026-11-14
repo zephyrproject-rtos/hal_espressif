@@ -59,7 +59,7 @@ u8 *g_wpa_password;
 int g_wpa_password_len;
 u8 *g_wpa_new_password;
 int g_wpa_new_password_len;
-const char *g_wpa_ttls_phase2_type;
+const char *g_eap_phase2_type;
 char *g_wpa_phase1_options;
 u8 *g_wpa_pac_file;
 int g_wpa_pac_file_len;
@@ -313,6 +313,11 @@ int eap_peer_register_methods(void)
 		ret = eap_peer_peap_register();
 #endif
 
+#ifdef EAP_GTC
+	if (ret == 0)
+		ret = eap_peer_gtc_register();
+#endif
+
 #ifdef EAP_TTLS
 	if (ret == 0)
 		ret = eap_peer_ttls_register();
@@ -491,8 +496,9 @@ struct wpabuf * eap_sm_build_nak(struct eap_sm *sm, EapType type, u8 id)
 	}
 
 	for (m = methods; m; m = m->next) {
-		//do not propose insecure unencapsulated MSCHAPv2 as Phase 1 Method
-		if(m->vendor == EAP_VENDOR_IETF && m->method == EAP_TYPE_MSCHAPV2)
+		//do not propose insecure unencapsulated MSCHAPv2 or cleartext GTC as a Phase 1 method
+		if(m->vendor == EAP_VENDOR_IETF &&
+		   (m->method == EAP_TYPE_MSCHAPV2 || m->method == EAP_TYPE_GTC))
 			continue;
 
 		//do not propose EAP_TYPE_TLS if no client cert/key are configured
@@ -583,8 +589,8 @@ int eap_peer_config_init(
 			  sm->config.new_password_len);
 	}
 
-	if (g_wpa_ttls_phase2_type) {
-		sm->config.phase2 = g_wpa_ttls_phase2_type;
+	if (g_eap_phase2_type) {
+		sm->config.phase2 = g_eap_phase2_type;
 	} else {
 		/* set default config phase2 mode as MSCHAPV2 */
 		sm->config.phase2 = "auth=MSCHAPV2";
@@ -609,60 +615,54 @@ int eap_peer_config_init(
 	int allowed_method_count = 0;
 	const struct eap_method *methods;
 
-	if (config_methods) {
-		os_free(config_methods);
-		config_methods = NULL;
-		sm->config.eap_methods = NULL;
-	}
-
-	methods = eap_peer_get_methods(&mcount);
-	if (methods == NULL) {
-		wpa_printf(MSG_ERROR, "EAP: Set config init: EAP methods not registered.");
-		return -1;
-	}
-
-	// Allocate a buffer large enough to accommodate all the registered methods
-	// plus the EAP_TYPE_NONE terminator.
-	config_methods = os_malloc((mcount + 1) * sizeof(struct eap_method_type));
-	if (config_methods == NULL) {
-		wpa_printf(MSG_ERROR, "EAP: Set config init: Out of memory, set configured methods failed");
-		return -1;
-	}
-
-	if (g_wpa_username) {
-		//set EAP-PEAP
-		if (g_eap_method_mask & ESP_EAP_TYPE_PEAP) {
-			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
-			config_methods[allowed_method_count++].method = EAP_TYPE_PEAP;
+	if (!config_methods) {
+		methods = eap_peer_get_methods(&mcount);
+		if (methods == NULL) {
+			wpa_printf(MSG_ERROR, "EAP: Set config init: EAP methods not registered.");
+			return -1;
 		}
-		//set EAP-TTLS
-		if (g_eap_method_mask & ESP_EAP_TYPE_TTLS) {
-			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
-			config_methods[allowed_method_count++].method = EAP_TYPE_TTLS;
+
+		// Allocate a buffer large enough to accomodate all the registered methods.
+		config_methods = os_malloc(mcount * sizeof(struct eap_method_type));
+		if (config_methods == NULL) {
+			wpa_printf(MSG_ERROR, "EAP: Set config init: Out of memory, set configured methods failed");
+			return -1;
 		}
-	}
-	if (g_wpa_private_key) {
-		//set EAP-TLS
-		if (g_eap_method_mask & ESP_EAP_TYPE_TLS) {
-			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
-			config_methods[allowed_method_count++].method = EAP_TYPE_TLS;
+
+		if (g_wpa_username) {
+			//set EAP-PEAP
+			if (g_eap_method_mask & ESP_EAP_TYPE_PEAP) {
+				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+				config_methods[allowed_method_count++].method = EAP_TYPE_PEAP;
+			}
+			//set EAP-TTLS
+			if (g_eap_method_mask & ESP_EAP_TYPE_TTLS) {
+				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+				config_methods[allowed_method_count++].method = EAP_TYPE_TTLS;
+			}
 		}
-	}
+		if (g_wpa_private_key) {
+			//set EAP-TLS
+			if (g_eap_method_mask & ESP_EAP_TYPE_TLS) {
+				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+				config_methods[allowed_method_count++].method = EAP_TYPE_TLS;
+			}
+		}
 #ifdef EAP_FAST
-	if (g_wpa_pac_file) {
-		//set EAP-FAST
-		if (g_eap_method_mask & ESP_EAP_TYPE_FAST) {
-			config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
-			config_methods[allowed_method_count++].method = EAP_TYPE_FAST;
+		if (g_wpa_pac_file) {
+			//set EAP-FAST
+			if (g_eap_method_mask & ESP_EAP_TYPE_FAST) {
+				config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+				config_methods[allowed_method_count++].method = EAP_TYPE_FAST;
+			}
 		}
-	}
 #endif
-	// Terminate the allowed method list
-	config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
-	config_methods[allowed_method_count++].method = EAP_TYPE_NONE;
-	// Set the allowed methods to config
-	sm->config.eap_methods = config_methods;
-
+		// Terminate the allowed method list
+		config_methods[allowed_method_count].vendor = EAP_VENDOR_IETF;
+		config_methods[allowed_method_count++].method = EAP_TYPE_NONE;
+		// Set the allowed methods to config
+		sm->config.eap_methods = config_methods;
+	}
 	return 0;
 
 }

@@ -68,7 +68,9 @@ typedef enum {
 #endif
     MODEM_CLOCK_ETM,
 #if SOC_BT_SUPPORTED
-    MODEM_CLOCK_BLE_MAC,
+    MODEM_CLOCK_BT_MAC,
+    MODEM_CLOCK_BT_PERIPHERAL,
+    MODEM_CLOCK_BT_APB,
 #endif
 #if SOC_BT_SUPPORTED || SOC_IEEE802154_SUPPORTED
     MODEM_CLOCK_BT_I154_COMMON_BB,
@@ -113,7 +115,7 @@ typedef struct {
 
 typedef struct modem_clock_context {
     modem_clock_hal_context_t     *hal;
-    esp_os_spinlock_t             lock;
+    spinlock_t                    lock;
     modem_clock_device_context_t  *dev;
 #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
     uint8_t *icg_config;

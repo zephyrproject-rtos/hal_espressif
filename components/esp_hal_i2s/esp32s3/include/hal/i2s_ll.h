@@ -23,7 +23,6 @@
 #define I2S_LL_GET(_attr)       I2S_LL_ ## _attr
 #define I2S_LL_SUPPORT(_feat)   I2S_LL_SUPPORT_ ## _feat
 #define I2S_LL_INST_NUM         2
-#define I2S_LL_PDM_SUPPORTED_PORT_MASK        (1U << 0)  // PDM is supported on I2S0
 #define I2S_LL_PCM2PDM_SUPPORTED_PORT_MASK    (1U << 0)  // PCM2PDM is supported on I2S0
 #define I2S_LL_PDM2PCM_SUPPORTED_PORT_MASK    (1U << 0)  // PDM2PCM is supported on I2S0
 
@@ -1236,7 +1235,6 @@ static inline void i2s_ll_tx_pdm_line_mode(i2s_dev_t *hw, i2s_pdm_tx_line_mode_t
     hw->tx_pcm2pdm_conf.tx_dac_2out_en = line_mode != I2S_PDM_TX_ONE_LINE_DAC;
 }
 
-#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1254,15 +1252,6 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
 {
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
-}
-#endif /* __ZEPHYR__ */
-
-/**
- * @brief Check whether I2S PDM mode is supported on the specified port
- */
-static inline bool i2s_ll_is_pdm_supported(int port_id)
-{
-    return (I2S_LL_PDM_SUPPORTED_PORT_MASK & (1U << port_id)) != 0;
 }
 
 /**

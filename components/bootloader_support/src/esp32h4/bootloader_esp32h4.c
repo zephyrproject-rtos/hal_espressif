@@ -30,7 +30,7 @@
 #include "esp_private/regi2c_ctrl.h"
 #include "soc/hp_system_reg.h"
 #include "bootloader_console.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
 #include "bootloader_soc.h"
 #include "esp_private/bootloader_flash_internal.h"
 #include "esp_efuse.h"
@@ -42,6 +42,7 @@
 #include "hal/lpwdt_ll.h"
 #include "hal/assist_debug_ll.h"
 #include "hal/brownout_ll.h"
+#include "hal/riscv_trace_hal.h"
 
 ESP_LOG_ATTR_TAG(TAG, "boot.esp32h4");
 
@@ -106,6 +107,8 @@ static inline void bootloader_hardware_init(void)
     regi2c_ctrl_ll_master_force_enable_clock(true); // TODO: IDF-12313 Remove this?
     regi2c_ctrl_ll_master_configure_clock();
 #endif
+    /* A reset leaves the trace encoders running, and they would write into RAM the app will use */
+    riscv_trace_hal_stop_all_encoders();
 }
 
 static inline void bootloader_ana_reset_config(void)
@@ -113,7 +116,11 @@ static inline void bootloader_ana_reset_config(void)
     //Enable super WDT reset.
     bootloader_ana_super_wdt_reset_config(true);
     //Enable BOD reset
+#if CONFIG_ESP_BROWNOUT_DET
+    brownout_ll_set_threshold(BROWNOUT_DETECTOR_LL_THRESHOLD_VAL);
+    brownout_ll_enable_bod_source(true);
     brownout_ll_ana_reset_enable(true);
+#endif
 }
 
 static inline void bootloader_config_dcache(void)

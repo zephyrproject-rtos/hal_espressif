@@ -46,7 +46,8 @@ static void pmksa_cache_free_entry(struct rsn_pmksa_cache *pmksa,
         enum pmksa_free_reason reason)
 {
     pmksa->pmksa_count--;
-    pmksa->free_cb(entry, pmksa->ctx, reason);
+    if (pmksa->free_cb)
+        pmksa->free_cb(entry, pmksa->ctx, reason);
     _pmksa_cache_free_entry(entry);
 }
 
@@ -279,7 +280,6 @@ void pmksa_cache_flush(struct rsn_pmksa_cache *pmksa, void *network_ctx,
         const u8 *pmk, size_t pmk_len)
 {
     struct rsn_pmksa_cache_entry *entry, *prev = NULL, *tmp;
-    int removed = 0;
 
     entry = pmksa->pmksa;
     while (entry) {
@@ -297,14 +297,11 @@ void pmksa_cache_flush(struct rsn_pmksa_cache *pmksa, void *network_ctx,
             tmp = entry;
             entry = entry->next;
             pmksa_cache_free_entry(pmksa, tmp, PMKSA_FREE);
-            removed++;
         } else {
             prev = entry;
             entry = entry->next;
         }
     }
-    /*if (removed)
-      pmksa_cache_set_expiration(pmksa);*/
 }
 
 
@@ -343,7 +340,7 @@ void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa)
  */
 struct rsn_pmksa_cache_entry * pmksa_cache_get(struct rsn_pmksa_cache *pmksa,
         const u8 *aa, const u8 *spa, const u8 *pmkid,
-        const void *network_ctx)
+        const void *network_ctx, int akmp)
 {
     if(!pmksa)
         return NULL;
@@ -354,6 +351,7 @@ struct rsn_pmksa_cache_entry * pmksa_cache_get(struct rsn_pmksa_cache *pmksa,
                  os_memcmp(entry->spa, spa, ETH_ALEN) == 0) &&
                 (pmkid == NULL ||
                  os_memcmp(entry->pmkid, pmkid, PMKID_LEN) == 0) &&
+                (!akmp || akmp == entry->akmp) &&
                 (network_ctx == NULL || network_ctx == entry->network_ctx))
             return entry;
         entry = entry->next;
@@ -397,7 +395,7 @@ pmksa_cache_clone_entry(struct rsn_pmksa_cache *pmksa,
  */
 struct rsn_pmksa_cache_entry *
 pmksa_cache_get_opportunistic(struct rsn_pmksa_cache *pmksa, void *network_ctx,
-        const u8 *aa)
+        const u8 *aa, int akmp)
 {
     if (!pmksa)
         return NULL;
@@ -407,7 +405,8 @@ pmksa_cache_get_opportunistic(struct rsn_pmksa_cache *pmksa, void *network_ctx,
     if (network_ctx == NULL)
         return NULL;
     while (entry) {
-        if (entry->network_ctx == network_ctx) {
+        if (entry->network_ctx == network_ctx &&
+                (!akmp || akmp == entry->akmp)) {
             entry = pmksa_cache_clone_entry(pmksa, entry, aa);
             if (entry) {
                 wpa_printf(MSG_DEBUG, "RSN: added "
@@ -473,14 +472,14 @@ int pmksa_cache_set_current(struct wpa_sm *sm, const u8 *pmkid,
     sm->cur_pmksa = NULL;
     if (pmkid)
         sm->cur_pmksa = pmksa_cache_get(pmksa, NULL, sm->own_addr, pmkid,
-                network_ctx);
+                network_ctx, sm->key_mgmt);
     if (sm->cur_pmksa == NULL && bssid)
         sm->cur_pmksa = pmksa_cache_get(pmksa, bssid, sm->own_addr, NULL,
-                network_ctx);
+                network_ctx, sm->key_mgmt);
     if (sm->cur_pmksa == NULL && try_opportunistic && bssid)
         sm->cur_pmksa = pmksa_cache_get_opportunistic(pmksa,
                 network_ctx,
-                bssid);
+                bssid, sm->key_mgmt);
     if (sm->cur_pmksa) {
         wpa_hexdump(MSG_DEBUG, "RSN: PMKSA cache entry found - PMKID",
                 sm->cur_pmksa->pmkid, PMKID_LEN);

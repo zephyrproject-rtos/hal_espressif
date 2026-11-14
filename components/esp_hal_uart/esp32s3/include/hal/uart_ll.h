@@ -76,14 +76,19 @@ typedef enum {
  */
 FORCE_INLINE_ATTR bool uart_ll_is_enabled(uint32_t uart_num)
 {
-    uint32_t uart_rst_bit = ((uart_num == 0) ? SYSTEM_UART_RST :
-                             (uart_num == 1) ? SYSTEM_UART1_RST :
-                             (uart_num == 2) ? SYSTEM_UART2_RST : 0);
-    uint32_t uart_en_bit  = ((uart_num == 0) ? SYSTEM_UART_CLK_EN :
-                             (uart_num == 1) ? SYSTEM_UART1_CLK_EN :
-                             (uart_num == 2) ? SYSTEM_UART2_CLK_EN : 0);
-    return DPORT_REG_GET_BIT(SYSTEM_PERIP_RST_EN0_REG, uart_rst_bit) == 0 &&
-           DPORT_REG_GET_BIT(SYSTEM_PERIP_CLK_EN0_REG, uart_en_bit) != 0;
+    switch (uart_num) {
+    case 0:
+        return DPORT_REG_GET_BIT(SYSTEM_PERIP_RST_EN0_REG, SYSTEM_UART_RST) == 0 &&
+               DPORT_REG_GET_BIT(SYSTEM_PERIP_CLK_EN0_REG, SYSTEM_UART_CLK_EN) != 0;
+    case 1:
+        return DPORT_REG_GET_BIT(SYSTEM_PERIP_RST_EN0_REG, SYSTEM_UART1_RST) == 0 &&
+               DPORT_REG_GET_BIT(SYSTEM_PERIP_CLK_EN0_REG, SYSTEM_UART1_CLK_EN) != 0;
+    case 2:
+        return DPORT_REG_GET_BIT(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_UART2_RST) == 0 &&
+               DPORT_REG_GET_BIT(SYSTEM_PERIP_CLK_EN1_REG, SYSTEM_UART2_CLK_EN) != 0;
+    default:
+        abort();
+    }
 }
 
 /**
@@ -870,18 +875,6 @@ FORCE_INLINE_ATTR void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
     hw->rs485_conf.rs485rxby_tx_en = 1;
     hw->conf0.irda_en = 0;
     hw->rs485_conf.rs485_en = 1;
-}
-
-/**
- * @brief  Check if UART is in RS485 half duplex mode.
- *
- * @param  hw Beginning address of the peripheral registers.
- *
- * @return true if in RS485 half duplex mode, false otherwise.
- */
-FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
-{
-    return hw->rs485_conf.rs485_en && hw->conf0.sw_rts;
 }
 
 /**

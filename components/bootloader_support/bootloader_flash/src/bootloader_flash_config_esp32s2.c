@@ -20,7 +20,8 @@
 #include "soc/soc_caps.h"
 #include "flash_qio_mode.h"
 #include "bootloader_flash_config.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
+#include "spi_flash_defs.h"
 #include "bootloader_common.h"
 #include "bootloader_init.h"
 #include "hal/mmu_hal.h"
@@ -156,7 +157,7 @@ static void update_flash_config(const esp_image_header_t *bootloader_hdr)
     }
     // Set flash chip size
     esp_rom_spiflash_config_param(g_rom_flashchip.device_id, size * 0x100000, 0x10000, 0x1000, 0x100, 0xffff);
-    // TODO: set mode
+    // TODO: IDF-15747 set mode
     // TODO: set frequency
 }
 

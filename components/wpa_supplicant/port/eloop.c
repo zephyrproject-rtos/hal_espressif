@@ -12,14 +12,13 @@
  */
 
 #include "includes.h"
-#include <zephyr/kernel.h>
 
 #include "common.h"
 #include "list.h"
 #include "eloop.h"
 #include "esp_wifi_driver.h"
 #include "rom/ets_sys.h"
-#include <zephyr/sys/atomic.h>
+#include <stdatomic.h>
 #include <stdint.h>
 
 bool current_task_is_wifi_task(void);
@@ -39,7 +38,7 @@ struct eloop_timeout {
     eloop_timeout_handler destroy_handler;
     eloop_blocking_timeout_handler blocking_handler;
     void *sync_semph;
-    atomic_t ref_count;
+    atomic_uint ref_count;
     int ret;
     bool blocking;
 #ifdef ELOOP_DEBUG
@@ -51,8 +50,8 @@ struct eloop_timeout {
 struct eloop_data {
     struct dl_list timeout;
     ETSTimer eloop_timer;
-    atomic_t state;
-    atomic_t dispatch_count;
+    atomic_int state;
+    atomic_uint dispatch_count;
 };
 
 #define ELOOP_LOCK() os_mutex_lock(eloop_data_lock)
@@ -60,18 +59,21 @@ struct eloop_data {
 
 static void *eloop_data_lock = NULL;
 static struct eloop_data eloop;
-static atomic_t eloop_lifecycle_busy = ATOMIC_INIT(0);
+static atomic_bool eloop_lifecycle_busy = false;
 
 static void eloop_lifecycle_lock(void)
 {
-    while (!atomic_cas(&eloop_lifecycle_busy, 0, 1)) {
-        k_msleep(1);
+    bool expected = false;
+
+    while (!atomic_compare_exchange_weak(&eloop_lifecycle_busy, &expected, true)) {
+        expected = false;
+        vTaskDelay(1);
     }
 }
 
 static void eloop_lifecycle_unlock(void)
 {
-    atomic_set(&eloop_lifecycle_busy, 0);
+    atomic_store(&eloop_lifecycle_busy, false);
 }
 
 #ifdef ELOOP_DEBUG
@@ -117,7 +119,7 @@ static void eloop_debug_log_timeout(const char *action,
 
 static bool eloop_is_running(void)
 {
-    return atomic_get(&eloop.state) == ELOOP_STATE_RUNNING;
+    return atomic_load(&eloop.state) == ELOOP_STATE_RUNNING;
 }
 
 static int eloop_get_reltime_now(struct os_reltime *time)
@@ -137,12 +139,12 @@ static void *eloop_sync_sem_create(void)
 
 static void eloop_timeout_get(struct eloop_timeout *timeout)
 {
-    atomic_add(&timeout->ref_count, 1);
+    atomic_fetch_add(&timeout->ref_count, 1);
 }
 
 static void eloop_timeout_put(struct eloop_timeout *timeout)
 {
-    if (atomic_sub(&timeout->ref_count, 1) != 1) {
+    if (atomic_fetch_sub(&timeout->ref_count, 1) != 1) {
         return;
     }
 
@@ -348,7 +350,7 @@ static struct eloop_timeout *eloop_timeout_alloc(void)
         return NULL;
     }
 
-    atomic_set(&timeout->ref_count, 1);
+    atomic_init(&timeout->ref_count, 1);
 #ifdef ELOOP_DEBUG
     os_strlcpy(timeout->func_name, func, sizeof(timeout->func_name));
     timeout->line = line;
@@ -379,8 +381,8 @@ static void eloop_reset_state_locked(void)
     dl_list_init(&eloop.timeout);
     os_timer_disarm(&eloop.eloop_timer);
     os_timer_setfn(&eloop.eloop_timer, (ETSTimerFunc *)eloop_run_timer, NULL);
-    atomic_set(&eloop.dispatch_count, 0);
-    atomic_set(&eloop.state, ELOOP_STATE_RUNNING);
+    atomic_store(&eloop.dispatch_count, 0);
+    atomic_store(&eloop.state, ELOOP_STATE_RUNNING);
 }
 
 int eloop_init(void)
@@ -391,7 +393,7 @@ int eloop_init(void)
 
     eloop_lifecycle_lock();
     if (eloop_data_lock) {
-        int current_state = atomic_get(&eloop.state);
+        int current_state = atomic_load(&eloop.state);
 
         if (current_state == ELOOP_STATE_RUNNING) {
             eloop_lifecycle_unlock();
@@ -847,7 +849,7 @@ void eloop_run(void)
         }
 
         dl_list_del(&timeout->list);
-        atomic_add(&eloop.dispatch_count, 1);
+        atomic_fetch_add(&eloop.dispatch_count, 1);
         ELOOP_UNLOCK();
 
         if (timeout->blocking) {
@@ -866,7 +868,7 @@ void eloop_run(void)
             eloop_run_async_timeout(timeout, timeout->handler);
         }
 
-        atomic_sub(&eloop.dispatch_count, 1);
+        atomic_fetch_sub(&eloop.dispatch_count, 1);
     }
 }
 
@@ -890,9 +892,9 @@ void eloop_destroy(void)
         return;
     }
 
-    old_state = atomic_set(&eloop.state, ELOOP_STATE_DESTROYING);
+    old_state = atomic_exchange(&eloop.state, ELOOP_STATE_DESTROYING);
     if (old_state == ELOOP_STATE_STOPPED) {
-        atomic_set(&eloop.state, ELOOP_STATE_STOPPED);
+        atomic_store(&eloop.state, ELOOP_STATE_STOPPED);
         eloop_lifecycle_unlock();
         return;
     }
@@ -942,16 +944,16 @@ void eloop_destroy(void)
 
 #ifdef ELOOP_DEBUG
     wpa_printf(MSG_DEBUG, "ELOOP: waiting for %u in-flight dispatches before destroy",
-               (unsigned int)atomic_get(&eloop.dispatch_count));
+               atomic_load(&eloop.dispatch_count));
 #endif
-    while (atomic_get(&eloop.dispatch_count) != 0) {
+    while (atomic_load(&eloop.dispatch_count) != 0) {
         if (++wait_loops >= wait_warn_loops) {
             wpa_printf(MSG_ERROR,
                        "ELOOP: destroy still waiting for %u in-flight dispatches after %u ms",
-                       (unsigned int)atomic_get(&eloop.dispatch_count), wait_warn_loops * wait_step_ms);
+                       atomic_load(&eloop.dispatch_count), wait_warn_loops * wait_step_ms);
             wait_loops = 0;
         }
-        k_msleep(wait_step_ms);
+        vTaskDelay(wait_step_ms / portTICK_PERIOD_MS);
     }
 
 #ifdef ELOOP_DEBUG

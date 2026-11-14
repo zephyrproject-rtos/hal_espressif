@@ -125,6 +125,7 @@ RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
  * GroupKey and PeerKey require encryption, otherwise, encryption is optional.
  */
 #define RSN_KEY_DATA_GROUPKEY RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
+#define RSN_KEY_DATA_KEYID RSN_SELECTOR(0x00, 0x0f, 0xac, 10)
 #define RSN_KEY_DATA_MAC_ADDR RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #define RSN_KEY_DATA_PMKID RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
 #ifdef CONFIG_IEEE80211W
@@ -162,6 +163,7 @@ RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
 #define WPA_CAPABILITY_PEERKEY_ENABLED BIT(9)
 #define WPA_CAPABILITY_SPP_CAPABLE BIT(10)
 #define WPA_CAPABILITY_SPP_REQUIRED BIT(11)
+#define WPA_CAPABILITY_EXT_KEY_ID_FOR_UNICAST BIT(13)
 #define WPA_CAPABILITY_OCVC BIT(14) /* Operating Channel Validation Capable */
 
 
@@ -455,10 +457,16 @@ const char * wpa_cipher_txt(int cipher);
 
 int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 			 struct wpa_ie_data *data);
+int wpa_parse_wpa_ie_rsn_scan_only(const u8 *rsn_ie, size_t rsn_ie_len,
+				   struct wpa_ie_data *data);
 int wpa_parse_wpa_ie(const u8 *wpa_ie, size_t wpa_ie_len,
 		     struct wpa_ie_data *data);
+int wpa_parse_wpa_ie_scan_only(const u8 *wpa_ie, size_t wpa_ie_len,
+			       struct wpa_ie_data *data);
 int wpa_parse_wpa_ie_rsnxe(const u8 *rsnxe_ie, size_t rsnxe_ie_len,
 			    struct wpa_ie_data *data);
+int wpa_parse_wpa_ie_rsnxe_scan_only(const u8 *rsnxe_ie, size_t rsnxe_ie_len,
+				     struct wpa_ie_data *data);
 u32 wpa_akm_to_suite(int akm);
 int wpa_compare_rsn_ie(int ft_initial_assoc,
 		       const u8 *ie1, size_t ie1len,
@@ -549,6 +557,8 @@ struct wpa_eapol_ie_parse {
 	size_t gtk_len;
 	const u8 *mac_addr;
 	size_t mac_addr_len;
+	const u8 *key_id;
+	size_t key_id_len;
 #ifdef CONFIG_IEEE80211W
 	const u8 *igtk;
 	size_t igtk_len;

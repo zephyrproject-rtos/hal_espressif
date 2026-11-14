@@ -37,7 +37,7 @@
 struct hostapd_data *global_hapd;
 
 #ifdef CONFIG_SAE
-extern void *g_wpa3_hostap_auth_api_lock;
+extern SemaphoreHandle_t g_wpa3_hostap_auth_api_lock;
 #endif /* CONFIG_SAE */
 
 struct hostapd_data *hostapd_get_hapd_data(void)
@@ -506,7 +506,8 @@ bool hostap_new_assoc_sta(struct sta_info *sta, uint8_t *bssid,
 
 #ifdef CONFIG_WPA3_COMPAT
 #define RSN_SELECTION_IE_OUI_LEN 4
-            if (assoc_req->rsn_selection_ie) {
+            if (assoc_req->rsn_selection_ie &&
+                    assoc_req->rsn_selection_ie[1] >= RSN_SELECTION_IE_OUI_LEN) {
                 rsn_selection_variant_len = assoc_req->rsn_selection_ie[1] - RSN_SELECTION_IE_OUI_LEN;
                 rsn_selection_variant_ie = &assoc_req->rsn_selection_ie[RSN_SELECTION_IE_OUI_LEN + 2];
             }

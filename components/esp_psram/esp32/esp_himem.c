@@ -135,7 +135,7 @@ size_t esp_himem_reserved_area_size(void)
 }
 
 #if SPIRAM_BANKSWITCH_RESERVE > 0
-void esp_himem_init(void)
+void __attribute__((constructor)) esp_himem_init(void)
 {
     uint32_t maxram = 0;
     esp_psram_impl_get_available_size(&maxram);

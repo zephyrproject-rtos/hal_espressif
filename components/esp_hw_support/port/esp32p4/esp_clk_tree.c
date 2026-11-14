@@ -5,9 +5,9 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/atomic.h>
 #include "sdkconfig.h"
 #include "esp_clk_tree.h"
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -21,6 +21,7 @@
 #include "esp_private/esp_clk_tree_common.h"
 #include "esp_private/esp_clk_tree_derived.h"
 #include "esp_private/periph_ctrl.h"
+#include "esp_private/critical_section.h"
 
 ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
 
@@ -69,7 +70,7 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
         break;
     case SOC_MOD_CLK_SYS:
         clk_src_freq = clk_hal_sys_get_freq_hz();
@@ -78,34 +79,34 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = clk_hal_apb_get_freq_hz();
         break;
     case SOC_MOD_CLK_PLL_F20M:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ / clk_ll_pll_f20m_get_divider() * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F120M:
-        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_120M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_CPLL:
-        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
+        clk_src_freq = clk_ll_cpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
         break;
     case SOC_MOD_CLK_SPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_MPLL:
-        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ(1);
+        clk_src_freq = clk_ll_mpll_get_freq_mhz(clk_hal_xtal_get_freq_mhz()) * MHZ;
         break;
     case SOC_MOD_CLK_APLL:
         clk_src_freq = clk_hal_apll_get_freq_hz();
         break;
     case SOC_MOD_CLK_SDIO_PLL:
-        clk_src_freq = CLK_LL_PLL_SDIO_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_SDIO_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -122,10 +123,10 @@ esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_sr
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
         break;
     case SOC_MOD_CLK_LP_PLL:
-        clk_src_freq = clk_ll_lp_pll_get_freq_mhz() * MHZ(1);
+        clk_src_freq = clk_ll_lp_pll_get_freq_mhz() * MHZ;
         break;
     default:
         break;
@@ -166,8 +167,12 @@ esp_err_t esp_clk_tree_src_set_freq_hz(soc_module_clk_t clk_src, uint32_t expt_f
     return ret;
 }
 
-static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
-static bool esp_clk_tree_initialized = false;
+DEFINE_CRIT_SECTION_LOCK_STATIC(s_clk_tree_spinlock);
+
+/** Per soc_module_clk_t: record clock gate consumers */
+static int16_t s_mod_clk_gate_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
+
+static bool s_clk_tree_initialized = false;
 
 void esp_clk_tree_initialize(void)
 {
@@ -175,7 +180,7 @@ void esp_clk_tree_initialize(void)
     if ((rst_reason == RESET_REASON_CPU_SW) || (rst_reason == RESET_REASON_CPU_MWDT)          \
             || (rst_reason == RESET_REASON_CPU_RWDT) || (rst_reason == RESET_REASON_CPU_JTAG) \
             || (rst_reason == RESET_REASON_CPU_LOCKUP)) {
-        esp_clk_tree_initialized = true;
+        s_clk_tree_initialized = true;
         return;
     }
 
@@ -184,12 +189,15 @@ void esp_clk_tree_initialize(void)
     _clk_gate_ll_ref_50m_clk_en(false);
     _clk_gate_ll_ref_80m_clk_en(false);
     _clk_gate_ll_ref_120m_clk_en(false);
+#if !CONFIG_ESP_ENABLE_PVT
+    // PLL_F160M must always on if PVT is enabled.
     _clk_gate_ll_ref_160m_clk_en(false);
+#endif
     _clk_gate_ll_ref_240m_clk_en(false);
-    esp_clk_tree_initialized = true;
+    s_clk_tree_initialized = true;
 }
 
-bool esp_clk_tree_is_power_on(soc_root_clk_circuit_t clk_circuit)
+bool esp_clk_tree_port_is_power_on(soc_root_clk_circuit_t clk_circuit)
 {
     (void)clk_circuit;
     return false;
@@ -201,74 +209,129 @@ bool esp_clk_tree_enable_power(soc_root_clk_circuit_t clk_circuit, bool enable)
     return false; // TODO: PM-653
 }
 
-#define ENABLE_CLK_GATE(clk_src_en_func, enable) \
-    PERIPH_RCC_ATOMIC() { \
-        clk_src_en_func(enable); \
-    }
+/* -------------------------------------------------------------------------- */
+/* Fixed ref clocks: gate only (no parent power management on ESP32-P4)       */
+/* -------------------------------------------------------------------------- */
 
-esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
+typedef void (*esp_clk_tree_gate_fn_t)(bool enable);
+
+typedef struct {
+    soc_module_clk_t       clk_id;
+    esp_clk_tree_gate_fn_t set_gate;
+} esp_clk_tree_gated_clk_t;
+
+static void esp_clk_tree_gate_rc_fast(bool enable)
 {
-    if (clk_src < 1 || clk_src >= SOC_MOD_CLK_INVALID) {
-        // some conditions is legal, e.g. -1 means external clock source
+    if (enable) {
+        rtc_dig_clk8m_enable();
+    } else {
+        rtc_dig_clk8m_disable();
+    }
+}
+
+typedef enum {
+    ESP_CLK_TREE_GATED_CLK_RC_FAST,
+    ESP_CLK_TREE_GATED_CLK_PLL_F20M,
+    ESP_CLK_TREE_GATED_CLK_PLL_F25M,
+    ESP_CLK_TREE_GATED_CLK_PLL_F80M,
+    ESP_CLK_TREE_GATED_CLK_PLL_F120M,
+    ESP_CLK_TREE_GATED_CLK_PLL_F160M,
+    ESP_CLK_TREE_GATED_CLK_PLL_F240M,
+    ESP_CLK_TREE_GATED_CLK_NUM,
+} esp_clk_tree_gated_clk_id_t;
+
+static const esp_clk_tree_gated_clk_t s_gated_ref_clks[] = {
+    [ESP_CLK_TREE_GATED_CLK_RC_FAST]    = { SOC_MOD_CLK_RC_FAST,    esp_clk_tree_gate_rc_fast },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F20M]   = { SOC_MOD_CLK_PLL_F20M,   _clk_gate_ll_ref_20m_clk_en },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F25M]   = { SOC_MOD_CLK_PLL_F25M,   _clk_gate_ll_ref_25m_clk_en },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F80M]   = { SOC_MOD_CLK_PLL_F80M,   _clk_gate_ll_ref_80m_clk_en },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F120M]  = { SOC_MOD_CLK_PLL_F120M,  _clk_gate_ll_ref_120m_clk_en },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F160M]  = { SOC_MOD_CLK_PLL_F160M,  _clk_gate_ll_ref_160m_clk_en },
+    [ESP_CLK_TREE_GATED_CLK_PLL_F240M]  = { SOC_MOD_CLK_PLL_F240M,  _clk_gate_ll_ref_240m_clk_en },
+};
+
+#define ENABLE_CLK_GATE(clk_src_en_func, enable) \
+    do { \
+        if ((clk_src_en_func) != NULL) { \
+            PERIPH_RCC_ATOMIC() { \
+                (clk_src_en_func)(enable); \
+            }; \
+        } \
+    } while (0)
+
+FORCE_INLINE_ATTR esp_err_t esp_clk_tree_enable_gated_clk(const esp_clk_tree_gated_clk_t *entry, bool enable)
+{
+    int16_t prev_ref_cnt;
+
+    esp_os_enter_critical(&s_clk_tree_spinlock);
+    if (enable) {
+        prev_ref_cnt = s_mod_clk_gate_ref_cnt[entry->clk_id]++;
+    } else {
+        prev_ref_cnt = s_mod_clk_gate_ref_cnt[entry->clk_id]--;
+        if (prev_ref_cnt <= 0) {
+            s_mod_clk_gate_ref_cnt[entry->clk_id] = 0;
+            esp_os_exit_critical(&s_clk_tree_spinlock);
+            ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", entry->clk_id);
+            return ESP_OK;
+        }
+    }
+    esp_os_exit_critical(&s_clk_tree_spinlock);
+
+    if (prev_ref_cnt == 0 && enable) {
+        ENABLE_CLK_GATE(entry->set_gate, true);
+    } else if (prev_ref_cnt == 1 && !enable) {
+        ENABLE_CLK_GATE(entry->set_gate, false);
+    }
+    return ESP_OK;
+}
+
+esp_err_t esp_clk_tree_manage_src(soc_module_clk_t clk_src, bool acquire,
+                                  const esp_clk_tree_src_config_t *config)
+{
+    if (clk_src < 1 || clk_src >= SOC_MOD_CLK_INVALID || clk_src == SOC_MOD_CLK_XTAL) {
+        /* Not managed by esp_clk_tree */
         return ESP_OK;
     }
 
-    if (!esp_clk_tree_initialized) {
+    if (!s_clk_tree_initialized) {
         return ESP_OK;
     }
 
-    // Derived PLL clocks (PLL_F50M, ...) that participate in the shared
-    // refcount/lock engine route through that engine instead of the
-    // global s_pll_src_cg_ref_cnt array below.
-    if (esp_clk_tree_get_derived_clk_desc(clk_src) != NULL) {
-        return enable ? esp_clk_tree_derived_clk_acquire(clk_src)
-                      : esp_clk_tree_derived_clk_release(clk_src);
-    }
-
+    esp_clk_tree_gated_clk_id_t gated_clk_id;
     // these clock sources have their own reference counting
     switch (clk_src) {
-        case SOC_MOD_CLK_APLL:
-            if (enable) {
-                esp_clk_tree_apll_acquire();
-            } else {
-                esp_clk_tree_apll_release();
-            }
-            return ESP_OK;
-        case SOC_MOD_CLK_MPLL:
-            if (enable) {
-                return esp_clk_tree_mpll_acquire();
-            } else {
-                esp_clk_tree_mpll_release();
-            }
-            return ESP_OK;
-        default:
-            break;
-    }
-
-    // other clock sources use the global reference counting
-    int16_t prev_ref_cnt = 0;
-    if (enable) {
-        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
-    } else {
-        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
-        if (prev_ref_cnt <= 0) {
-            ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
+    case SOC_MOD_CLK_APLL:
+        if (acquire) {
+            return esp_clk_tree_apll_acquire(config);
+        } else {
+            return esp_clk_tree_apll_release();
+        }
+    case SOC_MOD_CLK_MPLL:
+        if (acquire) {
+            return esp_clk_tree_mpll_acquire();
+        } else {
+            esp_clk_tree_mpll_release();
             return ESP_OK;
         }
-    }
-    if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
-        switch (clk_src) {
-            case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable(); break;
-            case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F25M:  ENABLE_CLK_GATE(clk_gate_ll_ref_25m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F120M: ENABLE_CLK_GATE(clk_gate_ll_ref_120m_clk_en, enable); break;
-            case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
-            case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
-            default: break;
+    case SOC_MOD_CLK_RC_FAST:   gated_clk_id = ESP_CLK_TREE_GATED_CLK_RC_FAST;   break;
+    case SOC_MOD_CLK_PLL_F20M:  gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F20M;  break;
+    case SOC_MOD_CLK_PLL_F25M:  gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F25M;  break;
+    case SOC_MOD_CLK_PLL_F80M:  gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F80M;  break;
+    case SOC_MOD_CLK_PLL_F120M: gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F120M; break;
+#if !CONFIG_ESP_ENABLE_PVT
+    // PLL_F160M must always on if PVT is enabled.
+    case SOC_MOD_CLK_PLL_F160M: gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F160M; break;
+#endif
+    case SOC_MOD_CLK_PLL_F240M: gated_clk_id = ESP_CLK_TREE_GATED_CLK_PLL_F240M; break;
+    default:
+        // Derived PLL clocks (PLL_F50M, ...) that participate in the shared
+        // refcount/lock engine route through that engine instead of the
+        // global s_pll_src_cg_ref_cnt array below.
+        if (esp_clk_tree_get_derived_clk_desc(clk_src) != NULL) {
+            return acquire ? esp_clk_tree_derived_clk_acquire(clk_src)
+                          : esp_clk_tree_derived_clk_release(clk_src);
         }
+        return ESP_OK;
     }
-
-    return ESP_OK;
+    return esp_clk_tree_enable_gated_clk(&s_gated_ref_clks[gated_clk_id], acquire);
 }

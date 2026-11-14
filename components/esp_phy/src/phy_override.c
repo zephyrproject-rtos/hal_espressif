@@ -9,6 +9,7 @@
 #include "esp_private/regi2c_ctrl.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/sar_periph_ctrl.h"
+#include "freertos/FreeRTOS.h"
 
 #include "hal/efuse_hal.h"
 

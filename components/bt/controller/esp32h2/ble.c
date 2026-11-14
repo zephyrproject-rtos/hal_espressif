@@ -37,12 +37,12 @@ void sync_stack_deinitEnv(void);
 int sync_stack_enable(void);
 void sync_stack_disable(void);
 
-#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#if CONFIG_BT_LE_DTM_ENABLED
 int dtm_stack_initEnv(void);
 void dtm_stack_deinitEnv(void);
 int dtm_stack_enable(void);
 void dtm_stack_disable(void);
-#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#endif // CONFIG_BT_LE_DTM_ENABLED
 
 #if DEFAULT_BT_LE_PAWR_SUPPORTED || CONFIG_BT_LE_ERROR_SIM_ENABLED
 int ble_single_env_init(void);
@@ -101,9 +101,9 @@ void scan_stack_enableSetScanADIOnlyFilterVsCmd(bool en);
 #endif // DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER
 void extAdv_stack_setExtAdvConstantDidVsCmd(bool en);
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
-#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
 extern void mmgmt_enableRxbufOptFeature(void);
-#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
 
 /* Local functions definition
  ***************************************************************************
@@ -133,9 +133,9 @@ void ble_stack_enableVsEvents(bool en)
     adv_stack_enableScanReqRxdVsEvent(en);
     conn_stack_enableChanMapUpdCompVsEvent(en);
 
-#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+#if CONFIG_BT_LE_SLEEP_ENABLE
     sleep_stack_enableWakeupVsEvent(en);
-#endif // CONFIG_ESP32_BT_LE_SLEEP_ENABLE
+#endif // CONFIG_BT_LE_SLEEP_ENABLE
 }
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
 
@@ -168,12 +168,12 @@ int ble_stack_initEnv(void)
         return rc;
     }
 
-#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#if CONFIG_BT_LE_DTM_ENABLED
     rc = dtm_stack_initEnv();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#endif // CONFIG_BT_LE_DTM_ENABLED
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_initEnv();
@@ -240,9 +240,9 @@ void ble_stack_deinitEnv(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_deinitEnv();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#if CONFIG_BT_LE_DTM_ENABLED
     dtm_stack_deinitEnv();
-#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#endif // CONFIG_BT_LE_DTM_ENABLED
 
     sync_stack_deinitEnv();
     scan_stack_deinitEnv();
@@ -280,12 +280,12 @@ int ble_stack_enable(void)
         return rc;
     }
 
-#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#if CONFIG_BT_LE_DTM_ENABLED
     rc = dtm_stack_enable();
     if (rc) {
         return rc;
     }
-#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#endif // CONFIG_BT_LE_DTM_ENABLED
 
 #if DEFAULT_BT_LE_MAX_CONNECTIONS
     rc = conn_stack_enable();
@@ -321,9 +321,9 @@ int ble_stack_enable(void)
     ble_stack_enableVsEvents(true);
 #endif // (CONFIG_BT_NIMBLE_ENABLED || CONFIG_BT_BLUEDROID_ENABLED)
 
-#if CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+#if CONFIG_BT_LE_RXBUF_OPT_ENABLED
     mmgmt_enableRxbufOptFeature();
-#endif // CONFIG_ESP32_BT_LE_RXBUF_OPT_ENABLED
+#endif // CONFIG_BT_LE_RXBUF_OPT_ENABLED
 
     return 0;
 }
@@ -347,9 +347,9 @@ void ble_stack_disable(void)
 #endif // CONFIG_BT_LE_ERROR_SIM_ENABLED
     conn_stack_disable();
 #endif // DEFAULT_BT_LE_MAX_CONNECTIONS
-#if CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#if CONFIG_BT_LE_DTM_ENABLED
     dtm_stack_disable();
-#endif // CONFIG_ESP32_BT_CTLR_DTM_ENABLE
+#endif // CONFIG_BT_LE_DTM_ENABLED
     sync_stack_disable();
     scan_stack_disable();
     extAdv_stack_disable();

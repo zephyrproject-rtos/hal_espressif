@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/kernel.h>
-
 #include <esp_event.h>
 #include <esp_wifi.h>
 #include "esp_log.h"
@@ -18,7 +16,8 @@
 #include "esp_private/pm_impl.h"
 #include "esp_private/esp_clk.h"
 #include "esp_wpa.h"
-#if defined(CONFIG_ESP_COEX_ENABLED) || defined(CONFIG_SW_COEXIST_ENABLE) || defined(CONFIG_EXTERNAL_COEX_ENABLE)
+#include "esp_netif.h"
+#ifdef CONFIG_ESP_COEX_ENABLED
 #include "private/esp_coexist_internal.h"
 #endif
 #ifdef CONFIG_ESP_PHY_ENABLED
@@ -39,15 +38,15 @@
 #include "esp_private/sleep_retention.h"
 #endif
 
+#if CONFIG_ESP_WIFI_ENABLE_ROAMING_APP
+#include "esp_roaming.h"
+#endif
+
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
 #include "esp_private/esp_modem_clock.h"
 #endif
 
 static bool s_wifi_inited = false;
-
-#ifdef CONFIG_PM
-static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
-#endif
 
 #if (CONFIG_ESP_WIFI_RX_BA_WIN > CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM)
 #error "WiFi configuration check: WARNING, WIFI_RX_BA_WIN should not be larger than WIFI_DYNAMIC_RX_BUFFER_NUM!"
@@ -60,8 +59,11 @@ static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
 
 extern uint8_t esp_wifi_get_user_init_flag_internal(void);
+#ifdef CONFIG_PM_ENABLE
+static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
+#endif
 
-#if CONFIG_SOC_SERIES_ESP32
+#if CONFIG_IDF_TARGET_ESP32
 /* Callback function to update WiFi MAC time */
 wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
 #endif
@@ -106,7 +108,19 @@ wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
     .difference = CONFIG_ESP_WIFI_SLP_SAMPLE_BEACON_DIFFERENCE_PERCENT      \
 }
 
-static const char *TAG = "wifi_init";
+static const char* TAG = "wifi_init";
+
+static void __attribute__((constructor)) s_set_default_wifi_log_level(void)
+{
+    /* WiFi libraries aren't compiled to know CONFIG_LOG_DEFAULT_LEVEL,
+       so set it at runtime startup. Done here not in esp_wifi_init() to allow
+       the user to set the level again before esp_wifi_init() is called.
+    */
+    esp_log_level_set("wifi", CONFIG_LOG_DEFAULT_LEVEL);
+    esp_log_level_set("mesh", CONFIG_LOG_DEFAULT_LEVEL);
+    esp_log_level_set("smartconfig", CONFIG_LOG_DEFAULT_LEVEL);
+    esp_log_level_set("ESPNOW", CONFIG_LOG_DEFAULT_LEVEL);
+}
 
 static void esp_wifi_set_log_level(void)
 {
@@ -128,16 +142,14 @@ static void esp_wifi_set_log_level(void)
     esp_wifi_internal_set_log_level(wifi_log_level);
 }
 
-#if (CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if (CONFIG_FREERTOS_USE_TICKLESS_IDLE && SOC_PM_MODEM_RETENTION_BY_REGDMA)
 static esp_err_t init_wifi_mac_sleep_retention(void *arg)
 {
     int config_size;
     sleep_retention_entries_config_t *config = esp_wifi_internal_mac_retention_context_get(&config_size);
     esp_err_t err = sleep_retention_entries_create(config, config_size, 3, SLEEP_RETENTION_MODULE_WIFI_MAC);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "failed to allocate memory for modem (%s) retention", "WiFi MAC");
-        return err;
-    }
+    ESP_RETURN_ON_ERROR(err, TAG, "failed to allocate memory for modem (%s) retention", "WiFi MAC");
+    ESP_LOGD(TAG, "WiFi MAC sleep retention initialization");
     return ESP_OK;
 }
 #endif
@@ -167,7 +179,7 @@ esp_err_t esp_wifi_internal_mac_sleep_retention_detach(void)
 #if CONFIG_MAC_BB_PD
 static void esp_wifi_mac_pd_mem_init(void)
 {
-#if (CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_err_t err = sleep_retention_module_allocate(SLEEP_RETENTION_MODULE_WIFI_MAC);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "failed to allocate sleep retention linked list for wifi mac retention");
@@ -178,7 +190,7 @@ static void esp_wifi_mac_pd_mem_init(void)
 }
 static void esp_wifi_mac_pd_mem_deinit(void)
 {
-#if (CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_err_t err = sleep_retention_module_free(SLEEP_RETENTION_MODULE_WIFI_MAC);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "failed to free sleep retention linked list for wifi mac retention");
@@ -224,13 +236,12 @@ static esp_err_t wifi_deinit_internal(void)
         ESP_LOGE(TAG, "Failed to deinit Wi-Fi driver (0x%x)", err);
         return err;
     }
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_ENABLE
     if (s_wifi_modem_sleep_lock) {
         esp_pm_lock_delete(s_wifi_modem_sleep_lock);
         s_wifi_modem_sleep_lock = NULL;
     }
 #endif
-
 #ifdef CONFIG_ESP_PHY_ENABLED
     esp_wifi_power_domain_off();
 #endif
@@ -240,34 +251,38 @@ static esp_err_t wifi_deinit_internal(void)
     esp_wifi_beacon_monitor_configure(&monitor_config);
 #endif
 
-#if CONFIG_PM && CONFIG_ESP_WIFI_SLP_IRAM_OPT
+#if CONFIG_PM_ENABLE && CONFIG_ESP_WIFI_SLP_IRAM_OPT
     esp_pm_unregister_light_sleep_default_params_config_callback();
 #endif
-#if CONFIG_PM && SOC_WIFI_HW_TSF
+#if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_WIFI_HW_TSF
+    esp_pm_unregister_skip_light_sleep_callback(esp_wifi_internal_is_tsf_active);
     esp_pm_unregister_inform_out_light_sleep_overhead_callback(esp_wifi_internal_update_light_sleep_wake_ahead_time);
     esp_sleep_disable_wifi_wakeup();
 # if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
     esp_sleep_disable_wifi_beacon_wakeup();
 # endif
-#endif /* CONFIG_PM && SOC_WIFI_HW_TSF */
-#if (CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#endif /* SOC_WIFI_HW_TSF */
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
     err = sleep_retention_module_deinit(SLEEP_RETENTION_MODULE_WIFI_MAC);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "WiFi MAC sleep retention deinit failed");
     }
-#endif /* CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA */
+#endif /* SOC_PM_MODEM_RETENTION_BY_REGDMA */
+#endif /* CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 #if CONFIG_MAC_BB_PD
     esp_unregister_mac_bb_pd_callback(pm_mac_sleep);
     esp_unregister_mac_bb_pu_callback(pm_mac_wakeup);
 #endif
 #if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
     esp_wifi_internal_modem_state_configure(false);
+    esp_pm_unregister_skip_light_sleep_callback(sleep_modem_wifi_modem_state_skip_light_sleep);
 #if ESP_MODEM_RF_FLAG_UPDATE_CB_REQUIRED
     esp_unregister_mac_bb_pd_callback(esp_phy_modem_rf_flag_update);
 #endif
 #endif /* CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
 #ifdef CONFIG_ESP_PHY_ENABLED
-    esp_phy_modem_deinit();
+    esp_phy_modem_deinit(SLEEP_MODEM_WIFI);
 #endif
     s_wifi_inited = false;
 
@@ -322,6 +337,8 @@ static void esp_wifi_config_info(void)
     ESP_LOGI(TAG, "LWIP IRAM OP enabled");
 #endif
 
+#else
+    ESP_LOGI(TAG, "LWIP disabled");
 #endif
 }
 
@@ -368,7 +385,7 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #endif
 
 #if CONFIG_ESP_WIFI_SLP_IRAM_OPT
-#if CONFIG_PM
+#if CONFIG_PM_ENABLE
     int min_freq_mhz = esp_pm_impl_get_cpu_freq(PM_MODE_LIGHT_SLEEP);
     int max_freq_mhz = esp_pm_impl_get_cpu_freq(PM_MODE_CPU_MAX);
     esp_wifi_internal_update_light_sleep_default_params(min_freq_mhz, max_freq_mhz);
@@ -388,7 +405,8 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
     uint32_t wait_broadcast_data_time_us = CONFIG_ESP_WIFI_SLP_DEFAULT_WAIT_BROADCAST_DATA_TIME * 1000;
     esp_wifi_set_sleep_wait_broadcast_data_time(wait_broadcast_data_time_us);
 
-#if (CONFIG_PM && SOC_PM_MODEM_RETENTION_BY_REGDMA)
+#if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA
     sleep_retention_module_init_param_t init_param = {
         .cbs     = { .create = { .handle = init_wifi_mac_sleep_retention, .arg = NULL } },
         .attribute = SLEEP_RETENTION_MODULE_ATTR_ATTACH
@@ -411,11 +429,25 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
     }
 #endif
 
-#if (CONFIG_PM && SOC_WIFI_HW_TSF)
-    result = esp_pm_register_inform_out_light_sleep_overhead_callback(esp_wifi_internal_update_light_sleep_wake_ahead_time);
-    if (result != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to register inform light sleep overhead callback (0x%x)", result);
-        return result;
+#if SOC_WIFI_HW_TSF
+    esp_err_t ret = esp_pm_register_skip_light_sleep_callback(esp_wifi_internal_is_tsf_active);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register skip light sleep callback (0x%x)", ret);
+#if CONFIG_MAC_BB_PD
+        esp_unregister_mac_bb_pd_callback(pm_mac_sleep);
+        esp_unregister_mac_bb_pu_callback(pm_mac_wakeup);
+#endif
+        return ret;
+    }
+    ret = esp_pm_register_inform_out_light_sleep_overhead_callback(esp_wifi_internal_update_light_sleep_wake_ahead_time);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register inform light sleep overhead callback (0x%x)", ret);
+        esp_pm_unregister_skip_light_sleep_callback(esp_wifi_internal_is_tsf_active);
+#if CONFIG_MAC_BB_PD
+        esp_unregister_mac_bb_pd_callback(pm_mac_sleep);
+        esp_unregister_mac_bb_pu_callback(pm_mac_wakeup);
+#endif
+        return ret;
     }
     esp_sleep_enable_wifi_wakeup();
 # if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
@@ -424,7 +456,8 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     coex_wifi_register_update_lpclk_callback(esp_wifi_update_tsf_tick_interval);
 #endif
-#endif /* CONFIG_PM && SOC_WIFI_HW_TSF */
+#endif /* SOC_WIFI_HW_TSF */
+#endif /* CONFIG_FREERTOS_USE_TICKLESS_IDLE */
 
 #if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     coex_init();
@@ -447,10 +480,11 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         esp_wifi_mac_pd_mem_init();
 #endif
 #ifdef CONFIG_ESP_PHY_ENABLED
-        esp_phy_modem_init();
+        esp_phy_modem_init(SLEEP_MODEM_WIFI);
 #endif
 #if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-        if (sleep_modem_wifi_modem_state_enabled()) {
+        if (sleep_modem_wifi_modem_state_is_enabled()) {
+            esp_pm_register_skip_light_sleep_callback(sleep_modem_wifi_modem_state_skip_light_sleep);
             esp_wifi_internal_modem_state_configure(true); /* require WiFi to enable automatically receives the beacon */
 #if ESP_MODEM_RF_FLAG_UPDATE_CB_REQUIRED
             if (esp_register_mac_bb_pd_callback(esp_phy_modem_rf_flag_update) != ESP_OK) {
@@ -464,10 +498,15 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         s_wifi_mac_time_update_cb = esp_wifi_internal_update_mac_time;
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_ENABLE
         if (s_wifi_modem_sleep_lock == NULL) {
-            result = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "wifi",
-                                        &s_wifi_modem_sleep_lock);
+            esp_pm_lock_type_t lock_type =
+#if SOC_MODEM_APB_CLOCK_IS_INDEPENDENT
+                ESP_PM_NO_LIGHT_SLEEP;
+#else
+                ESP_PM_APB_FREQ_MAX;
+#endif
+            result = esp_pm_lock_create(lock_type, 0, "wifi", &s_wifi_modem_sleep_lock);
             if (result != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to create pm lock (0x%x)", result);
                 goto _deinit;
@@ -542,19 +581,19 @@ esp_err_t esp_wifi_disconnect(void)
     return ret;
 }
 
-#ifdef CONFIG_PM
-void wifi_apb80m_request(void)
+#ifdef CONFIG_PM_ENABLE
+void wifi_pm_sleep_lock_acquire(void)
 {
     assert(s_wifi_modem_sleep_lock);
     esp_pm_lock_acquire(s_wifi_modem_sleep_lock);
 }
 
-void wifi_apb80m_release(void)
+void wifi_pm_sleep_lock_release(void)
 {
     assert(s_wifi_modem_sleep_lock);
     esp_pm_lock_release(s_wifi_modem_sleep_lock);
 }
-#endif
+#endif //CONFIG_PM_ENABLE
 
 #ifndef CONFIG_ESP_WIFI_FTM_ENABLE
 esp_err_t ieee80211_ftm_attach(void)
@@ -631,13 +670,13 @@ void ieee80211_beacon_construct(void *p1, void *p2, void *p3, void *p4)
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
 }
 
-void *ieee80211_assoc_resp_construct(void *p, int arg)
+void * ieee80211_assoc_resp_construct(void *p, int arg)
 {
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
     return NULL;
 }
 
-void *ieee80211_alloc_proberesp(void *p, int arg)
+void * ieee80211_alloc_proberesp(void *p, int arg)
 {
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
     return NULL;
@@ -727,7 +766,7 @@ void nan_ndp_resp_timeout_process(void *p)
 }
 #endif /* CONFIG_ESP_WIFI_NAN_SYNC_ENABLE */
 
-#if CONFIG_SOC_SERIES_ESP32C5
+#if CONFIG_IDF_TARGET_ESP32C5
 #if CONFIG_ESP32C5_REV_MIN_FULL <= 100
 void esp32c5_eco3_rom_ptr_init(void)
 {
@@ -736,7 +775,7 @@ void esp32c5_eco3_rom_ptr_init(void)
 #endif
 #endif
 
-#if CONFIG_SOC_SERIES_ESP32C61
+#if CONFIG_IDF_TARGET_ESP32C61
 #if CONFIG_ESP32C61_REV_MIN_FULL <= 100
 void esp32c61_eco4_rom_ptr_init(void)
 {
@@ -745,7 +784,7 @@ void esp32c61_eco4_rom_ptr_init(void)
 #endif
 #endif
 
-#if CONFIG_SOC_SERIES_ESP32C2
+#if CONFIG_IDF_TARGET_ESP32C2
 #if CONFIG_ESP32C2_REV_MIN_FULL < 200
 void esp32c2_eco4_rom_ptr_init(void)
 {
@@ -755,7 +794,6 @@ void esp32c2_eco4_rom_ptr_init(void)
 #endif
 
 #ifndef CONFIG_ESP_WIFI_SLP_SAMPLE_BEACON_FEATURE
-extern void pm_beacon_offset_funcs_empty_init(void);
 void pm_beacon_offset_funcs_init(void)
 {
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */

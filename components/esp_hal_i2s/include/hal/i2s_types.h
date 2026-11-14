@@ -26,7 +26,6 @@ typedef enum {
     I2S_SLOT_MODE_STEREO = 2,        /*!< I2S channel slot format stereo, transmit different data in different slots for tx mode, receive the data in all slots for rx mode. */
 } i2s_slot_mode_t;
 
-#ifndef __ZEPHYR__
 /**
  * @brief I2S channel direction
  */
@@ -34,7 +33,6 @@ typedef enum {
     I2S_DIR_RX = BIT(0),            /*!< I2S channel direction RX */
     I2S_DIR_TX = BIT(1),            /*!< I2S channel direction TX */
 } i2s_dir_t;
-#endif /* __ZEPHYR__ */
 
 /**
  * @brief I2S controller role
@@ -80,6 +78,16 @@ typedef enum {
     I2S_DESTINATION_BT = 1,     /*!< Route I2S data to Bluetooth (I2S0 only; see `SOC_I2S_SUPPORTS_BT_DEST`) */
 } i2s_destination_t;
 
+#if SOC_I2S_SUPPORTS_TX_FIFO_SYNC
+/**
+ * @brief TX FIFO synchronization hardware data supplement mode
+ */
+typedef enum {
+    I2S_TX_FIFO_SYNC_SUPPL_MODE_LAST_DATA = 0,      /*!< Supplement with the last transmitted data */
+    I2S_TX_FIFO_SYNC_SUPPL_MODE_STATIC_DATA = 1,    /*!< Supplement with static data specified in config */
+} i2s_tx_fifo_sync_suppl_mode_t;
+#endif // SOC_I2S_SUPPORTS_TX_FIFO_SYNC
+
 #if SOC_I2S_SUPPORTS_PCM
 /**
  * @brief A/U-law decompress or compress configuration.
@@ -102,11 +110,11 @@ typedef enum {
     I2S_PDM_DATA_FMT_PCM = 0,       /*!< PDM RX:
                                      *   Enable the hardware PDM to PCM filter to convert the inputted PDM data on the line into PCM format in software,
                                      *   so that the read data in software is PCM format data already, no need additional software filter.
-                                     *   PCM data format is only available when PCM2PDM filter is supported in hardware.
+                                     *   PCM data format is only available when PDM2PCM filter is supported in hardware.
                                      *   PDM TX:
                                      *   Enable the hardware PCM to PDM filter to convert the written PCM data in software into PDM format on the line,
                                      *   so that we only need to write the PCM data in software, no need to prepare raw PDM data in software.
-                                     *   PCM data format is only available when PDM2PCM filter is supported in hardware.
+                                     *   PCM data format is only available when PCM2PDM filter is supported in hardware.
                                      */
     I2S_PDM_DATA_FMT_RAW = 1,       /*!< PDM RX:
                                      *   Read the raw PDM data directly in software, without the hardware PDM to PCM filter.

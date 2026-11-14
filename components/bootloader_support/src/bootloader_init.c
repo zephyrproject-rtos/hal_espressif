@@ -9,7 +9,7 @@
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "bootloader_init.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
 #include "bootloader_flash_config.h"
 #include "bootloader_random.h"
 #include "bootloader_clock.h"
@@ -64,7 +64,7 @@ esp_err_t bootloader_check_bootloader_validity(void)
     unsigned int efuse_revision = efuse_hal_blk_version();
     unsigned int efuse_major_rev = efuse_revision / 100;
     unsigned int efuse_minor_rev = efuse_revision % 100;
-    ESP_EARLY_LOGI(TAG, "efuse block revision: v%d.%d", efuse_major_rev, efuse_minor_rev);
+    ESP_EARLY_LOGD(TAG, "efuse block revision: v%d.%d", efuse_major_rev, efuse_minor_rev);
 #endif  // !CONFIG_IDF_TARGET_ESP32
     /* compare with the one set in bootloader image header */
     if (bootloader_common_check_chip_validity(&bootloader_image_hdr, ESP_IMAGE_BOOTLOADER) != ESP_OK) {
@@ -113,12 +113,13 @@ void bootloader_config_wdt(void)
 
 void bootloader_enable_random(void)
 {
-    ESP_EARLY_LOGI(TAG, "Enabling RNG early entropy source...");
+    ESP_EARLY_LOGD(TAG, "Enabling RNG early entropy source...");
     bootloader_random_enable();
 }
 
 void bootloader_print_banner(void)
 {
+#if BOOTLOADER_BUILD
     if (CONFIG_BOOTLOADER_LOG_LEVEL >= ESP_LOG_INFO) {
         const esp_bootloader_desc_t *desc = esp_bootloader_get_description();
         ESP_EARLY_LOGI(TAG, "ESP-IDF %s 2nd stage bootloader", desc->idf_ver);
@@ -126,13 +127,14 @@ void bootloader_print_banner(void)
         ESP_EARLY_LOGI(TAG, "compile time %s", desc->date_time);
 #endif
     }
+#endif // BOOTLOADER_BUILD
 
 #if CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 #if (SOC_CPU_CORES_NUM > 1)
     ESP_EARLY_LOGW(TAG, "Unicore bootloader");
 #endif
 #else
-    ESP_EARLY_LOGI(TAG, "Multicore bootloader");
+    ESP_EARLY_LOGD(TAG, "Multicore bootloader");
 #endif
 }
 

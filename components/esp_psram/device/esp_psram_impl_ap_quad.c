@@ -15,28 +15,15 @@
 #include "esp_private/mspi_timing_tuning.h"
 #include "esp_private/esp_gpio_reserve.h"
 #include "hal/psram_ctrlr_ll.h"
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
+#include "hal/mspi_pms_ll.h"
+#endif
 #include "esp_quad_psram_defs_ap.h"
 #include "soc/soc_caps.h"
 
 #define AP_HEX_PSRAM_REF_DATA              0x5a6b7c8d
 
 static const char* TAG = "quad_psram";
-
-/*
- * ISSI PSRAM uses a different size encoding in the density bits:
- *
- *   Manufacturer    |  density=0  |  density=1  |  density=2
- *   --------------------------------------------------------
- *   Generic (AP)    |    2MB      |     4MB     |     8MB
- *   ISSI            |    1MB      |     2MB     |     4MB
- */
-typedef enum {
-    PSRAM_MNF_GENERIC = 0,
-    PSRAM_MNF_ISSI,
-    PSRAM_MNF_MAX
-} psram_manufacturer_t;
-
-static psram_manufacturer_t s_psram_manufacturer = PSRAM_MNF_GENERIC;
 
 static uint32_t s_psram_size = 0;   //this stands for physical psram size in bytes
 static void config_psram_spi_phases(void);
@@ -231,22 +218,25 @@ static esp_err_t s_check_psram_connected(int spi_num)
 #if CONFIG_SPIRAM_ECC_ENABLE
 static void s_mspi_ecc_show_info(void)
 {
-    for (int i = 0; i < PSRAM_CTRLR_LL_PMS_REGION_NUMS; i++) {
-        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, psram_ctrlr_ll_get_pms_region_start_addr(PSRAM_CTRLR_LL_MSPI_ID_0, i));
-        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, psram_ctrlr_ll_get_pms_region_size(PSRAM_CTRLR_LL_MSPI_ID_0, i));
+    for (int i = 0; i < MSPI_LL_PMS_REGION_NUM; i++) {
+        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, mspi_ll_pms_get_region_addr(MSPI_PMS_MEM_PSRAM, i));
+        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, mspi_ll_pms_get_region_size(MSPI_PMS_MEM_PSRAM, i));
     }
 
     uint32_t page_size = psram_ctrlr_ll_get_page_size(PSRAM_CTRLR_LL_MSPI_ID_0);
     ESP_EARLY_LOGV(TAG, "ECC page size: %d", page_size);
 }
+#endif
 
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
 /**
- * Enable error correcting code feature
+ * Configure error correcting code feature
  *
  * Can add an input parameter for selecting ECC mode if needed
  */
 static void s_configure_psram_ecc(void)
 {
+#if CONFIG_SPIRAM_ECC_ENABLE
     psram_ctrlr_ll_set_ecc_mode(PSRAM_CTRLR_LL_MSPI_ID_0, PSRAM_LL_ECC_MODE_16TO18);
     psram_ctrlr_ll_enable_skip_page_corner(PSRAM_CTRLR_LL_MSPI_ID_0, true);
     psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_0, true);
@@ -256,12 +246,18 @@ static void s_configure_psram_ecc(void)
      * Default: ACE0 range: 0 ~ 256MB
      * For current Quad PSRAM, ACE0 is enough
      */
-    psram_ctrlr_ll_set_pms_region_start_addr(PSRAM_CTRLR_LL_MSPI_ID_0, 0, 0);
-    psram_ctrlr_ll_set_pms_region_size(PSRAM_CTRLR_LL_MSPI_ID_0, 0, 4096);
-    psram_ctrlr_ll_set_pms_region_attr(PSRAM_CTRLR_LL_MSPI_ID_0, 0, PSRAM_CTRLR_LL_PMS_ATTR_WRITABLE | PSRAM_CTRLR_LL_PMS_ATTR_READABLE);
-    psram_ctrlr_ll_enable_pms_region_ecc(PSRAM_CTRLR_LL_MSPI_ID_0, 0, true);
+    mspi_ll_pms_set_region_addr(MSPI_PMS_MEM_PSRAM, 0, 0);
+    mspi_ll_pms_set_region_size(MSPI_PMS_MEM_PSRAM, 0, 16 * 1024 * 1024);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_ECC);
     ESP_EARLY_LOGI(TAG, "ECC is enabled");
     s_mspi_ecc_show_info();
+#else
+    psram_ctrlr_ll_set_ecc_mode(PSRAM_CTRLR_LL_MSPI_ID_0, PSRAM_LL_ECC_MODE_16TO17);
+    psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_0, false);
+    mspi_ll_pms_set_region_addr(MSPI_PMS_MEM_PSRAM, 0, 0);
+    mspi_ll_pms_set_region_size(MSPI_PMS_MEM_PSRAM, 0, 16 * 1024 * 1024);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_RD | MSPI_PMS_ATTR_WR);
+#endif
 }
 #endif
 
@@ -355,7 +351,7 @@ esp_err_t esp_psram_impl_enable(void)
 {
     psram_gpio_config();
     psram_set_cs_timing();
-#if CONFIG_SPIRAM_ECC_ENABLE
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
     s_configure_psram_ecc();
 #endif
 
@@ -372,7 +368,7 @@ esp_err_t esp_psram_impl_enable(void)
     psram_disable_qio_mode(PSRAM_CTRLR_LL_MSPI_ID_1);
 
     if (s_check_psram_connected(PSRAM_CTRLR_LL_MSPI_ID_1) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "PSRAM chip is not connected, or wrong PSRAM line mode");
+        PSRAM_LOG_NOTFOUND(TAG, "PSRAM chip is not connected, or wrong PSRAM line mode");
         return ESP_ERR_NOT_SUPPORTED;
     }
 
@@ -389,36 +385,18 @@ esp_err_t esp_psram_impl_enable(void)
     }
     ESP_EARLY_LOGV(TAG, "MFID: 0x%x", PSRAM_QUAD_MFID(psram_id));
 
-    /* Detect manufacturer to select appropriate size lookup table */
-    if (PSRAM_QUAD_MFID(psram_id) == PSRAM_QUAD_MFID_ISSI) {
-        s_psram_manufacturer = PSRAM_MNF_ISSI;
-    } else {
-        s_psram_manufacturer = PSRAM_MNF_GENERIC;
-    }
-
-    /* Size lookup table indexed by [manufacturer][density] */
-    static const uint32_t psram_size_lut[PSRAM_MNF_MAX][3] = {
-        [PSRAM_MNF_GENERIC] = {PSRAM_SIZE_2MB, PSRAM_SIZE_4MB, PSRAM_SIZE_8MB},
-        [PSRAM_MNF_ISSI]    = {PSRAM_SIZE_1MB, PSRAM_SIZE_2MB, PSRAM_SIZE_4MB},
-    };
-
     if (PSRAM_QUAD_IS_64MBIT_TRIAL(psram_id)) {
         s_psram_size = PSRAM_SIZE_8MB;
     } else {
         uint8_t density = PSRAM_QUAD_SIZE_ID(psram_id);
         const int eid = PSRAM_QUAD_EID_BIT_47_40(psram_id);
-
-        if (density <= 2) {
-            s_psram_size = psram_size_lut[s_psram_manufacturer][density];
-        } else if (eid == PSRAM_QUAD_QEMU_16MB_ID) {
-            /* Do not use `density` for QEMU PSRAM since we don't want any future QSPI PSRAM
-             * that are 16MB or 32MB to be interpreted as QEMU PSRAM devices */
-            s_psram_size = PSRAM_SIZE_16MB;
-        } else if (eid == PSRAM_QUAD_QEMU_32MB_ID) {
-            s_psram_size = PSRAM_SIZE_32MB;
-        } else {
-            s_psram_size = 0;
-        }
+        s_psram_size = density == 0x0 ? PSRAM_SIZE_2MB :
+                       density == 0x1 ? PSRAM_SIZE_4MB :
+                       density == 0x2 ? PSRAM_SIZE_8MB :
+                       /* Do not use `density` for QEMU PSRAM since we don't want any future QSPI PSRAM
+                        * that are 16MB or 32MB to be interpreted as QEMU PSRAM devices */
+                       eid == PSRAM_QUAD_QEMU_16MB_ID ? PSRAM_SIZE_16MB :
+                       eid == PSRAM_QUAD_QEMU_32MB_ID ? PSRAM_SIZE_32MB : 0;
 
         if (PSRAM_QUAD_MFID(psram_id) == PSRAM_QUAD_MFID_AP && (s_psram_size == PSRAM_SIZE_8MB) && s_check_2tmode()) {
             //2t mode is only valid for EID[47:45] == 0x10 chips

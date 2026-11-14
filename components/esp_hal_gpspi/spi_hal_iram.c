@@ -7,6 +7,7 @@
 // The HAL layer for SPI (common part, in iram)
 // make these functions in a separate file to make sure all LL functions are in the IRAM.
 
+#include <sys/param.h>
 #include "hal/spi_hal.h"
 #include "hal/log.h"
 #include "hal/assert.h"
@@ -37,13 +38,28 @@ void spi_hal_setup_device(spi_hal_context_t *hal, const spi_hal_dev_config_t *de
     spi_ll_master_set_cs_setup(hw, dev->cs_setup);
     spi_ll_master_set_cs_hold(hw, dev->cs_hold);
     spi_ll_master_select_cs(hw, dev->cs_pin_id);
+#if SOC_SPI_SUPPORT_DDR_CLOCK
+    spi_ll_enable_ddr_mode(hw, dev->timing_conf.use_ddr_clk);
+#endif
 }
+
+/**
+ * The 'K_SCT_DMA_SETUP_TIME_NS' is the approx time required between conf_buffer phase and data phase.
+ * It depends on engineering test and wave analysis, otherwise the first data byte may be corrupted.
+ *
+ * | spi_speed  | 1MHz | 10MHz | 20MHz | 40MHz | 80MHz |
+ * | dummy_bits |   1  |   8   |  16   |  32   |  64   |
+ */
+#define K_SCT_DMA_SETUP_TIME_NS     800
+#define SCT_SETUP_BITS_REQUIRED(clk_speed_hz) MAX(1, (K_SCT_DMA_SETUP_TIME_NS / (1000000000/(clk_speed_hz))))
 
 esp_err_t spi_hal_cal_clock_conf(const spi_hal_timing_param_t *timing_param, spi_hal_timing_conf_t *timing_conf)
 {
     spi_ll_clock_val_t reg_val;
     int dummy, miso_delay;
-    int eff_clk_n = spi_ll_master_cal_clock(timing_param->clk_src_hz, timing_param->expected_freq, timing_param->duty_cycle, &reg_val);
+    // Hardware halves the output frequency when DDR is enabled; calculate with 2x so the effective rate stays the same.
+    uint32_t expected_freq = timing_param->use_ddr_clk ? timing_param->expected_freq * 2 : timing_param->expected_freq;
+    int eff_clk_n = spi_ll_master_cal_clock(timing_param->clk_src_hz, expected_freq, timing_param->duty_cycle, &reg_val);
 
     //When the speed is too fast, we may need to use dummy cycles to compensate the reading.
     //But these don't work for full-duplex connections.
@@ -63,10 +79,13 @@ esp_err_t spi_hal_cal_clock_conf(const spi_hal_timing_param_t *timing_param, spi
 
     if (timing_conf) {
         timing_conf->clock_reg = reg_val;
+        timing_conf->use_ddr_clk = timing_param->use_ddr_clk;
         timing_conf->expect_freq = timing_param->expected_freq;
-        timing_conf->real_freq = eff_clk_n;
+        // eff_clk_n was calculated for 2x in DDR; report the effective data rate to the user.
+        timing_conf->real_freq = timing_param->use_ddr_clk ? eff_clk_n / 2 : eff_clk_n;
         timing_conf->timing_dummy = dummy;
         timing_conf->timing_miso_delay = miso_delay;
+        timing_conf->seg_setup_time = SCT_SETUP_BITS_REQUIRED(eff_clk_n);
     }
     return ESP_OK;
 }
@@ -172,14 +191,19 @@ void spi_hal_setup_trans(spi_hal_context_t *hal, const spi_hal_dev_config_t *dev
     }
     spi_ll_set_miso_delay(hw, miso_delay_mode, miso_delay_num);
 
-    spi_ll_set_mosi_bitlen(hw, trans->tx_bitlen);
+#if SPI_LL_SUPPORT_FD_TX_WAIT_DMA
+    // enable tx data wait only when tx is used, otherwise rx only trans will hang on start
+    spi_ll_master_enable_fd_wait_dma_tx_data(hw, trans->send_buffer && trans->tx_bitlen);
+#endif
 
-    if (dev->half_duplex) {
-        spi_ll_set_miso_bitlen(hw, trans->rx_bitlen);
-    } else {
-        //rxlength is not used in full-duplex mode
-        spi_ll_set_miso_bitlen(hw, trans->tx_bitlen);
-    }
+    // Set half duplex mode based on real transaction mode
+    bool reg_half_duplex = dev->half_duplex || !(trans->send_buffer && trans->rcv_buffer);
+    spi_ll_set_half_duplex(hw, reg_half_duplex);
+
+    spi_ll_set_mosi_bitlen(hw, trans->tx_bitlen);
+    //rxlength is not used in full-duplex mode
+    //got length follow user config dev->half_duplex not reg_half_duplex
+    spi_ll_set_miso_bitlen(hw, dev->half_duplex ? trans->rx_bitlen : trans->tx_bitlen);
 
     //Configure bit sizes, load addr and command
     int cmdlen = trans->cmd_bits;
@@ -200,9 +224,6 @@ void spi_hal_setup_trans(spi_hal_context_t *hal, const spi_hal_dev_config_t *dev
 
     //Configure keep active CS
     spi_ll_master_keep_cs(hw, trans->cs_keep_active);
-
-    //Save the transaction attributes for internal usage.
-    memcpy(&hal->trans_config, trans, sizeof(spi_hal_trans_config_t));
 }
 
 void spi_hal_enable_data_line(spi_dev_t *hw, bool mosi_ena, bool miso_ena)
@@ -225,8 +246,11 @@ void spi_hal_hw_prepare_tx(spi_dev_t *hw)
     spi_ll_dma_tx_enable(hw, 1);
 }
 
-void spi_hal_user_start(const spi_hal_context_t *hal)
+void spi_hal_user_start(const spi_hal_context_t *hal, const bool start_sct)
 {
+#ifdef SPI_LL_PERIPH_HAS_SCT
+    spi_ll_enable_conf_phase(hal->hw, start_sct);
+#endif
     spi_ll_apply_config(hal->hw);
     spi_ll_user_start(hal->hw);
 }
@@ -256,13 +280,11 @@ void spi_hal_push_tx_buffer(const spi_hal_context_t *hal, const spi_hal_trans_co
     //No need to setup anything for RX, we'll copy the result out of the work registers directly later.
 }
 
-void spi_hal_fetch_result(const spi_hal_context_t *hal)
+void spi_hal_get_result(const spi_hal_context_t *hal, uint8_t *rx_buffer, size_t bitlen)
 {
-    const spi_hal_trans_config_t *trans = &hal->trans_config;
-
-    if (trans->rcv_buffer) {
+    if (rx_buffer) {
         //Need to copy from SPI regs to result buffer.
-        spi_ll_read_buffer(hal->hw, trans->rcv_buffer, trans->rx_bitlen);
+        spi_ll_read_buffer(hal->hw, rx_buffer, bitlen);
     }
 }
 
@@ -272,28 +294,52 @@ void spi_hal_fetch_result(const spi_hal_context_t *hal)
 *----------------------------------------------------------------------------*/
 void spi_hal_sct_set_conf_bits_len(spi_hal_context_t *hal, uint32_t conf_len)
 {
-    spi_ll_set_conf_phase_bits_len(hal->hw, conf_len);
+    spi_ll_set_conf_phase_bitlen(hal->hw, conf_len);
 }
 
-void spi_hal_sct_init_conf_buffer(spi_hal_context_t *hal, uint32_t *conf_buffer)
+void spi_hal_sct_init_conf_buffer(spi_hal_context_t *hal, spi_ll_sct_full_reg_t *conf_buffer)
 {
-    spi_ll_init_conf_buffer(hal->hw, conf_buffer);
+    spi_sct_ll_init_conf_buffer(hal->hw, (spi_ll_sct_full_reg_t *)conf_buffer);
 }
 
-void spi_hal_sct_format_conf_buffer(spi_hal_context_t *hal, const spi_hal_seg_config_t *config, const spi_hal_dev_config_t *dev, uint32_t *conf_buffer)
+void spi_hal_setup_sct_trans(spi_ll_sct_full_reg_t * sct_cfg, const spi_hal_dev_config_t *devcfg, const spi_hal_trans_config_t *config)
 {
-    spi_ll_format_line_mode_conf_buff(hal->hw, hal->trans_config.line_mode, conf_buffer);
-    spi_ll_format_prep_phase_conf_buffer(hal->hw, config->cs_setup, conf_buffer);
-    spi_ll_format_cmd_phase_conf_buffer(hal->hw, config->cmd, config->cmd_bits, dev->tx_lsbfirst, conf_buffer);
-    spi_ll_format_addr_phase_conf_buffer(hal->hw, config->addr, config->addr_bits, dev->rx_lsbfirst, conf_buffer);
-    spi_ll_format_dummy_phase_conf_buffer(hal->hw, config->dummy_bits, conf_buffer);
-    spi_ll_format_dout_phase_conf_buffer(hal->hw, config->tx_bitlen, conf_buffer);
-    spi_ll_format_din_phase_conf_buffer(hal->hw, config->rx_bitlen, conf_buffer);
-    spi_ll_format_done_phase_conf_buffer(hal->hw, config->cs_hold, conf_buffer);
-    spi_ll_format_conf_phase_conf_buffer(hal->hw, config->seg_end, conf_buffer);
-#if SPI_LL_SUPPORT_SEG_GAP
-    spi_ll_format_conf_bitslen_buffer(hal->hw, config->seg_gap_len, conf_buffer);
-#endif
+    int extra_dummy = config->dummy_bits;
+    // Same rule as spi_hal_setup_trans: HD RX may need timing dummy compensation.
+    if (config->rcv_buffer && !devcfg->no_compensate && devcfg->half_duplex) {
+        extra_dummy += devcfg->timing_conf.timing_dummy;
+    }
+
+    int cmdlen = config->cmd_bits;
+    int addrlen = config->addr_bits;
+    if (!devcfg->half_duplex && devcfg->cs_setup != 0) {
+        /* Same as spi_hal_setup_trans: cmd/addr incompatible with cs_ena_pretrans in FD. */
+        cmdlen = 0;
+        addrlen = 0;
+    }
+
+    // when tx or rx only, SCT hardware don't work under full-duplex mode, so set to half-duplex
+    bool half_duplex = devcfg->half_duplex || !(config->send_buffer && config->rcv_buffer);
+
+    // Same as spi_hal_setup_trans: rxlength is not used in full-duplex mode
+    int rx_bitlen = half_duplex ? config->rx_bitlen : config->tx_bitlen;
+
+    // SCT trans requires a dma setup time before the first data byte, see `SCT_SETUP_BITS_REQUIRED`
+    // Set it to dummy phase and close dummy clock out in full-duplex mode
+    // For half-duplex mode, it usually enough setup time during cmd/addr phase
+    int dummy_bits = devcfg->half_duplex ? extra_dummy : devcfg->timing_conf.seg_setup_time;
+
+    spi_sct_ll_set_line_mode(sct_cfg, config->line_mode);
+    spi_sct_ll_set_duplex(sct_cfg, half_duplex);
+    spi_sct_ll_set_cs_setup(sct_cfg, config->cs_setup);
+    spi_sct_ll_set_cs_keep(sct_cfg, config->cs_keep_active);
+    spi_sct_ll_set_cs_hold(sct_cfg, config->cs_hold);
+    spi_sct_ll_set_command(sct_cfg, config->cmd, cmdlen, devcfg->tx_lsbfirst);
+    spi_sct_ll_set_addr(sct_cfg, config->addr, addrlen, devcfg->tx_lsbfirst);
+    spi_sct_ll_set_dummy(sct_cfg, dummy_bits, !devcfg->half_duplex); // where silent dummy still using user duplex config
+    spi_sct_ll_set_mosi_bitlen(sct_cfg, config->tx_bitlen);
+    spi_sct_ll_set_miso_bitlen(sct_cfg, rx_bitlen);
+    spi_sct_ll_mark_sct_end(sct_cfg, config->is_seg_end);
 }
 
 #endif  //#ifdef SPI_LL_PERIPH_HAS_SCT

@@ -64,16 +64,14 @@ strsep = 0x501001dc;
 strspn = 0x501001e0;
 strtok_r = 0x501001e4;
 strupr = 0x501001e8;
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* longjmp = 0x501001ec; */
-/* setjmp  = 0x501001f0; */
-/* atoi    = 0x50100208; */
-/* atol    = 0x5010020c; */
-
+longjmp = 0x501001ec;
+setjmp = 0x501001f0;
 abs = 0x501001f4;
 div = 0x501001f8;
 labs = 0x501001fc;
 ldiv = 0x50100200;
 qsort = 0x50100204;
+atoi = 0x50100208;
+atol = 0x5010020c;
 itoa = 0x50100210;
 utoa = 0x50100214;

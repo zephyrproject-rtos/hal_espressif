@@ -26,8 +26,6 @@
 #define LP_UART_LL_FIFO_DEF_LEN (SOC_LP_UART_FIFO_LEN)
 // Get UART hardware instance with giving uart num
 #define UART_LL_GET_HW(num) (((num) == UART_NUM_0) ? (&UART0) : (((num) == UART_NUM_1) ? (&UART1) : (&LP_UART)))
-// Get UART sleep clock with giving uart num
-#define UART_LL_SLEEP_CLOCK(num) (((num) == UART_NUM_0) ? (ESP_SLEEP_CLOCK_UART0) : (ESP_SLEEP_CLOCK_UART1))
 
 #define UART_LL_REG_FIELD_BIT_SHIFT(hw)     (((hw) == &LP_UART) ? 3 : 0)
 
@@ -1270,11 +1268,6 @@ FORCE_INLINE_ATTR void uart_ll_set_mode_rs485_half_duplex(uart_dev_t *hw)
     hw->rs485_conf_sync.dl1_en = 1;
     hw->rs485_conf_sync.rs485_en = 1;
     uart_ll_update(hw);
-}
-
-FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
-{
-    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
 }
 
 /**

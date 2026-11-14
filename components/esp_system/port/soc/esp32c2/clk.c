@@ -5,7 +5,9 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/util.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -23,6 +25,7 @@
 #include "hal/wdt_hal.h"
 #endif
 #include "esp_private/periph_ctrl.h"
+#include "bootloader_clock.h"
 #include "soc/syscon_reg.h"
 #include "esp_rom_serial_output.h"
 
@@ -30,7 +33,11 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+
+#define RTC_XTAL_CAL_RETRY 3
+
+#define MHZ (1000000)
 
 /* Indicates that this 32k oscillator gets input from external oscillator, rather
  * than a crystal.
@@ -103,9 +110,9 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
+#if defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);
@@ -149,7 +156,7 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
     /* number of times to repeat external clock calibration
      * before giving up and switching to the internal RC
      */
-    int retry_ext_clk = 3;
+    int retry_ext_clk = RTC_XTAL_CAL_RETRY;
 
     soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {

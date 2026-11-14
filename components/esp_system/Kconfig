@@ -95,7 +95,7 @@ menu "ESP System Settings"
         int "Bootstrap cycles for external 32kHz crystal"
         depends on ESP_SYSTEM_RTC_EXT_XTAL
         default 5 if IDF_TARGET_ESP32
-        default 0
+        default 8
         range 0 32768
         help
             To reduce the startup time of an external RTC crystal,
@@ -271,7 +271,8 @@ menu "ESP System Settings"
     config ESP_INT_WDT
         bool "Interrupt watchdog"
         depends on SOC_WDT_SUPPORTED
-        default y
+        default y if !IDF_TARGET_LINUX
+        default n if IDF_TARGET_LINUX
         help
             This watchdog timer can detect if the FreeRTOS tick interrupt has not been called for a certain time,
             either because a task turned off interrupts and did not turn them on for a long time, or because an
@@ -281,8 +282,8 @@ menu "ESP System Settings"
     config ESP_INT_WDT_TIMEOUT_MS
         int "Interrupt watchdog timeout (ms)"
         depends on ESP_INT_WDT
-        default 300 if !(SPIRAM && IDF_TARGET_ESP32)
-        default 800 if (SPIRAM && IDF_TARGET_ESP32)
+        default 300 if !SPIRAM
+        default 800 if SPIRAM
         range 10 10000
         help
             The timeout of the watchdog, in milliseconds. Make this higher than the FreeRTOS tick rate.
@@ -297,7 +298,8 @@ menu "ESP System Settings"
     config ESP_TASK_WDT_EN
         bool "Enable Task Watchdog Timer"
         depends on SOC_WDT_SUPPORTED
-        default y
+        default y if !IDF_TARGET_LINUX
+        default n if IDF_TARGET_LINUX
         help
             The Task Watchdog Timer can be used to make sure individual tasks are still
             running. Enabling this option will enable the Task Watchdog Timer. It can be
@@ -306,11 +308,11 @@ menu "ESP System Settings"
 
     config ESP_TASK_WDT_USE_ESP_TIMER
         # Software implementation of Task Watchdog, handy for targets with only a single
-        # Timer Group, such as the ESP32-C2
+        # Timer Group, such as the ESP32-C2, or without hardware watchdog like Linux
         bool
         depends on ESP_TASK_WDT_EN
-        default y if IDF_TARGET_ESP32C2
-        default n if !IDF_TARGET_ESP32C2
+        default y if IDF_TARGET_ESP32C2 || IDF_TARGET_LINUX
+        default n if !IDF_TARGET_ESP32C2 && !IDF_TARGET_LINUX
         select ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD
 
     config ESP_TASK_WDT_INIT
@@ -406,17 +408,24 @@ menu "ESP System Settings"
             which does some useful debugging stuff, e.g. GCOV data dump.
 
     config ESP_DEBUG_INCLUDE_OCD_STUB_BINS
-        bool "Preload OpenOCD stub binaries to speed up debugging. 8K memory will be reserved"
+        bool "Preload OpenOCD stub binaries to speed up debugging. 12K memory will be reserved"
         default n
         depends on SOC_DEBUG_HAVE_OCD_STUB_BINS
+        depends on !IDF_TARGET_ESP32P4 || ESP32P4_SELECTS_REV_LESS_V3 || CACHE_L2_CACHE_512KB
         help
             OpenOCD uses stub code to access flash during programming or when inserting and removing
             SW flash breakpoints.
             To execute stub code, OpenOCD allocates memory on the target device, backs up the existing memory,
             loads the stub binary, runs the binary, and then restores the original memory.
             This process can be time-consuming, especially when using USB serial JTAG.
-            By enabling this option, 8K of memory in RAM will be preallocated with the stub code,
+            By enabling this option, 12K of memory in RAM will be preallocated with the stub code,
             eliminating the need to back up and restore the memory region.
+
+            The stub binaries are prebuilt and linked to run at the start of IRAM (_iram_start).
+            On ESP32-P4 rev >= v3, _iram_start is 0x4FF00000 + L2 cache size, so it only matches the
+            stub's link address (0x4FF80000) when the L2 cache is 512KB. This option is therefore
+            only available on ESP32-P4 rev >= v3 when CACHE_L2_CACHE_512KB is selected. Earlier P4
+            revisions and other targets place _iram_start at a fixed address and are not affected.
 
     config ESP_DEBUG_OCDAWARE
         bool "Make exception and panic handlers JTAG/OCD aware"

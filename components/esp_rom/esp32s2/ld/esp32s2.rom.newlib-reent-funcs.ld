@@ -3,76 +3,64 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _cleanup_r = 0x4001a480; */
-
+_cleanup_r = 0x4001a480;
 creat = 0x4000788c;
 open = 0x400080c4;
 fclose = 0x4001a804;
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _fclose_r       = 0x4001a714; */
-/* fflush          = 0x40001bb8; */
-/* _fflush_r       = 0x40001b30; */
-/* __fp_unlock_all = 0x4001a64c; */
-/* __fputwc        = 0x40001770; */
-
+_fclose_r = 0x4001a714;
+fflush = 0x40001bb8;
+_fflush_r = 0x40001b30;
+__fp_unlock_all = 0x4001a64c;
+__fputwc = 0x40001770;
 fputwc = 0x40001864;
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _fputwc_r      = 0x400017f8; */
-/* _fwalk         = 0x4001bcec; */
-/* _fwalk_reent   = 0x4001bd24; */
-/* __sflush_r     = 0x400019dc; */
-/* __swbuf        = 0x4000167c; */
-/* __swbuf_r      = 0x400015bc; */
-/* __swrite       = 0x4001a698; */
-/* __sread        = 0x4001a660; */
-/* __sseek        = 0x4001a6cc; */
-/* srand          = 0x40007a24; */
-/* rand_r         = 0x40007af4; */
-/* __ascii_mbtowc = 0x40007a04; */
-/* __ascii_wctomb = 0x400018d0; */
-/* _mbtowc_r      = 0x400079e0; */
-/* __sclose       = 0x4001a700; */
-/* __seofread     = 0x4001a690; */
-
+_fputwc_r = 0x400017f8;
+_fwalk = 0x4001bcec;
+_fwalk_reent = 0x4001bd24;
+__sflush_r = 0x400019dc;
+__swbuf = 0x4000167c;
+__swbuf_r = 0x400015bc;
+__swrite = 0x4001a698;
+__sread = 0x4001a660;
+__sseek = 0x4001a6cc;
+srand = 0x40007a24;
+__ascii_mbtowc = 0x40007a04;
+__ascii_wctomb = 0x400018d0;
+_mbtowc_r = 0x400079e0;
+rand_r = 0x40007af4;
+__sclose = 0x4001a700;
+__seofread = 0x4001a690;
 setlocale = 0x40001c44;
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _setlocale_r         = 0x40001bdc; */
-/* __sfmoreglue         = 0x4001a4c8; */
-/* __sfp                = 0x4001a590; */
-/* __sfp_lock_acquire   = 0x4001a508; */
-/* __sfp_lock_release   = 0x4001a514; */
-/* __sinit              = 0x4001a538; */
-/* __sinit_lock_acquire = 0x4001a520; */
-/* __sinit_lock_release = 0x4001a52c; */
-/* strndup              = 0x40007fe8; */
-/* strdup               = 0x40007d84; */
-/* _strndup_r           = 0x40007ffc; */
-
+_setlocale_r = 0x40001bdc;
+__sfmoreglue = 0x4001a4c8;
+__sfp = 0x4001a590;
+__sfp_lock_acquire = 0x4001a508;
+__sfp_lock_release = 0x4001a514;
+__sinit = 0x4001a538;
+__sinit_lock_acquire = 0x4001a520;
+__sinit_lock_release = 0x4001a52c;
+strndup = 0x40007fe8;
+_strndup_r = 0x40007ffc;
 wcrtomb = 0x400012f4;
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _wcrtomb_r           = 0x400012a0; */
-/* _wctomb_r            = 0x400018ac; */
-/* _strdup_r            = 0x40007d98; */
-/* __locale_ctype_ptr   = 0x40001c2c; */
-/* __locale_ctype_ptr_l = 0x40001c24; */
-/* __locale_mb_cur_max  = 0x40001c0c; */
-
-/* Zephyr: locale-dependent ROM call, provided by the selected libc */
-/* strcasecmp  = 0x40007b38; */
-/* strcasestr  = 0x40007b7c; */
-/* tolower     = 0x40008158; */
-/* toupper     = 0x40008174; */
-/* isalnum     = 0x400078d8; */
-/* isalpha     = 0x400078e8; */
-/* isdigit     = 0x40007930; */
-/* islower     = 0x40007948; */
-/* isspace     = 0x400079ac; */
-/* isupper     = 0x400079c4; */
-/* strlwr      = 0x40007e68; */
-/* strncasecmp = 0x40007e94; */
-/* strupr      = 0x40008084; */
-
+_wcrtomb_r = 0x400012a0;
+_wctomb_r = 0x400018ac;
+strdup = 0x40007d84;
+_strdup_r = 0x40007d98;
+__locale_ctype_ptr = 0x40001c2c;
+__locale_ctype_ptr_l = 0x40001c24;
+__locale_mb_cur_max = 0x40001c0c;
+strcasecmp = 0x40007b38;
+strcasestr = 0x40007b7c;
+tolower = 0x40008158;
+toupper = 0x40008174;
+isalnum = 0x400078d8;
+isalpha = 0x400078e8;
+isdigit = 0x40007930;
+islower = 0x40007948;
+isspace = 0x400079ac;
+isupper = 0x400079c4;
 strcoll = 0x40007ce8;
+strlwr = 0x40007e68;
+strncasecmp = 0x40007e94;
+strupr = 0x40008084;
 PROVIDE ( hmac_md5 = 0x40005490 );
 PROVIDE ( hmac_md5_vector = 0x400053a0 );

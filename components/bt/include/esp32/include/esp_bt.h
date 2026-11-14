@@ -58,28 +58,6 @@ extern "C" {
 */
 #define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20250318
 
-/* TX power level mapping from Zephyr Kconfig */
-#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P9
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P6
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_P3
-#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N0
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N3
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N6
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N9
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N12
-#else
-/* use 0dB TX power as default */
-#define ESP32_RADIO_TXP_DEFAULT ESP_PWR_LVL_N0
-#endif
-
 /**
  * @brief Bluetooth Controller mode
  */
@@ -163,8 +141,10 @@ the advertising packet will be discarded until the memory is restored. */
 #define SCAN_DUPL_CACHE_REFRESH_PERIOD              0
 #endif
 
-#if !defined(CONFIG_BT_CLASSIC)
+#if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
+#elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
+#define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_CLASSIC_BT
 #else
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
 #endif
@@ -242,36 +222,12 @@ the advertising packet will be discarded until the memory is restored. */
 #define BTDM_BLE_PING_EN (0)
 #endif
 
-#if defined(CONFIG_ESP32_BT_CTLR_LE_MAX_CONN)
-#define BTDM_CTRL_BLE_MAX_CONN (CONFIG_ESP32_BT_CTLR_LE_MAX_CONN)
-#else
-#define BTDM_CTRL_BLE_MAX_CONN (0)
-#endif
-
-#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_SYNC_CONN)
-#define BTDM_CTRL_BR_EDR_MAX_SYNC_CONN (CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_SYNC_CONN)
-#else
-#define BTDM_CTRL_BR_EDR_MAX_SYNC_CONN (0)
-#endif
-
-#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_ACL_CONN)
-#define BTDM_CTRL_BR_EDR_MAX_ACL_CONN (CONFIG_ESP32_BT_CTLR_BR_EDR_MAX_ACL_CONN)
-#else
-#define BTDM_CTRL_BR_EDR_MAX_ACL_CONN (0)
-#endif
-
-#if defined(CONFIG_ESP32_BT_CTLR_BR_EDR_MIN_ENC_KEY_SZ_DFT)
-#define BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT (CONFIG_ESP32_BT_CTLR_BR_EDR_MIN_ENC_KEY_SZ_DFT)
-#else
-#define BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT (0)
-#endif
-
 /**
 * @brief  Default Bluetooth Controller configuration
 */
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                              \
-    .controller_task_stack_size = CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE,   \
-    .controller_task_prio = CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO,          \
+    .controller_task_stack_size = ESP_TASK_BT_CONTROLLER_STACK,            \
+    .controller_task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                   \
     .hci_uart_no = BT_HCI_UART_NO_DEFAULT,                                 \
     .hci_uart_baudrate = BT_HCI_UART_BAUDRATE_DEFAULT,                     \
     .scan_duplicate_mode = SCAN_DUPLICATE_MODE,                            \
@@ -281,18 +237,18 @@ the advertising packet will be discarded until the memory is restored. */
     .send_adv_reserved_size = SCAN_SEND_ADV_RESERVED_SIZE,                 \
     .controller_debug_flag = BTDM_CTRL_CONTROLLER_DEBUG_FLAG,              \
     .mode = BTDM_CONTROLLER_MODE_EFF,                                      \
-    .ble_max_conn = BTDM_CTRL_BLE_MAX_CONN,                                \
-    .bt_max_acl_conn = BTDM_CTRL_BR_EDR_MAX_ACL_CONN,                      \
-    .bt_sco_datapath = 0,                                                  \
+    .ble_max_conn = CONFIG_BTDM_CTRL_BLE_MAX_CONN_EFF,                     \
+    .bt_max_acl_conn = CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN_EFF,           \
+    .bt_sco_datapath = CONFIG_BTDM_CTRL_BR_EDR_SCO_DATA_PATH_EFF,          \
     .auto_latency = BTDM_CTRL_AUTO_LATENCY_EFF,                            \
     .bt_legacy_auth_vs_evt = BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF,         \
-    .bt_max_sync_conn = BTDM_CTRL_BR_EDR_MAX_SYNC_CONN,                    \
-    .ble_sca = CONFIG_ESP32_BT_LE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,          \
-    .pcm_role = 0,                                                         \
-    .pcm_polar = 0,                                                        \
-    .pcm_fsyncshp = 0,                                                     \
+    .bt_max_sync_conn = UC_BR_EDR_CTRL_MAX_SYNC_CONN_EFF,                  \
+    .ble_sca = CONFIG_BTDM_BLE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,             \
+    .pcm_role = CONFIG_BTDM_CTRL_PCM_ROLE_EFF,                             \
+    .pcm_polar = CONFIG_BTDM_CTRL_PCM_POLAR_EFF,                           \
+    .pcm_fsyncshp = CONFIG_BTDM_CTRL_PCM_FSYNCSHP_EFF,                     \
     .hli = BTDM_CTRL_HLI,                                                  \
-    .enc_key_sz_min = BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT,                 \
+    .enc_key_sz_min = CONFIG_BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT_EFF,      \
     .dup_list_refresh_period = SCAN_DUPL_CACHE_REFRESH_PERIOD,             \
     .ble_scan_backoff = BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX,              \
     .ble_llcp_disc_flag = BTDM_BLE_LLCP_DISC_FLAG,                         \
@@ -529,8 +485,6 @@ esp_err_t esp_bt_controller_disable(void);
  */
 esp_bt_controller_status_t esp_bt_controller_get_status(void);
 
-typedef void (*workitem_handler_t)(void *arg);
-
 /**
  * @brief Release the Controller memory as per the mode
  *
@@ -764,20 +718,6 @@ void esp_vhci_host_send_packet(uint8_t *data, uint16_t len);
  *      - ESP_FAIL: Failure
  */
 esp_err_t esp_vhci_host_register_callback(const esp_vhci_host_callback_t *callback);
-
-/**
- * @brief Power on Bluetooth Wi-Fi power domain
- *
- * @note This function is not recommended to use due to potential risk.
-*/
-void esp_wifi_bt_power_domain_on(void);
-
-/**
- * @brief Power off Bluetooth Wi-Fi power domain
- *
- * @note This function is not recommended to use due to potential risk.
-*/
-void esp_wifi_bt_power_domain_off(void);
 
 /**
  * @brief Get the Bluetooth module sleep clock source.

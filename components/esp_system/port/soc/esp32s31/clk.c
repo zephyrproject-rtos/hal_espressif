@@ -6,7 +6,8 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
-#include <zephyr/sys/util.h>
+#include <sys/time.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -29,12 +30,17 @@
 #include "esp_private/esp_pmu.h"
 #include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
+#include "hal/clk_gate_ll.h"
 
 /* Number of cycles to wait from the 32k XTAL oscillator to consider it running.
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+
+#define RTC_XTAL_CAL_RETRY 3
+
+#define MHZ (1000000)
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
@@ -42,9 +48,9 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
 
 __attribute__((weak)) void IRAM_ATTR esp_rtc_init(void)
 {
-#if SOC_PMU_SUPPORTED && !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
+#if SOC_PMU_SUPPORTED && !CONFIG_IDF_ENV_FPGA
     pmu_init();
-#endif  //SOC_PMU_SUPPORTED && !CONFIG_MCUBOOT
+#endif  //SOC_PMU_SUPPORTED
 }
 
 __attribute__((weak)) void esp_clk_init(void)
@@ -52,7 +58,16 @@ __attribute__((weak)) void esp_clk_init(void)
     assert(rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M);
 
     rtc_clk_8m_enable(true);
+#if CONFIG_RTC_FAST_CLK_SRC_RC_FAST
     rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
+#elif CONFIG_RTC_FAST_CLK_SRC_XTAL
+    rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_XTAL);
+    if (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_FAST_USE_XTAL_MODE] == 0) {
+        esp_sleep_sub_mode_config(ESP_SLEEP_RTC_FAST_USE_XTAL_MODE, true);
+    }
+#else
+#error "No RTC fast clock source configured"
+#endif
 
 #if defined(CONFIG_BOOTLOADER_WDT_ENABLE) && SOC_RTC_WDT_SUPPORTED
     // WDT uses a SLOW_CLK clock source. After a function select_rtc_slow_clk a frequency of this source can changed.
@@ -112,7 +127,7 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
     /* number of times to repeat 32k XTAL calibration
      * before giving up and switching to the internal RC
      */
-    int retry_32k_xtal = 3;
+    int retry_32k_xtal = RTC_XTAL_CAL_RETRY;
 
     soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
@@ -126,6 +141,14 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
              * will time out, returning 0.
              */
             ESP_EARLY_LOGD(TAG, "waiting for 32k oscillator to start up");
+
+            /* 1、The bootloader should already have it enabled.
+             * 2、Because 32kHz crystal oscillators have a slow startup time, if they are not enabled beforehand,
+             *  there is a high probability that they will not be detected if enabled here.
+             */
+            if (!rtc_clk_32k_enabled()) {
+                ESP_EARLY_LOGW(TAG, "32 kHz XTAL not enabled in advance");
+            }
             rtc_clk_32k_enable(true);
             soc_clk_freq_calculation_src_t cal_sel = CLK_CAL_32K_XTAL;
             // When SLOW_CLK_CAL_CYCLES is set to 0, clock calibration will not be performed at startup.
@@ -193,5 +216,41 @@ __attribute__((weak)) void esp_perip_clk_init(void)
     modem_clock_select_lp_clock_source(PERIPH_WIFI_MODULE, modem_lpclk_src, 0);
 #endif
 
-    periph_ll_clk_gate_set_default(esp_rom_get_reset_reason(0));
+    soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
+    periph_ll_clk_gate_config_t clk_gate_config = {0};
+
+#if CONFIG_ESP_CONSOLE_UART_NUM != 0
+    clk_gate_config.disable_uart0_clk = true;
+#endif
+#if CONFIG_ESP_CONSOLE_UART_NUM != 1
+    clk_gate_config.disable_uart1_clk = true;
+#endif
+#if CONFIG_ESP_CONSOLE_UART_NUM != 2
+    clk_gate_config.disable_uart2_clk = true;
+#endif
+#if CONFIG_ESP_CONSOLE_UART_NUM != 3
+    clk_gate_config.disable_uart3_clk = true;
+#endif
+#if CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
+    clk_gate_config.disable_mspi_flash_clk = true;
+#endif
+#if CONFIG_SPIRAM
+    clk_gate_config.keep_psram_hp_clk = true;
+#endif
+#if !CONFIG_ESP_SYSTEM_HW_PC_RECORD
+    clk_gate_config.disable_assist_clk = true;
+#endif
+#if !CONFIG_SECURE_ENABLE_TEE
+    clk_gate_config.disable_crypto_periph_clk = true;
+#endif
+#if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
+    clk_gate_config.disable_usb_serial_jtag = true;
+#endif
+
+    periph_ll_clk_gate_set_default(rst_reason, &clk_gate_config);
+
+#if CONFIG_ESP_BUS_ENABLE_AUTO_GATE
+    // Clear bus clock gating bypass so hardware can auto-gate idle bus clocks
+    clk_gate_ll_set_bus_clock_gate_bypass(false);
+#endif
 }

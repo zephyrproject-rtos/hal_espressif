@@ -1,12 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include <math.h>
 #include "hal/mipi_dsi_hal.h"
 #include "hal/mipi_dsi_ll.h"
@@ -15,6 +15,18 @@
 #include "hal/mipi_dsi_periph.h"
 
 HAL_LOG_ATTR_TAG(TAG, "dsi_hal");
+
+static inline bool mipi_dsi_hal_host_wait_timeout(mipi_dsi_hal_context_t *hal,
+                                                  bool (*condition)(mipi_dsi_host_soc_handle_t host),
+                                                  bool (*timeout)(mipi_dsi_host_soc_handle_t host))
+{
+    while (condition(hal->host)) {
+        if (timeout(hal->host)) {
+            return true;
+        }
+    }
+    return timeout(hal->host);
+}
 
 void mipi_dsi_hal_init(mipi_dsi_hal_context_t *hal, const mipi_dsi_hal_config_t *config)
 {
@@ -82,6 +94,8 @@ void mipi_dsi_hal_configure_phy_pll(mipi_dsi_hal_context_t *hal, uint32_t phy_cl
     }
 
     mipi_dsi_hal_phy_write_register(hal, 0x44, hs_freq_sel << 1);
+    // enable 1~1.5Gbps analog circuity support
+    mipi_dsi_hal_phy_write_register(hal, 0x22, (lane_bit_rate_mbps >= 1000) ? 0x88 : 0x80);
     // make use of the N and M factors that configured in the 0x17 and 0x18
     mipi_dsi_hal_phy_write_register(hal, 0x19, 0x30);
     mipi_dsi_hal_phy_write_register(hal, 0x17, pll_N - 1);
@@ -203,7 +217,7 @@ void mipi_dsi_hal_host_gen_write_long_packet(mipi_dsi_hal_context_t *hal, uint8_
     mipi_dsi_host_ll_gen_set_packet_header(hal->host, vc, dt, wc_msb, wc_lsb);
 }
 
-void mipi_dsi_hal_host_gen_read_short_packet(mipi_dsi_hal_context_t *hal, uint8_t vc, mipi_dsi_data_type_t dt, uint16_t header_data, void *ret_buffer, uint16_t buffer_size)
+bool mipi_dsi_hal_host_gen_read_short_packet(mipi_dsi_hal_context_t *hal, uint8_t vc, mipi_dsi_data_type_t dt, uint16_t header_data, void *ret_buffer, uint16_t buffer_size)
 {
     uint8_t *receive_buffer = (uint8_t *)ret_buffer;
     // set the maximum returned data size, it should equal to the parameter size of the read command
@@ -215,9 +229,13 @@ void mipi_dsi_hal_host_gen_read_short_packet(mipi_dsi_hal_context_t *hal, uint8_
     // listen to the same virtual channel as the one sent to
     mipi_dsi_host_ll_gen_set_rx_vcid(hal->host, vc);
     mipi_dsi_hal_host_gen_write_short_packet(hal, vc, dt, header_data);
-    while (mipi_dsi_host_ll_gen_is_read_cmd_busy(hal->host));
+    if (mipi_dsi_hal_host_wait_timeout(hal, mipi_dsi_host_ll_gen_is_read_cmd_busy, mipi_dsi_host_ll_is_lp_rx_timeout)) {
+        return false;
+    }
     // wait data to come into the fifo
-    while (mipi_dsi_host_ll_gen_is_read_fifo_empty(hal->host));
+    if (mipi_dsi_hal_host_wait_timeout(hal, mipi_dsi_host_ll_gen_is_read_fifo_empty, mipi_dsi_host_ll_is_lp_rx_timeout)) {
+        return false;
+    }
     uint32_t temp = 0;
     uint32_t counter = 0;
     while (!mipi_dsi_host_ll_gen_is_read_fifo_empty(hal->host)) {
@@ -229,34 +247,49 @@ void mipi_dsi_hal_host_gen_read_short_packet(mipi_dsi_hal_context_t *hal, uint8_
             }
         }
     }
+    return true;
 }
 
-void mipi_dsi_hal_host_gen_read_dcs_command(mipi_dsi_hal_context_t *hal, uint8_t vc, uint32_t command, uint32_t command_bytes, void *ret_param, uint16_t param_buf_size)
+bool mipi_dsi_hal_host_gen_read_dcs_command(mipi_dsi_hal_context_t *hal, uint8_t vc, uint32_t command, uint32_t command_bytes, void *ret_param, uint16_t param_buf_size)
 {
     uint16_t header_data = command & ((1U << (8 * command_bytes)) - 1);
-    mipi_dsi_hal_host_gen_read_short_packet(hal, vc, MIPI_DSI_DT_DCS_READ_0, header_data, ret_param, param_buf_size);
+    return mipi_dsi_hal_host_gen_read_short_packet(hal, vc, MIPI_DSI_DT_DCS_READ_0, header_data, ret_param, param_buf_size);
 }
 
-void mipi_dsi_hal_host_dpi_set_horizontal_timing(mipi_dsi_hal_context_t *hal, uint32_t hsw, uint32_t hbp, uint32_t active_width, uint32_t hfp)
+bool mipi_dsi_hal_host_dpi_set_horizontal_timing(mipi_dsi_hal_context_t *hal, uint32_t hsw, uint32_t hbp, uint32_t active_width, uint32_t hfp)
 {
     // set the horizontal timing based on user's expectation
     uint32_t htotal = hsw + hbp + active_width + hfp;
-    float dpi2lane_clk_ratio = hal->lane_bit_rate_mbps / hal->expect_dpi_clock_freq_mhz / 8.0f;
+    int compensation = (int)roundf(hal->real_dpi_clock_freq_mhz / hal->expect_dpi_clock_freq_mhz * htotal) - (int)htotal;
+    int compensated_hfp = (int)hfp + compensation;
+    int compensated_htotal = (int)htotal + compensation;
+    if (compensated_hfp <= 0 || compensated_htotal > MIPI_DSI_BRG_HTOTAL_MAX) {
+        HAL_LOGE(TAG, "invalid compensated timing: hfp=%d, htotal=%d", compensated_hfp, compensated_htotal);
+        return false;
+    }
+    if (fabsf(hal->real_dpi_clock_freq_mhz - hal->expect_dpi_clock_freq_mhz) > 0.01f) {
+        HAL_LOGW(TAG, "DPI clock adjusted from %.2f MHz to %.2f MHz, compensated hfp=%d, compensated htotal=%d",
+                 hal->expect_dpi_clock_freq_mhz, hal->real_dpi_clock_freq_mhz,
+                 compensated_hfp, compensated_htotal);
+    }
+
+    // Scale host periods with the real pixel clock and the same compensated line length as the bridge.
+    float dpi2lane_clk_ratio = hal->lane_bit_rate_mbps / hal->real_dpi_clock_freq_mhz / 8.0f;
     uint32_t host_hsw = (uint32_t)roundf(hsw * dpi2lane_clk_ratio);
     uint32_t host_hbp = (uint32_t)roundf(hbp * dpi2lane_clk_ratio);
     uint32_t host_act = (uint32_t)roundf(active_width * dpi2lane_clk_ratio);
-    uint32_t host_hfp = (uint32_t)roundf(hfp * dpi2lane_clk_ratio);
-    uint32_t host_htotal = (uint32_t)roundf(htotal * dpi2lane_clk_ratio);
-    int compensation = (int)host_htotal - (int)(host_hsw + host_hbp + host_act + host_hfp);
-    mipi_dsi_host_ll_dpi_set_horizontal_timing(hal->host, host_hsw, host_hbp, host_act + compensation, host_hfp);
+    uint32_t host_hfp = (uint32_t)roundf(compensated_hfp * dpi2lane_clk_ratio);
+    uint32_t host_htotal = (uint32_t)roundf(compensated_htotal * dpi2lane_clk_ratio);
+    int host_compensation = (int)host_htotal - (int)(host_hsw + host_hbp + host_act + host_hfp);
+    mipi_dsi_host_ll_dpi_set_horizontal_timing(hal->host, host_hsw, host_hbp, host_act + host_compensation, host_hfp);
     HAL_LOGD(TAG, "host video timing: hsw=%" PRIu32 ", hbp=%" PRIu32 ", act=%" PRIu32 ", hfp=%" PRIu32,
-             host_hsw, host_hbp, host_act + compensation, host_hfp);
+             host_hsw, host_hbp, host_act + host_compensation, host_hfp);
 
     // compensate the video timing to achieve the same refresh rate as expected
-    compensation = (int)roundf(hal->real_dpi_clock_freq_mhz / hal->expect_dpi_clock_freq_mhz * htotal) - (int)htotal;
-    mipi_dsi_brg_ll_set_horizontal_timing(hal->bridge, hsw, hbp, active_width, hfp + compensation);
+    mipi_dsi_brg_ll_set_horizontal_timing(hal->bridge, hsw, hbp, active_width, compensated_hfp);
     HAL_LOGD(TAG, "brg video timing: hsw=%" PRIu32 ", hbp=%" PRIu32 ", act=%" PRIu32 ", hfp=%" PRIu32,
-             hsw, hbp, active_width, hfp + compensation);
+             hsw, hbp, active_width, (uint32_t)compensated_hfp);
+    return true;
 }
 
 void mipi_dsi_hal_host_dpi_set_vertical_timing(mipi_dsi_hal_context_t *hal, uint32_t vsw, uint32_t vbp, uint32_t active_height, uint32_t vfp)
@@ -271,7 +304,6 @@ uint32_t mipi_dsi_hal_host_dpi_calculate_divider(mipi_dsi_hal_context_t *hal, fl
     hal->expect_dpi_clock_freq_mhz = expect_dpi_clk_mhz;
     hal->real_dpi_clock_freq_mhz = clk_src_mhz / (float)div;
     HAL_LOGD(TAG, "dpi clk: src=%.2f MHz, expect=%.2f MHz, div=%" PRIu32 ", real=%.2f MHz",
-             (double)clk_src_mhz, (double)expect_dpi_clk_mhz, div,
-             (double)hal->real_dpi_clock_freq_mhz);
+             clk_src_mhz, expect_dpi_clk_mhz, div, hal->real_dpi_clock_freq_mhz);
     return div;
 }

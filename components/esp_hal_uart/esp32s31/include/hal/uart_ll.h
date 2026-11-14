@@ -433,7 +433,7 @@ FORCE_INLINE_ATTR void uart_ll_set_sclk(uart_dev_t *hw, soc_module_clk_t source_
     case UART_SCLK_RTC:
         sel_value = 1;
         break;
-    case UART_SCLK_PLL_F80M:
+    case UART_SCLK_REF_F80M:
         sel_value = 2;
         break;
     default:
@@ -484,7 +484,7 @@ FORCE_INLINE_ATTR void uart_ll_get_sclk(uart_dev_t *hw, soc_module_clk_t *source
             *source_clk = (soc_module_clk_t)UART_SCLK_XTAL;
             break;
         case 2:
-            *source_clk = (soc_module_clk_t)UART_SCLK_PLL_F80M;
+            *source_clk = (soc_module_clk_t)UART_SCLK_REF_F80M;
             break;
         }
     } else {
@@ -1784,18 +1784,6 @@ FORCE_INLINE_ATTR void uart_ll_discard_error_data(uart_dev_t *hw, bool discard)
 {
     hw->conf0_sync.err_wr_mask = discard ? 1 : 0;
     uart_ll_update(hw);
-}
-
-/**
- * @brief  Check if the UART is in RS485 half-duplex mode.
- *
- * @param  hw Beginning address of the peripheral registers.
- *
- * @return true if RS485 half-duplex mode is enabled, false otherwise.
- */
-FORCE_INLINE_ATTR bool uart_ll_is_mode_rs485_half_duplex(uart_dev_t *hw)
-{
-    return hw->rs485_conf_sync.rs485_en && hw->conf0_sync.sw_rts;
 }
 
 #ifdef __cplusplus

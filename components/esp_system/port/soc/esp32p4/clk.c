@@ -5,7 +5,9 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/util.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -25,6 +27,7 @@
 #include "esp_private/esp_sleep_internal.h"
 #include "esp_private/esp_clk.h"
 #include "esp_private/esp_pmu.h"
+#include "esp_private/esp_cache_private.h"
 #include "esp_rom_serial_output.h"
 #include "esp_rom_sys.h"
 
@@ -32,11 +35,11 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
 
-#ifndef MHZ
+#define RTC_XTAL_CAL_RETRY 3
+
 #define MHZ (1000000)
-#endif
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
@@ -45,9 +48,25 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
 // This function must be allocated in IRAM.
 void IRAM_ATTR esp_rtc_init(void)
 {
-#if SOC_PMU_SUPPORTED && !CONFIG_MCUBOOT
+#if SOC_PMU_SUPPORTED
     pmu_init();
-#endif  //SOC_PMU_SUPPORTED && !CONFIG_MCUBOOT
+#endif  //SOC_PMU_SUPPORTED
+}
+
+/*
+ * Perform the CPU frequency switch with the external memory (PSRAM) cache
+ * suspended. The frequency switch stalls the HP_ROOT clock and toggles PLL /
+ * clock gating; when the switch code runs from PSRAM-XIP, a cache-coherency
+ * transient during the switch can corrupt the external .bss region. Suspending
+ * the external-memory cache for the duration of the switch keeps the CPU off
+ * the XIP path, isolating the two.
+ * Must be IRAM-resident because it runs while the external cache is suspended.
+ */
+static void IRAM_ATTR esp_clk_cpu_freq_set_config_isolated(const rtc_cpu_freq_config_t *config)
+{
+    esp_cache_suspend_ext_mem_cache();
+    rtc_clk_cpu_freq_set_config(config);
+    esp_cache_resume_ext_mem_cache();
 }
 
 __attribute__((weak)) void esp_clk_init(void)
@@ -55,7 +74,16 @@ __attribute__((weak)) void esp_clk_init(void)
     assert(rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M);
 
     rtc_clk_8m_enable(true);
+#if CONFIG_RTC_FAST_CLK_SRC_RC_FAST
     rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
+#elif CONFIG_RTC_FAST_CLK_SRC_XTAL
+    rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_XTAL);
+    if (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_FAST_USE_XTAL_MODE] == 0) {
+        esp_sleep_sub_mode_config(ESP_SLEEP_RTC_FAST_USE_XTAL_MODE, true);
+    }
+#else
+#error "No RTC fast clock source configured"
+#endif
 
 #if defined(CONFIG_BOOTLOADER_WDT_ENABLE) && SOC_RTC_WDT_SUPPORTED
     // WDT uses a SLOW_CLK clock source. After a function select_rtc_slow_clk a frequency of this source can changed.
@@ -72,7 +100,7 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_XTAL32K);
 #else
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_RC_SLOW);
@@ -102,7 +130,7 @@ __attribute__((weak)) void esp_clk_init(void)
     }
 
     if (res)  {
-        rtc_clk_cpu_freq_set_config(&new_config);
+        esp_clk_cpu_freq_set_config_isolated(&new_config);
     }
 
     // Re calculate the ccount to make time calculation correct.
@@ -115,7 +143,7 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
     /* number of times to repeat 32k XTAL calibration
      * before giving up and switching to the internal RC
      */
-    int retry_32k_xtal = 3;
+    int retry_32k_xtal = RTC_XTAL_CAL_RETRY;
 
     soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
@@ -129,6 +157,14 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
              * will time out, returning 0.
              */
             ESP_EARLY_LOGD(TAG, "waiting for 32k oscillator to start up");
+
+            /* 1、The bootloader should already have it enabled.
+             * 2、Because 32kHz crystal oscillators have a slow startup time, if they are not enabled beforehand,
+             *  there is a high probability that they will not be detected if enabled here.
+             */
+            if (!rtc_clk_32k_enabled()) {
+                ESP_EARLY_LOGW(TAG, "32 kHz XTAL not enabled in advance");
+            }
             rtc_clk_32k_enable(true);
             soc_clk_freq_calculation_src_t cal_sel = CLK_CAL_32K_XTAL;
             // When SLOW_CLK_CAL_CYCLES is set to 0, clock calibration will not be performed at startup.

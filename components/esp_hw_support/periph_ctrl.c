@@ -3,9 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <zephyr/kernel.h>
-#include <zephyr/sys/atomic.h>
-#include <zephyr/sys/__assert.h>
+#include "freertos/FreeRTOS.h"
 #include "esp_attr.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/critical_section.h"
@@ -15,128 +13,24 @@
 #endif
 #include "esp_log.h"
 
-#if defined(CONFIG_SOC_SERIES_ESP32)
-#include <zephyr/dt-bindings/clock/esp32_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32S2)
-#include <zephyr/dt-bindings/clock/esp32s2_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32S3)
-#include <zephyr/dt-bindings/clock/esp32s3_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32C2)
-#include <zephyr/dt-bindings/clock/esp32c2_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32C3)
-#include <zephyr/dt-bindings/clock/esp32c3_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32C5)
-#include <zephyr/dt-bindings/clock/esp32c5_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32C6)
-#include <zephyr/dt-bindings/clock/esp32c6_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32C61)
-#include <zephyr/dt-bindings/clock/esp32c61_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32H2)
-#include <zephyr/dt-bindings/clock/esp32h2_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32P4)
-#include <zephyr/dt-bindings/clock/esp32p4_clock.h>
-#elif defined(CONFIG_SOC_SERIES_ESP32S31)
-#include <zephyr/dt-bindings/clock/esp32s31_clock.h>
-#endif
-
-#include <hal/uart_ll.h>
-#include <hal/i2c_ll.h>
-#include <hal/spi_ll.h>
-#include <hal/ledc_ll.h>
-#include <hal/sha_ll.h>
-#if SOC_AES_SUPPORTED
-#include <hal/aes_ll.h>
-#endif
-#if SOC_ADC_SUPPORTED
-#include <hal/adc_ll.h>
-#endif
-#include <hal/timg_ll.h>
-#if SOC_TWAI_SUPPORTED
-#include <hal/twai_ll.h>
-#endif
-#if SOC_GDMA_SUPPORTED
-#include <hal/gdma_ll.h>
-#endif
-#if SOC_PCNT_SUPPORTED
-#include <hal/pcnt_ll.h>
-#endif
-#if SOC_MCPWM_SUPPORTED
-#include <hal/mcpwm_ll.h>
-#endif
-#if SOC_RMT_SUPPORTED
-#include <hal/rmt_ll.h>
-#endif
-#if SOC_I2S_SUPPORTED
-#include <hal/i2s_ll.h>
-#endif
-#if SOC_LP_I2S_SUPPORTED
-#include <hal/lp_i2s_ll.h>
-#endif
-#if SOC_USB_SERIAL_JTAG_SUPPORTED
-#include <hal/usb_serial_jtag_ll.h>
-#endif
-#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
-#include <hal/usb_utmi_ll.h>
-#endif
-#if SOC_SDMMC_HOST_SUPPORTED
-#include <hal/sdmmc_ll.h>
-#include <hal/clk_gate_ll.h>
-#endif
-#if SOC_EMAC_SUPPORTED
-#include <hal/emac_ll.h>
-#endif
-#if SOC_UHCI_SUPPORTED
-#include <hal/uhci_ll.h>
-#endif
-#if SOC_SDIO_SLAVE_SUPPORTED
-#include <hal/sdio_slave_ll.h>
-#endif
-#if SOC_ECC_SUPPORTED
-#include <hal/ecc_ll.h>
-#endif
-#ifdef ESP32_HMAC_MODULE
-#include <hal/hmac_ll.h>
-#endif
-#ifdef ESP32_DS_MODULE
-#include <hal/ds_ll.h>
-#endif
-#if SOC_ETM_SUPPORTED
-#include <hal/etm_ll.h>
-#endif
-#if SOC_TEMP_SENSOR_SUPPORTED
-#include <hal/temperature_sensor_ll.h>
-#endif
-#if SOC_ECDSA_SUPPORTED
-#include <hal/ecdsa_ll.h>
-#endif
-#ifdef ESP32_DEDIC_GPIO_MODULE
-#include <hal/dedic_gpio_ll.h>
-#endif
-#if SOC_PAU_SUPPORTED
-#include <hal/pau_ll.h>
-#endif
-#if SOC_ASSIST_DEBUG_SUPPORTED
-#include <hal/assist_debug_ll.h>
-#endif
-
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT && SOC_MODEM_CLOCK_SUPPORTED
 #include "esp_private/esp_modem_clock.h"
 #endif
 
-/* For simplicity and backward compatible, we are using the same spin lock for both bus clock on/off and reset */
-/* We may want to split them into two spin locks in the future */
-static esp_os_spinlock_t periph_spinlock = ESP_OS_SPINLOCK_INIT;
+/// @brief For simplicity and backward compatible, we are using the same spin lock for both bus clock on/off and reset
+/// @note  We may want to split them into two spin locks in the future
+static portMUX_TYPE __attribute__((unused)) periph_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 static uint8_t ref_counts[PERIPH_MODULE_MAX] = {0};
 
-IRAM_ATTR void periph_rcc_enter(void)
+void periph_rcc_enter(void)
 {
-    esp_os_enter_critical(&periph_spinlock);
+    esp_os_enter_critical_safe(&periph_spinlock);
 }
 
-IRAM_ATTR void periph_rcc_exit(void)
+void periph_rcc_exit(void)
 {
-    esp_os_exit_critical(&periph_spinlock);
+    esp_os_exit_critical_safe(&periph_spinlock);
 }
 
 uint8_t periph_rcc_acquire_enter(shared_periph_module_t periph)
@@ -154,10 +48,7 @@ void periph_rcc_acquire_exit(shared_periph_module_t periph, uint8_t ref_count)
 uint8_t periph_rcc_release_enter(shared_periph_module_t periph)
 {
     periph_rcc_enter();
-    if (ref_counts[periph] > 0) {
-        return ref_counts[periph] - 1;
-    }
-    return 0;
+    return ref_counts[periph] - 1;
 }
 
 void periph_rcc_release_exit(shared_periph_module_t periph, uint8_t ref_count)
@@ -170,12 +61,12 @@ void periph_module_enable(shared_periph_module_t periph)
 {
 #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
     assert(periph < PERIPH_MODULE_MAX);
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     if (ref_counts[periph] == 0) {
         periph_ll_enable_clk_clear_rst(periph);
     }
     ref_counts[periph]++;
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -183,12 +74,12 @@ void periph_module_disable(shared_periph_module_t periph)
 {
 #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
     assert(periph < PERIPH_MODULE_MAX);
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     ref_counts[periph]--;
     if (ref_counts[periph] == 0) {
         periph_ll_disable_clk_set_rst(periph);
     }
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -196,733 +87,10 @@ void periph_module_reset(shared_periph_module_t periph)
 {
 #ifdef __PERIPH_CTRL_ALLOW_LEGACY_API
     assert(periph < PERIPH_MODULE_MAX);
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     periph_ll_reset(periph);
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
-}
-
-void non_shared_periph_module_enable(int periph)
-{
-    periph_rcc_enter();
-    switch (periph) {
-    case ESP32_LEDC_MODULE:
-        ledc_ll_enable_bus_clock(0, true);
-        ledc_ll_reset_register(0);
-        break;
-    case ESP32_UART0_MODULE:
-        uart_ll_enable_bus_clock(0, true);
-        uart_ll_reset_register(0);
-        break;
-#if defined(ESP32_UART1_MODULE) && ESP32_UART1_MODULE >= 100
-    case ESP32_UART1_MODULE:
-        uart_ll_enable_bus_clock(1, true);
-        uart_ll_reset_register(1);
-#if defined(CONFIG_SOC_SERIES_ESP32S31)
-        uart_ll_mem_power_by_pmu(1);
-#endif
-        break;
-#endif
-#if defined(ESP32_UART2_MODULE) && ESP32_UART2_MODULE >= 100
-    case ESP32_UART2_MODULE:
-        uart_ll_enable_bus_clock(2, true);
-        uart_ll_reset_register(2);
-#if defined(CONFIG_SOC_SERIES_ESP32S31)
-        uart_ll_mem_power_by_pmu(2);
-#endif
-        break;
-#endif
-#if defined(ESP32_UART3_MODULE) && ESP32_UART3_MODULE >= 100
-    case ESP32_UART3_MODULE:
-        uart_ll_enable_bus_clock(3, true);
-        uart_ll_reset_register(3);
-#if defined(CONFIG_SOC_SERIES_ESP32S31)
-        uart_ll_mem_power_by_pmu(3);
-#endif
-        break;
-#endif
-#if defined(ESP32_UART4_MODULE) && ESP32_UART4_MODULE >= 100
-    case ESP32_UART4_MODULE:
-        uart_ll_enable_bus_clock(4, true);
-        uart_ll_reset_register(4);
-        break;
-#endif
-    case ESP32_I2C0_MODULE:
-        i2c_ll_enable_bus_clock(0, true);
-        i2c_ll_reset_register(0);
-        break;
-#ifdef ESP32_I2C1_MODULE
-    case ESP32_I2C1_MODULE:
-        i2c_ll_enable_bus_clock(1, true);
-        i2c_ll_reset_register(1);
-        break;
-#endif
-#ifdef ESP32_SPI_MODULE
-    case ESP32_SPI_MODULE:
-        spi_ll_enable_bus_clock(SPI1_HOST, true);
-        spi_ll_reset_register(SPI1_HOST);
-        break;
-#endif
-#ifdef ESP32_SPI2_MODULE
-    case ESP32_SPI2_MODULE:
-        spi_ll_enable_bus_clock(SPI2_HOST, true);
-        spi_ll_reset_register(SPI2_HOST);
-        break;
-#endif
-#ifdef ESP32_SPI3_MODULE
-    case ESP32_SPI3_MODULE:
-        spi_ll_enable_bus_clock(SPI3_HOST, true);
-        spi_ll_reset_register(SPI3_HOST);
-        break;
-#endif
-#ifdef ESP32_FSPI_MODULE
-    case ESP32_FSPI_MODULE:
-        spi_ll_enable_bus_clock(SPI2_HOST, true);
-        spi_ll_reset_register(SPI2_HOST);
-        break;
-#endif
-#ifdef ESP32_HSPI_MODULE
-#if ESP32_HSPI_MODULE >= 100
-    case ESP32_HSPI_MODULE:
-        spi_ll_enable_bus_clock(SPI3_HOST, true);
-        spi_ll_reset_register(SPI3_HOST);
-        break;
-#endif
-#endif
-#if SOC_TWAI_SUPPORTED
-#ifdef ESP32_TWAI_MODULE
-    case ESP32_TWAI_MODULE:
-        twai_ll_enable_bus_clock(0, true);
-        twai_ll_reset_register(0);
-        twai_ll_set_clock_source(0, TWAI_CLK_SRC_DEFAULT);
-        twai_ll_enable_clock(0, true);
-        break;
-#endif
-#ifdef ESP32_TWAI0_MODULE
-    case ESP32_TWAI0_MODULE:
-        twai_ll_enable_bus_clock(0, true);
-        twai_ll_reset_register(0);
-        twai_ll_set_clock_source(0, TWAI_CLK_SRC_DEFAULT);
-        twai_ll_enable_clock(0, true);
-        break;
-#endif
-#ifdef ESP32_TWAI1_MODULE
-    case ESP32_TWAI1_MODULE:
-        twai_ll_enable_bus_clock(1, true);
-        twai_ll_reset_register(1);
-        twai_ll_set_clock_source(1, TWAI_CLK_SRC_DEFAULT);
-        twai_ll_enable_clock(1, true);
-        break;
-#endif
-#ifdef ESP32_TWAI2_MODULE
-    case ESP32_TWAI2_MODULE:
-        twai_ll_enable_bus_clock(2, true);
-        twai_ll_reset_register(2);
-        twai_ll_set_clock_source(2, TWAI_CLK_SRC_DEFAULT);
-        twai_ll_enable_clock(2, true);
-        break;
-#endif
-#endif /* SOC_TWAI_SUPPORTED */
-#ifdef ESP32_SPI_DMA_MODULE
-    case ESP32_SPI_DMA_MODULE:
-        spi_dma_ll_enable_bus_clock(SPI1_HOST, true);
-        spi_dma_ll_reset_register(SPI1_HOST);
-        break;
-#endif
-#if SOC_GDMA_SUPPORTED
-    case ESP32_GDMA_MODULE:
-        gdma_ll_enable_bus_clock(0, true);
-        gdma_ll_reset_register(0);
-        break;
-#endif
-#if SOC_PCNT_SUPPORTED
-    case ESP32_PCNT_MODULE:
-        pcnt_ll_enable_bus_clock(0, true);
-        pcnt_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_MCPWM0_MODULE
-    case ESP32_MCPWM0_MODULE:
-        mcpwm_ll_enable_bus_clock(0, true);
-        mcpwm_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_MCPWM1_MODULE
-    case ESP32_MCPWM1_MODULE:
-        mcpwm_ll_enable_bus_clock(1, true);
-        mcpwm_ll_reset_register(1);
-        break;
-#endif
-#ifdef ESP32_PWM0_MODULE
-    case ESP32_PWM0_MODULE:
-        mcpwm_ll_enable_bus_clock(0, true);
-        mcpwm_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_PWM1_MODULE
-    case ESP32_PWM1_MODULE:
-        mcpwm_ll_enable_bus_clock(1, true);
-        mcpwm_ll_reset_register(1);
-        break;
-#endif
-#ifdef ESP32_PWM2_MODULE
-    case ESP32_PWM2_MODULE:
-        mcpwm_ll_enable_bus_clock(2, true);
-        mcpwm_ll_reset_register(2);
-        break;
-#endif
-#ifdef ESP32_PWM3_MODULE
-    case ESP32_PWM3_MODULE:
-        mcpwm_ll_enable_bus_clock(3, true);
-        mcpwm_ll_reset_register(3);
-        break;
-#endif
-#if SOC_I2S_SUPPORTED
-#ifdef ESP32_I2S0_MODULE
-    case ESP32_I2S0_MODULE:
-        i2s_ll_enable_bus_clock(0, true);
-        i2s_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_I2S1_MODULE
-    case ESP32_I2S1_MODULE:
-        i2s_ll_enable_bus_clock(1, true);
-        i2s_ll_reset_register(1);
-        break;
-#endif
-#ifdef ESP32_I2S2_MODULE
-    case ESP32_I2S2_MODULE:
-        i2s_ll_enable_bus_clock(2, true);
-        i2s_ll_reset_register(2);
-        break;
-#endif
-#endif /* SOC_I2S_SUPPORTED */
-#if SOC_RMT_SUPPORTED
-#ifdef ESP32_RMT_MODULE
-    case ESP32_RMT_MODULE:
-        rmt_ll_enable_bus_clock(0, true);
-        rmt_ll_reset_register(0);
-        break;
-#endif
-#endif
-#if SOC_AES_SUPPORTED
-#ifdef ESP32_AES_MODULE
-#if ESP32_AES_MODULE >= 100
-    case ESP32_AES_MODULE:
-        aes_ll_enable_bus_clock(true);
-        aes_ll_reset_register();
-        break;
-#endif
-#endif
-#endif /* SOC_AES_SUPPORTED */
-#ifdef ESP32_SHA_MODULE
-#if ESP32_SHA_MODULE >= 100
-    case ESP32_SHA_MODULE:
-        sha_ll_enable_bus_clock(true);
-        sha_ll_reset_register();
-        break;
-#endif
-#endif
-#if SOC_USB_SERIAL_JTAG_SUPPORTED
-#ifdef ESP32_USB_MODULE
-    case ESP32_USB_MODULE:
-        usb_serial_jtag_ll_enable_bus_clock(true);
-        break;
-#endif
-#ifdef ESP32_USB_DEVICE_MODULE
-    case ESP32_USB_DEVICE_MODULE:
-        usb_serial_jtag_ll_enable_bus_clock(true);
-        break;
-#endif
-#endif
-#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
-#ifdef ESP32_USB_OTG_MODULE
-    case ESP32_USB_OTG_MODULE:
-        _usb_utmi_ll_enable_bus_clock(true);
-        _usb_utmi_ll_reset_register();
-        break;
-#endif
-#endif
-#if SOC_SDMMC_HOST_SUPPORTED
-#ifdef ESP32_SDMMC_MODULE
-    case ESP32_SDMMC_MODULE:
-        sdmmc_ll_enable_bus_clock(0, true);
-        sdmmc_ll_reset_register(0);
-#if defined(CONFIG_SOC_SERIES_ESP32P4)
-        _clk_gate_ll_ref_160m_clk_en(true);
-#endif
-        break;
-#endif
-#endif
-#if SOC_EMAC_SUPPORTED
-#ifdef ESP32_EMAC_MODULE
-    case ESP32_EMAC_MODULE:
-        emac_ll_enable_bus_clock(0, true);
-        emac_ll_reset_register(0);
-        break;
-#endif
-#if SOC_EMAC_IEEE1588V2_SUPPORTED
-#ifdef ESP32_EMAC_PTP_MODULE
-    case ESP32_EMAC_PTP_MODULE:
-        emac_ll_clock_enable_ptp(NULL, EMAC_PTP_CLK_SRC_DEFAULT, true);
-        break;
-#endif
-#endif
-#endif
-#ifdef ESP32_LP_UART0_MODULE
-    case ESP32_LP_UART0_MODULE:
-        lp_uart_ll_enable_bus_clock(0, true);
-        lp_uart_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_LP_I2C0_MODULE
-    case ESP32_LP_I2C0_MODULE:
-        lp_i2c_ll_enable_bus_clock(0, true);
-        lp_i2c_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_LP_I2S0_MODULE
-    case ESP32_LP_I2S0_MODULE:
-        lp_i2s_ll_enable_module_clock(0, true);
-        lp_i2s_ll_reset_module_clock(0);
-        lp_i2s_ll_enable_rx_module_clock(0, true);
-        break;
-#endif
-#if SOC_ADC_SUPPORTED
-#ifdef ESP32_SARADC_MODULE
-#if ESP32_SARADC_MODULE >= 100
-    case ESP32_SARADC_MODULE:
-        adc_ll_enable_bus_clock(true);
-        adc_ll_reset_register();
-        break;
-#endif
-#endif
-#endif
-#if SOC_UHCI_SUPPORTED
-#ifdef ESP32_UHCI0_MODULE
-    case ESP32_UHCI0_MODULE:
-        uhci_ll_enable_bus_clock(0, true);
-        uhci_ll_reset_register(0);
-        break;
-#endif
-#ifdef ESP32_UHCI1_MODULE
-    case ESP32_UHCI1_MODULE:
-        uhci_ll_enable_bus_clock(1, true);
-        uhci_ll_reset_register(1);
-        break;
-#endif
-#endif
-#if SOC_SDIO_SLAVE_SUPPORTED
-#ifdef ESP32_SDIO_SLAVE_MODULE
-#if ESP32_SDIO_SLAVE_MODULE >= 100
-    case ESP32_SDIO_SLAVE_MODULE:
-        sdio_slave_ll_enable_bus_clock(true);
-        sdio_slave_ll_reset_register();
-        break;
-#endif
-#endif
-#endif
-#if SOC_ECC_SUPPORTED
-#ifdef ESP32_ECC_MODULE
-    case ESP32_ECC_MODULE:
-        ecc_ll_enable_bus_clock(true);
-        ecc_ll_reset_register();
-        break;
-#endif
-#endif
-#if SOC_HMAC_SUPPORTED
-#ifdef ESP32_HMAC_MODULE
-    case ESP32_HMAC_MODULE:
-        hmac_ll_enable_bus_clock(true);
-        hmac_ll_reset_register();
-        break;
-#endif
-#endif
-#if SOC_DIG_SIGN_SUPPORTED
-#ifdef ESP32_DS_MODULE
-    case ESP32_DS_MODULE:
-        ds_ll_enable_bus_clock(true);
-        ds_ll_reset_register();
-        break;
-#endif
-#endif
-#if SOC_ETM_SUPPORTED
-#ifdef ESP32_ETM_MODULE
-    case ESP32_ETM_MODULE:
-        etm_ll_enable_bus_clock(0, true);
-        etm_ll_reset_register(0);
-        break;
-#endif
-#endif
-#if SOC_TEMP_SENSOR_SUPPORTED
-#ifdef ESP32_TEMPSENSOR_MODULE
-    case ESP32_TEMPSENSOR_MODULE:
-        temperature_sensor_ll_bus_clk_enable(true);
-        temperature_sensor_ll_reset_module();
-        break;
-#endif
-#endif
-#if SOC_ECDSA_SUPPORTED
-#ifdef ESP32_ECDSA_MODULE
-    case ESP32_ECDSA_MODULE:
-        ecdsa_ll_enable_bus_clock(true);
-        ecdsa_ll_reset_register();
-        break;
-#endif
-#endif
-#ifdef ESP32_DEDIC_GPIO_MODULE
-    case ESP32_DEDIC_GPIO_MODULE:
-        dedic_gpio_ll_enable_bus_clock(true);
-        dedic_gpio_ll_reset_register();
-        break;
-#endif
-#if SOC_PAU_SUPPORTED
-#ifdef ESP32_REGDMA_MODULE
-    case ESP32_REGDMA_MODULE:
-        pau_ll_enable_bus_clock(true);
-        break;
-#endif
-#endif
-#if SOC_ASSIST_DEBUG_SUPPORTED
-#ifdef ESP32_ASSIST_DEBUG_MODULE
-    case ESP32_ASSIST_DEBUG_MODULE:
-        assist_debug_ll_enable_bus_clock(0, true);
-        assist_debug_ll_reset_register(0);
-        break;
-#endif
-#endif
-    default:
-        break;
-    }
-    periph_rcc_exit();
-}
-
-void non_shared_periph_module_disable(int periph)
-{
-    periph_rcc_enter();
-    switch (periph) {
-    case ESP32_LEDC_MODULE:
-        ledc_ll_enable_bus_clock(0, false);
-        break;
-    case ESP32_UART0_MODULE:
-        uart_ll_enable_bus_clock(0, false);
-        break;
-#if defined(ESP32_UART1_MODULE) && ESP32_UART1_MODULE >= 100
-    case ESP32_UART1_MODULE:
-        uart_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#if defined(ESP32_UART2_MODULE) && ESP32_UART2_MODULE >= 100
-    case ESP32_UART2_MODULE:
-        uart_ll_enable_bus_clock(2, false);
-        break;
-#endif
-#if defined(ESP32_UART3_MODULE) && ESP32_UART3_MODULE >= 100
-    case ESP32_UART3_MODULE:
-        uart_ll_enable_bus_clock(3, false);
-        break;
-#endif
-#if defined(ESP32_UART4_MODULE) && ESP32_UART4_MODULE >= 100
-    case ESP32_UART4_MODULE:
-        uart_ll_enable_bus_clock(4, false);
-        break;
-#endif
-    case ESP32_I2C0_MODULE:
-        i2c_ll_enable_bus_clock(0, false);
-        break;
-#ifdef ESP32_I2C1_MODULE
-    case ESP32_I2C1_MODULE:
-        i2c_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#ifdef ESP32_SPI_MODULE
-    case ESP32_SPI_MODULE:
-        spi_ll_enable_bus_clock(SPI1_HOST, false);
-        break;
-#endif
-#ifdef ESP32_SPI2_MODULE
-    case ESP32_SPI2_MODULE:
-        spi_ll_enable_bus_clock(SPI2_HOST, false);
-        break;
-#endif
-#ifdef ESP32_SPI3_MODULE
-    case ESP32_SPI3_MODULE:
-        spi_ll_enable_bus_clock(SPI3_HOST, false);
-        break;
-#endif
-#ifdef ESP32_FSPI_MODULE
-    case ESP32_FSPI_MODULE:
-        spi_ll_enable_bus_clock(SPI2_HOST, false);
-        break;
-#endif
-#ifdef ESP32_HSPI_MODULE
-#if ESP32_HSPI_MODULE >= 100
-    case ESP32_HSPI_MODULE:
-        spi_ll_enable_bus_clock(SPI3_HOST, false);
-        break;
-#endif
-#endif
-#if SOC_TWAI_SUPPORTED
-#ifdef ESP32_TWAI_MODULE
-    case ESP32_TWAI_MODULE:
-        twai_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_TWAI0_MODULE
-    case ESP32_TWAI0_MODULE:
-        twai_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_TWAI1_MODULE
-    case ESP32_TWAI1_MODULE:
-        twai_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#ifdef ESP32_TWAI2_MODULE
-    case ESP32_TWAI2_MODULE:
-        twai_ll_enable_bus_clock(2, false);
-        break;
-#endif
-#endif /* SOC_TWAI_SUPPORTED */
-#ifdef ESP32_SPI_DMA_MODULE
-    case ESP32_SPI_DMA_MODULE:
-        spi_dma_ll_enable_bus_clock(SPI1_HOST, false);
-        break;
-#endif
-#if SOC_GDMA_SUPPORTED
-    case ESP32_GDMA_MODULE:
-        gdma_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#if SOC_PCNT_SUPPORTED
-    case ESP32_PCNT_MODULE:
-        pcnt_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_MCPWM0_MODULE
-    case ESP32_MCPWM0_MODULE:
-        mcpwm_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_MCPWM1_MODULE
-    case ESP32_MCPWM1_MODULE:
-        mcpwm_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#ifdef ESP32_PWM0_MODULE
-    case ESP32_PWM0_MODULE:
-        mcpwm_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_PWM1_MODULE
-    case ESP32_PWM1_MODULE:
-        mcpwm_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#ifdef ESP32_PWM2_MODULE
-    case ESP32_PWM2_MODULE:
-        mcpwm_ll_enable_bus_clock(2, false);
-        break;
-#endif
-#ifdef ESP32_PWM3_MODULE
-    case ESP32_PWM3_MODULE:
-        mcpwm_ll_enable_bus_clock(3, false);
-        break;
-#endif
-#if SOC_I2S_SUPPORTED
-#ifdef ESP32_I2S0_MODULE
-    case ESP32_I2S0_MODULE:
-        i2s_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_I2S1_MODULE
-    case ESP32_I2S1_MODULE:
-        i2s_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#ifdef ESP32_I2S2_MODULE
-    case ESP32_I2S2_MODULE:
-        i2s_ll_enable_bus_clock(2, false);
-        break;
-#endif
-#endif /* SOC_I2S_SUPPORTED */
-#if SOC_RMT_SUPPORTED
-#ifdef ESP32_RMT_MODULE
-    case ESP32_RMT_MODULE:
-        rmt_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#endif
-#if SOC_AES_SUPPORTED
-#ifdef ESP32_AES_MODULE
-#if ESP32_AES_MODULE >= 100
-    case ESP32_AES_MODULE:
-        aes_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#endif /* SOC_AES_SUPPORTED */
-#ifdef ESP32_SHA_MODULE
-#if ESP32_SHA_MODULE >= 100
-    case ESP32_SHA_MODULE:
-        sha_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_USB_SERIAL_JTAG_SUPPORTED
-#ifdef ESP32_USB_MODULE
-    case ESP32_USB_MODULE:
-        usb_serial_jtag_ll_enable_bus_clock(false);
-        break;
-#endif
-#ifdef ESP32_USB_DEVICE_MODULE
-    case ESP32_USB_DEVICE_MODULE:
-        usb_serial_jtag_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_USB_OTG_SUPPORTED && SOC_USB_UTMI_PHY_NUM > 0
-#ifdef ESP32_USB_OTG_MODULE
-    case ESP32_USB_OTG_MODULE:
-        _usb_utmi_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_SDMMC_HOST_SUPPORTED
-#ifdef ESP32_SDMMC_MODULE
-    case ESP32_SDMMC_MODULE:
-        sdmmc_ll_enable_bus_clock(0, false);
-#if defined(CONFIG_SOC_SERIES_ESP32P4)
-        _clk_gate_ll_ref_160m_clk_en(false);
-#endif
-        break;
-#endif
-#endif
-#if SOC_EMAC_SUPPORTED
-#ifdef ESP32_EMAC_MODULE
-    case ESP32_EMAC_MODULE:
-        emac_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#if SOC_EMAC_IEEE1588V2_SUPPORTED
-#ifdef ESP32_EMAC_PTP_MODULE
-    case ESP32_EMAC_PTP_MODULE:
-        emac_ll_clock_enable_ptp(NULL, EMAC_PTP_CLK_SRC_DEFAULT, false);
-        break;
-#endif
-#endif
-#endif
-#ifdef ESP32_LP_UART0_MODULE
-    case ESP32_LP_UART0_MODULE:
-        lp_uart_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_LP_I2C0_MODULE
-    case ESP32_LP_I2C0_MODULE:
-        lp_i2c_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_LP_I2S0_MODULE
-    case ESP32_LP_I2S0_MODULE:
-        lp_i2s_ll_enable_rx_module_clock(0, false);
-        lp_i2s_ll_enable_module_clock(0, false);
-        break;
-#endif
-#if SOC_ADC_SUPPORTED
-#ifdef ESP32_SARADC_MODULE
-#if ESP32_SARADC_MODULE >= 100
-    case ESP32_SARADC_MODULE:
-        adc_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#endif
-#if SOC_UHCI_SUPPORTED
-#ifdef ESP32_UHCI0_MODULE
-    case ESP32_UHCI0_MODULE:
-        uhci_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#ifdef ESP32_UHCI1_MODULE
-    case ESP32_UHCI1_MODULE:
-        uhci_ll_enable_bus_clock(1, false);
-        break;
-#endif
-#endif
-#if SOC_SDIO_SLAVE_SUPPORTED
-#ifdef ESP32_SDIO_SLAVE_MODULE
-#if ESP32_SDIO_SLAVE_MODULE >= 100
-    case ESP32_SDIO_SLAVE_MODULE:
-        sdio_slave_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#endif
-#if SOC_ECC_SUPPORTED
-#ifdef ESP32_ECC_MODULE
-    case ESP32_ECC_MODULE:
-        ecc_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_HMAC_SUPPORTED
-#ifdef ESP32_HMAC_MODULE
-    case ESP32_HMAC_MODULE:
-        hmac_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_DIG_SIGN_SUPPORTED
-#ifdef ESP32_DS_MODULE
-    case ESP32_DS_MODULE:
-        ds_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_ETM_SUPPORTED
-#ifdef ESP32_ETM_MODULE
-    case ESP32_ETM_MODULE:
-        etm_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#endif
-#if SOC_TEMP_SENSOR_SUPPORTED
-#ifdef ESP32_TEMPSENSOR_MODULE
-    case ESP32_TEMPSENSOR_MODULE:
-        temperature_sensor_ll_bus_clk_enable(false);
-        break;
-#endif
-#endif
-#if SOC_ECDSA_SUPPORTED
-#ifdef ESP32_ECDSA_MODULE
-    case ESP32_ECDSA_MODULE:
-        ecdsa_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#ifdef ESP32_DEDIC_GPIO_MODULE
-    case ESP32_DEDIC_GPIO_MODULE:
-        dedic_gpio_ll_enable_bus_clock(false);
-        break;
-#endif
-#if SOC_PAU_SUPPORTED
-#ifdef ESP32_REGDMA_MODULE
-    case ESP32_REGDMA_MODULE:
-        pau_ll_enable_bus_clock(false);
-        break;
-#endif
-#endif
-#if SOC_ASSIST_DEBUG_SUPPORTED
-#ifdef ESP32_ASSIST_DEBUG_MODULE
-    case ESP32_ASSIST_DEBUG_MODULE:
-        assist_debug_ll_enable_bus_clock(0, false);
-        break;
-#endif
-#endif
-    default:
-        break;
-    }
-    periph_rcc_exit();
 }
 
 #if !SOC_IEEE802154_BLE_ONLY
@@ -932,7 +100,7 @@ IRAM_ATTR void wifi_bt_common_module_enable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_enable(PERIPH_PHY_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
         periph_ll_wifi_bt_module_enable_clk();
     }
@@ -943,7 +111,7 @@ IRAM_ATTR void wifi_bt_common_module_enable(void)
     }
     ref_counts[PERIPH_COEX_MODULE]++;
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -952,7 +120,7 @@ IRAM_ATTR void wifi_bt_common_module_disable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_disable(PERIPH_PHY_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     ref_counts[PERIPH_WIFI_BT_COMMON_MODULE]--;
     if (ref_counts[PERIPH_WIFI_BT_COMMON_MODULE] == 0) {
         periph_ll_wifi_bt_module_disable_clk();
@@ -963,7 +131,7 @@ IRAM_ATTR void wifi_bt_common_module_disable(void)
         periph_ll_coex_module_disable_clk_set_rst();
     }
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 #endif  //#if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED
@@ -975,12 +143,12 @@ void wifi_module_enable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_enable(PERIPH_WIFI_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     if (ref_counts[PERIPH_WIFI_MODULE] == 0) {
         periph_ll_wifi_module_enable_clk_clear_rst();
     }
     ref_counts[PERIPH_WIFI_MODULE]++;
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -989,24 +157,24 @@ void wifi_module_disable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_disable(PERIPH_WIFI_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
     ref_counts[PERIPH_WIFI_MODULE]--;
     if (ref_counts[PERIPH_WIFI_MODULE] == 0) {
         periph_ll_wifi_module_disable_clk_set_rst();
     }
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
-#endif /* CONFIG_ESP_WIFI_ENABLED */
+#endif // CONFIG_ESP_WIFI_ENABLED
 
 #if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED
-/* PERIPH_WIFI_BT_COMMON_MODULE is enabled outside */
+// PERIPH_WIFI_BT_COMMON_MODULE is enabled outside
 IRAM_ATTR void phy_module_enable(void)
 {
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_enable(PERIPH_PHY_CALIBRATION_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
 #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
     periph_ll_phy_calibration_module_enable_clk_clear_rst();
     if (ref_counts[PERIPH_RNG_MODULE] == 0) {
@@ -1026,17 +194,17 @@ IRAM_ATTR void phy_module_enable(void)
     }
     ref_counts[PERIPH_BT_MODULE]++;
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
-/* PERIPH_WIFI_BT_COMMON_MODULE is disabled outside */
+// PERIPH_WIFI_BT_COMMON_MODULE is disabled outside
 IRAM_ATTR void phy_module_disable(void)
 {
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_disable(PERIPH_PHY_CALIBRATION_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
 #if SOC_BT_SUPPORTED
     ref_counts[PERIPH_BT_MODULE]--;
     if (ref_counts[PERIPH_BT_MODULE] == 0) {
@@ -1050,10 +218,10 @@ IRAM_ATTR void phy_module_disable(void)
     }
 #endif
 #if SOC_WIFI_SUPPORTED || SOC_BT_SUPPORTED
-    /* Do not disable PHY clock and RNG clock */
+    // Do not disable PHY clock and RNG clock
     ref_counts[PERIPH_RNG_MODULE]--;
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -1081,14 +249,14 @@ IRAM_ATTR void coex_module_enable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_enable(PERIPH_COEX_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
 #if CONFIG_IDF_TARGET_ESP32C2
     if (ref_counts[PERIPH_COEX_MODULE] == 0) {
         periph_ll_coex_module_enable_clk_clear_rst();
     }
     ref_counts[PERIPH_COEX_MODULE]++;
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 
@@ -1097,14 +265,14 @@ IRAM_ATTR void coex_module_disable(void)
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
     modem_clock_module_disable(PERIPH_COEX_MODULE);
 #else
-    periph_rcc_enter();
+    esp_os_enter_critical_safe(&periph_spinlock);
 #if CONFIG_IDF_TARGET_ESP32C2
     ref_counts[PERIPH_COEX_MODULE]--;
     if (ref_counts[PERIPH_COEX_MODULE] == 0) {
         periph_ll_coex_module_disable_clk_set_rst();
     }
 #endif
-    periph_rcc_exit();
+    esp_os_exit_critical_safe(&periph_spinlock);
 #endif
 }
 #endif  //#if SOC_BT_SUPPORTED || SOC_WIFI_SUPPORTED || SOC_IEEE802154_SUPPORTED

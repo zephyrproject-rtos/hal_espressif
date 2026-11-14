@@ -76,6 +76,7 @@ static inline bool spimem_flash_ll_cmd_is_done(const spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_ce = 1;
@@ -86,6 +87,7 @@ static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
 {
     dev->ctrl.val = 0;
@@ -97,6 +99,7 @@ static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_block(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_be = 1;
@@ -316,6 +319,34 @@ static inline uint32_t spimem_flash_ll_get_tsus_unit_in_cycles(spi_mem_dev_t *de
 }
 
 /**
+ * @brief Get trs unit values in SPI_CLK cycles
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @return uint32_t trs unit values
+ */
+static inline uint32_t spimem_flash_ll_get_trs_unit_in_cycles(spi_mem_dev_t *dev)
+{
+    uint32_t trs_unit = 0;
+    if (dev->sus_status.flash_per_dly_128 == 1) {
+        trs_unit = 128;
+    } else {
+        trs_unit = 4;
+    }
+    return trs_unit;
+}
+
+/**
+ * Configure the delay after Resume
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @param dly_val delay time
+ */
+static inline void spimem_flash_ll_set_rs_delay(spi_mem_dev_t *dev, uint32_t dly_val)
+{
+    dev->ctrl1.cs_hold_dly_per = dly_val;
+}
+
+/**
  * Enable/disable write protection for the flash chip.
  *
  * @param dev Beginning address of the peripheral registers.
@@ -335,6 +366,7 @@ static inline void spimem_flash_ll_set_write_protect(spi_mem_dev_t *dev, bool wp
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_dp = 1;
@@ -345,6 +377,7 @@ static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_exit_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_res = 1;
@@ -406,6 +439,7 @@ static inline void spimem_flash_ll_set_buffer_data(spi_mem_dev_t *dev, const voi
  * @param buffer Buffer holding the data to program
  * @param length Length to program.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_program_page(spi_mem_dev_t *dev, const void *buffer, uint32_t length)
 {
     dev->user.usr_dummy = 0;
@@ -579,10 +613,7 @@ static inline int spimem_flash_ll_get_addr_bitlen(spi_mem_dev_t *dev)
 __attribute__((always_inline))
 static inline void spimem_flash_ll_set_addr_bitlen(spi_mem_dev_t *dev, uint32_t bitlen)
 {
-    unsigned chip_version = efuse_hal_chip_revision();
-    if (ESP_CHIP_REV_ABOVE(chip_version, 1)) {
-        dev->cache_fctrl.cache_usr_addr_4byte = (bitlen == 32) ? 1 : 0;
-    }
+    dev->cache_fctrl.cache_usr_addr_4byte = (bitlen == 32) ? 1 : 0;
     dev->user1.usr_addr_bitlen = (bitlen - 1);
     dev->user.usr_addr = bitlen ? 1 : 0;
 }
@@ -595,8 +626,20 @@ static inline void spimem_flash_ll_set_addr_bitlen(spi_mem_dev_t *dev, uint32_t 
  */
 static inline void spimem_flash_ll_set_extra_address(spi_mem_dev_t *dev, uint32_t extra_addr)
 {
-    dev->cache_fctrl.cache_usr_addr_4byte = 0;
+    // Fixed wb mode to 0x00, the bit length fixed to 8
     HAL_FORCE_MODIFY_U32_REG_FIELD(dev->rd_status, wb_mode, extra_addr);
+    dev->rd_status.wb_mode_bitlen = 7;  // 8 - 1
+}
+
+/**
+ * Enable extra address for bits M0-M7 in DIO/QIO mode.
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @param wb_mode_enable true for enabling wb_mode
+ */
+static inline void spimem_flash_ll_wb_mode_enable(spi_mem_dev_t *dev, bool wb_mode_enable)
+{
+    dev->rd_status.wb_mode_en = wb_mode_enable;
 }
 
 /**
@@ -742,21 +785,6 @@ static inline uint32_t spimem_flash_ll_get_ctrl_val(spi_mem_dev_t *dev)
 }
 
 /**
- * Set D/Q output level during dummy phase
- *
- * @param dev Beginning address of the peripheral registers.
- * @param out_en whether to enable IO output for dummy phase
- * @param out_level dummy output level
- */
-static inline void spimem_flash_ll_set_dummy_out(spi_mem_dev_t *dev, uint32_t out_en, uint32_t out_lev)
-{
-    dev->ctrl.fdummy_rin = out_en;
-    dev->ctrl.q_pol = out_lev;
-    dev->ctrl.d_pol = out_lev;
-    dev->ctrl.wp_reg = out_lev;
-}
-
-/**
  * @brief Disable FLASH MSPI clock
  *
  * @param mspi_id  mspi_id
@@ -777,11 +805,11 @@ __attribute__((always_inline))
 static inline void spimem_flash_ll_sync_reset(void)
 {
     SPIMEM1.ctrl2.sync_reset = 0;
-    // SPIMEM0ctrl2.sync_reset = 0;
+    SPIMEM0.mem_ctrl2.mem_sync_reset = 0;
     SPIMEM1.ctrl2.sync_reset = 1;
-    // SPIMEM0ctrl2.sync_reset = 1;
+    SPIMEM0.mem_ctrl2.mem_sync_reset = 1;
     SPIMEM1.ctrl2.sync_reset = 0;
-    // SPIMEM0ctrl2.sync_reset = 0;
+    SPIMEM0.mem_ctrl2.mem_sync_reset = 0;
 }
 
 /**

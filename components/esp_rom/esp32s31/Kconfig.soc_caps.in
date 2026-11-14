@@ -79,6 +79,10 @@ config ESP_ROM_HAS_NEWLIB_NANO_FORMAT
     bool
     default y
 
+config ESP_ROM_HAS_LIBGCC
+    bool
+    default y
+
 config ESP_ROM_HAS_VERSION
     bool
     default y
@@ -96,5 +100,13 @@ config ESP_ROM_BOOTLOADER_OFFSET_FLASH
     default 0x2000
 
 config ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_MAP
+    bool
+    default y
+
+config ESP_ROM_SUPPORT_SECURE_BOOT_FAST_WAKEUP
+    bool
+    default y
+
+config ESP_ROM_SUPPORT_DEEP_SLEEP_WAKEUP_STUB
     bool
     default y

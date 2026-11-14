@@ -26,9 +26,13 @@
 #endif
 #include "esp_private/cache_err_int.h"
 #include "hal/uart_ll.h"
+#include "hal/sec_ll.h"
+#include "hal/gdma_ll.h"
+#include "hal/axi_dma_ll.h"
+#include "hal/dma2d_ll.h"
+#include "hal/riscv_trace_hal.h"
 #include "esp_memory_utils.h"
 
-#define ALIGN_DOWN(val, align)  ((val) & ~((align) - 1))
 extern int _bss_end;
 
 #include "esp32s31/rom/cache.h"
@@ -37,17 +41,65 @@ extern int _bss_end;
 #include "soc/hp_sys_clkrst_reg.h"
 #include "soc/lp_clkrst_reg.h"
 #include "soc/hp_system_reg.h"
+#include "soc/cnnt_sys_struct.h"
 
 // TODO: [ESP32S31] IDF-14841
 
 void esp_system_reset_modules_on_exit(void)
 {
+    // A software reset leaves the trace encoders running, and they would write into RAM after restart
+    riscv_trace_hal_stop_all_encoders();
+
     // Flush any data left in UART FIFOs
     for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
         if (uart_ll_is_enabled(i)) {
             esp_rom_output_tx_wait_idle(i);
         }
     }
+
+    // Stop the USB OTG 2.0 core: its dedicated DWC DMA can also move PSRAM data. Its AHB/APB
+    // reset enable defaults to 1 and is cleared at init, so assert it and keep it asserted.
+    CNNT_SYS_REG.sys_usb_otg20_ctrl.sys_usb_otg20_ahb_rst_en = 1;
+    CNNT_SYS_REG.sys_usb_otg20_ctrl.sys_usb_otg20_apb_rst_en = 1;
+
+    // Stop the SDMMC and EMAC: each has a dedicated DMA that can move PSRAM data.
+    CNNT_SYS_REG.sys_hp_sdmmc_ctrl.sys_sdmmc_rst_en = 1;
+    CNNT_SYS_REG.sys_hp_sdmmc_ctrl.sys_sdmmc_rst_en = 0;
+    CNNT_SYS_REG.sys_hp_emac_ctrl.sys_emac_rst_en = 1;
+    CNNT_SYS_REG.sys_hp_emac_ctrl.sys_emac_rst_en = 0;
+
+    // Note: AXI bus doesn't allow an undergoing transaction to be interrupted in the middle
+    // If you want to reset a AXI master, you should make sure that the master is in IDLE first
+    if (gdma_ll_is_bus_clock_enabled(1)) {
+        for (int i = 0; i < GDMA_LL_GET(AXI_PAIRS_PER_GROUP); i++) {
+            axi_dma_ll_tx_abort(AXI_DMA_LL_GET_HW(0), i, true);
+            axi_dma_ll_rx_abort(AXI_DMA_LL_GET_HW(0), i, true);
+            while (!axi_dma_ll_tx_is_reset_avail(AXI_DMA_LL_GET_HW(0), i));
+            while (!axi_dma_ll_rx_is_reset_avail(AXI_DMA_LL_GET_HW(0), i));
+        }
+    }
+    if (dma2d_ll_is_bus_clock_enabled(0)) {
+        for (int i = 0; i < DMA2D_LL_GET(RX_CHANS_PER_INST); i++) {
+            dma2d_ll_rx_abort(DMA2D_LL_GET_HW(0), i, true);
+            while (!dma2d_ll_rx_is_reset_avail(DMA2D_LL_GET_HW(0), i));
+        }
+        for (int i = 0; i < DMA2D_LL_GET(TX_CHANS_PER_INST); i++) {
+            dma2d_ll_tx_abort(DMA2D_LL_GET_HW(0), i, true);
+            while (!dma2d_ll_tx_is_reset_avail(DMA2D_LL_GET_HW(0), i));
+        }
+    }
+
+    // DMA needs to be reset to avoid memory corruption after restart. Now only AHB supports this.
+    // For other AXI DMAs, we have already stop them above.
+    gdma_ll_reset_register(0);
+    gdma_ll_reset_register(2);
+
+    CLEAR_PERI_REG_MASK(HP_SYSTEM_ECC_MEM_LP_CTRL_REG, HP_SYSTEM_ECC_MEM_LP_EN);
+    SET_PERI_REG_MASK(HP_SYSTEM_ECC_MEM_LP_CTRL_REG, HP_SYSTEM_ECC_MEM_LP_FORCE_CTRL);
+
+    // Reset crypto clk mux to XTAL (always-on); otherwise if the parent is gated off,
+    // next-boot ROM encryption ops can hang.
+    sec_ll_crypto_clk_src_sel(SOC_MOD_CLK_XTAL);
 }
 
 static void IRAM_ATTR __attribute__((noinline, noreturn)) esp_restart_noos_inner(void)
@@ -144,7 +196,7 @@ void esp_restart_noos(void)
         // If stack is in external RAM (CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM), switch SP to
         // internal RAM before disabling the cache to avoid a "Cache disabled but cached memory
         // region accessed" crash.
-        uint32_t new_sp = ALIGN_DOWN((uint32_t)&_bss_end, 16);
+        uint32_t new_sp = ESP_ALIGN_DOWN((uint32_t)&_bss_end, 16);
         rv_utils_set_sp((void *)new_sp);
     }
 #endif

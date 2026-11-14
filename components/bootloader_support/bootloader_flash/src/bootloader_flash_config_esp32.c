@@ -25,7 +25,8 @@
 #include "flash_qio_mode.h"
 #include "bootloader_common.h"
 #include "bootloader_flash_config.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
+#include "spi_flash_defs.h"
 #include "bootloader_init.h"
 
 #define FLASH_CLK_IO    MSPI_IOMUX_PIN_NUM_CLK
@@ -177,7 +178,7 @@ int bootloader_flash_get_wp_pin(void)
 #if CONFIG_BOOTLOADER_SPI_CUSTOM_WP_PIN
     return CONFIG_BOOTLOADER_SPI_WP_PIN; // can be set for bootloader when QIO or QOUT config in use
 #elif CONFIG_SPIRAM_CUSTOM_SPIWP_SD3_PIN
-    return CONFIG_SOC_ESP32_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
+    return CONFIG_SPIRAM_SPIWP_SD3_PIN; // can be set for app when DIO or DOUT config used for PSRAM only
 #else
     // no custom value, find it based on the package eFuse value
     switch(bootloader_common_get_chip_ver_pkg()) {
@@ -281,7 +282,7 @@ static void update_flash_config(const esp_image_header_t *bootloader_hdr)
     }
     // Set flash chip size
     esp_rom_spiflash_config_param(g_rom_flashchip.device_id, size * 0x100000, 0x10000, 0x1000, 0x100, 0xffff);
-    // TODO: set mode
+    // TODO: IDF-15747 set mode
     // TODO: set frequency
 }
 

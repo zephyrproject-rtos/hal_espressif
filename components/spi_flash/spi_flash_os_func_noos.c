@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,12 +9,14 @@
 #include "esp_attr.h"
 #include "esp_rom_sys.h"
 #include "esp_cpu.h"
+#include "rom/cache.h"
 #include "soc/soc_caps.h"
 #include "hal/cache_hal.h"
 #include "hal/cache_ll.h"
 
 #include "esp_flash.h"
 #include "esp_flash_chips/esp_flash_types.h"
+#include "esp_private/esp_flash_internal.h"
 
 static IRAM_ATTR esp_err_t start(void *arg, uint32_t flags)
 {
@@ -23,14 +25,24 @@ static IRAM_ATTR esp_err_t start(void *arg, uint32_t flags)
     esp_cpu_branch_prediction_disable();
 #endif
 
+#if CONFIG_IDF_TARGET_ESP32
+    Cache_Read_Disable(0);
+    Cache_Read_Disable(1);
+#else
     cache_hal_suspend(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
+#endif
 
     return ESP_OK;
 }
 
 static IRAM_ATTR esp_err_t end(void *arg)
 {
+#if CONFIG_IDF_TARGET_ESP32
+    Cache_Read_Enable(0);
+    Cache_Read_Enable(1);
+#else
     cache_hal_resume(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
+#endif
 
 #if SOC_BRANCH_PREDICTOR_SUPPORTED
     esp_cpu_branch_prediction_enable();

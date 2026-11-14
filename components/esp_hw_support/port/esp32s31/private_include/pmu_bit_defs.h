@@ -24,11 +24,11 @@ extern "C" {
 #define PMU_TOUCH_WAKEUP_EN             BIT(11)
 #define PMU_EXT1_WAKEUP_EN              BIT(12)
 #define PMU_RTC_TIMER_WAKEUP_EN         BIT(13)
-#define PMU_LP_TIMER_WAKEUP_EN          PMU_RTC_TIMER_WAKEUP_EN
 #define PMU_BOD_WAKEUP_EN               BIT(14)
 #define PMU_LP_CORE_TRAP_WAKEUP_EN      BIT(16)
 #define PMU_ETM_WAKEUP_EN               BIT(17)
 #define PMU_LP_TIMER1_WAKEUP_EN         BIT(18)
+#define PMU_EMAC_PMT_WAKEUP_EN          BIT(20)
 #define PMU_WIFI_SOC_WAKEUP_EN          BIT(22)
 #define PMU_WIFI_BEACON_WAKEUP_EN       BIT(23)
 #define PMU_MODEM_WAKEUP_PROTECT        BIT(24)

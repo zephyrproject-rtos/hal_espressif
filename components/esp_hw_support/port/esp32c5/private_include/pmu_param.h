@@ -40,12 +40,8 @@ extern "C" {
 #define PMU_HP_XPD_LIGHTSLEEP       1
 
 #define PMU_DBG_ATTEN_LIGHTSLEEP_DEFAULT    1
-#define PMU_DBG_ATTEN_LIGHTSLEEP_NODROP     0
 #define PMU_HP_DBIAS_LIGHTSLEEP_0V6_DEFAULT 0
 #define PMU_LP_DBIAS_LIGHTSLEEP_0V7_DEFAULT 15
-
-// FOR ACTIVE
-#define PMU_DBG_ATTEN_ACTIVE_DEFAULT        0
 
 // FOR DEEPSLEEP
 #define PMU_DBG_HP_DEEPSLEEP    0
@@ -336,7 +332,7 @@ typedef struct {
         .dig_pad_slp_sel = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 0 : 1,  \
         .dig_pause_wdt = ((sleep_flags) & RTC_SLEEP_USE_RTC_WDT) ? 0 : 1, \
     },                                                                  \
-    .icg_func = clk_flags                                               \
+    .icg_func = (clk_flags)[0]                                   \
 }
 
 #define PMU_SLEEP_DIGITAL_DSLP_CONFIG_DEFAULT(sleep_flags, clk_flags) { \

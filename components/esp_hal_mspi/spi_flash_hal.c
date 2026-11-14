@@ -45,11 +45,10 @@ static uint32_t get_flash_clock_divider(const spi_flash_hal_config_t *cfg)
         /* Do not use float/double as the FPU may not have been initialized yet on startup.
          * The values are in MHz, so for sure we won't have an overflow by adding them. */
         best_div = (src_freq_mhz + cfg_freq_mhz - 1) / cfg_freq_mhz;
-        /* Check if there is a remainder (frequency will be rounded down) */
-        const int quot = src_freq_mhz / cfg_freq_mhz;
-        const int rem = src_freq_mhz % cfg_freq_mhz;
-        if (rem != 0) {
-            HAL_LOGW(TAG, "Flash clock frequency round down to %d", quot);
+        /* Perform a division that returns both quotient and remainder */
+        const div_t res = div(src_freq_mhz, cfg_freq_mhz);
+        if (res.rem != 0) {
+            HAL_LOGW(TAG, "Flash clock frequency round down to %d", res.quot);
         }
     }
 

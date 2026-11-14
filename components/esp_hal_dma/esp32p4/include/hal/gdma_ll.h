@@ -12,10 +12,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "soc/hp_sys_clkrst_struct.h"
 #include "soc/soc_etm_source.h"
 #include "hal/config.h"
+#include "hal/ahb_dma_ll.h"
+#include "hal/axi_dma_ll.h"
 
 #define GDMA_LL_GET(_attr)          GDMA_LL_ ## _attr
 
@@ -49,12 +51,6 @@
 #define GDMA_LL_AXI_NUM_GROUPS        1 // Number of AXI GDMA groups
 #define GDMA_LL_AXI_PAIRS_PER_GROUP   3 // Number of GDMA pairs in each AXI group
 
-/* Compat aliases for Zephyr GDMA driver (same as C5 gdma_ll.h) */
-#define GDMA_LL_M2M_FREE_PERIPH_ID_MASK          AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK
-#define GDMA_LL_RX_EVENT_MASK                     AHB_DMA_LL_RX_EVENT_MASK
-#define GDMA_LL_TX_EVENT_MASK                     AHB_DMA_LL_TX_EVENT_MASK
-#define gdma_ll_force_enable_reg_clock            ahb_dma_ll_force_enable_reg_clock
-
 #define GDMA_LL_PARALLEL_CRC_DATA_WIDTH 8  // Parallel CRC data width is fixed to 8bits
 #define GDMA_LL_AHB_MAX_CRC_BIT_WIDTH   32 // Max CRC bit width supported by AHB GDMA
 #define GDMA_LL_AXI_MAX_CRC_BIT_WIDTH   16 // Max CRC bit width supported by AXI GDMA
@@ -66,6 +62,7 @@
 #define GDMA_LL_AXI_DESC_ALIGNMENT      8
 #define GDMA_LL_MAX_BURST_SIZE_PSRAM    128 // PSRAM controller doesn't support burst access with size > 128 bytes
 
+#define GDMA_LL_CHANNEL_MAX_WEIGHT   15  // supported weight levels: [0,15]
 #if HAL_CONFIG(CHIP_SUPPORT_MIN_REV) >= 300
 #define GDMA_LL_AHB_BURST_SIZE_ADJUSTABLE 1 // AHB GDMA supports adjustable burst size
 #endif

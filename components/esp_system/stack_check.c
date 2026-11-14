@@ -16,7 +16,7 @@ const static char *TAG = "stack_chk";
 
 void *__stack_chk_guard = NULL;
 
-static void
+static void __attribute__((constructor))
 __esp_stack_guard_setup(void)
 {
     ESP_LOGD(TAG, "Initialize random stack guard");

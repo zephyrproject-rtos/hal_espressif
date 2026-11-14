@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,8 +16,10 @@
 #include "hal/adc_hal.h"
 #include "hal/adc_hal_common.h"
 #include "esp_private/regi2c_ctrl.h"
+#include "esp_private/sar_periph_ctrl.h"
+#include "esp_clk_tree.h"
+#include "esp_private/esp_clk_tree_common.h"
 #include "hal/adc_periph.h"
-#include "hal/adc_ll.h"
 
 static const char *TAG = "adc_common";
 
@@ -45,7 +47,7 @@ esp_err_t adc_io_to_channel(int io_num, adc_unit_t * const unit_id, adc_channel_
 esp_err_t adc_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int * const io_num)
 {
     ESP_RETURN_ON_FALSE(unit_id < SOC_ADC_PERIPH_NUM, ESP_ERR_INVALID_ARG, TAG, "invalid unit");
-    ESP_RETURN_ON_FALSE(channel < SOC_ADC_CHANNEL_NUM(unit_id), ESP_ERR_INVALID_ARG, TAG, "invalid channel");
+    ESP_RETURN_ON_FALSE(channel < ADC_LL_CHANNEL_NUM(unit_id), ESP_ERR_INVALID_ARG, TAG, "invalid channel");
     ESP_RETURN_ON_FALSE(io_num, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
 
     *io_num = adc_channel_io_map[unit_id][channel];
@@ -56,7 +58,7 @@ esp_err_t adc_channel_to_io(adc_unit_t unit_id, adc_channel_t channel, int * con
 /*---------------------------------------------------------------
             ADC Hardware Calibration
 ---------------------------------------------------------------*/
-static void adc_hw_calibration(void)
+static __attribute__((constructor)) void adc_hw_calibration(void)
 {
     ANALOG_CLOCK_ENABLE();
     //Calculate all ICode
@@ -74,7 +76,7 @@ static void adc_hw_calibration(void)
             adc_calc_hw_calibration_code(i, j);
 #if SOC_ADC_CALIB_CHAN_COMPENS_SUPPORTED
             /* Load the channel compensation from efuse */
-            for (int k = 0; k < SOC_ADC_CHANNEL_NUM(i); k++) {
+            for (int k = 0; k < ADC_LL_CHANNEL_NUM(i); k++) {
                 adc_load_hw_calibration_chan_compens(i, k, j);
             }
 #endif
@@ -86,3 +88,28 @@ static void adc_hw_calibration(void)
     ANALOG_CLOCK_DISABLE();
 }
 #endif //#if SOC_ADC_CALIBRATION_V1_SUPPORTED
+
+#if ADC_LL_SW_WEIGHT_CALIBRATION_SUPPORTED
+void adc_cal_sw_weight(adc_unit_t adc_n, adc_oneshot_clk_src_t clk_src)
+{
+    if (ADC_LL_NEED_APB_PERIPH_CLAIM(adc_n)) {
+        adc_apb_periph_claim();
+    }
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_acquire_src((soc_module_clk_t)clk_src, NULL));
+#endif
+    ANALOG_CLOCK_ENABLE();
+    sar_periph_ctrl_adc_oneshot_power_acquire();
+
+    adc_hal_sw_weight_calibrate(adc_n, clk_src);
+
+    sar_periph_ctrl_adc_oneshot_power_release();
+    ANALOG_CLOCK_DISABLE();
+#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    ESP_ERROR_CHECK(esp_clk_tree_release_src((soc_module_clk_t)clk_src));
+#endif
+    if (ADC_LL_NEED_APB_PERIPH_CLAIM(adc_n)) {
+        adc_apb_periph_free();
+    }
+}
+#endif // ADC_LL_SW_WEIGHT_CALIBRATION_SUPPORTED

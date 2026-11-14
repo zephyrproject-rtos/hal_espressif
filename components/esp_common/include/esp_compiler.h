@@ -9,14 +9,6 @@
 #include "sdkconfig.h"
 
 /*
- * Include Zephyr toolchain header first to get its likely/unlikely definitions.
- * This prevents redefinition warnings when Zephyr headers are included later.
- */
-#if defined(__ZEPHYR__) && !defined(CONFIG_MCUBOOT_ESPRESSIF)
-#include <zephyr/toolchain.h>
-#endif
-
-/*
  * The likely and unlikely macro pairs:
  * These macros are useful to place when application
  * knows the majority occurrence of a decision paths,
@@ -24,12 +16,18 @@
  * to reorder instructions producing more optimized
  * code.
  */
-#ifndef likely
 #if (CONFIG_COMPILER_OPTIMIZATION_PERF)
+#ifndef likely
 #define likely(x)      __builtin_expect(!!(x), 1)
+#endif
+#ifndef unlikely
 #define unlikely(x)    __builtin_expect(!!(x), 0)
+#endif
 #else
+#ifndef likely
 #define likely(x)      (x)
+#endif
+#ifndef unlikely
 #define unlikely(x)    (x)
 #endif
 #endif

@@ -13,14 +13,33 @@
  */
 #pragma once
 
-#include "esp_critical_section.h"
+#if !NON_OS_BUILD
+#include "freertos/FreeRTOS.h"
+#endif
+#include "spinlock.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef esp_critical_section_t esp_os_spinlock_t;
-#define ESP_OS_SPINLOCK_INIT ESP_CRITICAL_SECTION_INIT
+/**
+ * In theory, OS_SPINLOCK should only be defined in a multi-core environment, because critical-section-related
+ * functions there take a lock as a parameter. In practice, since the Xtensa FreeRTOS port layer is the same
+ * for the ESP32, S3, and S2, the latter also requires a parameter in its critical-section-related functions.
+ */
+#if (!CONFIG_FREERTOS_UNICORE || CONFIG_IDF_TARGET_ARCH_XTENSA) && !NON_OS_BUILD
+/**
+ * This macro also helps users switching between spinlock declarations/definitions for multi-/single core environments
+ * if the macros below aren't sufficient.
+ */
+#define OS_SPINLOCK 1
+#else
+#define OS_SPINLOCK 0
+#endif
+
+#if OS_SPINLOCK == 1
+typedef spinlock_t esp_os_spinlock_t;
+#endif
 
 /**
  * Define and initialize a static (internal linking) lock for entering critical sections.
@@ -47,7 +66,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers esp_os_spinlock_t lock_name = ESP_OS_SPINLOCK_INIT
+#if OS_SPINLOCK == 1
+#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...) static optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
+#else
+#define DEFINE_CRIT_SECTION_LOCK_STATIC(lock_name, optional_qualifiers...)
+#endif
 
 /**
  * Define and initialize a non-static (external linking) lock for entering critical sections.
@@ -75,7 +98,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers esp_os_spinlock_t lock_name = ESP_OS_SPINLOCK_INIT
+#if OS_SPINLOCK == 1
+#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...) optional_qualifiers esp_os_spinlock_t lock_name = SPINLOCK_INITIALIZER
+#else
+#define DEFINE_CRIT_SECTION_LOCK(lock_name, optional_qualifiers...)
+#endif
 
 /**
  * @brief This macro initializes a critical section lock at runtime.
@@ -106,7 +133,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * };
  * @endcode
  */
-#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name) do { *(lock_name) = (esp_os_spinlock_t)ESP_OS_SPINLOCK_INIT; } while (0)
+#if OS_SPINLOCK == 1
+#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name) spinlock_initialize(lock_name)
+#else
+#define INIT_CRIT_SECTION_LOCK_RUNTIME(lock_name)
+#endif
 
 /**
  * @brief This macro declares a critical section lock as a member of a struct.
@@ -132,7 +163,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * };
  * @endcode
  */
+#if OS_SPINLOCK == 1
 #define DECLARE_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) esp_os_spinlock_t lock_name;
+#else
+#define DECLARE_CRIT_SECTION_LOCK_IN_STRUCT(lock_name)
+#endif
 
 /**
  * @brief This macro initializes a critical section lock as a member of a struct when using an list initialization.
@@ -169,7 +204,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * };
  * @endcode
  */
-#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) .lock_name = ESP_OS_SPINLOCK_INIT,
+#if OS_SPINLOCK == 1
+#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name) .lock_name = portMUX_INITIALIZER_UNLOCKED,
+#else
+#define INIT_CRIT_SECTION_LOCK_IN_STRUCT(lock_name)
+#endif
 
 /**
  * @brief Enter a critical section, i.e., a section that will not be interrupted by any other task or interrupt.
@@ -194,7 +233,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical(lock)         esp_critical_section_enter(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_enter_critical(lock)         portENTER_CRITICAL(lock)
+#else
+#define esp_os_enter_critical(lock)         vPortEnterCritical()
+#endif
 
 /**
  * @brief Exit a critical section.
@@ -219,7 +262,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical(lock)          esp_critical_section_exit(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_exit_critical(lock)          portEXIT_CRITICAL(lock)
+#else
+#define esp_os_exit_critical(lock)          vPortExitCritical()
+#endif
 
 /**
  * @brief Enter a critical section while from ISR.
@@ -244,7 +291,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical_isr(lock)     esp_critical_section_enter(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_enter_critical_isr(lock)     portENTER_CRITICAL_ISR(lock)
+#else
+#define esp_os_enter_critical_isr(lock)     vPortEnterCritical()
+#endif
 
 /**
  * @brief Exit a critical section after entering from ISR.
@@ -269,7 +320,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical_isr(lock)      esp_critical_section_exit(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_exit_critical_isr(lock)      portEXIT_CRITICAL_ISR(lock)
+#else
+#define esp_os_exit_critical_isr(lock)      vPortExitCritical()
+#endif
 
 /**
  * @brief Enter a critical section from normal task or ISR. This macro will check if the current CPU is processing
@@ -295,7 +350,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_enter_critical_safe(lock)    esp_critical_section_enter(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_enter_critical_safe(lock)    portENTER_CRITICAL_SAFE(lock)
+#else
+#define esp_os_enter_critical_safe(lock)    vPortEnterCritical()
+#endif
 
 /**
  * @brief Exit a critical section after entering via esp_os_enter_critical_safe.
@@ -320,7 +379,11 @@ typedef esp_critical_section_t esp_os_spinlock_t;
  * esp_os_exit_critical(&my_lock);
  * @endcode
  */
-#define esp_os_exit_critical_safe(lock)     esp_critical_section_exit(lock)
+#if OS_SPINLOCK == 1
+#define esp_os_exit_critical_safe(lock)     portEXIT_CRITICAL_SAFE(lock)
+#else
+#define esp_os_exit_critical_safe(lock)     vPortExitCritical()
+#endif
 
 #ifdef __cplusplus
 }

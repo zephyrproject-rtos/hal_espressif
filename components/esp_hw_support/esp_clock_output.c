@@ -241,7 +241,7 @@ esp_err_t esp_clock_output_set_divider(esp_clock_output_mapping_handle_t clkout_
 
 #if CONFIG_IDF_TARGET_ESP32
 // Due to a hardware bug, PIN_CTRL cannot select 0xf output, whereas 0xf is the default value.
-
+__attribute__((constructor))
 static void esp_clock_output_pin_ctrl_init(void)
 {
     clk_ll_bind_output_channel(0, CLKOUT_CHANNEL_1);

@@ -18,6 +18,7 @@
 #include "esp_hw_log.h"
 #include "esp_rom_sys.h"
 #include "hal/clk_tree_ll.h"
+#include "hal/gpio_ll.h"
 #include "esp_attr.h"
 
 ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
@@ -65,11 +66,25 @@ void rtc_clk_32k_disable_external(void)
 
 void rtc_clk_32k_bootstrap(uint32_t cycle)
 {
-    /* No special bootstrapping needed for ESP32-C3, 'cycle' argument is to keep the signature
-     * same as for the ESP32. Just enable the XTAL here.
-     */
-    (void)cycle;
-    rtc_clk_32k_enable(true);
+    clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_BOOTSTRAP);
+
+    if (cycle) {
+        /*
+         * 32K-N is the drive pin for the crystal oscillator circuit. Empirical testing shows that better results are achieved when the auxiliary signal is output from the 32K-P pin.
+         * By controlling the pull-up and pull-down resistors on the corresponding IO pins, a low-intensity 32.768kHz drive signal is output to assist the crystal oscillator in starting up.
+         * With the pull-down resistor always enabled, the drive amplitude is approximately 1/2*VCC, which is closer to the actual signal.
+        */
+        const uint32_t delay_us = (1000000 / SOC_CLK_XTAL32K_FREQ_APPROX / 2);
+        gpio_ll_pulldown_en(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+        while (cycle) {
+            esp_rom_delay_us(delay_us);
+            gpio_ll_pullup_en(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+            esp_rom_delay_us(delay_us);
+            gpio_ll_pullup_dis(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+            cycle--;
+        }
+        gpio_ll_pulldown_dis(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+    }
 }
 
 bool rtc_clk_32k_enabled(void)
@@ -107,7 +122,7 @@ bool rtc_clk_8md256_enabled(void)
 
 void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
 {
-#if !defined(BOOTLOADER_BUILD)
+#ifndef BOOTLOADER_BUILD
     // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
     if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
         esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
@@ -187,7 +202,7 @@ static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
     clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
     clk_ll_cpu_set_divider(1);
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
-    rtc_clk_apb_freq_update(80 * MHZ(1));
+    rtc_clk_apb_freq_update(80 * MHZ);
     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
 }
 
@@ -343,7 +358,7 @@ static FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
     clk_ll_cpu_set_divider(div);
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
-    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+    rtc_clk_apb_freq_update(cpu_freq * MHZ);
 }
 
 static void rtc_clk_cpu_freq_to_rc_fast(void)

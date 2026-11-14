@@ -5,7 +5,6 @@
  */
 
 #include <stdint.h>
-#include "esp_attr.h"
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/regi2c_dig_reg.h"

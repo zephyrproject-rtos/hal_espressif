@@ -13,6 +13,7 @@
 #include <stdbool.h>
 
 #include "mem_api.h"
+#include "esp_nimble_mem.h"
 #if CONFIG_BT_NIMBLE_ENABLED
 #include "os/os_trace_api.h"
 #include "syscfg/syscfg.h"
@@ -734,6 +735,11 @@ os_mempool_module_init(void)
 static os_error_t
 os_mempool_mem_free(struct os_mempool *mp)
 {
+    /*  Extended mempool has its own free logic */
+    if (mp->mp_flags & OS_MEMPOOL_F_EXT) {
+        return OS_OK;
+    }
+
     /* For runtime allocation mode, check whether all blocks have been freed */
     if (!(mp->mp_flags & OS_MEMPOOL_F_RUNTIME)) {
         return OS_EINVAL;
@@ -766,8 +772,15 @@ os_mempool_mem_free(struct os_mempool *mp)
 #endif
 
 void
-os_mempool_deinit(bool is_controller)
+os_mempool_deinit(struct os_mempool *mp)
 {
+    os_mempool_unregister(mp);
+}
+
+os_error_t
+os_mempool_deinit_all(bool is_controller)
+{
+    os_error_t err = OS_INVALID_PARM;
     struct os_mempool *mp = NULL;
     struct os_mempool *next = NULL;
 
@@ -779,8 +792,17 @@ os_mempool_deinit(bool is_controller)
             next = STAILQ_NEXT(mp, mp_list);
             os_mempool_unregister(mp);
             mp = next;
+            err = OS_OK;
         } else {
             mp = STAILQ_NEXT(mp, mp_list);
         }
     }
+
+    return err;
+}
+
+bool
+os_mempool_has_live_pool(void)
+{
+    return !STAILQ_EMPTY(&g_os_mempool_list);
 }

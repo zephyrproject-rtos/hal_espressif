@@ -8,7 +8,6 @@ if(CONFIG_SOC_PMU_SUPPORTED)
     list(APPEND srcs
                 "pmu_param.c"
                 "pmu_init.c"
-                "pmu_sleep.c"
              )
 endif()
 

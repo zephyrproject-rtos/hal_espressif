@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -50,6 +50,10 @@
 // the data field of the NEXT received frame could be invalid.
 #define TWAI_LL_HAS_RX_FRAME_ISSUE      1
 
+// On the ESP32, when TX a data frame, if a bus error occurs in the data or CRC field,
+// the data field of the NEXT RX frame could be invalid. (yes, TX breaks RX, they using same counter in hardware)
+#define TWAI_LL_HAS_TX_FRAME_ISSUE      1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +65,7 @@ static uint32_t twai_ll_get_brp_max(void);
 #define TWAI_LL_BRP_DIV_THRESH  128
 #define TWAI_LL_TSEG1_MIN       1
 #define TWAI_LL_TSEG2_MIN       1
+#define TWAI_LL_PROP_MAX        0   //hardware don't support prop_seg
 #define TWAI_LL_TSEG1_MAX       16  //the max register value
 #define TWAI_LL_TSEG2_MAX       8
 #define TWAI_LL_SJW_MAX         4
@@ -699,6 +704,17 @@ static inline void twai_ll_set_acc_filter(twai_dev_t *hw, uint32_t code, uint32_
 }
 
 /* ------------------------- TX/RX Buffer Registers ------------------------- */
+
+/**
+ * @brief Get the number of TX buffers that are preset in the hardware.
+ *
+ * @param hw Pointer to the TWAI-FD device hardware.
+ * @return The number of TX buffers available.
+ */
+static inline uint32_t twai_ll_get_tx_buffer_total(twai_dev_t *hw)
+{
+    return 1;   // only one TX buffer
+}
 
 /**
  * @brief   Copy a formatted TWAI frame into TX buffer for transmission

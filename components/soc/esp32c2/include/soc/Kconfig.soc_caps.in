@@ -235,6 +235,10 @@ config SOC_CPU_HAS_CSR_PC
     bool
     default y
 
+config SOC_CPU_CCOUNT_STOPS_IN_WFI
+    bool
+    default y
+
 config SOC_CPU_BREAKPOINTS_NUM
     int
     default 2
@@ -570,10 +574,6 @@ config SOC_COEX_HW_PTI
 config SOC_EXTERNAL_COEX_ADVANCE
     bool
     default y
-
-config SOC_EXTERNAL_COEX_LEADER_TX_LINE
-    bool
-    default n
 
 config SOC_PHY_DIG_REGS_MEM_SIZE
     int

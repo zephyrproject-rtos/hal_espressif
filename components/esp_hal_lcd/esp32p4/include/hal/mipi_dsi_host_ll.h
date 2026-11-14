@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -50,15 +50,6 @@ typedef enum {
     MIPI_DSI_LL_COLOR_CODE_18BIT_CONFIG2 =  4, // 18-bit configuration 2
     MIPI_DSI_LL_COLOR_CODE_24BIT         =  5, // 24-bit
 } mipi_dsi_ll_color_coding_t;
-
-/**
- * @brief MIPI DSI Video mode burst type
- */
-typedef enum {
-    MIPI_DSI_LL_VIDEO_NON_BURST_WITH_SYNC_PULSES, // Non-burst mode with sync pulses
-    MIPI_DSI_LL_VIDEO_NON_BURST_WITH_SYNC_EVENTS, // Non-burst mode with sync events
-    MIPI_DSI_LL_VIDEO_BURST_WITH_SYNC_PULSES,     // Burst mode with sync pulses
-} mipi_dsi_ll_video_burst_type_t;
 
 /**
  * @brief Set the DSI Host controller power state
@@ -284,11 +275,25 @@ static inline void mipi_dsi_host_ll_dpi_enable_lp_command(dsi_host_dev_t *dev, b
  * @brief Set MIPI DSI video burst type
  *
  * @param dev Pointer to the DSI Host controller register base address
- * @param mode Video mode type
+ * @param type Video burst type
  */
-static inline void mipi_dsi_host_ll_dpi_set_video_burst_type(dsi_host_dev_t *dev, mipi_dsi_ll_video_burst_type_t type)
+static inline void mipi_dsi_host_ll_dpi_set_video_burst_type(dsi_host_dev_t *dev, mipi_dsi_video_burst_type_t type)
 {
-    dev->vid_mode_cfg.vid_mode_type = type;
+    // Public enum order is not the DSI Host VID_MODE_TYPE encoding.
+    switch (type) {
+    case MIPI_DSI_VIDEO_NON_BURST_WITH_SYNC_PULSES:
+        dev->vid_mode_cfg.vid_mode_type = 0;
+        break;
+    case MIPI_DSI_VIDEO_NON_BURST_WITH_SYNC_EVENTS:
+        dev->vid_mode_cfg.vid_mode_type = 1;
+        break;
+    case MIPI_DSI_VIDEO_BURST_WITH_SYNC_PULSES:
+        dev->vid_mode_cfg.vid_mode_type = 2;
+        break;
+    default:
+        HAL_ASSERT(false);
+        break;
+    }
 }
 
 /**
@@ -663,6 +668,17 @@ static inline uint32_t mipi_dsi_host_ll_gen_read_payload_fifo(dsi_host_dev_t *de
 static inline bool mipi_dsi_host_ll_gen_is_read_cmd_busy(dsi_host_dev_t *dev)
 {
     return dev->cmd_pkt_status.gen_rd_cmd_busy;
+}
+
+/**
+ * @brief Has the low-power reception timed out?
+ *
+ * @param dev Pointer to the DSI Host controller register base address
+ * @return True if low-power reception timed out, False otherwise
+ */
+static inline bool mipi_dsi_host_ll_is_lp_rx_timeout(dsi_host_dev_t *dev)
+{
+    return dev->int_st1.to_lp_rx;
 }
 
 /**

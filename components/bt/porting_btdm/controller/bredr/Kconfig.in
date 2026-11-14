@@ -39,10 +39,14 @@ endif
 
 config BT_CTRL_BR_EDR_MAX_SYNC_CONN
     int "BR/EDR Max Synchronous(SCO/eSCO) Connections"
+    default 1 if BT_BLUEDROID_ENABLED && BT_HFP_ENABLE
     default 0
+    range 1 3 if BT_BLUEDROID_ENABLED && BT_HFP_ENABLE
     range 0 3
     help
         BR/EDR Synchronize maximum connections of bluetooth controller.
+        Bluedroid HFP requires at least one synchronous connection, so the minimum is 1
+        when BT_HFP_ENABLE is set.
 
 if BT_CTRL_BR_EDR_MAX_SYNC_CONN != 0
 
@@ -79,27 +83,53 @@ if BT_CTRL_BR_EDR_MAX_SYNC_CONN != 0
     endmenu
 
     menu "Synchronous Tx/Rx buffer numbers"
-        config BT_CTRL_BR_EDR_SYNC_TX_BUF_NB
-            int "BR/EDR Sync(SCO/eSCO) TX buffer number"
+        config BT_CTRL_BR_EDR_STATIC_SYNC_TX_BUF_NB
+            int "BR/EDR Sync(SCO/eSCO) Static TX buffer number"
             default 4 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 1
             default 6 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 2
             default 8 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 3
-            range 2 4 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 1
-            range 4 8 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 2
-            range 6 12 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 3
+            range 0 12
             help
-                BR/EDR Synchronize TX buffer number of bluetooth controller.
+                BR/EDR Static Synchronize TX buffer number of bluetooth controller.
+                These buffers are allocated at controller initialization, and are shared
+                between all of the synchronous links.
 
-        config BT_CTRL_BR_EDR_SYNC_RX_BUF_NB
-            int "BR/EDR Sync(SCO/eSCO) RX buffer number"
+        config BT_CTRL_BR_EDR_DYNAMIC_SYNC_TX_BUF_NB
+            int "BR/EDR Sync(SCO/eSCO) Dynamic TX buffer number"
+            default 0
+            range 0 12
+            help
+                BR/EDR Dynamic Synchronize TX buffer number of bluetooth controller.
+                These buffers are allocated during the establishment of the first synchronous link,
+                and freed when all of dynamic buffers are recycled after the disconnection of the
+                last synchronous link. Shared between all of the synchronous links.
+
+        config BT_CTRL_BR_EDR_STATIC_SYNC_RX_BUF_NB
+            int "BR/EDR Sync(SCO/eSCO) Static RX buffer number"
             default 4 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 1
             default 8 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 2
             default 12 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 3
-            range 3 4 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 1
-            range 6 8 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 2
-            range 9 12 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 3
+            range 0 4 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 1
+            range 0 8 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 2
+            range 0 12 if BT_CTRL_BR_EDR_MAX_SYNC_CONN = 3
             help
-                BR/EDR Synchronize RX buffer number of bluetooth controller.
+                BR/EDR Static Synchronize RX buffer number of bluetooth controller.
+
+        config BT_CTRL_BR_EDR_SYNC_RX_BUF_NB_PER_LINK
+            int "BR/EDR Sync(SCO/eSCO) RX buffer number per link, in average(static + dynamic)"
+            default 0
+            range 0 6
+            help
+                This option is used to control whether it is necessary to expand Sync Rx buffer pool dynamically.
+                If BT_CTRL_BR_EDR_STATIC_SYNC_RX_BUF_NB is lower than (BT_CTRL_BR_EDR_SYNC_RX_BUF_NB_PER_LINK * N),
+                Sync rx buffer pool will be expanded/contracted when the number of active synchronous links changes.
+                For example, if BT_CTRL_BR_EDR_MAX_SYNC_CONN is 3, BT_CTRL_BR_EDR_STATIC_SYNC_RX_BUF_NB is 6, and
+                BT_CTRL_BR_EDR_STATIC_SYNC_RX_BUF_NB is 4:
+                - Upon controller initialization, 6 static buffers will be allocated
+                - Upon the creation of the first sync link is created, no additional rx buffers are required
+                - Upon the creation of the second sync link, need to allocate another 2 rx buffers: 4 * 2 - 6
+                - Upon the creation of the third sync link, need to allocate another 4 rx buffers: 4 * 3 - 6 - 2
+                This value can be configured to 0 if you don't want use dynamic sync rx buffers.
     endmenu
 
     choice BT_CTRL_BR_EDR_SCO_DATA_PATH
@@ -123,6 +153,20 @@ config BT_CTRL_BR_EDR_TEST_MODE_EN
     default n
     help
         Enable BR/EDR test mode
+
+config BT_CTRL_BR_EDR_RS_MAX_SLOT_RESTORE_EN
+    bool "Restore TX/RX max slots after role switch"
+    default n if BT_CLASSIC_BQB_ENABLED
+    default y
+    help
+        Enable the controller to restore TX max slots and RX max slots
+        to the values used before a role switch.
+
+        The Bluetooth Core Specification resets max slots on role switch
+        and expects them to be renegotiated. Restoring them in the
+        controller is not specified. Disable this option for Bluetooth
+        qualification. It defaults to disabled when Host qualification
+        support for Classic Bluetooth (BT_CLASSIC_BQB_ENABLED) is enabled.
 
 config BT_CTRL_BR_EDR_APB_EN
     bool "Enable BR/EDR Active Peripheral Broadcast"
@@ -185,6 +229,26 @@ config BT_CTRL_BR_EDR_DTM_EN
     help
         Enable BR/EDR controller direct test mode
 
+config BT_CTRL_BR_EDR_SAM_EN
+    bool "Enable BR/EDR controller Slot Availability Mask (READ DOCS FIRST) (EXPERIMENTAL)"
+    depends on IDF_EXPERIMENTAL_FEATURES
+    default n
+    help
+        Enable BR/EDR controller Slot Availability Mask(SAM).
+
+        Note: SAM functionality is partially implemented by software and only works on ACL air time scheduling.
+
+config BT_CTRL_BR_EDR_MWS_EN
+    bool "Enable BR/EDR controller Mobile Wireless Standards coexistence (READ DOCS FIRST) (EXPERIMENTAL)"
+    depends on BT_CTRL_BR_EDR_SAM_EN
+    default n
+    help
+        Enable BR/EDR controller Mobile Wireless Standards(MWS) coexistence.
+
+        Note: MWS coexistence functionality is only partially implemented. Supported HCI Commands:
+        - HCI_Set_External_Frame_Configuration
+        - HCI_Set_MWS_PATTERN_Configuration
+
 config BT_CTRL_BR_EDR_TX_CCA_ENABLED
     bool "Enable BR/EDR TX CCA feature"
     default n
@@ -203,43 +267,65 @@ menu "TX Power Level settings"
     config BT_CTRL_BR_EDR_TX_PWR_ACL_MIN
         int "Default minimum TX power level for ACL"
         default -13
-        range -24 12
+        range -24 20
         help
             Minimum BR/EDR transmission power level for ACL.
+
+            The transmission power for an ACL connection link will be affected by the following factors:
+            It must fall within the range of [`BT_CTRL_BR_EDR_TX_PWR_ACL_MIN`, `BT_CTRL_BR_EDR_TX_PWR_ACL_MAX`]
+            The initial TX power level for an ACL link is inherited from
+            `BT_CTRL_BR_EDR_TX_PWR_PAGE` (for Central) and `BT_CTRL_BR_EDR_TX_PWR_PSCAN` (for Peripheral).
+            If the power is lower than BT_CTRL_BR_EDR_TX_PWR_ACL_MIN, BT_CTRL_BR_EDR_TX_PWR_ACL_MIN will be used.
+            It can be adjusted in response to LMP power control request PDUs from the peer device.
 
     config BT_CTRL_BR_EDR_TX_PWR_ACL_MAX
         int "Default maximum TX power level for ACL"
         default 4
-        range -24 12
+        range -24 20
         help
             Maximum BR/EDR transmission power level for ACL.
+
+            The transmission power for an ACL connection link will be affected by the following factors:
+            It must fall within the range of [`BT_CTRL_BR_EDR_TX_PWR_ACL_MIN`, `BT_CTRL_BR_EDR_TX_PWR_ACL_MAX`]
+            The initial TX power level for an ACL link is inherited from
+            `BT_CTRL_BR_EDR_TX_PWR_PAGE` (for Central) and `BT_CTRL_BR_EDR_TX_PWR_PSCAN` (for Peripheral).
+            If the power is higher than BT_CTRL_BR_EDR_TX_PWR_ACL_MAX, BT_CTRL_BR_EDR_TX_PWR_ACL_MAX will be used.
+            It can be adjusted in response to LMP power control request PDUs from the peer device.
 
     config BT_CTRL_BR_EDR_TX_PWR_APB
         int "Default TX power level for APB"
         depends on BT_CTRL_BR_EDR_APB_EN
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for APB.
 
     config BT_CTRL_BR_EDR_TX_PWR_PAGE
         int "Default TX power level for Page"
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for Page.
+            `BT_CTRL_BR_EDR_TX_PWR_PAGE` is recommended to fall within the ACL transmission power range
+            [`BT_CTRL_BR_EDR_TX_PWR_ACL_MIN`, `BT_CTRL_BR_EDR_TX_PWR_ACL_MAX`], because the Bluetooth controller
+            will try to use it as the initial TX power on the ACL link upon connection establishment from page
+            substate.
 
     config BT_CTRL_BR_EDR_TX_PWR_PSCAN
         int "Default TX power level for Page Scan"
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for Page Scan.
+            `BT_CTRL_BR_EDR_TX_PWR_PSCAN` is recommended to fall within the ACL transmission power range
+            [`BT_CTRL_BR_EDR_TX_PWR_ACL_MIN`, `BT_CTRL_BR_EDR_TX_PWR_ACL_MAX`], because the Bluetooth controller
+            will try to use it as the initial TX power on the ACL link upon connection establishment from
+            page scan substate.
 
     config BT_CTRL_BR_EDR_TX_PWR_ISCAN
         int "Default TX power level for Inquiry Scan"
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for Inquiry Scan.
 
@@ -247,7 +333,7 @@ menu "TX Power Level settings"
         int "Default TX power level for CPB"
         depends on BT_CTRL_BR_EDR_CPB_TX_EN
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for CPB.
 
@@ -255,9 +341,19 @@ menu "TX Power Level settings"
         int "Default TX power level for Synchronization Train"
         depends on BT_CTRL_BR_EDR_CPB_TX_EN
         default 4
-        range -24 12
+        range -24 20
         help
             BR/EDR transmission power level for Synchronization Train.
+
+    config BT_CTRL_BR_EDR_DYNAMIC_TX_PWR_EN
+        bool "Enable BR/EDR dynamic TX power configuration API"
+        depends on !BT_CLASSIC_ENABLE_POWER_CTRL_VSC
+        default n
+        help
+            Enable BR/EDR dynamic TX power configuration APIs
+            (esp_bredr_acl_dft_tx_power_range_set and
+            esp_bredr_acl_dft_tx_power_range_get).
+            The APIs take power values in dBm. The chip-supported range is reported by esp_bredr_tx_power_range_get.
 endmenu
 
 menu "BR/EDR Vendor Specific HCI Commands and Events"

@@ -34,13 +34,13 @@ static inline bool ieee802154_is_valid_channel(uint8_t channel)
     return ((channel <= IEEE802154_OQPSK_2P4G_CHANNEL_MAX) && (channel >= IEEE802154_OQPSK_2P4G_CHANNEL_MIN));
 }
 
-#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_IEEE802154_SLEEP_ENABLE
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #define IEEE802154_RF_ENABLE() ieee802154_rf_enable()
 #define IEEE802154_RF_DISABLE() ieee802154_rf_disable()
 #else
 #define IEEE802154_RF_ENABLE()
 #define IEEE802154_RF_DISABLE()
-#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_IEEE802154_SLEEP_ENABLE
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #define IEEE802154_PROBE(a) do { \
             IEEE802154_RECORD_EVENT(a); \
             IEEE802154_RECORD_ABORT(a); \
@@ -53,10 +53,10 @@ static inline bool ieee802154_is_valid_channel(uint8_t channel)
 #define IEEE802154_RECORD_EVENT(a) do { \
             g_ieee802154_probe.event[g_ieee802154_probe.event_index].event = a; \
             g_ieee802154_probe.event[g_ieee802154_probe.event_index].state = ieee802154_get_state(); \
-            if (a == IEEE802154_EVENT_RX_ABORT) { \
+            if (a & IEEE802154_EVENT_RX_ABORT) { \
                 g_ieee802154_probe.event[g_ieee802154_probe.event_index].abort_reason.rx \
                     = ieee802154_ll_get_rx_abort_reason(); \
-            } else if (a == IEEE802154_EVENT_TX_ABORT) { \
+            } else if (a & IEEE802154_EVENT_TX_ABORT) { \
                 g_ieee802154_probe.event[g_ieee802154_probe.event_index].abort_reason.tx \
                     = ieee802154_ll_get_tx_abort_reason(); \
             } \
@@ -128,14 +128,14 @@ typedef struct {
 #if CONFIG_IEEE802154_RECORD_ABORT
 #define IEEE802154_ASSERT_RECORD_ABORT_SIZE CONFIG_IEEE802154_RECORD_ABORT_SIZE
 #define IEEE802154_RECORD_ABORT(a) do { \
-            if (a == IEEE802154_EVENT_RX_ABORT) { \
+            if (a & IEEE802154_EVENT_RX_ABORT) { \
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index].abort_reason.rx \
                     = ieee802154_ll_get_rx_abort_reason(); \
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index].is_tx_abort = 0; \
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index++].timestamp = esp_timer_get_time(); \
                 g_ieee802154_probe.abort_index = (g_ieee802154_probe.abort_index == IEEE802154_ASSERT_RECORD_ABORT_SIZE) ? \
                     0 : g_ieee802154_probe.abort_index; \
-            } else if (a == IEEE802154_EVENT_TX_ABORT) { \
+            } else if (a & IEEE802154_EVENT_TX_ABORT) { \
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index].abort_reason.tx \
                     = ieee802154_ll_get_tx_abort_reason();\
                 g_ieee802154_probe.abort[g_ieee802154_probe.abort_index].is_tx_abort = 1; \

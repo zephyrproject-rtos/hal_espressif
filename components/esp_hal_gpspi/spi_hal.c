@@ -17,6 +17,9 @@ void spi_hal_init(spi_hal_context_t *hal, uint32_t host_id)
     spi_dev_t *hw = spi_periph_signal[host_id].hw;
     hal->hw = hw;
     spi_ll_master_init(hw);
+#ifdef SPI_LL_PERIPH_HAS_SCT
+    spi_ll_set_magic_number(hw, SPI_LL_SCT_MAGIC_NUMBER);
+#endif
 
     //Force a transaction done interrupt. This interrupt won't fire yet because
     //we initialized the SPI interrupt as disabled. This way, we can just
@@ -49,7 +52,7 @@ void spi_hal_deinit(spi_hal_context_t *hal)
 #ifdef SPI_LL_PERIPH_HAS_SCT
 void spi_hal_sct_init(spi_hal_context_t *hal)
 {
-    spi_ll_conf_state_enable(hal->hw, true);
+    spi_ll_enable_conf_phase(hal->hw, true);
     spi_ll_set_magic_number(hal->hw, SPI_LL_SCT_MAGIC_NUMBER);
     spi_ll_disable_int(hal->hw);    //trans_done intr enabled in `add device` phase, sct mode should use sct_trans_done only
     spi_ll_enable_intr(hal->hw, SPI_LL_INTR_SEG_DONE);
@@ -58,7 +61,7 @@ void spi_hal_sct_init(spi_hal_context_t *hal)
 
 void spi_hal_sct_deinit(spi_hal_context_t *hal)
 {
-    spi_ll_conf_state_enable(hal->hw, false);
+    spi_ll_enable_conf_phase(hal->hw, false);
     spi_ll_disable_intr(hal->hw, SPI_LL_INTR_SEG_DONE);
     spi_ll_clear_intr(hal->hw, SPI_LL_INTR_SEG_DONE);
     spi_ll_clear_int_stat(hal->hw);

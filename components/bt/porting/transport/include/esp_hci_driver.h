@@ -38,12 +38,12 @@ typedef struct hci_driver_ops {
 } hci_driver_ops_t;
 
 
-#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
 extern hci_driver_ops_t hci_driver_vhci_ops;
-#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
+#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
 
-#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
-#if CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
+#if CONFIG_BT_LE_HCI_INTERFACE_USE_UART
+#if CONFIG_BT_LE_UART_HCI_DMA_MODE
 extern hci_driver_ops_t hci_driver_uart_dma_ops;
 /**
  * @brief Reconfigure the UART pins for the HCI driver.
@@ -75,7 +75,7 @@ extern hci_driver_ops_t hci_driver_uart_ops;
  */
 int hci_driver_uart_reconfig_pin(int tx_pin, int rx_pin, int cts_pin, int rts_pin);
 #define hci_uart_reconfig_pin               hci_driver_uart_reconfig_pin
-#endif // CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
-#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
+#endif // CONFIG_BT_LE_UART_HCI_DMA_MODE
+#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_UART
 
 #endif // H_ESP_HCI_DRIVER_

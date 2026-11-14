@@ -1,4 +1,3 @@
-
 /*
  * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
@@ -68,7 +67,7 @@ static const int WPS_SCAN_RETRY_TIMEOUT_SECS = 2;
 // Callback structure for handling WPS events within the Wi-Fi task
 static struct wps_sm_funcs *s_wps_sm_cb = NULL;
 
-const char *wps_model_number = CONFIG_SOC_SERIES;
+const char *wps_model_number = CONFIG_IDF_TARGET;
 
 /* API lock to ensure thread safety for public WPS functions */
 void *s_wps_api_lock = NULL;  /* Used in WPS/WPS-REG public API only, never be freed */
@@ -87,6 +86,9 @@ static void wifi_station_wps_success(void *data, void *user_ctx);
 static void wifi_station_wps_timeout(void *data, void *user_ctx);
 static int wps_delete_timer(void);
 static int wps_finish(void);
+static void wps_drain_wifi_rx(void);
+
+bool current_task_is_wifi_task(void);
 
 struct wps_sm *gWpsSm = NULL;
 static wifi_event_sta_wps_er_success_t s_wps_success_evt;
@@ -263,9 +265,9 @@ static bool wps_parse_scan_result(struct wps_scan_ie *scan)
     }
 
     esp_wifi_get_mode(&op_mode);
-    if ((op_mode != ESP32_WIFI_MODE_STA)
+    if ((op_mode != WIFI_MODE_STA)
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-            && (op_mode != ESP32_WIFI_MODE_APSTA)
+            && (op_mode != WIFI_MODE_APSTA)
 #endif
        ) {
         return false;
@@ -1093,28 +1095,32 @@ int wps_dev_init(void)
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, "%s", s_factory_info->manufacturer);
+    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, "%s",
+                s_factory_info->manufacturer);
 
     dev->model_name = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
     if (!dev->model_name) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_name);
+    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, "%s",
+                s_factory_info->model_name);
 
     dev->model_number = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
     if (!dev->model_number) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_number);
+    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, "%s",
+                s_factory_info->model_number);
 
     dev->device_name = os_zalloc(WPS_MAX_DEVICE_NAME_LEN);
     if (!dev->device_name) {
         ret = ESP_FAIL;
         goto _out;
     }
-    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s", s_factory_info->device_name);
+    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s",
+                s_factory_info->device_name);
 
     dev->serial_number = os_zalloc(16);
     if (!dev->serial_number) {
@@ -1389,6 +1395,29 @@ static int wps_delete_timer(void)
     return ESP_OK;
 }
 
+/* Run on Wi-Fi task so sync IPC waits for in-flight RX to finish. */
+static int wps_wifi_rx_barrier(void *arg)
+{
+    (void) arg;
+    return 0;
+}
+
+static void wps_drain_wifi_rx(void)
+{
+    wifi_ipc_config_t cfg;
+
+    /* Sync IPC to the Wi-Fi task deadlocks if we are already on it; RX is
+     * serialized on that task in that case. */
+    if (current_task_is_wifi_task()) {
+        return;
+    }
+
+    cfg.fn = wps_wifi_rx_barrier;
+    cfg.arg = NULL;
+    cfg.arg_size = 0;
+    esp_wifi_ipc_internal(&cfg, true);
+}
+
 static int wifi_station_wps_deinit(void)
 {
     struct wps_sm *sm = gWpsSm;
@@ -1400,6 +1429,8 @@ static int wifi_station_wps_deinit(void)
     esp_wifi_unset_appie_internal(WIFI_APPIE_WPS_PR);
     esp_wifi_unset_appie_internal(WIFI_APPIE_WPS_AR);
     esp_wifi_set_wps_cb_internal(NULL);
+    /* Wait for any in-flight wps_sm_rx_eapol to finish before freeing gWpsSm. */
+    wps_drain_wifi_rx();
 
     if (sm->dev) {
         wps_dev_deinit(sm->dev);
@@ -1609,9 +1640,9 @@ static int wps_check_wifi_mode(void)
 
     if (
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
-        mode == ESP32_WIFI_MODE_AP ||
+        mode == WIFI_MODE_AP ||
 #endif
-        mode == ESP32_WIFI_MODE_NULL) {
+        mode == WIFI_MODE_NULL) {
         wpa_printf(MSG_ERROR, "WPS: Invalid Wi-Fi mode for WPS: %d ", mode);
         return ESP_ERR_WIFI_MODE;
     }

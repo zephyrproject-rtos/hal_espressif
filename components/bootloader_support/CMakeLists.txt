@@ -5,30 +5,41 @@ if(${target} STREQUAL "linux")
     return() # This component is not supported by the POSIX/Linux simulator
 endif()
 
+# Secure-boot / flash-encryption "secure features" implementations are unified into
+# shared files gated by SOC_EFUSE_* capabilities. ESP32 keeps its own per-target
+# files (Secure Boot V1 support + a distinct eFuse family).
+if(${target} STREQUAL "esp32")
+    set(secure_boot_features_src "src/esp32/secure_boot_secure_features.c")
+    set(flash_encryption_features_src "src/esp32/flash_encryption_secure_features.c")
+else()
+    set(secure_boot_features_src "src/secure_boot/secure_boot_secure_features.c")
+    set(flash_encryption_features_src "src/flash_encryption/flash_encryption_secure_features.c")
+endif()
+
 if(esp_tee_build)
     set(tee_inc_dirs "include"
                      "private_include"
                      "bootloader_flash/include")
 
     set(tee_srcs "src/flash_partitions.c"
-                 "src/bootloader_sha.c"
                  "src/bootloader_common_loader.c"
-                 "src/esp_image_format.c"
                  "src/bootloader_utility.c"
                  "src/bootloader_utility_tee.c"
                  "bootloader_flash/src/bootloader_flash.c")
 
     if(CONFIG_SECURE_BOOT_V2_ENABLED)
         if(CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME OR CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
-            list(APPEND tee_srcs "src/secure_boot_v2/secure_boot_signatures_bootloader.c"
-                                 "src/secure_boot_v2/secure_boot.c"
-                                 "src/${IDF_TARGET}/secure_boot_secure_features.c")
+            list(APPEND tee_srcs "${secure_boot_features_src}")
         endif()
     endif()
 
+    # The dependency cycle with esp_image_verify is deliberate.
+    # Without this edge the TEE link cannot resolve esp_image_verify() called
+    # from bootloader_utility_tee.c.
     idf_component_register(SRCS ${tee_srcs}
                            INCLUDE_DIRS ${tee_inc_dirs}
-                           PRIV_REQUIRES efuse esp_app_format esptool_py esp_hal_security)
+                           PRIV_REQUIRES efuse esp_app_format esptool_py esp_hal_security esp_hal_cache
+                                         esp_image_verify)
     return()
 endif()
 
@@ -60,11 +71,9 @@ if(CONFIG_APP_BUILD_TYPE_APP_2NDBOOT)
     list(APPEND srcs
         "src/bootloader_utility.c"
         "src/flash_partitions.c"
-        "src/esp_image_format.c"
         )
 endif()
 
-list(APPEND srcs "src/bootloader_sha.c")
 if(CONFIG_ESP_ROM_REV0_HAS_NO_ECDSA_INTERFACE)
     list(APPEND srcs "src/${IDF_TARGET}/bootloader_ecdsa.c")
 endif()
@@ -76,13 +85,13 @@ if(BOOTLOADER_BUILD OR CONFIG_APP_BUILD_TYPE_RAM)
     # micro-ecc is only needed for secure boot sources built under BOOTLOADER_BUILD.
     # For CONFIG_APP_BUILD_TYPE_RAM (loadable ELF app) we don't build those sources,
     # and micro-ecc lives in the bootloader subproject so it isn't available in app builds.
-    set(priv_requires spi_flash efuse esp_bootloader_format esp_app_format esptool_py)
+    set(priv_requires spi_flash efuse esp_bootloader_format esp_app_format esptool_py esp_hal_cache)
     if(BOOTLOADER_BUILD)
-        list(APPEND priv_requires micro-ecc)
+        list(APPEND priv_requires micro-ecc esp_image_verify)
     endif()
     # `esp_hal_ana_conv` is required by bootloader_random_esp32xx.c
     list(APPEND priv_requires esp_hal_wdt esp_hal_gpio esp_hal_uart esp_hal_ana_conv esp_hal_rtc_timer
-         esp_hal_clock esp_hal_security)
+         esp_hal_clock esp_hal_security esp_hal_debug_assist)
     list(APPEND srcs
     "src/bootloader_reset_common.c"
     "src/bootloader_init.c"
@@ -98,11 +107,12 @@ if(BOOTLOADER_BUILD OR CONFIG_APP_BUILD_TYPE_RAM)
 else()
     set(include_dirs "include" "bootloader_flash/include")
     set(priv_include_dirs "private_include")
-    # heap is required for `heap_memory_layout.h` header
-    set(priv_requires spi_flash mbedtls efuse heap esp_bootloader_format esp_app_format esptool_py)
+    # heap is required for `heap_memory_layout.h`.
+    set(priv_requires spi_flash efuse heap esp_bootloader_format esp_app_format esp_hal_cache
+        esptool_py)
     # `esp_hal_ana_conv` is required by bootloader_random_esp32xx.c
-    list(APPEND priv_requires esp_hal_wdt esp_hal_gpio esp_hal_uart esp_hal_ana_conv esp_hal_rtc_timer
-        esp_hal_clock esp_hal_security)
+    list(APPEND priv_requires esp_mspi esp_hal_wdt esp_hal_gpio esp_hal_uart esp_hal_ana_conv
+                              esp_hal_rtc_timer esp_hal_clock esp_hal_security esp_hal_debug_assist)
 endif()
 
 # src/flash_encrypt.c includes esp_security/esp_key_mgr.h on
@@ -115,43 +125,19 @@ if(BOOTLOADER_BUILD)
 
     if(CONFIG_SECURE_FLASH_ENC_ENABLED)
         list(APPEND srcs "src/flash_encryption/flash_encrypt.c"
-                         "src/${IDF_TARGET}/flash_encryption_secure_features.c")
+                         "${flash_encryption_features_src}")
     endif()
 
     if(CONFIG_SECURE_SIGNED_ON_BOOT)
-        if(CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME)
-            list(APPEND srcs "src/secure_boot_v1/secure_boot_signatures_bootloader.c")
-        endif()
-        if(CONFIG_SECURE_BOOT_V1_ENABLED)
-            list(APPEND srcs "src/secure_boot_v1/secure_boot.c"
-                             "src/${IDF_TARGET}/secure_boot_secure_features.c")
-        endif()
-
-        if(CONFIG_SECURE_BOOT_V2_ENABLED)
-            list(APPEND srcs "src/secure_boot_v2/secure_boot_signatures_bootloader.c"
-                             "src/secure_boot_v2/secure_boot.c"
-                             "src/${IDF_TARGET}/secure_boot_secure_features.c")
+        if(CONFIG_SECURE_BOOT_V1_ENABLED OR CONFIG_SECURE_BOOT_V2_ENABLED)
+            list(APPEND srcs "${secure_boot_features_src}")
         endif()
     endif()
 else()
     if(CONFIG_SOC_SECURE_BOOT_SUPPORTED)
-        list(APPEND srcs "src/${IDF_TARGET}/secure_boot_secure_features.c")
+        list(APPEND srcs "${secure_boot_features_src}")
     endif()
 
-    if(CONFIG_SECURE_SIGNED_ON_UPDATE)
-        if(CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME)
-            list(APPEND srcs "src/secure_boot_v1/secure_boot_signatures_app.c")
-        endif()
-
-        if(CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME)
-            list(APPEND srcs "src/secure_boot_v2/secure_boot_signatures_app.c")
-            list(APPEND srcs "src/secure_boot_v2/secure_boot_rsa_signature.c")
-        endif()
-        if(CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
-            list(APPEND srcs "src/secure_boot_v2/secure_boot_signatures_app.c")
-            list(APPEND srcs "src/secure_boot_v2/secure_boot_ecdsa_signature.c")
-        endif()
-    endif()
 endif()
 
 set(requires soc) #unfortunately the header directly uses SOC registers
@@ -162,16 +148,19 @@ idf_component_register(SRCS "${srcs}"
                     REQUIRES "${requires}"
                     PRIV_REQUIRES "${priv_requires}")
 
-idf_define_esp_err_codes(HEADERS include/esp_image_format.h)
-
-if(NOT BOOTLOADER_BUILD)
-    if(CONFIG_SECURE_SIGNED_ON_UPDATE)
-        if(CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME OR CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME OR
-           CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME)
-            target_link_libraries(${COMPONENT_LIB} PRIVATE idf::app_update)
-        endif()
+if(NOT BOOTLOADER_BUILD AND NOT esp_tee_build)
+    if(IDF_BUILD_V2 AND CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT AND
+       (CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME OR CONFIG_SECURE_SIGNED_APPS_ECDSA_V2_SCHEME))
+        # esp_secure_boot_init_checks() calls the on-update signature check.
+        idf_component_include(esp_image_verify)
+        target_link_libraries(${COMPONENT_LIB} PRIVATE idf::esp_image_verify)
+    endif()
+    if(NOT IDF_BUILD_V2)
+        idf_component_optional_requires(PRIVATE esp_image_verify)
     endif()
 endif()
+
+idf_define_esp_err_codes(HEADERS include/esp_image_format.h)
 
 if(CONFIG_SECURE_SIGNED_APPS AND (CONFIG_SECURE_BOOT_V1_ENABLED OR CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME))
     idf_component_get_property(espsecure_py_cmd esptool_py ESPSECUREPY_CMD)
@@ -238,4 +227,12 @@ if(BOOTLOADER_BUILD)
     # esp_bootloader_desc structure is added as an undefined symbol because otherwise the
     # linker will ignore this structure as it has no other files depending on it.
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-u esp_bootloader_desc")
+endif()
+
+# Disable LTO for bootloader_support: it relies on linker script placements that
+# depend on object file names, which LTO does not preserve.
+idf_component_set_property(${COMPONENT_NAME} NO_LTO 1)
+
+if(NOT BOOTLOADER_BUILD AND NOT esp_tee_build AND CONFIG_BOOTLOADER_RESERVE_RTC_MEM)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-u bootloader_common_get_rtc_retain_mem")
 endif()

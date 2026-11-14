@@ -24,54 +24,46 @@
 
 #include "os.h"
 #include <stdlib.h>
-#include "esp_system.h"
+#include <unistd.h>
+#include <sys/time.h>
+#include "esp_random.h"
 #include "utils/common.h"
-#include <zephyr/random/random.h>
+#include "utils/const_time.h"
 #include "mbedtls/platform_util.h"
+
+int os_memcmp_const_impl(const void *a, const void *b, size_t len)
+{
+    return const_time_memcmp(a, b, len);
+}
 
 int os_get_time(struct os_time *t)
 {
-	if (t == NULL) {
-		return -1;
-	}
-
-	uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
-
-	t->sec = now_us / USEC_PER_SEC;
-	t->usec = now_us % USEC_PER_SEC;
-
-	return 0;
+    struct timeval tv;
+    int ret = gettimeofday(&tv, NULL);
+    t->sec = (os_time_t) tv.tv_sec;
+    t->usec = tv.tv_usec;
+    return ret;
 }
 
 unsigned long os_random(void)
 {
-	return sys_rand32_get();
+    return esp_random();
 }
 
 int os_get_random(unsigned char *buf, size_t len)
 {
-	sys_rand_get((void *)buf, len);
-	return 0;
+    esp_fill_random(buf, len);
+    return 0;
 }
 
 void os_sleep(os_time_t sec, os_time_t usec)
 {
     if (sec) {
-        k_sleep(K_SECONDS(sec));
+        sleep(sec);
     }
     if (usec) {
-        k_sleep(K_USEC(usec));
+        usleep(usec);
     }
-}
-
-char *z_strdup(const char *s)
-{
-    size_t size = strlen(s) + 1;
-    char *p = k_malloc(size);
-    if (p) {
-        memcpy(p, s, size);
-    }
-    return p;
 }
 
 #ifdef CONFIG_CRYPTO_MBEDTLS

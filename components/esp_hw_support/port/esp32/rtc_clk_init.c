@@ -99,7 +99,7 @@ void rtc_clk_init(rtc_clk_config_t cfg)
     }
     esp_rom_output_tx_wait_idle(0);
     rtc_clk_xtal_freq_update(xtal_freq);
-    rtc_clk_apb_freq_update(xtal_freq * MHZ(1));
+    rtc_clk_apb_freq_update(xtal_freq * MHZ);
 
     /* Set CPU frequency */
 
@@ -155,7 +155,7 @@ static soc_xtal_freq_t rtc_clk_xtal_freq_estimate(void)
      * (shifted by RTC_CLK_CAL_FRACT bits).
      * Xtal frequency will be (cal_val * 8M / 256) / 2^19
      */
-    uint32_t freq_mhz = (cal_val * SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1) / 256 ) >> RTC_CLK_CAL_FRACT;
+    uint32_t freq_mhz = (cal_val * SOC_CLK_RC_FAST_FREQ_APPROX / MHZ / 256 ) >> RTC_CLK_CAL_FRACT;
     /* Guess the XTAL type. For now, only 40 and 26MHz are supported.
      */
     switch (freq_mhz) {

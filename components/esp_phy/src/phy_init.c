@@ -9,32 +9,36 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/lock.h>
 
 #include "soc/rtc.h"
 #include "esp_err.h"
 #include "esp_phy_init.h"
 #include "esp_mac.h"
 #include "esp_log.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "esp_efuse.h"
 #include "esp_timer.h"
 #include "esp_private/esp_sleep_internal.h"
 #include "esp_check.h"
 #include "sdkconfig.h"
 #include "soc/soc_caps.h"
-#include <zephyr/kernel.h>
-#include <zephyr/sys/__assert.h>
-#include <zephyr/sys/atomic.h>
-#include <esp_heap_caps.h>
-#include "esp_private/critical_section.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
+#include "endian.h"
 #include "esp_private/phy.h"
 #include "phy_init_data.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/wifi.h"
-#include "esp_rom_sys.h"
 #include "esp_rom_crc.h"
 #include "esp_rom_sys.h"
 
 #include "soc/rtc_periph.h"
+
+#if CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
+#include "esp_partition.h"
+#endif
 
 #if __has_include("soc/syscon_reg.h")
 #include "soc/syscon_reg.h"
@@ -42,7 +46,7 @@
 
 #if CONFIG_IDF_TARGET_ESP32
 #include "soc/dport_reg.h"
-#elif SOC_PM_SUPPORT_PMU_MODEM_STATE
+#elif SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 #include "esp_private/sleep_modem.h"
 #endif
 #include "hal/efuse_hal.h"
@@ -51,6 +55,10 @@
 #include "soc/periph_defs.h"
 #endif
 #include "phy_init_deps.h"
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+#include "esp_private/esp_pau.h"
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+#include "esp_private/phy_debug.h"
 
 #ifndef PHY_INIT_MODEM_CLOCK_REQUIRED_BITS
 #warning "PHY_INIT_MODEM_CLOCK_REQUIRED_BITS not defined; using default value 0"
@@ -58,30 +66,27 @@
 #endif
 
 #if CONFIG_IDF_TARGET_ESP32
-#if CONFIG_ESP_WIFI_ENABLED
 extern wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb;
-#else
-/* For BLE-only builds, define the callback as NULL since wifi_init.c is not compiled */
-wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
-#endif
 #endif
 
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 extern void pm_mac_modem_clear_rf_power_state(void);
 extern bool pm_mac_modem_rf_already_enabled(void);
-#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC
+#if SOC_PM_PAU_REGDMA_LINK_IDX_PHY
 extern bool pm_get_wifimac_regdma_link_selection(void);
 #endif
 #endif
 
-static const char* TAG __attribute__((unused)) = "phy_init";
+static const char* TAG = "phy_init";
 
-K_MUTEX_DEFINE(s_phy_access_lock);
+static _lock_t s_phy_access_lock;
 
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
-static DRAM_ATTR int s_wifi_bt_pd_count;
-K_MUTEX_DEFINE(s_wifi_bt_pd_lock);
+static DRAM_ATTR struct {
+    int     count;  /* power on count of wifi and bt power domain */
+    _lock_t lock;
+} s_wifi_bt_pd_controller = { .count = 0 };
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 
@@ -91,7 +96,7 @@ static int64_t s_phy_rf_en_ts = 0;
 #endif
 
 /* PHY spinlock for libphy.a */
-static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
+static DRAM_ATTR portMUX_TYPE s_phy_int_mux = portMUX_INITIALIZER_UNLOCKED;
 
 /* Indicate PHY is calibrated or not */
 static bool s_is_phy_calibrated = false;
@@ -102,7 +107,7 @@ static bool s_is_phy_reg_stored = false;
 /* Memory to store PHY digital registers */
 static uint32_t* s_phy_digital_regs_mem = NULL;
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
+#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP || CONFIG_ESP_PHY_HW_SWITCH_RF
 static uint8_t s_phy_modem_init_ref = 0;
 #endif
 
@@ -117,6 +122,13 @@ static uint8_t s_phy_modem_init_ref = 0;
 extern uint8_t multi_phy_init_data_bin_start[] asm("_binary_phy_multiple_init_data_bin_start");
 extern uint8_t multi_phy_init_data_bin_end[]   asm("_binary_phy_multiple_init_data_bin_end");
 #endif
+
+/* Both flags live in the last bytes of an init data entry */
+_Static_assert(PHY_INIT_DATA_TYPE_OFFSET == sizeof(esp_phy_init_data_t) - 2,
+               "PHY_INIT_DATA_TYPE_OFFSET does not match the PHY init data of this target");
+_Static_assert(PHY_SUPPORT_MULTIPLE_BIN_OFFSET == sizeof(esp_phy_init_data_t) - 3,
+               "PHY_SUPPORT_MULTIPLE_BIN_OFFSET does not match the PHY init data of this target");
+
 /* The following static variables are only used by Wi-Fi tasks, so they can be handled without lock */
 static phy_init_data_type_t s_phy_init_data_type = 0;
 
@@ -181,69 +193,26 @@ static phy_country_to_bin_type_t s_country_code_map_type_table[] = {
 };
 #endif
 
-#if CONFIG_ESP_PHY_RECORD_USED_TIME
-#define ESP_PHY_MODEM_COUNT_MAX         (__builtin_ffs(PHY_MODEM_MAX - 1))
-#define ESP_PHY_IS_VALID_MODEM(modem)   (__builtin_popcount(modem) == 1 && __builtin_ctz(modem) < ESP_PHY_MODEM_COUNT_MAX)
-
-static DRAM_ATTR struct {
-    uint64_t used_time;
-    uint64_t enabled_time;
-    uint64_t disabled_time;
-} s_phy_rf_used_info[ESP_PHY_MODEM_COUNT_MAX];
-
-static IRAM_ATTR void phy_record_time(bool enabled, esp_phy_modem_t modem) {
-    uint8_t index = __builtin_ctz(modem);
-    if (enabled) {
-        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
-    } else {
-        s_phy_rf_used_info[index].disabled_time = esp_timer_get_time();
-        s_phy_rf_used_info[index].used_time += s_phy_rf_used_info[index].disabled_time - s_phy_rf_used_info[index].enabled_time;
-    }
-}
-
-esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem) {
-    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
-    *used_time = s_phy_rf_used_info[index].used_time;
-    if (s_phy_rf_used_info[index].disabled_time < s_phy_rf_used_info[index].enabled_time) {
-        // phy is being used
-        *used_time += esp_timer_get_time() - s_phy_rf_used_info[index].enabled_time;
-    }
-    k_mutex_unlock(&s_phy_access_lock);
-    return ESP_OK;
-}
-
-esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
-    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
-    if (s_phy_rf_used_info[index].enabled_time > s_phy_rf_used_info[index].disabled_time) {
-        // phy is being used
-        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
-    } else {
-        s_phy_rf_used_info[index].enabled_time = s_phy_rf_used_info[index].disabled_time;
-    }
-    s_phy_rf_used_info[index].used_time = 0;
-    k_mutex_unlock(&s_phy_access_lock);
-    return ESP_OK;
-}
-#endif
-
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
-    esp_os_enter_critical(&s_phy_int_mux);
+    if (xPortInIsrContext()) {
+        portENTER_CRITICAL_ISR(&s_phy_int_mux);
+
+    } else {
+        portENTER_CRITICAL(&s_phy_int_mux);
+    }
+    // Interrupt level will be stored in current tcb, so always return zero.
     return 0;
 }
 
 void IRAM_ATTR phy_exit_critical(uint32_t level)
 {
-    (void)level;
-    esp_os_exit_critical(&s_phy_int_mux);
+    // Param level don't need any more, ignore it.
+    if (xPortInIsrContext()) {
+        portEXIT_CRITICAL_ISR(&s_phy_int_mux);
+    } else {
+        portEXIT_CRITICAL(&s_phy_int_mux);
+    }
 }
 
 #if CONFIG_IDF_TARGET_ESP32
@@ -312,10 +281,12 @@ void IRAM_ATTR esp_phy_modem_rf_flag_update(void)
 
 void esp_phy_enable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    _lock_acquire(&s_phy_access_lock);
     if (phy_get_modem_flag() == 0) {
 #if CONFIG_IDF_TARGET_ESP32
+        // Update time stamp
         s_phy_rf_en_ts = esp_timer_get_time();
+        // Update WiFi MAC time before WiFi/BT common clock is enabled
         phy_update_wifi_mac_time(false, s_phy_rf_en_ts);
 #endif
         esp_phy_common_clock_enable();
@@ -328,33 +299,42 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #endif
             s_is_phy_calibrated = true;
         } else {
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-            bool wifimac_link_is_sel = false;
             if (!pm_mac_modem_rf_already_enabled()) {
-                if (sleep_modem_wifi_modem_state_enabled() && sleep_modem_wifi_modem_link_done()) {
-#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
+#endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
+                if (sleep_modem_phy_link_enabled() && sleep_modem_phy_link_done()) {
+                    uint8_t modem_flags = SLEEP_MODEM_SKIP_I2C_MST_CLK_RETENTION;
+                    if (!sleep_modem_wifi_modem_state_is_enabled()) {
+                        modem_flags |= SLEEP_MODEM_SKIP_WIFI_RETENTION;
+                    }
+                    bool wifimac_link_is_sel = false;
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP && \
+SOC_PM_PAU_REGDMA_LINK_IDX_PHY && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
 /*
- * A race exists between SoC wakeup and modem state sleep. After modem initiates sleep,
- * SoC may wake up before REGDMA completes RF close, leaving mac_modem_sleep_flag uncleared
- * (it depends on regdma done). The stale flag can incorrectly trigger a sleep request
- * on the next modem entry, causing abnormal sleep behavior.
- *
- * Therefore, this workaround ensures that mac_modem_sleep_flag is properly
- * cleared by regdma closing RF with wifimac link.
- * See WIFI-7246 for details.
+* A race exists between SoC wakeup and modem state sleep. After modem initiates sleep,
+* SoC may wake up before REGDMA completes RF close, leaving mac_modem_sleep_flag uncleared
+* (it depends on regdma done). The stale flag can incorrectly trigger a sleep request
+* on the next modem entry, causing abnormal sleep behavior.
+*
+* Therefore, this workaround ensures that mac_modem_sleep_flag is properly
+* cleared by regdma closing RF with wifimac link.
+* See WIFI-7246 for details.
 */
-                wifimac_link_is_sel = pm_get_wifimac_regdma_link_selection();
+                    wifimac_link_is_sel = pm_get_wifimac_regdma_link_selection();
 #endif
-                sleep_modem_wifi_do_phy_retention(true, wifimac_link_is_sel);
+                    sleep_modem_do_phy_retention(true, wifimac_link_is_sel, modem_flags);
                 } else {
                     phy_wakeup_init();
                 }
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
             } else {
                 phy_wakeup_from_modem_state_extra_init();
             }
+#endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
 #else
             phy_wakeup_init();
-#endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
+#endif /* SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY */
 
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
             phy_digital_regs_load();
@@ -389,12 +369,12 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(true, modem);
 #endif
-    k_mutex_unlock(&s_phy_access_lock);
+    _lock_release(&s_phy_access_lock);
 }
 
 void esp_phy_disable(esp_phy_modem_t modem)
 {
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    _lock_acquire(&s_phy_access_lock);
 #if CONFIG_ESP_PHY_RECORD_USED_TIME
     phy_record_time(false, modem);
 #endif
@@ -408,16 +388,23 @@ void esp_phy_disable(esp_phy_modem_t modem)
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
         phy_digital_regs_store();
 #endif
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
         pm_mac_modem_clear_rf_power_state();
-        if (sleep_modem_wifi_modem_state_enabled()) {
+#endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
+        if (sleep_modem_phy_link_enabled()) {
+            uint8_t modem_flags = SLEEP_MODEM_SKIP_I2C_MST_CLK_RETENTION;
+            if (!sleep_modem_wifi_modem_state_is_enabled()) {
+                modem_flags |= SLEEP_MODEM_SKIP_WIFI_RETENTION;
+            }
             bool wifimac_link_is_sel = false;
-#if SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP && \
+    SOC_PM_PAU_REGDMA_LINK_IDX_PHY && SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND
             wifimac_link_is_sel = pm_get_wifimac_regdma_link_selection();
 #endif
-            sleep_modem_wifi_do_phy_retention(false, wifimac_link_is_sel);
+            sleep_modem_do_phy_retention(false, wifimac_link_is_sel, modem_flags);
         } else
-#endif /* SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
+#endif /* SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY */
         {
             // Disable PHY and RF.
             phy_close_rf();
@@ -430,19 +417,21 @@ void esp_phy_disable(esp_phy_modem_t modem)
         // Update WiFi MAC time before disable WiFi/BT common peripheral clock
         phy_update_wifi_mac_time(true, esp_timer_get_time());
 #endif
+#if !CONFIG_IDF_TARGET_ESP32S2 && !CONFIG_IDF_TARGET_ESP32
         phy_wait_freq_hw_hop_done();
+#endif
         // Disable WiFi/BT common peripheral clock. Do not disable clock for hardware RNG
         esp_phy_common_clock_disable();
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    _lock_release(&s_phy_access_lock);
 }
 
 void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
-    k_mutex_lock(&s_wifi_bt_pd_lock, K_FOREVER);
-    if (s_wifi_bt_pd_count++ == 0) {
+    _lock_acquire(&s_wifi_bt_pd_controller.lock);
+    if (s_wifi_bt_pd_controller.count++ == 0) {
         RTC_CNTL_ATOMIC() {
             CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
         }
@@ -452,6 +441,7 @@ void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
         DPORT_SET_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, MODEM_RESET_FIELD_WHEN_PU);
         DPORT_CLEAR_PERI_REG_MASK(DPORT_CORE_RST_EN_REG, MODEM_RESET_FIELD_WHEN_PU);
 #else
+        // modem reset when power on
         SET_PERI_REG_MASK(SYSCON_WIFI_RST_EN_REG, MODEM_RESET_FIELD_WHEN_PU);
         CLEAR_PERI_REG_MASK(SYSCON_WIFI_RST_EN_REG, MODEM_RESET_FIELD_WHEN_PU);
 #endif
@@ -460,7 +450,7 @@ void IRAM_ATTR esp_wifi_bt_power_domain_on(void)
         }
         wifi_bt_common_module_disable();
     }
-    k_mutex_unlock(&s_wifi_bt_pd_lock);
+    _lock_release(&s_wifi_bt_pd_controller.lock);
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
@@ -469,45 +459,54 @@ void esp_wifi_bt_power_domain_off(void)
 {
 #if SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 #if SOC_PM_MODEM_PD_BY_SW // TODO: [ESP32C5] IDF-8667
-    k_mutex_lock(&s_wifi_bt_pd_lock, K_FOREVER);
-    if (--s_wifi_bt_pd_count == 0) {
+    _lock_acquire(&s_wifi_bt_pd_controller.lock);
+    if (--s_wifi_bt_pd_controller.count == 0) {
         RTC_CNTL_ATOMIC() {
             SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
             SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
         }
     }
-    k_mutex_unlock(&s_wifi_bt_pd_lock);
+    _lock_release(&s_wifi_bt_pd_controller.lock);
 #endif // SOC_PM_MODEM_PD_BY_SW
 #endif // SOC_PM_SUPPORT_MODEM_PD || SOC_PM_SUPPORT_WIFI_PD
 }
 
-void esp_phy_modem_init(void)
+void esp_phy_modem_init(uint8_t modem)
 {
-#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP || CONFIG_ESP_PHY_HW_SWITCH_RF
+    _lock_acquire(&s_phy_access_lock);
     s_phy_modem_init_ref++;
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
     if (s_phy_digital_regs_mem == NULL) {
         s_phy_digital_regs_mem = (uint32_t *)heap_caps_malloc(SOC_PHY_DIG_REGS_MEM_SIZE, MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     }
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    sleep_modem_wifi_modem_state_init();
-#endif // CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_unlock(&s_phy_access_lock);
+#if (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    pau_regdma_register_modem_link_protect(phy_regi2c_lock_apply);
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    if (sleep_modem_phy_init(modem) != ESP_OK) {
+        ESP_LOGE(TAG, "failed to initialize sleep modem phy");
+    }
+#endif // (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
+    _lock_release(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 }
 
-void esp_phy_modem_deinit(void)
+void esp_phy_modem_deinit(uint8_t modem)
 {
-#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+#if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP || CONFIG_ESP_PHY_HW_SWITCH_RF
+    _lock_acquire(&s_phy_access_lock);
 
+    if (s_phy_modem_init_ref == 0) {
+        _lock_release(&s_phy_access_lock);
+        return;
+    }
     s_phy_modem_init_ref--;
     if (s_phy_modem_init_ref == 0) {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
         s_is_phy_reg_stored = false;
-        k_free(s_phy_digital_regs_mem);
+        free(s_phy_digital_regs_mem);
         s_phy_digital_regs_mem = NULL;
         /* Fix the issue caused by the power domain off.
         * This issue is only on ESP32C3.
@@ -516,11 +515,16 @@ void esp_phy_modem_deinit(void)
         phy_init_flag();
 #endif // CONFIG_IDF_TARGET_ESP32C3
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-#if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-        sleep_modem_wifi_modem_state_deinit();
-#endif // CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
+#if (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+        pau_regdma_unregister_modem_link_protect();
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    sleep_modem_phy_deinit(modem);
+#else
+    }
+#endif // (SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP) || CONFIG_ESP_PHY_HW_SWITCH_RF
+    _lock_release(&s_phy_access_lock);
 #endif // SOC_PM_MODEM_RETENTION_BY_BACKUPDMA || CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 }
 
@@ -536,15 +540,14 @@ static bool s_mac_bb_pu = true;
 void esp_mac_bb_pd_mem_init(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    extern void esp_apb_backup_dma_lock_init(void);
-    esp_apb_backup_dma_lock_init();
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    _lock_acquire(&s_phy_access_lock);
     s_macbb_backup_mem_ref++;
     if (s_mac_bb_pd_mem == NULL) {
         s_mac_bb_pd_mem = (uint32_t *)heap_caps_malloc(SOC_MAC_BB_PD_MEM_SIZE, MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    _lock_release(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
+    esp_phy_fe_sleep_data_init();
     esp_phy_sleep_data_init();
 #endif
 }
@@ -552,15 +555,16 @@ void esp_mac_bb_pd_mem_init(void)
 void esp_mac_bb_pd_mem_deinit(void)
 {
 #if SOC_PM_MODEM_RETENTION_BY_BACKUPDMA
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+    _lock_acquire(&s_phy_access_lock);
     s_macbb_backup_mem_ref--;
     if (s_macbb_backup_mem_ref == 0) {
-        k_free(s_mac_bb_pd_mem);
+        free(s_mac_bb_pd_mem);
         s_mac_bb_pd_mem = NULL;
     }
-    k_mutex_unlock(&s_phy_access_lock);
+    _lock_release(&s_phy_access_lock);
 #elif SOC_PM_MODEM_RETENTION_BY_REGDMA
     esp_phy_sleep_data_deinit();
+    esp_phy_fe_sleep_data_deinit();
 #endif
 }
 
@@ -607,7 +611,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
     size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
             sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
-    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return NULL;
@@ -624,7 +628,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
     ESP_LOGD(TAG, "loading PHY init data from partition at offset 0x%" PRIx32 "", partition->address);
     size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
             sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
-    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data");
         return NULL;
@@ -633,7 +637,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
     esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to read PHY data partition (0x%x)", err);
-        k_free(init_data_store);
+        free(init_data_store);
         return NULL;
     }
 #endif
@@ -643,12 +647,12 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
                 PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0) {
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN_EMBED
         ESP_LOGE(TAG, "failed to validate embedded PHY init data");
-        k_free(init_data_store);
+        free(init_data_store);
         return NULL;
 #else
 #ifndef CONFIG_ESP_PHY_DEFAULT_INIT_IF_INVALID
         ESP_LOGE(TAG, "failed to validate PHY data partition");
-        k_free(init_data_store);
+        free(init_data_store);
         return NULL;
 #else
         ESP_LOGE(TAG, "failed to validate PHY data partition, restoring default data into flash...");
@@ -667,7 +671,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
         err = esp_partition_erase_range(partition, 0, partition->size);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "failed to erase partition (0x%x)!", err);
-            k_free(init_data_store);
+            free(init_data_store);
             return NULL;
         }
 
@@ -675,7 +679,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
         err = esp_partition_write(partition, 0, init_data_store, init_data_store_length);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "failed to write default PHY data partition (0x%x)", err);
-            k_free(init_data_store);
+            free(init_data_store);
             return NULL;
         }
 #endif // CONFIG_ESP_PHY_DEFAULT_INIT_IF_INVALID
@@ -695,7 +699,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void)
 
 void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
 {
-    k_free((uint8_t*) init_data - PHY_INIT_MAGIC_LEN);
+    free((uint8_t*) init_data - PHY_INIT_MAGIC_LEN);
 }
 
 #else // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
@@ -715,8 +719,7 @@ void esp_phy_release_init_data(const esp_phy_init_data_t* init_data)
 #endif // CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION
 
 
-/* PHY calibration data handling functions */
-#ifdef CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE
+// PHY calibration data handling functions
 static const char* PHY_NAMESPACE = "phy";
 static const char* PHY_CAL_VERSION_KEY = "cal_version";
 static const char* PHY_CAL_MAC_KEY = "cal_mac";
@@ -868,7 +871,6 @@ static esp_err_t store_cal_data_to_nvs_handle(nvs_handle_t handle,
 
     return err;
 }
-#endif /* CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE */
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER
 static void __attribute((unused)) esp_phy_reduce_tx_power(esp_phy_init_data_t* init_data)
@@ -882,32 +884,50 @@ static void __attribute((unused)) esp_phy_reduce_tx_power(esp_phy_init_data_t* i
 }
 #endif
 
+#if CONFIG_ESP_PHY_ENABLED && SOC_DEEP_SLEEP_SUPPORTED
+static void phy_deep_sleep_prepare(void)
+{
+    if (phy_get_modem_flag() != 0) {
+        phy_close_rf();
+#if !CONFIG_IDF_TARGET_ESP32
+        phy_xpd_tsens();
+#endif
+    }
+}
+#endif
+
 void esp_phy_load_cal_and_init(void)
 {
-    (void)get_phy_version_str();
+    char * phy_version = get_phy_version_str();
+    ESP_LOGI(TAG, "phy_version %s", phy_version);
 
 #if CONFIG_IDF_TARGET_ESP32S2
     phy_eco_version_sel(efuse_hal_chip_revision() / 100);
 #endif
 
+    // Set PHY whether in combo module
+    // For comode mode, phy enable will be not in WiFi RX state
 #if SOC_PHY_COMBO_MODULE
     phy_init_param_set(1);
 #endif
 
     esp_phy_calibration_data_t* cal_data =
-            (esp_phy_calibration_data_t*) k_calloc(1, sizeof(esp_phy_calibration_data_t));
+            (esp_phy_calibration_data_t*) calloc(1, sizeof(esp_phy_calibration_data_t));
     if (cal_data == NULL) {
+        ESP_LOGE(TAG, "failed to allocate memory for RF calibration data");
         abort();
     }
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER
     const esp_phy_init_data_t* phy_init_data = esp_phy_get_init_data();
     if (phy_init_data == NULL) {
+        ESP_LOGE(TAG, "failed to obtain PHY init data");
         abort();
     }
 
-    esp_phy_init_data_t* init_data = (esp_phy_init_data_t*) k_malloc(sizeof(esp_phy_init_data_t));
+    esp_phy_init_data_t* init_data = (esp_phy_init_data_t*) malloc(sizeof(esp_phy_init_data_t));
     if (init_data == NULL) {
+        ESP_LOGE(TAG, "failed to allocate memory for phy init data");
         abort();
     }
 
@@ -918,6 +938,7 @@ void esp_phy_load_cal_and_init(void)
 #else
     const esp_phy_init_data_t* init_data = esp_phy_get_init_data();
     if (init_data == NULL) {
+        ESP_LOGE(TAG, "failed to obtain PHY init data");
         abort();
     }
 #endif
@@ -928,6 +949,9 @@ void esp_phy_load_cal_and_init(void)
 
 #ifdef CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE
     esp_phy_calibration_mode_t calibration_mode = CONFIG_ESP_PHY_CALIBRATION_MODE;
+    if (calibration_mode == PHY_RF_CAL_NONE) {
+        ESP_LOGW(TAG, "RF calibration is disabled by configuration; skipping calibration on normal boot may cause RF performance issues");
+    }
     uint8_t sta_mac[6];
     if (esp_rom_get_reset_reason(0) == RESET_REASON_CORE_DEEP_SLEEP) {
         calibration_mode = PHY_RF_CAL_NONE;
@@ -961,20 +985,15 @@ void esp_phy_load_cal_and_init(void)
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER
     esp_phy_release_init_data(phy_init_data);
-    k_free(init_data);
+    free(init_data);
 #else
     esp_phy_release_init_data(init_data);
 #endif
 #if CONFIG_ESP_PHY_ENABLED && SOC_DEEP_SLEEP_SUPPORTED
-    ESP_ERROR_CHECK(esp_deep_sleep_register_phy_hook(&phy_close_rf));
-#endif
-#if !CONFIG_IDF_TARGET_ESP32
-#if CONFIG_ESP_PHY_ENABLED && SOC_DEEP_SLEEP_SUPPORTED
-    ESP_ERROR_CHECK(esp_deep_sleep_register_phy_hook(&phy_xpd_tsens));
-#endif
+    ESP_ERROR_CHECK(esp_deep_sleep_register_phy_hook(&phy_deep_sleep_prepare));
 #endif
 
-    k_free(cal_data); /* PHY maintains a copy of calibration data, so we can free this */
+    free(cal_data); // PHY maintains a copy of calibration data, so we can free this
 }
 
 #if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN
@@ -1038,7 +1057,7 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         size_t init_data_store_length,
         phy_init_data_type_t init_data_type)
 {
-    phy_control_info_data_t* init_data_control_info = (phy_control_info_data_t*) k_malloc(sizeof(phy_control_info_data_t));
+    phy_control_info_data_t* init_data_control_info = (phy_control_info_data_t*) malloc(sizeof(phy_control_info_data_t));
     if (init_data_control_info == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data control info");
         return ESP_FAIL;
@@ -1049,7 +1068,7 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
 #else
     err = esp_partition_read(partition, init_data_store_length, init_data_control_info, sizeof(phy_control_info_data_t));
     if (err != ESP_OK) {
-        k_free(init_data_control_info);
+        free(init_data_control_info);
         ESP_LOGE(TAG, "failed to read PHY control info data partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -1058,19 +1077,19 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         err =  phy_crc_check_init_data(init_data_control_info->multiple_bin_checksum, init_data_control_info->control_info_checksum,
                 sizeof(phy_control_info_data_t) - sizeof(init_data_control_info->control_info_checksum));
         if (err != ESP_OK) {
-            k_free(init_data_control_info);
+            free(init_data_control_info);
             ESP_LOGE(TAG, "PHY init data control info check error");
             return ESP_FAIL;
         }
     } else {
-        k_free(init_data_control_info);
+        free(init_data_control_info);
         ESP_LOGE(TAG, "Check algorithm not CRC, PHY init data update failed");
         return ESP_FAIL;
     }
 
-    uint8_t* init_data_multiple = (uint8_t*) k_malloc(sizeof(esp_phy_init_data_t) * init_data_control_info->number);
+    uint8_t* init_data_multiple = (uint8_t*) malloc(sizeof(esp_phy_init_data_t) * init_data_control_info->number);
     if (init_data_multiple == NULL) {
-        k_free(init_data_control_info);
+        free(init_data_control_info);
         ESP_LOGE(TAG, "failed to allocate memory for PHY init data multiple bin");
         return ESP_FAIL;
     }
@@ -1081,8 +1100,8 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
     err = esp_partition_read(partition, init_data_store_length + sizeof(phy_control_info_data_t),
             init_data_multiple, sizeof(esp_phy_init_data_t) * init_data_control_info->number);
     if (err != ESP_OK) {
-        k_free(init_data_multiple);
-        k_free(init_data_control_info);
+        free(init_data_multiple);
+        free(init_data_control_info);
         ESP_LOGE(TAG, "failed to read PHY init data multiple bin partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -1091,14 +1110,14 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         err = phy_crc_check_init_data(init_data_multiple, init_data_control_info->multiple_bin_checksum,
                 sizeof(esp_phy_init_data_t) * init_data_control_info->number);
         if (err != ESP_OK) {
-            k_free(init_data_multiple);
-            k_free(init_data_control_info);
+            free(init_data_multiple);
+            free(init_data_control_info);
             ESP_LOGE(TAG, "PHY init data multiple bin check error");
             return ESP_FAIL;
         }
     } else {
-        k_free(init_data_multiple);
-        k_free(init_data_control_info);
+        free(init_data_multiple);
+        free(init_data_control_info);
         ESP_LOGE(TAG, "Check algorithm not CRC, PHY init data update failed");
         return ESP_FAIL;
     }
@@ -1111,8 +1130,8 @@ static esp_err_t phy_get_multiple_init_data(const esp_partition_t* partition,
         s_phy_init_data_type = init_data_type;
     }
 
-    k_free(init_data_multiple);
-    k_free(init_data_control_info);
+    free(init_data_multiple);
+    free(init_data_control_info);
     return ESP_OK;
 }
 
@@ -1123,7 +1142,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     const esp_partition_t* partition = NULL;
     size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
         sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
-    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return ESP_ERR_NO_MEM;
@@ -1139,7 +1158,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     }
     size_t init_data_store_length = PHY_INIT_MAGIC_LEN +
         sizeof(esp_phy_init_data_t) + PHY_INIT_MAGIC_LEN;
-    uint8_t* init_data_store = (uint8_t*) k_malloc(init_data_store_length);
+    uint8_t* init_data_store = (uint8_t*) malloc(init_data_store_length);
     if (init_data_store == NULL) {
         ESP_LOGE(TAG, "failed to allocate memory for updated country code PHY init data");
         return ESP_ERR_NO_MEM;
@@ -1147,7 +1166,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
 
     esp_err_t err = esp_partition_read(partition, 0, init_data_store, init_data_store_length);
     if (err != ESP_OK) {
-        k_free(init_data_store);
+        free(init_data_store);
         ESP_LOGE(TAG, "failed to read updated country code PHY data partition (0x%x)", err);
         return ESP_FAIL;
     }
@@ -1155,7 +1174,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     if (memcmp(init_data_store, PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0 ||
             memcmp(init_data_store + init_data_store_length - PHY_INIT_MAGIC_LEN,
                 PHY_INIT_MAGIC, PHY_INIT_MAGIC_LEN) != 0) {
-        k_free(init_data_store);
+        free(init_data_store);
         ESP_LOGE(TAG, "failed to validate updated country code PHY data partition");
         return ESP_FAIL;
     }
@@ -1164,7 +1183,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
     if (init_data_type != ESP_PHY_INIT_DATA_TYPE_DEFAULT) {
         err = phy_get_multiple_init_data(partition, init_data_store, init_data_store_length, init_data_type);
         if (err != ESP_OK) {
-            k_free(init_data_store);
+            free(init_data_store);
 #if CONFIG_ESP_PHY_INIT_DATA_ERROR
             abort();
 #else
@@ -1179,7 +1198,7 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
         err = esp_phy_apply_phy_init_data(init_data_store + PHY_INIT_MAGIC_LEN);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "PHY init data failed to load");
-            k_free(init_data_store);
+            free(init_data_store);
             return ESP_FAIL;
         }
 
@@ -1188,8 +1207,13 @@ esp_err_t esp_phy_update_init_data(phy_init_data_type_t init_data_type)
         s_current_apply_phy_init_data = s_phy_init_data_type;
     }
 
-    k_free(init_data_store);
+    free(init_data_store);
     return ESP_OK;
+}
+
+phy_init_data_type_t esp_phy_get_init_data_type(void)
+{
+    return s_current_apply_phy_init_data;
 }
 #endif
 
@@ -1226,7 +1250,7 @@ esp_err_t esp_phy_update_country_info(const char *country)
 void esp_wifi_power_domain_on(void) __attribute__((alias("esp_wifi_bt_power_domain_on")));
 void esp_wifi_power_domain_off(void) __attribute__((alias("esp_wifi_bt_power_domain_off")));
 
-struct k_mutex *phy_get_lock(void)
+_lock_t phy_get_lock(void)
 {
-    return &s_phy_access_lock;
+    return s_phy_access_lock;
 }

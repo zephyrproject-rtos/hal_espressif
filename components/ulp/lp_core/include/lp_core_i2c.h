@@ -23,8 +23,8 @@ extern "C" {
  * @brief LP Core I2C pin config parameters
  */
 typedef struct {
-    gpio_num_t sda_io_num;      /*!< GPIO pin for SDA signal. Only GPIO#6 can be used as the SDA pin. */
-    gpio_num_t scl_io_num;      /*!< GPIO pin for SCL signal. Only GPIO#7 can be used as the SCL pin. */
+    gpio_num_t sda_io_num;      /*!< GPIO pin for SDA signal. Must be a valid LP GPIO. Use LP_I2C_SDA_IO macro for the default pin for your target. */
+    gpio_num_t scl_io_num;      /*!< GPIO pin for SCL signal. Must be a valid LP GPIO. Use LP_I2C_SCL_IO macro for the default pin for your target. */
     bool sda_pullup_en;         /*!< SDA line enable internal pullup. Can be configured if external pullup is not used. */
     bool scl_pullup_en;         /*!< SCL line enable internal pullup. Can be configured if external pullup is not used. */
 } lp_core_i2c_pin_cfg_t;
@@ -55,13 +55,48 @@ typedef struct {
 #define LP_I2C_SCL_IO   GPIO_NUM_7
 #define LP_I2C_SDA_IO   GPIO_NUM_6
 #elif CONFIG_IDF_TARGET_ESP32S31
-#define LP_I2C_SCL_IO   GPIO_NUM_7
-#define LP_I2C_SDA_IO   GPIO_NUM_6
+#define LP_I2C_SCL_IO   GPIO_NUM_6
+#define LP_I2C_SDA_IO   GPIO_NUM_7
 #else
 #error "Default LP core I2C pin not set for this chip"
 #endif
 
 /* Default LP I2C GPIO settings */
+#ifdef __cplusplus
+#define LP_I2C_DEFAULT_GPIO_CONFIG() (__extension__({ \
+    lp_core_i2c_pin_cfg_t __lp_i2c_pin_cfg; \
+    __lp_i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO; \
+    __lp_i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO; \
+    __lp_i2c_pin_cfg.sda_pullup_en = true; \
+    __lp_i2c_pin_cfg.scl_pullup_en = true; \
+    __lp_i2c_pin_cfg; \
+}))
+
+/* LP I2C fast mode config. Max SCL freq of 400 KHz. */
+#define LP_I2C_FAST_MODE_CONFIG() (__extension__({ \
+    lp_core_i2c_timing_cfg_t __lp_i2c_timing_cfg; \
+    __lp_i2c_timing_cfg.clk_speed_hz = 400000; \
+    __lp_i2c_timing_cfg; \
+}))
+
+/* LP I2C standard mode config. Max SCL freq of 100 KHz. */
+#define LP_I2C_STANDARD_MODE_CONFIG() (__extension__({ \
+    lp_core_i2c_timing_cfg_t __lp_i2c_timing_cfg; \
+    __lp_i2c_timing_cfg.clk_speed_hz = 100000; \
+    __lp_i2c_timing_cfg; \
+}))
+
+#define LP_I2C_DEFAULT_SRC_CLK()                LP_I2C_SCLK_LP_FAST
+
+/* Default LP I2C GPIO settings and timing parameters */
+#define LP_CORE_I2C_DEFAULT_CONFIG() (__extension__({ \
+    lp_core_i2c_cfg_t __lp_i2c_cfg; \
+    __lp_i2c_cfg.i2c_pin_cfg = LP_I2C_DEFAULT_GPIO_CONFIG(); \
+    __lp_i2c_cfg.i2c_timing_cfg = LP_I2C_FAST_MODE_CONFIG(); \
+    __lp_i2c_cfg.i2c_src_clk = LP_I2C_DEFAULT_SRC_CLK(); \
+    __lp_i2c_cfg; \
+}))
+#else
 #define LP_I2C_DEFAULT_GPIO_CONFIG()            \
         .i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO,\
         .i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO,\
@@ -86,6 +121,7 @@ typedef struct {
         LP_I2C_FAST_MODE_CONFIG()               \
         LP_I2C_DEFAULT_SRC_CLK()                \
     }
+#endif /* __cplusplus */
 
 /**
  * @brief Initialize and configure the LP I2C for use by the LP core

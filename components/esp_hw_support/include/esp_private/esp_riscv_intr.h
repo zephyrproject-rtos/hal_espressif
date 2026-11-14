@@ -9,20 +9,7 @@
 
 #if CONFIG_IDF_TARGET_ARCH_RISCV
 
-#ifdef __ZEPHYR__
-/*
- * Zephyr uses its own interrupt framework and vector tables.
- * Skip the ESP-IDF interrupt handler reservation checks.
- */
-static inline uint32_t esp_riscv_intr_num_flags(int intr_num, uint32_t rsvd_mask)
-{
-    if (rsvd_mask & BIT(intr_num)) {
-        return ESP_CPU_INTR_DESC_FLAG_RESVD;
-    }
-    return 0;
-}
-
-#elif SOC_INT_CLIC_SUPPORTED
+#if SOC_INT_CLIC_SUPPORTED
 
 /**
  * @brief Checks whether the given interrupt number is reserved either in the given mask or in the

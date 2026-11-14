@@ -12,6 +12,7 @@
 #include "soc/lp_peri_clkrst_struct.h"
 #include "soc/soc_etm_source.h"
 #include "hal/ahb_dma_ll.h"
+#include "hal/axi_dma_ll.h"
 
 #define GDMA_LL_GET(_attr)          GDMA_LL_ ## _attr
 
@@ -20,6 +21,7 @@
 #define GDMA_LL_PAIRS_PER_INST      MAX(MAX(GDMA_LL_AHB_PAIRS_PER_GROUP, GDMA_LL_AXI_PAIRS_PER_GROUP), GDMA_LL_LP_AHB_PAIRS_PER_GROUP)
 
 #define GDMA_LL_CHANNEL_MAX_PRIORITY 5 // supported priority levels: [0,5]
+#define GDMA_LL_CHANNEL_MAX_WEIGHT   15 // supported weight levels: [0,15]
 
 // the following event bits are only supported by axi-dma
 #define GDMA_LL_EVENT_TX_LINK_SWITCH (1<<10)
@@ -58,45 +60,6 @@
 #define GDMA_LL_AHB_DESC_ALIGNMENT        4
 #define GDMA_LL_AXI_DESC_ALIGNMENT        8
 #define GDMA_LL_MAX_BURST_SIZE_PSRAM      128 // PSRAM controller doesn't support burst access with size > 128 bytes
-
-/* Compatibility aliases: map gdma_ll_* names to the ahb_dma_ll_* API
- * so that Zephyr drivers written against the v1 GDMA interface compile on
- * AHB-GDMA-v2 SoCs without source changes.
- */
-#define GDMA_LL_M2M_FREE_PERIPH_ID_MASK          AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK
-#define GDMA_LL_RX_EVENT_MASK                     AHB_DMA_LL_RX_EVENT_MASK
-#define GDMA_LL_TX_EVENT_MASK                     AHB_DMA_LL_TX_EVENT_MASK
-#define gdma_ll_force_enable_reg_clock            ahb_dma_ll_force_enable_reg_clock
-#define gdma_ll_rx_clear_interrupt_status          ahb_dma_ll_rx_clear_interrupt_status
-#define gdma_ll_rx_connect_to_mem                  ahb_dma_ll_rx_connect_to_mem
-#define gdma_ll_rx_connect_to_periph               ahb_dma_ll_rx_connect_to_periph
-#define gdma_ll_rx_enable_data_burst               ahb_dma_ll_rx_enable_data_burst
-#define gdma_ll_rx_enable_descriptor_burst         ahb_dma_ll_rx_enable_descriptor_burst
-#define gdma_ll_rx_enable_interrupt                ahb_dma_ll_rx_enable_interrupt
-#define gdma_ll_rx_enable_owner_check              ahb_dma_ll_rx_enable_owner_check
-#define gdma_ll_rx_get_interrupt_status            ahb_dma_ll_rx_get_interrupt_status
-#define gdma_ll_rx_get_interrupt_status_reg        ahb_dma_ll_rx_get_interrupt_status_reg
-#define gdma_ll_rx_get_prefetched_desc_addr        ahb_dma_ll_rx_get_prefetched_desc_addr
-#define gdma_ll_rx_get_success_eof_desc_addr       ahb_dma_ll_rx_get_success_eof_desc_addr
-#define gdma_ll_rx_is_desc_fsm_idle                ahb_dma_ll_rx_is_desc_fsm_idle
-#define gdma_ll_rx_reset_channel                   ahb_dma_ll_rx_reset_channel
-#define gdma_ll_rx_set_desc_addr                   ahb_dma_ll_rx_set_desc_addr
-#define gdma_ll_rx_start                           ahb_dma_ll_rx_start
-#define gdma_ll_rx_stop                            ahb_dma_ll_rx_stop
-#define gdma_ll_tx_clear_interrupt_status          ahb_dma_ll_tx_clear_interrupt_status
-#define gdma_ll_tx_connect_to_mem                  ahb_dma_ll_tx_connect_to_mem
-#define gdma_ll_tx_connect_to_periph               ahb_dma_ll_tx_connect_to_periph
-#define gdma_ll_tx_enable_data_burst               ahb_dma_ll_tx_enable_data_burst
-#define gdma_ll_tx_enable_descriptor_burst         ahb_dma_ll_tx_enable_descriptor_burst
-#define gdma_ll_tx_enable_interrupt                ahb_dma_ll_tx_enable_interrupt
-#define gdma_ll_tx_get_interrupt_status            ahb_dma_ll_tx_get_interrupt_status
-#define gdma_ll_tx_get_interrupt_status_reg        ahb_dma_ll_tx_get_interrupt_status_reg
-#define gdma_ll_tx_get_prefetched_desc_addr        ahb_dma_ll_tx_get_prefetched_desc_addr
-#define gdma_ll_tx_is_desc_fsm_idle                ahb_dma_ll_tx_is_desc_fsm_idle
-#define gdma_ll_tx_reset_channel                   ahb_dma_ll_tx_reset_channel
-#define gdma_ll_tx_set_desc_addr                   ahb_dma_ll_tx_set_desc_addr
-#define gdma_ll_tx_start                           ahb_dma_ll_tx_start
-#define gdma_ll_tx_stop                            ahb_dma_ll_tx_stop
 
 #define GDMA_LL_AHB_M2M_CAPABLE_PAIR_MASK   0x1F  // pair 0,1,2,3,4 are M2M capable
 #define GDMA_LL_AXI_M2M_CAPABLE_PAIR_MASK   0x07  // pair 0,1,2 are M2M capable
@@ -169,6 +132,21 @@ static inline void gdma_ll_enable_bus_clock(int group_id, bool enable)
         HP_SYS_CLKRST.axi_pdma_ctrl0.reg_axi_pdma_sys_clk_en = enable;
     } else { // group_id == 2, LP AHB GDMA
         LP_PERI_CLKRST.ahb_dma_ctrl.lp_ahb_dma_clk_en = enable;
+    }
+}
+
+/**
+ * @brief Check if the bus clock is enabled for the DMA module
+ */
+__attribute__((always_inline))
+static inline bool gdma_ll_is_bus_clock_enabled(int group_id)
+{
+    if (group_id == 0) {
+        return HP_SYS_CLKRST.ahb_pdma_ctrl0.reg_ahb_pdma_sys_clk_en;
+    } else if (group_id == 1) {
+        return HP_SYS_CLKRST.axi_pdma_ctrl0.reg_axi_pdma_sys_clk_en;
+    } else { // group_id == 2, LP AHB GDMA
+        return LP_PERI_CLKRST.ahb_dma_ctrl.lp_ahb_dma_clk_en;
     }
 }
 

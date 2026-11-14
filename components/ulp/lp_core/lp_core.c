@@ -5,7 +5,6 @@
  */
 
 #include "sdkconfig.h"
-#include <zephyr/devicetree.h>
 #include "esp_rom_caps.h"
 #include "soc/soc.h"
 #include "soc/soc_caps.h"
@@ -27,10 +26,8 @@
 #include "esp32p4/rom/rtc.h"
 #endif
 
-#define ULP_COPROC_RESERVE_MEM CONFIG_ESP32_ULP_COPROC_RESERVE_MEM
-
 #if ESP_ROM_HAS_LP_ROM
-#define ULP_LP_MEMORY_BASE DT_REG_ADDR(DT_NODELABEL(ulp_ram))
+extern uint8_t _rtc_ulp_memory_start[];
 #endif //ESP_ROM_HAS_LP_ROM
 
 #if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
@@ -51,9 +48,7 @@ const static char* TAG = "ulp-lp-core";
 
 #define WAKEUP_SOURCE_MAX_NUMBER 6
 
-#if ESP_ROM_HAS_LP_ROM
-#define RESET_HANDLER_ADDR ((intptr_t)ULP_LP_MEMORY_BASE + 0x80) // Placed after the 0x80 byte long vector table
-#endif
+#define RESET_HANDLER_ADDR ((intptr_t)_rtc_ulp_memory_start + 0x80) // Placed after the 0x80 byte long vector table
 
 /* Maps the flags defined in ulp_lp_core.h e.g. ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU to their actual HW values */
 static uint32_t wakeup_src_sw_to_hw_flag_lookup[WAKEUP_SOURCE_MAX_NUMBER] = {
@@ -71,7 +66,7 @@ static uint32_t wakeup_src_sw_to_hw_flag_lookup[WAKEUP_SOURCE_MAX_NUMBER] = {
 static uintptr_t ulp_lp_core_lp_mem_start(void)
 {
 #if ESP_ROM_HAS_LP_ROM
-    return (uintptr_t)ULP_LP_MEMORY_BASE;
+    return (uintptr_t)&_rtc_ulp_memory_start;
 #else
     return (uintptr_t)RTC_SLOW_MEM;
 #endif
@@ -79,7 +74,7 @@ static uintptr_t ulp_lp_core_lp_mem_start(void)
 
 static uintptr_t ulp_lp_core_lp_mem_end(void)
 {
-    return ulp_lp_core_lp_mem_start() + ULP_COPROC_RESERVE_MEM;
+    return ulp_lp_core_lp_mem_start() + CONFIG_ULP_COPROC_RESERVE_MEM;
 }
 
 static bool ulp_lp_core_addr_range_in_region(uintptr_t start, size_t len, uintptr_t region_start, uintptr_t region_end)
@@ -142,7 +137,7 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
 #endif // SOC_LP_CORE_CONFIGURABLE_BOOT_ADDR
 
     PERIPH_RCC_ATOMIC() {
-#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+#if CONFIG_ULP_NORESET_UNDER_DEBUG
         /* lp_core module reset causes loss of configured HW breakpoints and dcsr.ebreak* */
         if (!esp_cpu_dbgr_is_attached()) {
             lp_core_ll_reset_register();
@@ -164,21 +159,14 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
     /* Enable reset CPU when going to sleep */
     /* Avoid resetting chip in sleep mode when debugger is attached,
        otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
-#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+#if CONFIG_ULP_NORESET_UNDER_DEBUG
     lp_core_ll_rst_at_sleep_enable(!esp_cpu_dbgr_is_attached());
 #else
     lp_core_ll_rst_at_sleep_enable(true);
 #endif
 
-    /* Set wake-up sources */
-    lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
-
     /* Enable JTAG debugging */
     lp_core_ll_debug_module_enable(true);
-
-    if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU) {
-        lp_core_ll_hp_wake_lp();
-    }
 
 #if SOC_ULP_LP_UART_SUPPORTED
     if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_LP_UART) {
@@ -200,6 +188,13 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
         ulp_lp_core_lp_timer_set_wakeup_time(cfg->lp_timer_sleep_duration_us);
     }
 #endif
+
+    /* Set wake-up sources */
+    lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
+
+    if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU) {
+        lp_core_ll_hp_wake_lp();
+    }
 
     return ESP_OK;
 }
@@ -294,26 +289,23 @@ esp_err_t ulp_lp_core_load_binary(const uint8_t* program_binary, size_t program_
     ulp_lp_core_stop();
 
 #if ESP_ROM_HAS_LP_ROM
-    uint32_t* base = (uint32_t*)ULP_LP_MEMORY_BASE;
+    uint32_t* base = (uint32_t*)_rtc_ulp_memory_start;
 #else
     uint32_t* base = RTC_SLOW_MEM;
 #endif
 
-#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
     /* Clear LP RAM — also initializes LP-side bss */
-    hal_memset(base, 0, ULP_COPROC_RESERVE_MEM);
+    hal_memset(base, 0, CONFIG_ULP_COPROC_RESERVE_MEM);
+
+#if CONFIG_ULP_COPROC_RUN_FROM_HP_MEM
     ESP_LOGW(TAG, "Running ULP app from HP memory. ULP will not be able to run if system enters deep sleep and power down HP memory.");
     /* Clear HP RAM — initializes HP-side bss before the LP core runs */
     hal_memset(&_ulp_hp_mem_resv_start, 0, CONFIG_ULP_COPROC_RESERVE_HP_MEM_BYTES);
     return ulp_lp_core_load_segments(program_binary, program_size_bytes);
 #else
-    if (program_size_bytes > ULP_COPROC_RESERVE_MEM) {
+    if (program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
         return ESP_ERR_INVALID_SIZE;
     }
-    /* Clear only the binary region to initialize bss without wiping
-     * shared memory structures (e.g. mbox lock) at the end of LP SRAM.
-     */
-    hal_memset(base, 0, program_size_bytes);
     hal_memcpy(base, program_binary, program_size_bytes);
 
     return ESP_OK;
@@ -339,9 +331,9 @@ void ulp_lp_core_stop(void)
         /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
            so configure it to stall when going to sleep */
         lp_core_ll_stall_at_sleep_request(true);
-#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
         /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
+#if CONFIG_ULP_NORESET_UNDER_DEBUG
         lp_core_ll_rst_at_sleep_enable(false);
 #else
         lp_core_ll_rst_at_sleep_enable(true);

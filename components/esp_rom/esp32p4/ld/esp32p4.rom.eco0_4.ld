@@ -328,12 +328,6 @@ esprv_intc_int_set_priority = 0x4fc005b8;
 esprv_intc_int_set_threshold = 0x4fc005bc;
 esprv_intc_int_enable = 0x4fc005c0;
 esprv_intc_int_disable = 0x4fc005c4;
-/*
- * ZEPHYR: the pre-v3 ROM does not export esprv_intc_int_set_type. The ROM
- * function it would alias is also buggy for edge-type interrupts. Zephyr
- * builds esp_rom_clic.c, which provides a C implementation of esprv_int_set_type
- * for pre-v3 silicon, so no ROM symbol is needed here.
- */
 PROVIDE( intr_handler_set = 0x4fc005cc );
 intr_matrix_set = 0x4fc005d0;
 ets_intr_lock = 0x4fc005d4;
@@ -456,9 +450,8 @@ esp_rom_km_huk_risk = 0x4fc0071c;
 /* Functions */
 ets_emsa_pss_verify = 0x4fc00720;
 ets_rsa_pss_verify = 0x4fc00724;
-ets_ecdsa_verify = 0x4fc00728;
-ets_secure_boot_verify_bootloader_with_keys = 0x4fc0072c;
-ets_secure_boot_verify_signature = 0x4fc00730;
+_rom_ets_ecdsa_verify = 0x4fc00728;
+_rom_ets_secure_boot_verify_signature = 0x4fc00730;
 ets_secure_boot_read_key_digests = 0x4fc00734;
 ets_secure_boot_revoke_public_key_digest = 0x4fc00738;
 

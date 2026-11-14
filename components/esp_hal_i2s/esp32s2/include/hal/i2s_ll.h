@@ -27,7 +27,8 @@
 #define I2S_LL_SUPPORT(_feat)   I2S_LL_SUPPORT_ ## _feat
 #define I2S_LL_BUS_WIDTH        24
 #define I2S_LL_INST_NUM         1
-#define I2S_LL_PDM_SUPPORTED_PORT_MASK        (1U << 0)  // PDM is supported on I2S0
+#define I2S_LL_SUPPORT_DMA_EXT_MEM 1
+#define I2S_LL_DMA_EXT_MEM_ALIGNMENT 16
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +84,43 @@ static inline void i2s_ll_dma_enable_auto_write_back(i2s_dev_t *hw, bool en)
 static inline void i2s_ll_dma_enable_eof_on_fifo_empty(i2s_dev_t *hw, bool en)
 {
     hw->lc_conf.out_eof_mode = en;
+}
+
+/**
+ * @brief Set the external-memory block size used by the I2S DMA
+ *
+ * @param hw Peripheral I2S hardware instance address
+ * @param block_size External-memory block size in bytes, valid values are 16, 32 and 64
+ */
+static inline void i2s_ll_dma_set_ext_mem_block_size(i2s_dev_t *hw, uint32_t block_size)
+{
+    HAL_ASSERT(block_size == 16 || block_size == 32 || block_size == 64);
+    hw->lc_conf.ext_mem_bk_size = __builtin_ctz(block_size) - 4;
+}
+
+/**
+ * @brief Enable DMA burst access for TX data and descriptors
+ *
+ * @param hw Peripheral I2S hardware instance address
+ * @param en Whether to enable burst access
+ */
+static inline void i2s_ll_dma_tx_enable_burst(i2s_dev_t *hw, bool en)
+{
+    hw->lc_conf.out_data_burst_en = en;
+    hw->lc_conf.outdscr_burst_en = en;
+}
+
+/**
+ * @brief Enable DMA burst access for RX descriptors
+ *
+ * @note ESP32-S2 does not provide a burst-enable bit for RX data.
+ *
+ * @param hw Peripheral I2S hardware instance address
+ * @param en Whether to enable descriptor burst access
+ */
+static inline void i2s_ll_dma_rx_enable_burst(i2s_dev_t *hw, bool en)
+{
+    hw->lc_conf.indscr_burst_en = en;
 }
 
 /**
@@ -1016,7 +1054,6 @@ static inline void i2s_ll_tx_stop_on_fifo_empty(i2s_dev_t *hw, bool en)
     hw->conf1.tx_stop_en = en;
 }
 
-#ifndef __ZEPHYR__
 /**
  * @brief Set I2S data destination
  */
@@ -1034,15 +1071,6 @@ static inline bool i2s_ll_is_destination_supported(int port_id, i2s_destination_
 {
     (void)port_id;
     return destination == I2S_DESTINATION_DMA;
-}
-#endif /* __ZEPHYR__ */
-
-/**
- * @brief Check whether I2S PDM mode is supported on the specified port
- */
-static inline bool i2s_ll_is_pdm_supported(int port_id)
-{
-    return (I2S_LL_PDM_SUPPORTED_PORT_MASK & (1U << port_id)) != 0;
 }
 
 /**

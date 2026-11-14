@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/atomic.h>
+#include <stdatomic.h>
 #include "esp_clk_tree.h"
 #include "esp_err.h"
 #include "esp_check.h"
@@ -18,7 +18,7 @@
 
 ESP_LOG_ATTR_TAG(TAG, "esp_clk_tree");
 
-static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
+static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
 
 esp_err_t esp_clk_tree_src_get_freq_hz(soc_module_clk_t clk_src, esp_clk_tree_src_freq_precision_t precision,
 uint32_t *freq_value)
@@ -33,16 +33,16 @@ uint32_t *freq_value)
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F40M:
-        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_40M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F60M:
-        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_60M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -79,7 +79,7 @@ void esp_clk_tree_initialize(void)
 {
 }
 
-bool esp_clk_tree_is_power_on(soc_root_clk_circuit_t clk_circuit)
+bool esp_clk_tree_port_is_power_on(soc_root_clk_circuit_t clk_circuit)
 {
     (void)clk_circuit;
     return false;
@@ -91,28 +91,30 @@ bool esp_clk_tree_enable_power(soc_root_clk_circuit_t clk_circuit, bool enable)
     return false; // TODO: PM-653
 }
 
-esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
+esp_err_t esp_clk_tree_manage_src(soc_module_clk_t clk_src, bool acquire,
+                                  const esp_clk_tree_src_config_t *config)
 {
+    (void)config;
     if (clk_src < 1 || clk_src >= SOC_MOD_CLK_INVALID) {
         // some conditions is legal, e.g. -1 means external clock source
         return ESP_OK;
     }
 
     int16_t prev_ref_cnt = 0;
-    if (enable) {
-        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
+    if (acquire) {
+        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
     } else {
-        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
         if (prev_ref_cnt <= 0) {
             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
+            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
             return ESP_OK;
         }
     }
-    if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
+    if ((prev_ref_cnt == 0 && acquire) || (prev_ref_cnt == 1 && !acquire)) {
         switch (clk_src) {
         case SOC_MOD_CLK_RC_FAST:
-            enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable();
+            acquire ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable();
             break;
         default:
             break;

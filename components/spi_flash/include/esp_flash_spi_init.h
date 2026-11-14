@@ -25,7 +25,7 @@ typedef struct {
      * automatically assigned by the SPI bus lock.
      */
     int cs_id;
-    int freq_mhz;                   ///< The frequency of flash chip(MHz)
+    int freq_mhz;                   ///< The frequency of flash chip(MHZ)
     spi_clock_source_t clock_source;///< Select SPI clock source, `SPI_CLK_SRC_DEFAULT` by default.
 } esp_flash_spi_device_config_t;
 
@@ -51,6 +51,7 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
  *
  * @return
  *      - ESP_ERR_INVALID_ARG: The chip is invalid.
+ *      - ESP_ERR_INVALID_STATE: The chip is still acquiring the SPI bus lock.
  *      - ESP_OK: success.
  */
 esp_err_t spi_bus_remove_flash_device(esp_flash_t *chip);

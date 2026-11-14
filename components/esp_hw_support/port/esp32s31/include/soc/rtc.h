@@ -11,6 +11,7 @@
 #include "soc/soc.h"
 #include "soc/clk_tree_defs.h"
 #include "hal/hal_utils.h"
+#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,7 @@ extern "C" {
  * - rtc_time: reading RTC counter, conversion between counter values and time
  */
 
+#define MHZ (1000000)
 
 /* Delays for various clock sources to be enabled/switched.
  * All values are in microseconds.
@@ -62,14 +64,44 @@ extern "C" {
 #define RTC_CNTL_SCK_DCAP_DEFAULT    128
 #define RTC_CNTL_RC32K_DFREQ_DEFAULT 700
 
-/* Various delays to be programmed into power control state machines */
-#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
-#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
-#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
-#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
-#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
-#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
-#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
+#if CONFIG_ESP_ENABLE_PVT
+/**
+* @brief Set PVT default param
+*/
+#define PVT_CHANNEL0_SEL        33
+#define PVT_CHANNEL1_SEL        37
+#define PVT_CHANNEL0_CFG        0x11fff
+#define PVT_CHANNEL1_CFG        0x17fff
+#define PVT_CHANNEL2_CFG        0x10000
+#define PVT_CMD0                0x24
+#define PVT_CMD1                0x5
+#define PVT_CMD2                0x427
+#define PVT_TARGET              0xffff
+#define PVT_CLK_DIV             1
+#define PVT_EDG_MODE            1
+#define PVT_DELAY_NUM_HIGH      151
+#define PVT_DELAY_NUM_LOW       141
+#define PVT_PUMP_CHANNEL_CODE   1
+#define PVT_PUMP_BITMAP         22
+#define PVT_PUMP_DRV            0
+#define PVT_DELAY_NUM_PUMP      134
+
+/**
+ * @brief Initialize PVT dig dbias
+ */
+void pvt_dig_dbias_init(void);
+
+/**
+ * @brief Enable or disable auto dbias functions
+ *
+ * @param enable   true to enable, false to disable
+ * @param reconfig true: soft-reset + rewrite channel/cmd/threshold/timer config;
+ *                 false: only gate clocks/monitor/timer, keep existing config
+ *                 (e.g. after TOP retention restore). Ignored when enable is false.
+ */
+void pvt_auto_dbias_enable(bool enable, bool reconfig);
+
+#endif //#if CONFIG_ESP_ENABLE_PVT
 
 /**
  * @brief CPU clock configuration structure
@@ -96,11 +128,20 @@ typedef struct {
     uint32_t slow_clk_dcap : 8;                //!< RC_SLOW clock adjustment parameter (higher value leads to lower frequency)
     uint32_t clk_8m_dfreq : 8;                 //!< RC_FAST clock adjustment parameter (higher value leads to higher frequency)
     uint32_t rc32k_dfreq : 10;                 //!< Internal RC32K clock adjustment parameter (higher value leads to higher frequency)
+    uint32_t disable_apll : 1;                 //!< Whether to disable APLL  in rtc_clk_init
+    uint32_t disable_mpll : 1;                 //!< Whether to disable MPLL  in rtc_clk_init
+    uint32_t disable_cpll : 1;                 //!< Whether to disable CPLL  in rtc_clk_init
+    uint32_t disable_bbpll : 1;                //!< Whether to disable BBPLL in rtc_clk_init
 } rtc_clk_config_t;
 
 /**
  * Default initializer for rtc_clk_config_t
  */
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
+#define RTC_CLK_CONFIG_DEFAULT_DISABLE_BBPLL    0   /* USB PHY relies on BBPLL */
+#else
+#define RTC_CLK_CONFIG_DEFAULT_DISABLE_BBPLL    1
+#endif // CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
 #define RTC_CLK_CONFIG_DEFAULT() { \
     .xtal_freq = CONFIG_XTAL_FREQ, \
     .cpu_freq_mhz = CONFIG_BOOTLOADER_CPU_CLK_FREQ_MHZ, \
@@ -111,6 +152,10 @@ typedef struct {
     .slow_clk_dcap = RTC_CNTL_SCK_DCAP_DEFAULT, \
     .clk_8m_dfreq = RTC_CNTL_CK8M_DFREQ_DEFAULT, \
     .rc32k_dfreq = RTC_CNTL_RC32K_DFREQ_DEFAULT, \
+    .disable_apll = 1, \
+    .disable_mpll = 1, \
+    .disable_cpll = 0, /* Keep CPLL: Flash (bootloader) and typical CPU freqs use it */ \
+    .disable_bbpll = RTC_CLK_CONFIG_DEFAULT_DISABLE_BBPLL, \
 }
 
 /**
@@ -233,6 +278,7 @@ bool rtc_clk_cpu_freq_mhz_to_config(uint32_t freq_mhz, rtc_cpu_freq_config_t *ou
  */
 void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config);
 
+#ifndef BOOTLOADER_BUILD
 /**
  * @brief Switch CPU frequency (optimized for speed)
  *
@@ -254,6 +300,7 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config);
  * @param config  CPU frequency configuration structure
  */
 void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config);
+#endif
 
 /**
  * @brief Get the currently used CPU frequency configuration
@@ -261,17 +308,28 @@ void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config);
  */
 void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config);
 
+#ifndef BOOTLOADER_BUILD
 /**
  * @brief Switch CPU clock source to XTAL
  *
  * Short form for filling in rtc_cpu_freq_config_t structure and calling
  * rtc_clk_cpu_freq_set_config when a switch to XTAL is needed.
  * Assumes that XTAL frequency has been determined — don't call in startup code.
- *
- * @note On ESP32S31, this function always disables CPLL after switching the CPU clock source to XTAL,
- * since there is no peripheral relies on CPLL clock (except Flash/PSRAM if their clock source selects CPLL).
  */
 void rtc_clk_cpu_freq_set_xtal(void);
+
+/**
+ * @brief Release root clock source locked by PMU
+ *
+ * In PMU modem state on ESP32-S31, PMU takes control of the HP root clock
+ * (sysclk_slp_sel = 1) and selects XTAL (40 MHz). When waking up to HP_ACTIVE
+ * via HP_MODEM, PMU does not automatically hand the root clock mux back to
+ * software (HP_SYS_CLKRST). Software must explicitly release this lock by
+ * setting PMU_UPDATE_DIG_SYS_CLK_SEL after restoring the CPU clock config,
+ * otherwise the HP root clock remains stuck at XTAL 40 MHz.
+ */
+void rtc_clk_modem_pll_lock_release(void);
+#endif
 
 /**
  * @brief Get the current APB frequency.

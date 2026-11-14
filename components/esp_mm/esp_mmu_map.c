@@ -6,11 +6,10 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include <sys/queue.h>
 #include <inttypes.h>
-#include <zephyr/kernel.h>
-#include <zephyr/arch/cpu.h>
+#include <sys/lock.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -32,11 +31,7 @@
 #include "esp_private/esp_mmu_map_private.h"
 #include "ext_mem_layout.h"
 #include "esp_mmu_map.h"
-
-//This is for size align
-#define ALIGN_UP_BY(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
-//This is for vaddr align
-#define ALIGN_DOWN_BY(num, align) ((num) & (~((align) - 1)))
+#include "esp_macros.h"
 
 //This flag indicates the memory region is merged, we don't care about it anymore
 #define MEM_REGION_MERGED             -1
@@ -112,7 +107,7 @@ typedef struct {
     /**
      * driver layer mutex lock
      */
-    struct k_mutex mutex;
+    _lock_t mutex;
 } mmu_ctx_t;
 
 static mmu_ctx_t s_mmu_ctx;
@@ -146,8 +141,8 @@ static void s_reserve_irom_region(mem_region_t *hw_mem_regions, int region_nums)
     size_t irom_len_to_reserve = (uint32_t)&_instruction_reserved_end - (uint32_t)&_instruction_reserved_start;
     assert((mmu_ll_vaddr_to_laddr((uint32_t)&_instruction_reserved_end) - mmu_ll_vaddr_to_laddr((uint32_t)&_instruction_reserved_start)) == irom_len_to_reserve);
 
-    irom_len_to_reserve += (uint32_t)&_instruction_reserved_start - ALIGN_DOWN_BY((uint32_t)&_instruction_reserved_start, CONFIG_MMU_PAGE_SIZE);
-    irom_len_to_reserve = ALIGN_UP_BY(irom_len_to_reserve, CONFIG_MMU_PAGE_SIZE);
+    irom_len_to_reserve += (uint32_t)&_instruction_reserved_start - ESP_ALIGN_DOWN((uint32_t)&_instruction_reserved_start, CONFIG_MMU_PAGE_SIZE);
+    irom_len_to_reserve = ESP_ALIGN_UP(irom_len_to_reserve, CONFIG_MMU_PAGE_SIZE);
     cache_bus_mask_t bus_mask = s_get_bus_mask((uint32_t)&_instruction_reserved_start, irom_len_to_reserve);
 
     for (int i = 0; i < SOC_MMU_LINEAR_ADDRESS_REGION_NUM; i++) {
@@ -174,8 +169,8 @@ static void s_reserve_drom_region(mem_region_t *hw_mem_regions, int region_nums)
     size_t drom_len_to_reserve = (uint32_t)&_rodata_reserved_end - (uint32_t)&_rodata_reserved_start;
     assert((mmu_ll_vaddr_to_laddr((uint32_t)&_rodata_reserved_end) - mmu_ll_vaddr_to_laddr((uint32_t)&_rodata_reserved_start)) == drom_len_to_reserve);
 
-    drom_len_to_reserve += (uint32_t)&_rodata_reserved_start - ALIGN_DOWN_BY((uint32_t)&_rodata_reserved_start, CONFIG_MMU_PAGE_SIZE);
-    drom_len_to_reserve = ALIGN_UP_BY(drom_len_to_reserve, CONFIG_MMU_PAGE_SIZE);
+    drom_len_to_reserve += (uint32_t)&_rodata_reserved_start - ESP_ALIGN_DOWN((uint32_t)&_rodata_reserved_start, CONFIG_MMU_PAGE_SIZE);
+    drom_len_to_reserve = ESP_ALIGN_UP(drom_len_to_reserve, CONFIG_MMU_PAGE_SIZE);
     cache_bus_mask_t bus_mask = s_get_bus_mask((uint32_t)&_rodata_reserved_start, drom_len_to_reserve);
 
     for (int i = 0; i < SOC_MMU_LINEAR_ADDRESS_REGION_NUM; i++) {
@@ -259,8 +254,6 @@ void esp_mmu_map_init(void)
         TAILQ_INIT(&s_mmu_ctx.mem_regions[i].mem_block_head);
     }
 
-    k_mutex_init(&s_mmu_ctx.mutex);
-
     assert(available_region_idx == region_num);
 }
 
@@ -282,7 +275,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
     *out_len = 0;
 
-    unsigned int key = arch_irq_lock();
+    _lock_acquire(&s_mmu_ctx.mutex);
     size_t max = 0;
 
     for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
@@ -294,7 +287,7 @@ esp_err_t esp_mmu_map_get_max_consecutive_free_block_size(mmu_mem_caps_t caps, m
     }
 
     *out_len = max;
-    arch_irq_unlock(key);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return ESP_OK;
 }
@@ -360,7 +353,7 @@ esp_err_t esp_mmu_map_reserve_block_with_caps(size_t size, mmu_mem_caps_t caps, 
     ESP_RETURN_ON_FALSE(out_ptr, ESP_ERR_INVALID_ARG, TAG, "null pointer");
     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
 
-    size_t aligned_size = ALIGN_UP_BY(size, CONFIG_MMU_PAGE_SIZE);
+    size_t aligned_size = ESP_ALIGN_UP(size, CONFIG_MMU_PAGE_SIZE);
     uint32_t laddr = 0;
 
     int32_t found_region_id = s_find_available_region(s_mmu_ctx.mem_regions, s_mmu_ctx.num_regions, 0, aligned_size, caps, target);
@@ -489,7 +482,7 @@ static void IRAM_ATTR NOINLINE_ATTR s_do_mapping(mmu_target_t target, uint32_t v
      */
     s_stop_cache();
 
-    uint32_t actual_mapped_len __attribute__((unused)) = s_mapping_operation(target, vaddr_start, paddr_start, size);
+    uint32_t actual_mapped_len = s_mapping_operation(target, vaddr_start, paddr_start, size);
 
     cache_bus_mask_t bus_mask = cache_ll_l1_get_bus(0, vaddr_start, size);
     cache_ll_l1_enable_bus(0, bus_mask);
@@ -517,10 +510,10 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
     ESP_RETURN_ON_FALSE((vaddr_start % CONFIG_MMU_PAGE_SIZE == 0), ESP_ERR_INVALID_ARG, TAG, "vaddr must be rounded up to the nearest multiple of CONFIG_MMU_PAGE_SIZE");
     ESP_RETURN_ON_ERROR(s_mem_caps_check(caps), TAG, "invalid caps");
 
-    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+    _lock_acquire(&s_mmu_ctx.mutex);
     mem_block_t *dummy_head = NULL;
     mem_block_t *dummy_tail = NULL;
-    size_t aligned_size = ALIGN_UP_BY(size, CONFIG_MMU_PAGE_SIZE);
+    size_t aligned_size = ESP_ALIGN_UP(size, CONFIG_MMU_PAGE_SIZE);
     int32_t found_region_id = s_find_available_region(s_mmu_ctx.mem_regions, s_mmu_ctx.num_regions, vaddr_start, aligned_size, caps, target);
     ESP_GOTO_ON_FALSE(found_region_id != -1, ESP_ERR_NOT_FOUND, err, TAG, "no such vaddr range");
 
@@ -582,7 +575,7 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
          */
         const uint32_t new_paddr_offset = paddr_start - mem_block->paddr_start;
         if (out_ptr) {
-            *out_ptr = (void *)(mem_block->vaddr_start + new_paddr_offset);
+            *out_ptr = (void *)mem_block->vaddr_start + new_paddr_offset;
         }
         ESP_LOGD(TAG, "paddr block is mapped already, vaddr_start: %p, size: 0x%x", (void *)mem_block->vaddr_start, mem_block->size);
         ret = ESP_ERR_INVALID_STATE;
@@ -685,23 +678,23 @@ esp_err_t esp_mmu_map_virt(esp_vaddr_t vaddr_start, esp_paddr_t paddr_start, siz
     if (out_ptr) {
         *out_ptr = (void *)new_block->vaddr_start;
     }
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return ESP_OK;
 
 err:
     if (new_block) {
-        k_free(new_block);
+        free(new_block);
     }
     if (dummy_tail) {
         TAILQ_REMOVE(&found_region->mem_block_head, dummy_tail, entries);
-        k_free(dummy_tail);
+        free(dummy_tail);
     }
     if (dummy_head) {
         TAILQ_REMOVE(&found_region->mem_block_head, dummy_head, entries);
-        k_free(dummy_head);
+        free(dummy_head);
     }
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return ret;
 }
@@ -754,7 +747,7 @@ esp_err_t esp_mmu_unmap(void *ptr)
     uint32_t ptr_laddr = mmu_ll_vaddr_to_laddr((uint32_t)ptr);
     size_t slot_len = 0;
 
-    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+    _lock_acquire(&s_mmu_ctx.mutex);
     for (int i = 0; i < s_mmu_ctx.num_regions; i++) {
         ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-out-of-bounds")
         if (ptr_laddr >= s_mmu_ctx.mem_regions[i].free_head && ptr_laddr < s_mmu_ctx.mem_regions[i].end) {
@@ -790,15 +783,15 @@ esp_err_t esp_mmu_unmap(void *ptr)
 
     //do unmap
     s_do_unmapping(mem_block->vaddr_start, mem_block->size);
-    k_free(found_block);
+    free(found_block);
 
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return ESP_OK;
 
 err:
 
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
     return ret;
 }
 
@@ -828,10 +821,10 @@ esp_err_t esp_mmu_map_dump_mapped_blocks(FILE* stream)
         int id = 0;
         TAILQ_FOREACH(mem_block, &region->mem_block_head, entries) {
             if (mem_block != TAILQ_FIRST(&region->mem_block_head) && mem_block != TAILQ_LAST(&region->mem_block_head, mem_block_head_)) {
-                snprintf(buf, len, "%-4d 0x%-11"PRIxPTR" 0x%-10"PRIxPTR" 0x%-10x 0x%-4x 0x%-11"PRIx32" 0x%-8"PRIx32"\n",
+                snprintf(buf, len, "%-4d 0x%-11x 0x%-10x 0x%-10x 0x%-4x 0x%-11"PRIx32" 0x%-8"PRIx32"\n",
                          id,
-                         (uintptr_t)mem_block->vaddr_start,
-                         (uintptr_t)mem_block->vaddr_end,
+                         mem_block->vaddr_start,
+                         mem_block->vaddr_end,
                          mem_block->size,
                          mem_block->caps,
                          mem_block->paddr_start,
@@ -880,7 +873,7 @@ static bool s_vaddr_to_paddr(uint32_t vaddr, esp_paddr_t *out_paddr, mmu_target_
 {
     uint32_t mmu_id = 0;
 
-    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+    _lock_acquire(&s_mmu_ctx.mutex);
 
 #if SOC_MMU_PER_EXT_MEM_TARGET
     mmu_id = mmu_hal_get_id_from_vaddr(vaddr);
@@ -892,7 +885,7 @@ static bool s_vaddr_to_paddr(uint32_t vaddr, esp_paddr_t *out_paddr, mmu_target_
     }
 #endif
 
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return is_mapped;
 }
@@ -916,7 +909,7 @@ esp_err_t esp_mmu_vaddr_to_paddr(void *vaddr, esp_paddr_t *out_paddr, mmu_target
 
 static bool s_paddr_to_vaddr(esp_paddr_t paddr, mmu_target_t target, mmu_vaddr_t type, uint32_t *out_vaddr)
 {
-    k_mutex_lock(&s_mmu_ctx.mutex, K_FOREVER);
+    _lock_acquire(&s_mmu_ctx.mutex);
 
     uint32_t mmu_id = 0;
 #if SOC_MMU_PER_EXT_MEM_TARGET
@@ -924,7 +917,7 @@ static bool s_paddr_to_vaddr(esp_paddr_t paddr, mmu_target_t target, mmu_vaddr_t
 #endif
     bool found = mmu_hal_paddr_to_vaddr(mmu_id, paddr, target, type, out_vaddr);
 
-    k_mutex_unlock(&s_mmu_ctx.mutex);
+    _lock_release(&s_mmu_ctx.mutex);
 
     return found;
 }

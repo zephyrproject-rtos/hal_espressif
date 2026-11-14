@@ -567,14 +567,15 @@ SPI_BUS_LOCK_ISR_ATTR static inline bool bg_exit_core(spi_bus_lock_t *lock, bool
 
     bool ret;
     uint32_t status = lock_status_fetch(lock);
-    if (lock->acquiring_dev) {
-        if (status & DEV_BG_MASK(lock->acquiring_dev)) {
+    spi_bus_lock_dev_t *acquiring_dev = (spi_bus_lock_dev_t *)lock->acquiring_dev;
+    if (acquiring_dev) {
+        if (status & DEV_BG_MASK(acquiring_dev)) {
             BUS_LOCK_DEBUG_EXECUTE_CHECK(lock->acq_dev_bg_active);
             ret = false;
         } else {
             // The request may happen any time, even after we fetched the status.
             // The value of `acq_dev_bg_active` is random.
-            resume_dev_in_isr(lock->acquiring_dev, do_yield);
+            resume_dev_in_isr(acquiring_dev, do_yield);
             ret = true;
         }
     } else {
@@ -585,10 +586,10 @@ SPI_BUS_LOCK_ISR_ATTR static inline bool bg_exit_core(spi_bus_lock_t *lock, bool
             spi_bus_lock_dev_t *desired_dev = NULL;
             bool bg_yield = schedule_core(lock, status, &desired_dev);
             // A waiting lock owner must be selected once BG is fully finished.
+            assert(desired_dev);
             BUS_LOCK_DEBUG_EXECUTE_CHECK(bg_yield);
-            BUS_LOCK_DEBUG_EXECUTE_CHECK(desired_dev);
             BUS_LOCK_DEBUG_EXECUTE_CHECK(lock->acquiring_dev == desired_dev);
-            resume_dev_in_isr(lock->acquiring_dev, do_yield);
+            resume_dev_in_isr(desired_dev, do_yield);
             ret = true;
         } else {
             ret = true;
@@ -705,9 +706,15 @@ void spi_bus_lock_unregister_dev(spi_bus_lock_dev_handle_t dev_handle)
 
     spi_bus_lock_t* lock = dev_handle->parent;
     BUS_LOCK_DEBUG_EXECUTE_CHECK(atomic_load(&lock->dev[id]) == (intptr_t)dev_handle);
+    BUS_LOCK_DEBUG_EXECUTE_CHECK(lock->acquiring_dev != dev_handle);
+    BUS_LOCK_DEBUG_EXECUTE_CHECK((lock_status_fetch(lock) & dev_handle->mask) == 0);
 
     if (lock->last_dev == dev_handle) {
         lock->last_dev = NULL;
+    }
+    if (lock->acquiring_dev == dev_handle) {
+        lock->acquiring_dev = NULL;
+        lock->acq_dev_bg_active = false;
     }
 
     atomic_store(&lock->dev[id], (intptr_t)NULL);
@@ -733,6 +740,11 @@ void spi_bus_lock_set_bg_control(spi_bus_lock_handle_t lock, bg_ctrl_func_t bg_e
     lock->bg_enable = bg_enable;
     lock->bg_disable = bg_disable;
     lock->bg_arg = arg;
+}
+
+IRAM_ATTR spi_bus_lock_handle_t spi_bus_lock_get_parent(spi_bus_lock_dev_handle_t dev_handle)
+{
+    return (dev_handle ? dev_handle->parent : NULL);
 }
 
 IRAM_ATTR int spi_bus_lock_get_dev_id(spi_bus_lock_dev_handle_t dev_handle)

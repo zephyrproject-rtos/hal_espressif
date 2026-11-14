@@ -1,0 +1,17 @@
+{
+    "prefix":       "esp_ecdsa",
+    "type":         "transparent",
+    "mbedtls/h_condition":   "defined(ESP_ECDSA_DRIVER_ENABLED), defined(ESP_ECDSA_VERIFY_DRIVER_ENABLED)",
+    "headers":      ["../../../port/psa_driver/include/psa_crypto_driver_esp_ecdsa.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(ESP_ECDSA_DRIVER_ENABLED), defined(ESP_ECDSA_VERIFY_DRIVER_ENABLED)",
+            "_comment": "This driver will support ECDSA operations using the ESP hardware accelerator.",
+            "entry_points": ["verify_hash"],
+            "algorithms": ["PSA_ALG_ECDSA(PSA_ALG_SHA_256), PSA_ALG_ECDSA(PSA_ALG_SHA_384)"],
+            "key_types": ["PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1)"],
+            "key_sizes": [192, 256, 384],
+            "fallback": true
+        }
+    ]
+}

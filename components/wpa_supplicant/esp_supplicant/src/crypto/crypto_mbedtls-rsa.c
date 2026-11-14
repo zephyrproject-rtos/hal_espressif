@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "mbedtls/private/bignum.h"
+#include "mbedtls/bignum.h"
 #include "mbedtls/esp_mbedtls_random.h"
 
 #include "utils/includes.h"
@@ -20,10 +20,7 @@
 // #include "mbedtls/ctr_drbg.h"
 
 #include <mbedtls/error.h>
-#include <mbedtls/pk.h>
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
 #include <mbedtls/x509_crt.h>
-#endif
 #include <mbedtls/platform.h>
 // #include <mbedtls/sha256.h>
 
@@ -36,7 +33,6 @@
 struct crypto_public_key;
 struct crypto_private_key;
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
 #ifdef DEBUG_PRINT
 static void crypto_dump_verify_info(u32 flags)
 {
@@ -96,7 +92,6 @@ cleanup:
 
     return ret;
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
 
 struct crypto_public_key *  crypto_public_key_import(const u8 *key, size_t len)
 {
@@ -143,7 +138,6 @@ struct crypto_private_key *  crypto_private_key_import(const u8 *key,
     return (struct crypto_private_key *)pkey;
 }
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
 struct crypto_public_key *crypto_public_key_from_cert(const u8 *buf,
                                                       size_t len)
 {
@@ -185,6 +179,7 @@ struct crypto_public_key *crypto_public_key_from_cert(const u8 *buf,
 
     mbedtls_pk_init(kctx);
 
+    // Load the key from PSA into mbedTLS pk context
     ret = mbedtls_pk_copy_from_psa(key_id, kctx);
     if (ret != 0) {
         wpa_printf(MSG_ERROR, "Failed to copy key from PSA, returned %s0x%X", WPA_HEX_ERR(ret));
@@ -203,7 +198,6 @@ fail:
     kctx = NULL;
     goto cleanup;
 }
-#endif /* MBEDTLS_X509_CRT_PARSE_C */
 
 int crypto_public_key_encrypt_pkcs1_v15(struct crypto_public_key *key,
                                         const u8 *in, size_t inlen,

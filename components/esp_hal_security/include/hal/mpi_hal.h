@@ -14,7 +14,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "hal/mpi_types.h"
 #include "soc/soc_caps.h"
 

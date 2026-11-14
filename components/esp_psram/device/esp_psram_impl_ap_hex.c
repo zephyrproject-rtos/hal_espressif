@@ -13,6 +13,7 @@
 #include "esp_private/esp_psram_impl.h"
 #include "hal/psram_ctrlr_ll.h"
 #include "hal/mspi_ll.h"
+#include "hal/mspi_pms_ll.h"
 #include "soc/rtc.h"
 #include "esp_check.h"
 #include "esp_private/esp_clk_tree_common.h"
@@ -383,22 +384,24 @@ static void s_set_psram_cs_timing(void)
 #if CONFIG_SPIRAM_ECC_ENABLE
 static void s_mspi_ecc_show_info(void)
 {
-    for (int i = 0; i < PSRAM_CTRLR_LL_PMS_REGION_NUMS; i++) {
-        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, psram_ctrlr_ll_get_pms_region_start_addr(PSRAM_CTRLR_LL_MSPI_ID_2, i));
-        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, psram_ctrlr_ll_get_pms_region_size(PSRAM_CTRLR_LL_MSPI_ID_2, i));
+    for (int i = 0; i < MSPI_LL_PMS_REGION_NUM; i++) {
+        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, mspi_ll_pms_get_region_addr(MSPI_PMS_MEM_PSRAM, i));
+        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, mspi_ll_pms_get_region_size(MSPI_PMS_MEM_PSRAM, i));
     }
 
     uint32_t page_size = psram_ctrlr_ll_get_page_size(PSRAM_CTRLR_LL_MSPI_ID_2);
     ESP_EARLY_LOGV(TAG, "ECC page size: %d", page_size);
 }
+#endif  //#if CONFIG_SPIRAM_ECC_ENABLE
 
 /**
- * Enable error correcting code feature
+ * Configure error correcting code feature
  *
  * Can add an input parameter for selecting ECC mode if needed
  */
 static void s_configure_psram_ecc(void)
 {
+#if CONFIG_SPIRAM_ECC_ENABLE
     psram_ctrlr_ll_enable_16to18_ecc(PSRAM_CTRLR_LL_MSPI_ID_2, true);
     psram_ctrlr_ll_enable_skip_page_corner(PSRAM_CTRLR_LL_MSPI_ID_2, true);
     psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_2, 2048);
@@ -408,12 +411,16 @@ static void s_configure_psram_ecc(void)
      * Default: ACE0 range: 0 ~ 256MB
      * Current Hex PSRAM is 8MB, ACE0 is enough
      */
-    psram_ctrlr_ll_enable_pms_region_ecc(PSRAM_CTRLR_LL_MSPI_ID_2, 0, true);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_ECC);
 
     ESP_EARLY_LOGI(TAG, "ECC is enabled");
     s_mspi_ecc_show_info();
+#else
+    psram_ctrlr_ll_enable_16to18_ecc(PSRAM_CTRLR_LL_MSPI_ID_2, false);
+    psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_2, false);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_RD | MSPI_PMS_ATTR_WR);
+#endif
 }
-#endif  //#if CONFIG_SPIRAM_ECC_ENABLE
 
 esp_err_t esp_psram_impl_enable(void)
 {
@@ -438,9 +445,7 @@ esp_err_t esp_psram_impl_enable(void)
     s_set_psram_cs_timing();
     psram_ctrlr_ll_enable_split_trans(PSRAM_CTRLR_LL_MSPI_ID_2, true);
     psram_ctrlr_ll_set_page_size(PSRAM_CTRLR_LL_MSPI_ID_2, 2048);
-#if CONFIG_SPIRAM_ECC_ENABLE
     s_configure_psram_ecc();
-#endif
     //enter MSPI slow mode to init PSRAM device registers
     psram_ctrlr_ll_set_bus_clock(PSRAM_CTRLR_LL_MSPI_ID_2, AP_HEX_PSRAM_MPLL_DEFAULT_FREQ_MHZ / CONFIG_SPIRAM_SPEED);
     psram_ctrlr_ll_set_bus_clock(PSRAM_CTRLR_LL_MSPI_ID_3, AP_HEX_PSRAM_MPLL_DEFAULT_FREQ_MHZ / CONFIG_SPIRAM_SPEED);
@@ -462,7 +467,7 @@ esp_err_t esp_psram_impl_enable(void)
     s_init_psram_mode_reg(PSRAM_CTRLR_LL_MSPI_ID_3, &mode_reg);
 
     if (s_check_psram_connected(PSRAM_CTRLR_LL_MSPI_ID_3) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "PSRAM chip is not connected");
+        PSRAM_LOG_NOTFOUND(TAG, "PSRAM chip is not connected");
         return ESP_ERR_NOT_SUPPORTED;
     }
 

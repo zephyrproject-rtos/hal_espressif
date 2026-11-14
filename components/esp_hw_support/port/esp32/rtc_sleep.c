@@ -18,6 +18,8 @@
 #include "hal/rwdt_ll.h"
 #include "esp_rom_sys.h"
 
+#define MHZ (1000000)
+
 #define ROM_RAM_POWERUP_CYCLES   RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES
 #define ROM_RAM_WAIT_CYCLES      RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES
 

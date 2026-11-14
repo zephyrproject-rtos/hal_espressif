@@ -10,7 +10,7 @@
 #include "esp_log.h"
 #include "assert.h"
 #include "sdkconfig.h"
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 
 ESP_LOG_ATTR_TAG(TAG, "efuse");
 

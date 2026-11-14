@@ -24,6 +24,8 @@
 #include "esp32h2/rom/rtc.h"
 #include "hal/misc.h"
 
+#define MHZ                 (1000000)
+
 #define CLK_LL_PLL_8M_FREQ_MHZ    (8)
 #define CLK_LL_PLL_48M_FREQ_MHZ   (48)
 #define CLK_LL_PLL_64M_FREQ_MHZ   (64)

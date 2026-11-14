@@ -6,7 +6,7 @@
 
 #include "sdkconfig.h"
 #include <string.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "soc/soc_memory_layout.h"
 #include "esp_types.h"
 #include "esp_private/esp_system_attr.h"

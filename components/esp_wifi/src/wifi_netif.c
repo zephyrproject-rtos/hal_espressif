@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <string.h>
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "esp_log.h"
@@ -36,20 +37,47 @@ static esp_netif_t *s_wifi_netifs[MAX_WIFI_IFS] = { NULL };
  */
 static esp_err_t wifi_sta_receive(void *buffer, uint16_t len, void *eb)
 {
-    return s_wifi_rxcbs[WIFI_IF_STA](s_wifi_netifs[WIFI_IF_STA], buffer, len, eb);
+    esp_netif_t *netif = s_wifi_netifs[WIFI_IF_STA];
+    esp_netif_receive_t cb = s_wifi_rxcbs[WIFI_IF_STA];
+
+    if (netif == NULL || cb == NULL) {
+        if (eb) {
+            esp_wifi_internal_free_rx_buffer(eb);
+        }
+        return ESP_ERR_INVALID_STATE;
+    }
+    return cb(netif, buffer, len, eb);
 }
 
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
 static esp_err_t wifi_ap_receive(void *buffer, uint16_t len, void *eb)
 {
-    return s_wifi_rxcbs[WIFI_IF_AP](s_wifi_netifs[WIFI_IF_AP], buffer, len, eb);
+    esp_netif_t *netif = s_wifi_netifs[WIFI_IF_AP];
+    esp_netif_receive_t cb = s_wifi_rxcbs[WIFI_IF_AP];
+
+    if (netif == NULL || cb == NULL) {
+        if (eb) {
+            esp_wifi_internal_free_rx_buffer(eb);
+        }
+        return ESP_ERR_INVALID_STATE;
+    }
+    return cb(netif, buffer, len, eb);
 }
 #endif
 
 #ifdef CONFIG_ESP_WIFI_NAN_SYNC_ENABLE
 static esp_err_t wifi_nan_receive(void *buffer, uint16_t len, void *eb)
 {
-    return s_wifi_rxcbs[WIFI_IF_NAN](s_wifi_netifs[WIFI_IF_NAN], buffer, len, eb);
+    esp_netif_t *netif = s_wifi_netifs[WIFI_IF_NAN];
+    esp_netif_receive_t cb = s_wifi_rxcbs[WIFI_IF_NAN];
+
+    if (netif == NULL || cb == NULL) {
+        if (eb) {
+            esp_wifi_internal_free_rx_buffer(eb);
+        }
+        return ESP_ERR_INVALID_STATE;
+    }
+    return cb(netif, buffer, len, eb);
 }
 #endif
 
@@ -96,6 +124,7 @@ void esp_wifi_destroy_if_driver(wifi_netif_driver_t h)
         esp_wifi_internal_reg_rxcb(h->wifi_if, NULL);  // ignore the potential error
         // as the wifi might have been already uninitialized
         s_wifi_netifs[h->wifi_if] = NULL;
+        s_wifi_rxcbs[h->wifi_if] = NULL;
     }
     free(h);
 }
@@ -181,3 +210,45 @@ esp_err_t esp_wifi_register_if_rxcb(wifi_netif_driver_t ifx, esp_netif_receive_t
     }
     return ESP_OK;
 }
+
+void esp_wifi_netif_get_ip6_linklocal_from_mac(esp_ip6_addr_t *ip6, const uint8_t mac[6])
+{
+    if (ip6 == NULL || mac == NULL) {
+        return;
+    }
+
+    /* fe80::/64 + EUI-64 of the MAC (802 group bit complemented), laid out in
+     * network byte order straight into esp_ip6_addr_t. Zone stays 0. */
+    const uint8_t linklocal[16] = {
+        0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        (uint8_t)(mac[0] ^ 0x02), mac[1], mac[2], 0xff,
+        0xfe, mac[3], mac[4], mac[5],
+    };
+    memset(ip6, 0, sizeof(*ip6));
+    memcpy(ip6->addr, linklocal, sizeof(linklocal));
+}
+
+#if CONFIG_LWIP_ND6_SUPPORT_STATIC_ENTRIES
+esp_err_t esp_wifi_netif_set_static_neighbor(wifi_interface_t wifi_if, const uint8_t mac[6], bool add)
+{
+    if (mac == NULL || wifi_if >= MAX_WIFI_IFS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    /* The netif handle is owned by this layer (recorded when the interface's RX
+     * callback is registered), so callers only need to supply the interface and
+     * the peer MAC. */
+    esp_netif_t *esp_netif = s_wifi_netifs[wifi_if];
+    if (esp_netif == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    /* Derive the peer's link-local address; esp_netif copies only the address
+     * words for static neighbor entries, so no zone handling is needed here. */
+    esp_ip6_addr_t addr6;
+    esp_wifi_netif_get_ip6_linklocal_from_mac(&addr6, mac);
+
+    return add ? esp_netif_add_static_neighbor(esp_netif, &addr6, mac)
+           : esp_netif_remove_static_neighbor(esp_netif, &addr6);
+}
+#endif /* CONFIG_LWIP_ND6_SUPPORT_STATIC_ENTRIES */

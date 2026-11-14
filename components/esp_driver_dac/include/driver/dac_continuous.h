@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,16 +15,6 @@ extern "C" {
 
 #if SOC_DAC_SUPPORTED
 
-/**
- * @brief DAC channel mask
- *
- */
-typedef enum {
-    DAC_CHANNEL_MASK_CH0  = BIT(0),             /*!< DAC channel 0 is GPIO25(ESP32) / GPIO17(ESP32S2) */
-    DAC_CHANNEL_MASK_CH1  = BIT(1),             /*!< DAC channel 1 is GPIO26(ESP32) / GPIO18(ESP32S2) */
-    DAC_CHANNEL_MASK_ALL = BIT(0) | BIT(1),     /*!< Both DAC channel 0 and channel 1 */
-} dac_channel_mask_t;
-
 typedef struct dac_continuous_s      *dac_continuous_handle_t;    /*!< DAC continuous channel handle */
 
 /**
@@ -33,12 +23,13 @@ typedef struct dac_continuous_s      *dac_continuous_handle_t;    /*!< DAC conti
  */
 typedef struct {
     dac_channel_mask_t          chan_mask;      /*!< DAC channels' mask for selecting which channels are used */
+    dac_channel_config_t        chan_cfg;       /*!< Channel (analog pad) configuration. Applies to every channel selected by `chan_mask`. */
     uint32_t                    desc_num;       /*!< The number of DMA descriptor, at least 2 descriptors are required
                                                  *   The number of descriptors is directly proportional to the max data buffer size while converting in cyclic output
                                                  *   but only need to ensure it is greater than '1' in acyclic output
                                                  *   Typically, suggest to set the number bigger than 5, in case the DMA stopped while sending a short buffer
                                                  */
-    size_t                      buf_size;       /*!< The DMA buffer size, should be within 32~4092 bytes. Each DMA buffer will be attached to a DMA descriptor,
+    size_t                      buf_size;       /*!< The DMA buffer size in bytes, should be within 32~4092 bytes. Each DMA buffer will be attached to a DMA descriptor,
                                                  *   i.e. the number of DMA buffer will be equal to the DMA descriptor number
                                                  *   The DMA buffer size is not allowed to be greater than 4092 bytes
                                                  *   The total DMA buffer size equal to `desc_num * buf_size`
@@ -53,9 +44,8 @@ typedef struct {
                                                  *   Typically not suggest to set the frequency higher than 2 MHz, otherwise the severe distortion will appear
                                                  */
     int8_t                      offset;         /*!< The offset of the DAC digital data. Range -128~127 */
-    dac_continuous_digi_clk_src_t    clk_src;        /*!< The clock source of digital controller, which can affect the range of supported frequency
-                                                 *   Currently `DAC_DIGI_CLK_SRC_DEFAULT` and `DAC_DIGI_CLK_SRC_APLL` are available
-                                                 */
+    dac_continuous_digi_clk_src_t    clk_src;   /*!< The clock source of digital controller, which can affect the range of supported frequency.
+                                                     Set to 0 to use `DAC_DIGI_CLK_SRC_DEFAULT`.*/
     dac_continuous_channel_mode_t    chan_mode;      /*!< The channel mode of continuous mode, only take effect when multiple channels enabled, depends converting the buffer alternately or simultaneously */
 } dac_continuous_config_t;
 
@@ -64,8 +54,8 @@ typedef struct {
  */
 typedef struct {
     void                *buf;           /*!< The pointer of DMA buffer that just finished sending */
-    size_t              buf_size;       /*!< The writable buffer size of the DMA buffer, equal to 'dac_continuous_config_t::buf_size' */
-    size_t              write_bytes;    /*!< The number of bytes that be written successfully */
+    size_t              buf_size;       /*!< The writable DMA buffer size in bytes, equal to 'dac_continuous_config_t::buf_size' */
+    size_t              write_bytes;    /*!< The number of DMA bytes that has been written successfully */
 } dac_event_data_t;
 
 /**
@@ -139,7 +129,7 @@ esp_err_t dac_continuous_enable(dac_continuous_handle_t handle);
  * @param[in]  handle       The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
  * @return
  *      - ESP_ERR_INVALID_ARG  The input parameter is invalid
- *      - ESP_ERR_INVALID_STATE The channels have been enabled already
+ *      - ESP_ERR_INVALID_STATE The channels are not enabled, or a write operation is still ongoing
  *      - ESP_OK                Disable the continuous output success
  */
 esp_err_t dac_continuous_disable(dac_continuous_handle_t handle);
@@ -152,11 +142,12 @@ esp_err_t dac_continuous_disable(dac_continuous_handle_t handle);
  * @note  Specially, on ESP32, the data bit width of DAC continuous data is fixed to 16 bits while only the high 8 bits are available,
  *        The driver will help to expand the inputted buffer automatically by default,
  *        you can also align the data to 16 bits manually by clearing `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` in menuconfig.
+ *        When `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` is disabled, `cnt` and `loaded_cnt` are specified in bytes rather than samples.
  *
  * @param[in]  handle   The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
- * @param[in]  buf      The digital data buffer to convert
- * @param[in]  buf_size The buffer size of digital data buffer
- * @param[out] bytes_loaded The bytes that has been loaded into DMA buffer, can be NULL if don't need it
+ * @param[in]  data     The sample buffer to convert. 8-bit DACs use `uint8_t*`; 10/12-bit DACs use `uint16_t*`.
+ * @param[in]  cnt      The number of samples in the buffer
+ * @param[out] loaded_cnt The number of samples that has been loaded into DMA buffer, can be NULL if don't need it
  * @param[in]  timeout_ms The timeout time in millisecond, set a minus value means will block forever
  * @return
  *      - ESP_ERR_INVALID_ARG   The input parameter is invalid
@@ -164,30 +155,45 @@ esp_err_t dac_continuous_disable(dac_continuous_handle_t handle);
  *      - ESP_ERR_TIMEOUT       Waiting for semaphore or message queue timeout
  *      - ESP_OK                Success to output the acyclic DAC data
  */
-esp_err_t dac_continuous_write(dac_continuous_handle_t handle, uint8_t *buf, size_t buf_size, size_t *bytes_loaded, int timeout_ms);
+esp_err_t dac_continuous_write(dac_continuous_handle_t handle, const void *data, size_t cnt, size_t *loaded_cnt, int timeout_ms);
 
 /**
  * @brief Write DAC continuous data cyclically
  * @note  The data in buffer will be converted cyclically using DMA once this function is called,
  *        This function will return once the data loaded into DMA buffers.
- * @note  The buffer size of cyclically output is limited by the descriptor number and
- *        dma buffer size while initializing the continuous mode.
+ * @note  The number of samples of cyclically output is limited by the descriptor number and
+ *        DMA buffer size while initializing the continuous mode.
  *        Concretely, in order to load all the data into descriptors,
- *        the cyclic buffer size is not supposed to be greater than `desc_num * buf_size`
+ *        the DMA bytes occupied by the samples are not supposed to be greater than `desc_num * buf_size`
  * @note  Specially, on ESP32, the data bit width of DAC continuous data is fixed to 16 bits while only the high 8 bits are available,
  *        The driver will help to expand the inputted buffer automatically by default,
  *        you can also align the data to 16 bits manually by clearing `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` in menuconfig.
+ *        When `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` is disabled, `cnt` and `loaded_cnt` are specified in bytes rather than samples.
  *
  * @param[in]  handle   The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
- * @param[in]  buf      The digital data buffer to convert
- * @param[in]  buf_size The buffer size of digital data buffer
- * @param[out] bytes_loaded The bytes that has been loaded into DMA buffer, can be NULL if don't need it
+ * @param[in]  data     The sample buffer to convert. 8-bit DACs use `uint8_t*`; 10/12-bit DACs use `uint16_t*`.
+ * @param[in]  cnt      The number of samples in the buffer
+ * @param[out] loaded_cnt The number of samples that has been loaded into DMA buffer, can be NULL if don't need it
  * @return
  *      - ESP_ERR_INVALID_ARG   The input parameter is invalid
  *      - ESP_ERR_INVALID_STATE The DAC continuous mode has not been enabled yet
- *      - ESP_OK                Success to output the acyclic DAC data
+ *      - ESP_OK                Success to output the cyclic DAC data
  */
-esp_err_t dac_continuous_write_cyclically(dac_continuous_handle_t handle, uint8_t *buf, size_t buf_size, size_t *bytes_loaded);
+esp_err_t dac_continuous_write_cyclically(dac_continuous_handle_t handle, const void *data, size_t cnt, size_t *loaded_cnt);
+
+/**
+ * @brief Stop the cyclical conversion triggered by 'dac_continuous_write_cyclically'
+ * @note  For backward compatibility, calling this function is optional. That is, after a cyclic write (conversion) has started,
+ *        users can directly call 'dac_continuous_disable', 'dac_continuous_write_cyclically', 'dac_continuous_start_async_writing',
+ *        or 'dac_continuous_write'. These functions will automatically check for and stop any ongoing cyclic conversion. However,
+ *        this behavior is NOT recommended.
+ * @param[in] handle The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
+ * @return
+ *      - ESP_ERR_INVALID_ARG   The input parameter is invalid
+ *      - ESP_ERR_INVALID_STATE The DAC continuous is not in cyclic writing mode
+ *      - ESP_OK                Success to stop the cyclic conversion
+ */
+esp_err_t dac_continuous_stop_cyclically(dac_continuous_handle_t handle);
 
 /**
  * @brief Set event callbacks for DAC continuous mode
@@ -220,7 +226,7 @@ esp_err_t dac_continuous_register_event_callback(dac_continuous_handle_t handle,
 esp_err_t dac_continuous_start_async_writing(dac_continuous_handle_t handle);
 
 /**
- * @brief Stop the sync writing
+ * @brief Stop the async writing
  *
  * @param[in] handle        The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
  * @return
@@ -234,13 +240,17 @@ esp_err_t dac_continuous_stop_async_writing(dac_continuous_handle_t handle);
  * @brief Write DAC data asynchronously
  * @note  This function can be called when the asynchronous writing started, and it can be called in the callback directly
  *        but recommend to writing data in a task, referring to :example:`peripherals/dac/dac_continuous/dac_audio`
+ * @note  Specially, on ESP32, the data bit width of DAC continuous data is fixed to 16 bits while only the high 8 bits are available,
+ *        The driver will help to expand the inputted buffer automatically by default,
+ *        you can also align the data to 16 bits manually by clearing `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` in menuconfig.
+ *        When `CONFIG_DAC_DMA_AUTO_16BIT_ALIGN` is disabled, `cnt` and `loaded_cnt` are specified in bytes rather than samples.
  *
  * @param[in]  handle        The DAC continuous channel handle that obtained from 'dac_continuous_new_channels'
  * @param[in]  dma_buf       The DMA buffer address, it can be acquired from 'dac_event_data_t' in the 'on_convert_done' callback
- * @param[in]  dma_buf_len   The DMA buffer length, it can be acquired from 'dac_event_data_t' in the 'on_convert_done' callback
- * @param[in]  data          The data that need to be written
- * @param[in]  data_len      The data length the need to be written
- * @param[out] bytes_loaded  The bytes number that has been loaded/written into the DMA buffer
+ * @param[in]  dma_buf_len   The DMA buffer length in bytes, it can be acquired from 'dac_event_data_t' in the 'on_convert_done' callback. It should always be equal to the buffer size of descriptors. This parameter is kept for compatibility and ignored by the driver.
+ * @param[in]  data          The sample buffer to convert. 8-bit DACs use `uint8_t*`; 10/12-bit DACs use `uint16_t*`.
+ * @param[in]  cnt           The number of samples in the buffer
+ * @param[out] loaded_cnt    The number of samples that has been loaded into DMA buffer
  * @return
  *      - ESP_OK                        Write the data into DMA buffer successfully
  *      - ESP_ERR_INVALID_ARG           NULL pointer
@@ -250,9 +260,17 @@ esp_err_t dac_continuous_stop_async_writing(dac_continuous_handle_t handle);
 esp_err_t dac_continuous_write_asynchronously(dac_continuous_handle_t handle,
                                               uint8_t *dma_buf,
                                               size_t dma_buf_len,
-                                              const uint8_t *data,
-                                              size_t data_len,
-                                              size_t *bytes_loaded);
+                                              const void *data,
+                                              size_t cnt,
+                                              size_t *loaded_cnt);
+
+/**
+ * @brief Get the DAC code bit width of the continuous channel group
+ *
+ * @param[in]  handle       The DAC continuous channel handle
+ * @return                  The DAC code bit width, 0 if the input parameter is invalid
+ */
+uint8_t dac_continuous_get_bitwidth(dac_continuous_handle_t handle);
 
 #endif // SOC_DAC_SUPPORTED
 

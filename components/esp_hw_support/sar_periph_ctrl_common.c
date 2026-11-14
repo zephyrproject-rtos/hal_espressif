@@ -5,7 +5,8 @@
  */
 
 #include <stdint.h>
-#include <zephyr/kernel.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_private/critical_section.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "esp_hw_log.h"

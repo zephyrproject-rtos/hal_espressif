@@ -6,10 +6,10 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h> // For MIN/MAX
 #include "esp_log.h"
 
-#include "esp_flash_chips/spi_flash_defs.h"
+#include "spi_flash_defs.h"
 #include "esp_flash_chips/spi_flash_chip_generic.h"
 
 

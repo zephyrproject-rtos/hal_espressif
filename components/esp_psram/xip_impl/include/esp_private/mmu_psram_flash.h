@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "esp_err.h"
 #include "sdkconfig.h"
 

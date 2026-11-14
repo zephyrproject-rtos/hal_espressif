@@ -9,6 +9,8 @@
 #include "hal/mipi_csi_ll.h"
 #include "hal/mipi_csi_periph.h"
 
+#define MHZ (1000 * 1000)
+
 HAL_LOG_ATTR_TAG(TAG, "csi_hal");
 
 void s_mipi_csi_hal_phy_write_register(mipi_csi_hal_context_t *hal, uint8_t reg_addr, uint8_t reg_val)
@@ -26,7 +28,7 @@ void mipi_csi_hal_init(mipi_csi_hal_context_t *hal, const mipi_csi_hal_config_t 
 {
     hal->bridge_dev = MIPI_CSI_BRG_LL_GET_HW(0);
     hal->host_dev = MIPI_CSI_HOST_LL_GET_HW(0);
-    int csi_lane_rate = config->lane_bit_rate_mbps * MHZ(1);
+    int csi_lane_rate = config->lane_bit_rate_mbps * MHZ;
 
     // reset PHY
     mipi_csi_phy_ll_enable_shutdown_input(hal->host_dev, true);

@@ -37,7 +37,6 @@ extern "C" {
 #define PSRAM_QUAD_ID_BITS_NUM            24
 #define PSRAM_QUAD_EID_BITS_NUM           48
 #define PSRAM_QUAD_MFID_AP                0xD
-#define PSRAM_QUAD_MFID_ISSI              0x9D
 #define PSRAM_QUAD_MFID_M                 0xff
 #define PSRAM_QUAD_ID_KGD_M               0xff
 #define PSRAM_QUAD_ID_KGD_S               8

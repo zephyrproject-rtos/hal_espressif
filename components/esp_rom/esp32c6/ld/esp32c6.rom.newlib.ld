@@ -19,31 +19,26 @@
  Group newlib
  ***************************************/
 
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* strdup       = 0x40000530; */
-/* strndup      = 0x40000554; */
-/* rand         = 0x40000590; */
-/* srand        = 0x40000594; */
-/* rand_r       = 0x4000058c; */
-/* atoi         = 0x400005a0; */
-/* atol         = 0x400005a4; */
-/* strtol       = 0x400005a8; */
-/* strtoul      = 0x400005ac; */
-/* fflush       = 0x400005b0; */
-/* _fflush_r    = 0x400005b4; */
-/* _fwalk       = 0x400005b8; */
-/* _fwalk_reent = 0x400005bc; */
-/* __swbuf_r    = 0x400005c8; */
-
 /* Functions */
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* _isatty_r = 0x400004d4; */
-/* __smakebuf_r = 0x400005c0; */
-/* __swhatbuf_r = 0x400005c4; */
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* __swbuf = 0x400005cc; */
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* __swsetup_r = 0x400005d0; */
+_isatty_r = 0x400004d4;
+strdup = 0x40000530;
+strndup = 0x40000554;
+rand_r = 0x4000058c;
+rand = 0x40000590;
+srand = 0x40000594;
+atoi = 0x400005a0;
+atol = 0x400005a4;
+strtol = 0x400005a8;
+strtoul = 0x400005ac;
+fflush = 0x400005b0;
+_fflush_r = 0x400005b4;
+_fwalk = 0x400005b8;
+_fwalk_reent = 0x400005bc;
+__smakebuf_r = 0x400005c0;
+__swhatbuf_r = 0x400005c4;
+__swbuf_r = 0x400005c8;
+__swbuf = 0x400005cc;
+__swsetup_r = 0x400005d0;
 toupper = 0x4000050c;
 tolower = 0x40000510;
 isalnum = 0x400004dc;

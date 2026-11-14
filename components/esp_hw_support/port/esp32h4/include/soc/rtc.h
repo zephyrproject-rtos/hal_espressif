@@ -50,9 +50,6 @@ extern "C" {
 
 #define MHZ (1000000)
 
-#define OTHER_BLOCKS_POWERUP        1
-#define OTHER_BLOCKS_WAIT           1
-
 /* Delays for various clock sources to be enabled/switched.
  * All values are in microseconds.
  */
@@ -68,16 +65,6 @@ extern "C" {
 
 #define RTC_CNTL_CK8M_DFREQ_DEFAULT  100
 #define RTC_CNTL_SCK_DCAP_DEFAULT    28
-
-/* Various delays to be programmed into power control state machines */
-#define RTC_CNTL_XTL_BUF_WAIT_SLP_US            (250)
-#define RTC_CNTL_PLL_BUF_WAIT_SLP_CYCLES        (1)
-#define RTC_CNTL_CK8M_WAIT_SLP_CYCLES           (4)
-#define RTC_CNTL_WAKEUP_DELAY_CYCLES            (5)
-#define RTC_CNTL_OTHER_BLOCKS_POWERUP_CYCLES    (1)
-#define RTC_CNTL_OTHER_BLOCKS_WAIT_CYCLES       (1)
-#define RTC_CNTL_MIN_SLP_VAL_MIN                (2)
-
 // /*
 // set sleep_init default param
 // */
@@ -274,7 +261,9 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config);
  *
  * @param config  CPU frequency configuration structure
  */
+#ifndef BOOTLOADER_BUILD
 void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config);
+#endif
 
 /**
  * @brief Get the currently used CPU frequency configuration
@@ -282,6 +271,7 @@ void rtc_clk_cpu_freq_set_config_fast(const rtc_cpu_freq_config_t *config);
  */
 void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config);
 
+#ifndef BOOTLOADER_BUILD
 /**
  * @brief Switch CPU clock source to XTAL
  *
@@ -289,24 +279,20 @@ void rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config);
  * rtc_clk_cpu_freq_set_config when a switch to XTAL is needed.
  * Assumes that XTAL frequency has been determined — don't call in startup code.
  *
- * @note This function always disables BBPLL after switching the CPU clock source to XTAL for power saving purpose.
- * If this is unwanted, please use rtc_clk_cpu_freq_set_config. It helps to check whether USB Serial JTAG is in use,
- * if so, then BBPLL will not be turned off.
+ * Releases the CPU clk_tree hold on the previous root clock (BBPLL / XTAL_X2).
  */
 void rtc_clk_cpu_freq_set_xtal(void);
+#endif
 
 /**
- * @brief Switch root clock source to PLL (only used by sleep) release root clock source locked by PMU
+ * @brief Release root clock source locked by PMU
  *
  * wifi receiving beacon frame in PMU modem state strongly depends on the BBPLL
  * clock, PMU will forcibly lock the root clock source as PLL, when the root
  * clock source of the software system is selected as PLL, we need to release
- * the root clock source locking and switch the root clock source to PLL in the
- * sleep process (a critical section).
- *
- * @param[in] Maximum CPU frequency, in MHz
+ * the root clock source locking in the sleep process (a critical section).
  */
-void rtc_clk_cpu_freq_to_pll_and_pll_lock_release(int cpu_freq_mhz);
+void rtc_clk_modem_pll_lock_release(void);
 
 /**
  * @brief Get the current APB frequency.

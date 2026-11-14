@@ -90,6 +90,7 @@ extern "C" {
 #define SDMMC_LL_DELAY_PHASE_SUPPORTED                1
 
 #define SDMMC_LL_DEFAULT_DIV                          2
+#define SDMMC_LL_DMA_BURST_SIZE_DEFAULT               1
 
 /**
  * SDMMC delay phase
@@ -210,11 +211,13 @@ static inline void sdmmc_ll_mem_set_low_power_mode(sdmmc_dev_t *dev, sdmmc_ll_me
  * @brief Set SDMMC pad pin dedicated ctrl
  *
  * @param dev Peripheral instance address
+ * @param slot Slot index
  * @param enable True to enable, False to disable
  */
-static inline void sdmmc_ll_pad_set_pin_dedicated_ctrl(sdmmc_dev_t *dev, bool enable)
+static inline void sdmmc_ll_pad_set_pin_dedicated_ctrl(sdmmc_dev_t *dev, uint32_t slot, bool enable)
 {
     (void)dev;
+    (void)slot;
     (void)enable;
 }
 
@@ -749,6 +752,20 @@ static inline void sdmmc_ll_init_dma(sdmmc_dev_t *hw)
     hw->idinten.ni = 1;
     hw->idinten.ri = 1;
     hw->idinten.ti = 1;
+}
+
+/**
+ * @brief Set the burst size of the internal DMA
+ *
+ * @param hw          hardware instance address
+ * @param burst_size  burst size in bytes, 1 to disable the data burst,
+ *                    otherwise a power of two between 4 and 256
+ */
+static inline void sdmmc_ll_set_dma_burst_size(sdmmc_dev_t *hw, size_t burst_size)
+{
+    HAL_ASSERT(burst_size == 1 ||
+               (burst_size >= 4 && burst_size <= 256 && (burst_size & (burst_size - 1)) == 0));
+    hw->fifoth.dw_dma_mts = (burst_size == 1) ? 0 : (__builtin_ctz(burst_size) - 1);
 }
 
 /**

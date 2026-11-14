@@ -23,7 +23,6 @@ typedef struct adc_oneshot_hal_cfg_t {
     adc_oneshot_clk_src_t clk_src;   ///< Clock source
     uint32_t clk_src_freq_hz;        ///< Clock source frequency in hz
     bool disable_dac_output;         ///< Whether to disable DAC output, only for chips supporting DAC
-    uint32_t conv_timeout_us;        ///< Conversion completion timeout in microseconds, 0 to use the default
 } adc_oneshot_hal_cfg_t;
 
 /**
@@ -46,7 +45,6 @@ typedef struct adc_oneshot_hal_ctx_t {
     adc_oneshot_clk_src_t clk_src;   ///< Clock source
     uint32_t clk_src_freq_hz;        ///< Clock source frequency in hz
     bool disable_dac_output;         ///< Whether to disable DAC output, only for chips supporting DAC
-    uint32_t conv_timeout_us;        ///< Conversion completion timeout in microseconds, 0 to use the default
 } adc_oneshot_hal_ctx_t;
 
 /**

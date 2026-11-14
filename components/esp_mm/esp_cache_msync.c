@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include <inttypes.h>
 #include <string.h>
 #include "sys/lock.h"
 #include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_log.h"
-#include <zephyr/kernel.h>
+#include "freertos/FreeRTOS.h"
 #include "esp_heap_caps.h"
 #include "esp_rom_caps.h"
 #include "soc/soc_caps.h"
@@ -26,11 +26,9 @@
 
 static const char *TAG = "cache";
 
-#define ALIGN_UP_BY(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
-
 DEFINE_CRIT_SECTION_LOCK_STATIC(s_spinlock);
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-K_MUTEX_DEFINE(s_mutex);
+static _lock_t s_mutex;
 #endif
 
 void esp_cache_sync_ops_enter_critical_section(void)
@@ -47,7 +45,7 @@ void esp_cache_sync_ops_exit_critical_section(void)
 static void s_c2m_ops(uint32_t vaddr, size_t size)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr()) {
+    if (!xPortInIsrContext()) {
         bool valid = true;
         size_t offset = 0;
         while (offset < size) {
@@ -71,23 +69,23 @@ static void s_c2m_ops(uint32_t vaddr, size_t size)
 }
 #endif
 
-//no ops if ISR context, pre-kernel, or critical section context
+//no ops if ISR context or critical section context
 static void s_acquire_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr() && !k_is_pre_kernel()) {
-        k_mutex_lock(&s_mutex, K_FOREVER);
+    if (xPortCanYield()) {
+        _lock_acquire(&s_mutex);
         ESP_LOGD(TAG, "mutex is taken");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
 }
 
-//no ops if ISR context, pre-kernel, or critical section context
+//no ops if ISR context or critical section context
 static void s_release_mutex_from_task_context(void)
 {
 #if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS
-    if (!k_is_in_isr() && !k_is_pre_kernel()) {
-        k_mutex_unlock(&s_mutex);
+    if (xPortCanYield()) {
+        _lock_release(&s_mutex);
         ESP_LOGD(TAG, "mutex is free");
     }
 #endif  //#if CONFIG_ESP_MM_CACHE_MSYNC_C2M_CHUNKED_OPS

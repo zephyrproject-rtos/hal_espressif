@@ -34,7 +34,7 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "encoding.h"
 #include "esp_assert.h"
 #if __riscv_zcmp && SOC_CPU_ZCMP_WORKAROUND
@@ -203,7 +203,7 @@ extern "C" {
 #define STPC2       0xBF2
 
 /* Espressif's custom CSR for the current privilege mode */
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
+#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 || CONFIG_IDF_TARGET_ESP32H21
 #define CSR_PRV_MODE   0xC10
 #else
 #define CSR_PRV_MODE   0x810

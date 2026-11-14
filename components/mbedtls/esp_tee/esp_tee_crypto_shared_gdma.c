@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,16 +15,15 @@
 #include "esp_tee_crypto_shared_gdma.h"
 #include "esp_aes_dma_priv.h"
 #include "esp_sha_dma_priv.h"
+#include "hal/gdma_ll.h"
 
-#define TEE_CRYPTO_GDMA_CH  (0)
+#define TEE_CRYPTO_GDMA_CH  (GDMA_LL_AHB_PAIRS_PER_GROUP - 1)
 
 #if SOC_AHB_GDMA_VERSION == 2
-#include "hal/ahb_dma_ll.h"
 #include "soc/ahb_dma_struct.h"
 #define DMA_DEV (AHB_DMA)
 #define DMA_LL_FUNC(func) ahb_dma_ll_##func
 #elif SOC_AHB_GDMA_VERSION == 1
-#include "hal/gdma_ll.h"
 #include "soc/gdma_struct.h"
 #define DMA_DEV (GDMA)
 #define DMA_LL_FUNC(func) gdma_ll_##func
@@ -51,9 +50,22 @@
 #define dma_ll_rx_stop                      DMA_LL_FUNC(rx_stop)
 #define dma_ll_tx_set_priority              DMA_LL_FUNC(tx_set_priority)
 #define dma_ll_rx_set_priority              DMA_LL_FUNC(rx_set_priority)
+#define dma_ll_tx_enable_etm_task           DMA_LL_FUNC(tx_enable_etm_task)
+#define dma_ll_rx_enable_etm_task           DMA_LL_FUNC(rx_enable_etm_task)
+#define dma_ll_tx_is_desc_fsm_idle          DMA_LL_FUNC(tx_is_desc_fsm_idle)
+#define dma_ll_rx_is_desc_fsm_idle          DMA_LL_FUNC(rx_is_desc_fsm_idle)
+#define dma_ll_tx_enable_interrupt          DMA_LL_FUNC(tx_enable_interrupt)
+#define dma_ll_rx_enable_interrupt          DMA_LL_FUNC(rx_enable_interrupt)
+#define dma_ll_tx_clear_interrupt_status    DMA_LL_FUNC(tx_clear_interrupt_status)
+#define dma_ll_rx_clear_interrupt_status    DMA_LL_FUNC(rx_clear_interrupt_status)
 #if SOC_AHB_GDMA_VERSION == 2
 #define dma_ll_tx_set_burst_size            DMA_LL_FUNC(tx_set_burst_size)
 #define dma_ll_rx_set_burst_size            DMA_LL_FUNC(rx_set_burst_size)
+#define DMA_LL_TX_EVENT_MASK                AHB_DMA_LL_TX_EVENT_MASK
+#define DMA_LL_RX_EVENT_MASK                AHB_DMA_LL_RX_EVENT_MASK
+#else
+#define DMA_LL_TX_EVENT_MASK                GDMA_LL_TX_EVENT_MASK
+#define DMA_LL_RX_EVENT_MASK                GDMA_LL_RX_EVENT_MASK
 #endif
 
 /*
@@ -64,12 +76,18 @@
 
 /* ---------------------------------------------- Shared GDMA layer for AES/SHA crypto ------------------------------------------------- */
 
+/* Iterations to wait for a stopped channel's descriptor FSM to park before
+ * resetting it anyway */
+#define TEE_GDMA_CH_QUIESCE_TIMEOUT_ITER  (1024)
+
 static void crypto_shared_gdma_init(void)
 {
     // enable gdma clock
     gdma_ll_enable_bus_clock(0, true);
-    gdma_ll_reset_register(0);
     dma_ll_force_enable_reg_clock(&DMA_DEV, true);
+
+    /* Forcibly reclaim the channel, aborting any transfer the REE may have */
+    esp_tee_crypto_shared_gdma_free();
 
     // setting the transfer ability
 #if SOC_AHB_GDMA_VERSION == 2
@@ -131,19 +149,31 @@ esp_err_t esp_tee_crypto_shared_gdma_start(const crypto_dma_desc_t *input, const
 
 void esp_tee_crypto_shared_gdma_free(void)
 {
+    dma_ll_tx_enable_etm_task(&DMA_DEV, TEE_CRYPTO_GDMA_CH, false);
+    dma_ll_rx_enable_etm_task(&DMA_DEV, TEE_CRYPTO_GDMA_CH, false);
+
     dma_ll_tx_stop(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
     dma_ll_rx_stop(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
+
+    for (uint32_t i = 0; i < TEE_GDMA_CH_QUIESCE_TIMEOUT_ITER; i++) {
+        if (dma_ll_tx_is_desc_fsm_idle(&DMA_DEV, TEE_CRYPTO_GDMA_CH) && dma_ll_rx_is_desc_fsm_idle(&DMA_DEV, TEE_CRYPTO_GDMA_CH)) {
+            break;
+        }
+    }
+
+    dma_ll_tx_reset_channel(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
+    dma_ll_rx_reset_channel(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
 
     dma_ll_tx_disconnect_all(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
     dma_ll_rx_disconnect_all(&DMA_DEV, TEE_CRYPTO_GDMA_CH);
 
+    dma_ll_tx_enable_interrupt(&DMA_DEV, TEE_CRYPTO_GDMA_CH, DMA_LL_TX_EVENT_MASK, false);
+    dma_ll_rx_enable_interrupt(&DMA_DEV, TEE_CRYPTO_GDMA_CH, DMA_LL_RX_EVENT_MASK, false);
+    dma_ll_tx_clear_interrupt_status(&DMA_DEV, TEE_CRYPTO_GDMA_CH, DMA_LL_TX_EVENT_MASK);
+    dma_ll_rx_clear_interrupt_status(&DMA_DEV, TEE_CRYPTO_GDMA_CH, DMA_LL_RX_EVENT_MASK);
+
     dma_ll_tx_set_priority(&DMA_DEV, TEE_CRYPTO_GDMA_CH, 0);
     dma_ll_rx_set_priority(&DMA_DEV, TEE_CRYPTO_GDMA_CH, 0);
-
-    // disable gdma clock
-    gdma_ll_enable_bus_clock(0, false);
-    gdma_ll_reset_register(0);
-    dma_ll_force_enable_reg_clock(&DMA_DEV, false);
 }
 
 /* ---------------------------------------------- DMA Implementations: AES ------------------------------------------------- */

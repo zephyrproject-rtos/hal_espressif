@@ -21,6 +21,8 @@
 #include "esp_hw_log.h"
 #include "sdkconfig.h"
 #include "hal/clk_tree_ll.h"
+#include "hal/gpio_ll.h"
+#include "hal/rtc_io_ll.h"
 #ifndef BOOTLOADER_BUILD
 #include "esp_private/systimer.h"
 #include "hal/systimer_ll.h"
@@ -63,11 +65,27 @@ void rtc_clk_32k_disable_external(void)
 
 void rtc_clk_32k_bootstrap(uint32_t cycle)
 {
-    /* No special bootstrapping needed for ESP32-S2, 'cycle' argument is to keep the signature
-     * same as for the ESP32. Just enable the XTAL here.
-     */
-    (void)cycle;
-    rtc_clk_32k_enable(true);
+    SET_PERI_REG_MASK(RTC_IO_XTAL_32P_PAD_REG, RTC_IO_X32P_MUX_SEL);
+    SET_PERI_REG_MASK(RTC_IO_XTAL_32N_PAD_REG, RTC_IO_X32N_MUX_SEL);
+    clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_BOOTSTRAP);
+
+    if (cycle) {
+        /*
+         * 32K-N is the drive pin for the crystal oscillator circuit. Empirical testing shows that better results are achieved when the auxiliary signal is output from the 32K-P pin.
+         * By controlling the pull-up and pull-down resistors on the corresponding IO pins, a low-intensity 32.768kHz drive signal is output to assist the crystal oscillator in starting up.
+         * With the pull-down resistor always enabled, the drive amplitude is approximately 1/2*VCC, which is closer to the actual signal.
+        */
+        const uint32_t delay_us = (1000000 / SOC_CLK_XTAL32K_FREQ_APPROX / 2);
+        rtcio_ll_pulldown_enable(SOC_XTAL32K_P_GPIO_NUM);
+        while (cycle) {
+            esp_rom_delay_us(delay_us);
+            rtcio_ll_pullup_enable(SOC_XTAL32K_P_GPIO_NUM);
+            esp_rom_delay_us(delay_us);
+            rtcio_ll_pullup_disable(SOC_XTAL32K_P_GPIO_NUM);
+            cycle--;
+        }
+        rtcio_ll_pulldown_disable(SOC_XTAL32K_P_GPIO_NUM);
+    }
 }
 
 bool rtc_clk_32k_enabled(void)
@@ -149,21 +167,21 @@ uint32_t rtc_clk_apll_coeff_calc(uint32_t freq, uint32_t *_o_div, uint32_t *_sdm
         }
     }
     // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
-    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ(1))) - 4;
+    sdm2 = (int)(((o_div + 2) * 2 * freq) / (rtc_xtal_freq * MHZ)) - 4;
     // numrator = (((o_div + 2) * 2) * apll_freq / xtal_freq) - 4 - sdm2
-    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ(1))) - 4 - sdm2;
+    float numrator = (((o_div + 2) * 2 * freq) / ((float)rtc_xtal_freq * MHZ)) - 4 - sdm2;
     // If numrator is bigger than 255/256 + 255/65536 + (1/65536)/2 = 1 - (1 / 65536)/2, carry bit to sdm2
-    if (numrator > 1.0f - (1.0f / 65536.0f) / 2.0f) {
+    if (numrator > 1.0 - (1.0 / 65536.0) / 2.0) {
         sdm2++;
     }
     // If numrator is smaller than (1/65536)/2, keep sdm0 = sdm1 = 0, otherwise calculate sdm0 and sdm1
-    else if (numrator > (1.0f / 65536.0f) / 2.0f) {
+    else if (numrator > (1.0 / 65536.0) / 2.0) {
         // Get the closest sdm1
-        sdm1 = (int)(numrator * 65536.0f + 0.5f) / 256;
+        sdm1 = (int)(numrator * 65536.0 + 0.5) / 256;
         // Get the closest sdm0
-        sdm0 = (int)(numrator * 65536.0f + 0.5f) % 256;
+        sdm0 = (int)(numrator * 65536.0 + 0.5) % 256;
     }
-    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ(1) * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) / (((float)o_div + 2) * 2));
+    uint32_t real_freq = (uint32_t)(rtc_xtal_freq * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) / (((float)o_div + 2) * 2));
     *_o_div = o_div;
     *_sdm0 = sdm0;
     *_sdm1 = sdm1;
@@ -300,7 +318,7 @@ static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
     clk_ll_cpu_set_freq_mhz_from_pll(cpu_freq_mhz);
     clk_ll_cpu_set_divider(1);
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
-    rtc_clk_apb_freq_update(80 * MHZ(1));
+    rtc_clk_apb_freq_update(80 * MHZ);
     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
 
     if (cpu_freq_mhz < cur_config.freq_mhz) {
@@ -476,7 +494,7 @@ static FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
 #ifndef BOOTLOADER_BUILD
     systimer_ll_set_step_for_xtal(&SYSTIMER, systimer_us_to_ticks(1) / cpu_freq);
 #endif
-    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+    rtc_clk_apb_freq_update(cpu_freq * MHZ);
 
     /* lower the voltage
      * cpu_frequency < 240M: dbias = DIG_DBIAS_XTAL_80M_160M;

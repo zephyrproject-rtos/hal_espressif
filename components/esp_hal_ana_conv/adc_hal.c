@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "hal/adc_hal.h"
 #include "hal/assert.h"
 #include "soc/lldesc.h"

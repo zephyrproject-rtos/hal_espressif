@@ -8,8 +8,6 @@
 
 #include <assert.h>
 
-/* Zephyr: soc_caps.h must be included before os/os.h to define SOC_ESP_NIMBLE_CONTROLLER */
-#include "soc/soc_caps.h"
 #include "os/os.h"
 #include "mem_api.h"
 #include "bt_osi_mem.h"
@@ -38,19 +36,19 @@ static STAILQ_HEAD(, os_mbuf_pool) g_msys_pool_list =
 #define OS_MSYS_BLOCK_FROM_HEAP                 (0)
 #endif // CONFIG_BT_NIMBLE_MSYS_BUF_FROM_HEAP
 #else
-#define OS_MSYS_1_BLOCK_COUNT CONFIG_ESP32_BT_LE_MSYS_1_BLOCK_COUNT
-#define OS_MSYS_1_BLOCK_SIZE CONFIG_ESP32_BT_LE_MSYS_1_BLOCK_SIZE
-#define OS_MSYS_2_BLOCK_COUNT CONFIG_ESP32_BT_LE_MSYS_2_BLOCK_COUNT
-#define OS_MSYS_2_BLOCK_SIZE CONFIG_ESP32_BT_LE_MSYS_2_BLOCK_SIZE
+#define OS_MSYS_1_BLOCK_COUNT CONFIG_BT_LE_MSYS_1_BLOCK_COUNT
+#define OS_MSYS_1_BLOCK_SIZE CONFIG_BT_LE_MSYS_1_BLOCK_SIZE
+#define OS_MSYS_2_BLOCK_COUNT CONFIG_BT_LE_MSYS_2_BLOCK_COUNT
+#define OS_MSYS_2_BLOCK_SIZE CONFIG_BT_LE_MSYS_2_BLOCK_SIZE
 
 #define OS_MSYS_1_SANITY_MIN_COUNT 0
 #define OS_MSYS_2_SANITY_MIN_COUNT 0
 
-#if CONFIG_ESP32_BT_LE_MSYS_BUF_FROM_HEAP
+#if CONFIG_BT_LE_MSYS_BUF_FROM_HEAP
 #define OS_MSYS_BLOCK_FROM_HEAP                 (1)
 #else
 #define OS_MSYS_BLOCK_FROM_HEAP                 (0)
-#endif // CONFIG_ESP32_BT_LE_MSYS_BUF_FROM_HEAP
+#endif // CONFIG_BT_LE_MSYS_BUF_FROM_HEAP
 #endif
 
 
@@ -62,13 +60,13 @@ static STAILQ_HEAD(, os_mbuf_pool) g_msys_pool_list =
     OS_MEMPOOL_SIZE(OS_MSYS_1_BLOCK_COUNT,  \
                     SYSINIT_MSYS_1_MEMBLOCK_SIZE)
 
-#if !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#if !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 #if !CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
 static os_membuf_t *os_msys_init_1_data;
 static struct os_mbuf_pool os_msys_init_1_mbuf_pool;
 static struct os_mempool os_msys_init_1_mempool;
 #endif // !CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
-#endif // !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#endif // !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 #endif
 
 #if OS_MSYS_2_BLOCK_COUNT > 0
@@ -78,16 +76,16 @@ static struct os_mempool os_msys_init_1_mempool;
     OS_MEMPOOL_SIZE(OS_MSYS_2_BLOCK_COUNT,  \
                     SYSINIT_MSYS_2_MEMBLOCK_SIZE)
 
-#if !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#if !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 #if !CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
 static os_membuf_t *os_msys_init_2_data;
 static struct os_mbuf_pool os_msys_init_2_mbuf_pool;
 static struct os_mempool os_msys_init_2_mempool;
 #endif // !CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
-#endif // !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#endif // !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 #endif
 
-#if !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER && CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
+#if !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER && CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
 /* Context structure holding all MSYS resources */
 typedef struct {
 #if OS_MSYS_1_BLOCK_COUNT > 0
@@ -132,9 +130,9 @@ ble_os_msys_ensure_ctx(void)
 
     return 0;
 }
-#endif // !CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER && CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
+#endif // !CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER && CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
 
-#if CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#if CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 extern int  r_esp_ble_msys_init(uint16_t msys_size1, uint16_t msys_size2, uint16_t msys_cnt1, uint16_t msys_cnt2, uint8_t from_heap);
 extern void r_esp_ble_msys_deinit(void);
 
@@ -152,7 +150,7 @@ void os_msys_deinit(void)
     r_esp_ble_msys_deinit();
 }
 
-#else // CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#else // CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER
 
 #if OS_MSYS_SANITY_ENABLED
 
@@ -314,7 +312,7 @@ os_msys_buf_free(void)
 #if OS_MSYS_2_BLOCK_COUNT > 0
     bt_osi_mem_free(os_msys_init_2_data);
     os_msys_init_2_data = NULL;
-    os_mempool_unregister(&os_msys_init_1_mempool);
+    os_mempool_unregister(&os_msys_init_2_mempool);
 #endif
 #endif // CONFIG_BT_NIMBLE_STATIC_TO_DYNAMIC
 }
@@ -353,4 +351,4 @@ void os_msys_init(void)
     SYSINIT_PANIC_ASSERT(rc == 0);
 #endif
 }
-#endif // CONFIG_ESP32_BT_LE_MSYS_INIT_IN_CONTROLLER
+#endif // CONFIG_BT_LE_MSYS_INIT_IN_CONTROLLER

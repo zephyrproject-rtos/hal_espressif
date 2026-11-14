@@ -11,20 +11,16 @@
 extern "C" {
 #endif
 
-#ifndef __noreturn
-#if CONFIG_LIBC_PICOLIBC || defined(__ZEPHYR__)
-// TODO IDF-15569
-// #if defined(__cplusplus) && __cplusplus >= 201103L
-// #define __noreturn [[noreturn]]
-// #elif __has_attribute(__noreturn__)
-#if __has_attribute(__noreturn__)
+#if CONFIG_LIBC_PICOLIBC
+#if defined(__cplusplus) && __cplusplus >= 201103L
+#define __noreturn [[noreturn]]
+#elif __has_attribute(__noreturn__)
 #define __noreturn __attribute__((__noreturn__))
 #else
 #define __noreturn
 #endif
 #else
 #define __noreturn
-#endif
 #endif
 
 __noreturn void __assert_func(const char *file, int line, const char *func, const char *expr);

@@ -35,22 +35,36 @@ static uint32_t s_apb_freq;
 
 void rtc_clk_cpu_freq_to_xtal(int freq, int div);
 static void rtc_clk_cpu_freq_to_rc_fast(void);
+static void rtc_clk_bbpll_enable(void);
+static void rtc_clk_bbpll_configure(soc_xtal_freq_t xtal_freq, int pll_freq);
 
 extern uint32_t g_dig_dbias_pvt_240m;
 extern uint32_t g_rtc_dbias_pvt_240m;
 extern uint32_t g_dig_dbias_pvt_non_240m;
 extern uint32_t g_rtc_dbias_pvt_non_240m;
 
-static uint32_t s_bbpll_digi_consumers_ref_count = 0; // Currently, it only tracks whether the 48MHz PHY clock is in-use by USB Serial/JTAG
+static uint32_t s_bbpll_digi_consumers_ref_count = 0; // Currently, it tracks whether the 48MHz PHY clock is in-use by USB
 
 void rtc_clk_bbpll_add_consumer(void)
 {
-    s_bbpll_digi_consumers_ref_count += 1;
+    // Should be refactored in PM-653
+    if (s_bbpll_digi_consumers_ref_count == 0) {
+        if (s_cur_pll_freq == 0) {
+            rtc_clk_bbpll_enable();
+            rtc_clk_bbpll_configure(rtc_clk_xtal_freq_get(), CLK_LL_PLL_480M_FREQ_MHZ);
+        }
+    }
+    s_bbpll_digi_consumers_ref_count++;
 }
 
 void rtc_clk_bbpll_remove_consumer(void)
 {
-    s_bbpll_digi_consumers_ref_count -= 1;
+    // Should be refactored in PM-653
+    if (s_bbpll_digi_consumers_ref_count > 0) {
+        s_bbpll_digi_consumers_ref_count--;
+    } else {
+        ESP_HW_LOGW(TAG, "bbpll clk ref cnt mismatched!");
+    }
 }
 
 void rtc_clk_32k_enable(bool enable)
@@ -81,11 +95,27 @@ void rtc_clk_32k_disable_external(void)
 
 void rtc_clk_32k_bootstrap(uint32_t cycle)
 {
-    /* No special bootstrapping needed for ESP32-S3, 'cycle' argument is to keep the signature
-     * same as for the ESP32. Just enable the XTAL here.
-     */
-    (void)cycle;
-    rtc_clk_32k_enable(true);
+    SET_PERI_REG_MASK(RTC_IO_XTAL_32P_PAD_REG, RTC_IO_X32P_MUX_SEL);
+    SET_PERI_REG_MASK(RTC_IO_XTAL_32N_PAD_REG, RTC_IO_X32N_MUX_SEL);
+    clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_BOOTSTRAP);
+
+    if (cycle) {
+        /*
+         * 32K-N is the drive pin for the crystal oscillator circuit. Empirical testing shows that better results are achieved when the auxiliary signal is output from the 32K-P pin.
+         * By controlling the pull-up and pull-down resistors on the corresponding IO pins, a low-intensity 32.768kHz drive signal is output to assist the crystal oscillator in starting up.
+         * With the pull-down resistor always enabled, the drive amplitude is approximately 1/2*VCC, which is closer to the actual signal.
+        */
+        const uint32_t delay_us = (1000000 / SOC_CLK_XTAL32K_FREQ_APPROX / 2);
+        rtcio_ll_pulldown_enable(SOC_XTAL32K_P_GPIO_NUM);
+        while (cycle) {
+            esp_rom_delay_us(delay_us);
+            rtcio_ll_pullup_enable(SOC_XTAL32K_P_GPIO_NUM);
+            esp_rom_delay_us(delay_us);
+            rtcio_ll_pullup_disable(SOC_XTAL32K_P_GPIO_NUM);
+            cycle--;
+        }
+        rtcio_ll_pulldown_disable(SOC_XTAL32K_P_GPIO_NUM);
+    }
 }
 
 bool rtc_clk_32k_enabled(void)
@@ -123,7 +153,7 @@ bool rtc_clk_8md256_enabled(void)
 
 void rtc_clk_slow_src_set(soc_rtc_slow_clk_src_t clk_src)
 {
-#if !defined(BOOTLOADER_BUILD)
+#ifndef BOOTLOADER_BUILD
     // Keep the RTC8M_CLK on in sleep if RTC clock is rc_fast_d256.
     if ((clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) && (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_USE_RC_FAST_MODE] == 0)) { // Switch to RC_FAST_D256
         esp_sleep_sub_mode_config(ESP_SLEEP_RTC_USE_RC_FAST_MODE, true);
@@ -233,7 +263,7 @@ static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
     clk_ll_cpu_set_divider(1);
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
-    rtc_clk_apb_freq_update(80 * MHZ(1));
+    rtc_clk_apb_freq_update(80 * MHZ);
     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
 
     if (cpu_freq_mhz < cur_config.freq_mhz) {
@@ -410,7 +440,7 @@ FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
     clk_ll_cpu_set_divider(div);
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_XTAL);
-    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+    rtc_clk_apb_freq_update(cpu_freq * MHZ);
 
     if (cur_config.freq_mhz == 240) {
         REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG, g_rtc_dbias_pvt_non_240m);

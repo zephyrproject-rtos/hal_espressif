@@ -7,21 +7,21 @@
 
 #include "esp_attr.h"
 #include <stdint.h>
-#include <zephyr/kernel.h>
-#include <zephyr/arch/cpu.h>
-#include <zephyr/sys/__assert.h>
-#include "esp_private/critical_section.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "hal/regi2c_ctrl.h"
+#include "esp_private/critical_section.h"
 
-static esp_os_spinlock_t regi2c_lock = ESP_OS_SPINLOCK_INIT;
+// This lock is used to protect the analog i2c bus from being used concurrently
+DEFINE_CRIT_SECTION_LOCK_STATIC(mux);
 
 uint8_t regi2c_ctrl_read_reg(uint8_t block, uint8_t host_id, uint8_t reg_add)
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    esp_os_enter_critical(&regi2c_lock);
+    esp_os_enter_critical_safe(&mux);
     uint8_t value = regi2c_impl_read(block, host_id, reg_add);
-    esp_os_exit_critical(&regi2c_lock);
+    esp_os_exit_critical_safe(&mux);
     REGI2C_CLOCK_DISABLE();
     return value;
 }
@@ -30,9 +30,9 @@ uint8_t regi2c_ctrl_read_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_ad
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    esp_os_enter_critical(&regi2c_lock);
+    esp_os_enter_critical_safe(&mux);
     uint8_t value = regi2c_impl_read_mask(block, host_id, reg_add, msb, lsb);
-    esp_os_exit_critical(&regi2c_lock);
+    esp_os_exit_critical_safe(&mux);
     REGI2C_CLOCK_DISABLE();
     return value;
 }
@@ -41,9 +41,9 @@ void regi2c_ctrl_write_reg(uint8_t block, uint8_t host_id, uint8_t reg_add, uint
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    esp_os_enter_critical(&regi2c_lock);
+    esp_os_enter_critical_safe(&mux);
     regi2c_impl_write(block, host_id, reg_add, data);
-    esp_os_exit_critical(&regi2c_lock);
+    esp_os_exit_critical_safe(&mux);
     REGI2C_CLOCK_DISABLE();
 }
 
@@ -51,18 +51,18 @@ void regi2c_ctrl_write_reg_mask(uint8_t block, uint8_t host_id, uint8_t reg_add,
 {
     REGI2C_CLOCK_ENABLE();
     int __DECLARE_REGI2C_ATOMIC_ENV __attribute__((unused));
-    esp_os_enter_critical(&regi2c_lock);
+    esp_os_enter_critical_safe(&mux);
     regi2c_impl_write_mask(block, host_id, reg_add, msb, lsb, data);
-    esp_os_exit_critical(&regi2c_lock);
+    esp_os_exit_critical_safe(&mux);
     REGI2C_CLOCK_DISABLE();
 }
 
-void IRAM_ATTR regi2c_enter_critical(void)
+void regi2c_enter_critical(void)
 {
-    esp_os_enter_critical(&regi2c_lock);
+    esp_os_enter_critical_safe(&mux);
 }
 
-void IRAM_ATTR regi2c_exit_critical(void)
+void regi2c_exit_critical(void)
 {
-    esp_os_exit_critical(&regi2c_lock);
+    esp_os_exit_critical_safe(&mux);
 }

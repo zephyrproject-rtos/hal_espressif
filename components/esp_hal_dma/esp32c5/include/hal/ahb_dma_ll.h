@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -21,6 +21,11 @@ extern "C" {
 
 #define AHB_DMA_LL_GET_HW(id) (((id) == 0) ? (&AHB_DMA) : NULL)
 
+#define AHB_DMA_LL_SUPPORTED_BURST_SIZE_MASK (GDMA_BURST_SIZE_SUPPORT_4 | \
+                                              GDMA_BURST_SIZE_SUPPORT_16 | \
+                                              GDMA_BURST_SIZE_SUPPORT_32 | \
+                                              GDMA_BURST_SIZE_SUPPORT_64)
+
 #define GDMA_LL_CHANNEL_MAX_PRIORITY 5 // supported priority levels: [0,5]
 #define GDMA_LL_CHANNEL_MAX_WEIGHT 15  // supported weight levels: [0,15]
 
@@ -29,6 +34,9 @@ extern "C" {
 
 // for M2M mode, hardware will automatically assign peri_sel ID depends on the channel number (ch0: 10, ch1: 11, ch2: 12)
 #define AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK (0x1C00)
+
+// Default value of weighted arbitration timeout, in AHB bus clock cycles
+#define AHB_DMA_LL_DEFAULT_WEIGHTED_ARBITRATION_TIMEOUT (2000)
 
 #define GDMA_LL_EVENT_TX_FIFO_UDF   (1<<5)
 #define GDMA_LL_EVENT_TX_FIFO_OVF   (1<<4)
@@ -157,6 +165,15 @@ static inline void ahb_dma_ll_set_weighted_arb_timeout(ahb_dma_dev_t *dev, uint3
 {
     HAL_ASSERT(timeout != 0 && timeout <= 65535);
     dev->arb_timeout.arb_timeout_num = timeout;
+}
+
+/**
+ * @brief Check if the weighted arbitration is supported
+ */
+static inline bool ahb_dma_ll_is_weighted_arb_supported(ahb_dma_dev_t *dev)
+{
+    (void) dev;
+    return true;
 }
 
 ///////////////////////////////////// RX /////////////////////////////////////////

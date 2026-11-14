@@ -7,7 +7,6 @@
  * See details in the https://sourceware.org/pipermail/newlib/2025/021470.html
  * patch series.  */
 memcpy = 0x40000358;
-memccpy = 0x400003c4;
 memmove = 0x4000035c;
 memcmp = 0x40000360;
 strcpy = 0x40000364;

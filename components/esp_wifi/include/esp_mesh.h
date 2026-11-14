@@ -74,20 +74,7 @@
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "esp_mesh_internal.h"
-
-/*
- * The mesh IP address type is only used by the root node when bridging mesh
- * traffic to an external IP network. Zephyr provides its own network stack,
- * so the vendor LwIP header is replaced by a minimal self-contained type. It
- * must stay layout-compatible with the vendor esp_ip4_addr_t (a single 32-bit
- * address word) since the mesh blob accesses it by offset.
- */
-#ifndef ESP_IP4_ADDR_DEFINED
-#define ESP_IP4_ADDR_DEFINED
-typedef struct {
-	uint32_t addr;
-} esp_ip4_addr_t;
-#endif
+#include "lwip/ip_addr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -491,29 +478,29 @@ typedef struct {
  * @brief Router configuration
  */
 typedef struct {
-    uint8_t ssid[32];             /**< SSID */
-    uint8_t ssid_len;             /**< length of SSID */
-    uint8_t bssid[6];             /**< BSSID, if this value is specified, users should also specify "allow_router_switch". */
-    uint8_t password[64];         /**< password */
-    bool allow_router_switch;     /**< if the BSSID is specified and this value is also set, when the router of this specified BSSID
-                                       fails to be found after "fail" (mesh_attempts_t) times, the whole network is allowed to switch
-                                       to another router with the same SSID. The new router might also be on a different channel.
-                                       The default value is false.
-                                       There is a risk that if the password is different between the new switched router and the previous
-                                       one, the mesh network could be established but the root will never connect to the new switched router. */
+    WIFI_NONSTRING_ATTR uint8_t ssid[32];     /**< SSID */
+    uint8_t ssid_len;                         /**< length of SSID */
+    uint8_t bssid[6];                         /**< BSSID, if this value is specified, users should also specify "allow_router_switch". */
+    WIFI_NONSTRING_ATTR uint8_t password[64]; /**< password */
+    bool allow_router_switch;                 /**< if the BSSID is specified and this value is also set, when the router of this specified BSSID
+                                                   fails to be found after "fail" (mesh_attempts_t) times, the whole network is allowed to switch
+                                                   to another router with the same SSID. The new router might also be on a different channel.
+                                                   The default value is false.
+                                                   There is a risk that if the password is different between the new switched router and the previous
+                                                   one, the mesh network could be established but the root will never connect to the new switched router. */
 } mesh_router_t;
 
 /**
  * @brief Mesh softAP configuration
  */
 typedef struct {
-    uint8_t password[64];              /**< mesh softAP password */
+    WIFI_NONSTRING_ATTR uint8_t password[64]; /**< mesh softAP password */
     /**
      * max number of stations allowed to connect in, default 6, max 10
      * = max_connection + nonmesh_max_connection
      */
-    uint8_t max_connection;            /**< max mesh connections */
-    uint8_t nonmesh_max_connection;    /**< max non-mesh connections */
+    uint8_t max_connection;                   /**< max mesh connections */
+    uint8_t nonmesh_max_connection;           /**< max non-mesh connections */
 } mesh_ap_cfg_t;
 
 /**

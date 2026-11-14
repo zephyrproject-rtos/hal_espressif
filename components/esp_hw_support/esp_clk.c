@@ -6,9 +6,12 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/lock.h>
 
-#include <zephyr/kernel.h>
+#if !NON_OS_BUILD
+#include "freertos/FreeRTOS.h"
+#endif
 
 #include "esp_attr.h"
 #include "soc/rtc.h"
@@ -22,6 +25,8 @@
 #include "rom/rtc.h"
 #include "esp_rtc_time.h"
 
+#define MHZ (1000000)
+
 #if CONFIG_PM_SLP_IRAM_OPT
 # define ESP_CLK_FN_ATTR    IRAM_ATTR
 #else
@@ -31,7 +36,11 @@
 // g_ticks_us defined in ROMs for PRO and APP CPU
 extern uint32_t g_ticks_per_us_pro;
 
-static esp_os_spinlock_t s_esp_rtc_time_lock = ESP_OS_SPINLOCK_INIT;
+// Any code utilizing locks, which depend on FreeRTOS, should be omitted
+// when building for Non-OS environments
+#if !NON_OS_BUILD
+static portMUX_TYPE __attribute__((unused)) s_esp_rtc_time_lock = portMUX_INITIALIZER_UNLOCKED;
+#endif
 
 #if SOC_RTC_MEM_SUPPORTED
 typedef struct {
@@ -43,6 +52,7 @@ typedef struct {
 _Static_assert(sizeof(retain_mem_t) == 24, "retain_mem_t must be 24 bytes");
 _Static_assert(offsetof(retain_mem_t, checksum) == sizeof(retain_mem_t) - sizeof(uint32_t), "Wrong offset for checksum field in retain_mem_t structure");
 
+#if !NON_OS_BUILD
 static __attribute__((section(".rtc_timer_data_in_rtc_mem"))) retain_mem_t s_rtc_timer_retain_mem;
 
 static ESP_CLK_FN_ATTR uint32_t calc_checksum(void)
@@ -56,6 +66,7 @@ static ESP_CLK_FN_ATTR uint32_t calc_checksum(void)
     return checksum;
 }
 #define IS_RETAIN_MEM_VALID() (s_rtc_timer_retain_mem.checksum == calc_checksum())
+#endif // NON_OS_BUILD
 #endif // SOC_RTC_MEM_SUPPORTED
 
 inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
@@ -69,14 +80,14 @@ inline static int IRAM_ATTR s_get_cpu_freq_mhz(void)
 
 int IRAM_ATTR esp_clk_cpu_freq(void)
 {
-    return s_get_cpu_freq_mhz() * MHZ(1);
+    return s_get_cpu_freq_mhz() * MHZ;
 }
 
 int IRAM_ATTR esp_clk_apb_freq(void)
 {
     // TODO: IDF-5173 Require cleanup, implementation should be unified
 #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2
-    uint32_t cpu_freq_hz = s_get_cpu_freq_mhz() * MHZ(1);
+    uint32_t cpu_freq_hz = s_get_cpu_freq_mhz() * MHZ;
     return MIN(cpu_freq_hz, APB_CLK_FREQ);
 #else // for all later targets
     return rtc_clk_apb_freq_get();
@@ -85,9 +96,10 @@ int IRAM_ATTR esp_clk_apb_freq(void)
 
 int IRAM_ATTR esp_clk_xtal_freq(void)
 {
-    return rtc_clk_xtal_freq_get() * MHZ(1);
+    return rtc_clk_xtal_freq_get() * MHZ;
 }
 
+#if !NON_OS_BUILD
 uint64_t esp_rtc_get_time_us(void)
 {
     esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
@@ -141,6 +153,7 @@ uint64_t esp_rtc_get_time_us(void)
     return esp_rtc_time_us;
 #endif
 }
+#endif
 
 void esp_clk_slowclk_cal_set(uint32_t new_cal)
 {
@@ -151,7 +164,9 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
 #if SOC_RTC_MEM_SUPPORTED
     esp_rtc_get_time_us();
 #else
+#if !NON_OS_BUILD
     esp_os_enter_critical_safe(&s_esp_rtc_time_lock);
+#endif
     uint32_t old_cal = clk_ll_rtc_slow_load_cal();
     if (old_cal != 0) {
         /**
@@ -174,7 +189,9 @@ void esp_clk_slowclk_cal_set(uint32_t new_cal)
         new_fix_us = old_fix_us - new_fix_us;
         clk_ll_rtc_slow_store_rtc_fix_us(new_fix_us);
     }
+#if !NON_OS_BUILD
     esp_os_exit_critical_safe(&s_esp_rtc_time_lock);
+#endif
 #endif // SOC_RTC_MEM_SUPPORTED
 #endif // CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER
     clk_ll_rtc_slow_store_cal(new_cal);
@@ -194,6 +211,7 @@ uint64_t esp_clk_rtc_time(void)
 #endif
 }
 
+#if !NON_OS_BUILD
 void esp_clk_private_lock(void)
 {
     esp_os_enter_critical(&s_esp_rtc_time_lock);
@@ -203,3 +221,4 @@ void esp_clk_private_unlock(void)
 {
     esp_os_exit_critical(&s_esp_rtc_time_lock);
 }
+#endif

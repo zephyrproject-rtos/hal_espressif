@@ -26,9 +26,12 @@ hci_transport_controller_packet_rx(hci_driver_data_type_t data_type, uint8_t *da
         r_ble_hci_trans_hs_cmd_tx(data);
     }
 
+#if CONFIG_BT_CONTROLLER_ONLY || CONFIG_BT_BLUEDROID_ENABLED || \
+   (CONFIG_BT_NIMBLE_ENABLED && (CONFIG_BT_NIMBLE_ROLE_CENTRAL || CONFIG_BT_NIMBLE_ROLE_PERIPHERAL))
     if (data_type == HCI_DRIVER_TYPE_ACL) {
         r_ble_hci_trans_hs_acl_tx((struct os_mbuf *) data);
     }
+#endif
     return 0;
 }
 
@@ -126,13 +129,13 @@ hci_transport_init(uint8_t hci_transport_mode)
     memset(&s_hci_transport_env, 0, sizeof(hci_transport_env_t));
 
     switch(hci_transport_mode) {
-#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
         case HCI_TRANSPORT_VHCI:
             ops = &hci_driver_vhci_ops;
             break;
-#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_RAM
-#if CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
-#if CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
+#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#if CONFIG_BT_LE_HCI_INTERFACE_USE_UART
+#if CONFIG_BT_LE_UART_HCI_DMA_MODE
         case HCI_TRANSPORT_UART_UHCI:
             ops = &hci_driver_uart_dma_ops;
             break;
@@ -140,8 +143,8 @@ hci_transport_init(uint8_t hci_transport_mode)
         case HCI_TRANSPORT_UART_NO_DMA:
             ops = &hci_driver_uart_ops;
             break;
-#endif // CONFIG_ESP32_BT_LE_UART_HCI_DMA_MODE
-#endif // CONFIG_ESP32_BT_LE_HCI_INTERFACE_USE_UART
+#endif // CONFIG_BT_LE_UART_HCI_DMA_MODE
+#endif // CONFIG_BT_LE_HCI_INTERFACE_USE_UART
         default:
             assert(0);
     }
@@ -166,11 +169,10 @@ hci_transport_deinit(void)
 {
     hci_driver_ops_t *ops;
 
-    r_ble_hci_trans_cfg_hs((esp_hci_internal_rx_cmd_fn *)hci_transport_controller_tx_dummy, NULL,
-                           (esp_hci_internal_rx_acl_fn *)hci_transport_controller_tx_dummy, NULL);
-
     ops = s_hci_transport_env.driver_ops;
     if (ops) {
+        r_ble_hci_trans_cfg_hs((esp_hci_internal_rx_cmd_fn *)hci_transport_controller_tx_dummy, NULL,
+                               (esp_hci_internal_rx_acl_fn *)hci_transport_controller_tx_dummy, NULL);
         ops->hci_driver_deinit();
     }
     memset(&s_hci_transport_env, 0, sizeof(hci_transport_env_t));

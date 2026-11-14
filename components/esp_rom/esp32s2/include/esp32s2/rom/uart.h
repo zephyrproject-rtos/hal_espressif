@@ -113,8 +113,6 @@ typedef enum {
     XON_XOFF_CTRL
 } UartFlowCtrl;
 
-/* Workaround: EMPTY conflicts with Zephyr's util_macro.h */
-#undef EMPTY
 typedef enum {
     EMPTY,
     UNDER_WRITE,

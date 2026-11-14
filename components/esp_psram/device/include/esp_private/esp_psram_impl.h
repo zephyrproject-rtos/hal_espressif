@@ -14,7 +14,6 @@
 extern "C" {
 #endif
 
-#define PSRAM_SIZE_1MB                  (1 * 1024 * 1024)
 #define PSRAM_SIZE_2MB                  (2 * 1024 * 1024)
 #define PSRAM_SIZE_4MB                  (4 * 1024 * 1024)
 #define PSRAM_SIZE_8MB                  (8 * 1024 * 1024)
@@ -35,6 +34,13 @@ extern "C" {
 #define PSRAM_HALFSLEEP_DATA_ATTR
 #define PSRAM_HALFSLEEP_SLEEP_CODE_ATTR
 #define PSRAM_HALFSLEEP_RESUME_CODE_ATTR
+#endif
+
+// Downgrade "PSRAM not found" errors to warning if ignoring missing SPIRAM
+#if CONFIG_SPIRAM_IGNORE_NOTFOUND
+#define PSRAM_LOG_NOTFOUND ESP_EARLY_LOGW
+#else
+#define PSRAM_LOG_NOTFOUND ESP_EARLY_LOGE
 #endif
 
 /**

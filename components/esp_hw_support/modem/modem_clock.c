@@ -26,7 +26,7 @@ modem_clock_context_t * __attribute__((weak)) IRAM_ATTR MODEM_CLOCK_instance(voi
     /* It should be explicitly defined in the internal RAM */
     static DRAM_ATTR modem_clock_hal_context_t modem_clock_hal = { .syscon_dev = NULL, .lpcon_dev = NULL };
     static DRAM_ATTR modem_clock_context_t modem_clock_context = {
-        .hal = &modem_clock_hal, .lock = ESP_OS_SPINLOCK_INIT,
+        .hal = &modem_clock_hal, .lock = SPINLOCK_INITIALIZER,
         .dev = NULL,
 #if SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG
         .icg_config = NULL,
@@ -48,7 +48,7 @@ modem_clock_context_t * __attribute__((weak)) IRAM_ATTR MODEM_CLOCK_instance(voi
         modem_clock_hal.syscon_dev = &MODEM_SYSCON;
         modem_clock_hal.lpcon_dev = &MODEM_LPCON;
 #if SOC_CLOCK_TREE_MANAGEMENT_SUPPORTED
-        ESP_ERROR_CHECK(esp_clk_tree_enable_src(SOC_MOD_CLK_MODEM_APB, true));
+        ESP_ERROR_CHECK(esp_clk_tree_acquire_src(SOC_MOD_CLK_MODEM_APB, NULL));
 #endif
     }
     return &modem_clock_context;

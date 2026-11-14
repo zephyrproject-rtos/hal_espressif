@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -50,6 +50,8 @@ void bootloader_console_init(void)
 void bootloader_console_init(void)
 {
     const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
+    int __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused)); // To avoid build errors/warnings about __DECLARE_RCC_ATOMIC_ENV
+
     // Install rom uart printf as console.
     esp_rom_install_uart_printf();
 
@@ -61,8 +63,9 @@ void bootloader_console_init(void)
     const int uart_tx_gpio = (CONFIG_ESP_CONSOLE_UART_TX_GPIO >= 0) ? CONFIG_ESP_CONSOLE_UART_TX_GPIO : U0TXD_GPIO_NUM;
     const int uart_rx_gpio = (CONFIG_ESP_CONSOLE_UART_RX_GPIO >= 0) ? CONFIG_ESP_CONSOLE_UART_RX_GPIO : U0RXD_GPIO_NUM;
 
-    // Switch to the new UART (this just changes UART number used for esp_rom_printf in ROM code).
-    esp_rom_output_set_as_console(uart_num);
+    // Switch to the new UART
+    esp_rom_output_set_as_console(uart_num); // changes UART number used for esp_rom_printf in ROM code
+    esp_rom_output_switch_buffer(uart_num);
 
     // If console is attached to UART1 or if non-default pins are used,
     // need to reconfigure pins using GPIO matrix
@@ -97,7 +100,7 @@ void bootloader_console_init(void)
     // Set configured UART console baud rate
     uint32_t clock_hz = rtc_clk_apb_freq_get();
 #if ESP_ROM_UART_CLK_IS_XTAL
-    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ(1); // From esp32-s3 on, UART clk source is selected to XTAL in ROM
+    clock_hz = (uint32_t)rtc_clk_xtal_freq_get() * MHZ; // From esp32-s3 on, UART clk source is selected to XTAL in ROM
 #endif
     _uart_ll_set_baudrate(UART_LL_GET_HW(uart_num), CONFIG_ESP_CONSOLE_UART_BAUDRATE, clock_hz);
 }

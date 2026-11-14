@@ -30,8 +30,6 @@
 #include "esp32s3/rom/cache.h"
 #include "esp32s3/rom/rtc.h"
 
-#define ALIGN_DOWN(val, align)  ((val) & ~((align) - 1))
-
 extern int _bss_end;
 
 void esp_system_reset_modules_on_exit(void)
@@ -50,22 +48,29 @@ void esp_system_reset_modules_on_exit(void)
                       SYSTEM_RW_BTMAC_RST | SYSTEM_RW_BTLP_RST | SYSTEM_RW_BTMAC_REG_RST | SYSTEM_RW_BTLP_REG_RST);
     REG_WRITE(SYSTEM_CORE_RST_EN_REG, 0);
 
+    // Stop the USB OTG core before the resets below
+    SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG, SYSTEM_USB_RST);
+    REG_WRITE(SYSTEM_PERIP_RST_EN0_REG, 0);
+
+    // Stop the DMA masters before the SPI0/1 (flash and PSRAM) controller is reset below: a DMA
+    // can still be moving data from/to PSRAM.
+    SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_DMA_RST | SYSTEM_SDIO_HOST_RST);
+    REG_WRITE(SYSTEM_PERIP_RST_EN1_REG, 0);
+
+    SET_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
+    CLEAR_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
+
     // Reset timer, systimer, spi, uart, mcpwm
     SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG,
                       SYSTEM_TIMERS_RST | SYSTEM_SPI01_RST | SYSTEM_UART_RST | SYSTEM_SYSTIMER_RST |
                       SYSTEM_PWM0_RST | SYSTEM_PWM1_RST);
     REG_WRITE(SYSTEM_PERIP_RST_EN0_REG, 0);
 
-    // Reset dma and crypto peripherals. This ensures a clean state for the crypto peripherals after a CPU restart
+    // Reset crypto peripherals. This ensures a clean state for the crypto peripherals after a CPU restart
     // and hence avoiding any possibility with crypto failure in ROM security workflows.
-    SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_DMA_RST | SYSTEM_CRYPTO_AES_RST | SYSTEM_CRYPTO_DS_RST |
-                      SYSTEM_CRYPTO_HMAC_RST | SYSTEM_CRYPTO_RSA_RST | SYSTEM_CRYPTO_SHA_RST |
-                      // The DMA inside SDMMC Host needs to be reset to avoid memory corruption after restart.
-                      SYSTEM_SDIO_HOST_RST);
+    SET_PERI_REG_MASK(SYSTEM_PERIP_RST_EN1_REG, SYSTEM_CRYPTO_AES_RST | SYSTEM_CRYPTO_DS_RST |
+                      SYSTEM_CRYPTO_HMAC_RST | SYSTEM_CRYPTO_RSA_RST | SYSTEM_CRYPTO_SHA_RST);
     REG_WRITE(SYSTEM_PERIP_RST_EN1_REG, 0);
-
-    SET_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
-    CLEAR_PERI_REG_MASK(SYSTEM_EDMA_CTRL_REG, SYSTEM_EDMA_RESET);
 }
 
 /* "inner" restart function for after RTOS, interrupts & anything else on this
@@ -108,7 +113,7 @@ void esp_restart_noos(void)
         // If stack_addr is from External Memory (CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM is used)
         // then need to switch SP to Internal Memory otherwise
         // we will get the "Cache disabled but cached memory region accessed" error after Cache_Read_Disable.
-        uint32_t new_sp = ALIGN_DOWN((uint32_t)&_bss_end, 16);
+        uint32_t new_sp = ESP_ALIGN_DOWN((uint32_t)&_bss_end, 16);
         SET_STACK(new_sp);
     }
 #endif

@@ -19,7 +19,7 @@ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
     case SOC_CPU_CLK_SRC_PLL:
         return clk_ll_bbpll_get_freq_mhz();
     case SOC_CPU_CLK_SRC_RC_FAST:
-        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1);
+        return SOC_CLK_RC_FAST_FREQ_APPROX / MHZ;
     case SOC_CPU_CLK_SRC_FLASH_PLL:
         return clk_ll_flash_pll_get_freq_mhz();
     default:
@@ -32,13 +32,13 @@ uint32_t clk_hal_soc_root_get_freq_mhz(soc_cpu_clk_src_t cpu_clk_src)
 uint32_t clk_hal_cpu_get_freq_hz(void)
 {
     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_cpu_get_divider();
+    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_cpu_get_divider();
 }
 
 static uint32_t clk_hal_ahb_get_freq_hz(void)
 {
     soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
-    return clk_hal_soc_root_get_freq_mhz(source) * MHZ(1) / clk_ll_ahb_get_divider();
+    return clk_hal_soc_root_get_freq_mhz(source) * MHZ / clk_ll_ahb_get_divider();
 }
 
 uint32_t clk_hal_apb_get_freq_hz(void)

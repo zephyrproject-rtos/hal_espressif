@@ -1,0 +1,5 @@
+Temporary sub-directory to avoid conflicts in private-decls.md.
+Will be merged back to private-decls.md as part of
+https://github.com/Mbed-TLS/TF-PSA-Crypto/issues/232
+
+One file per header, with .md extension (and valid markdown content).

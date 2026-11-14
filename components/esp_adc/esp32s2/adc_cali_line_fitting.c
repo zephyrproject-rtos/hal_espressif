@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,11 +10,8 @@
 #include "esp_err.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
-#include "esp_efuse.h"
-#include "esp_efuse_table.h"
-#include "esp_efuse_rtc_table.h"
+#include "hal/adc_efuse_hal.h"
 #include "hal/adc_types.h"
-#include "soc/efuse_periph.h"
 #include "soc/soc_caps.h"
 #include "hal/adc_ll.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -82,6 +79,7 @@ static bool calculate_characterization_coefficients(const adc_calib_parsed_info_
 
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage);
+static esp_err_t delete_cali_ctx(void *arg);
 
 /* ------------------------- Public API ------------------------------------- */
 esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config_t *config, adc_cali_handle_t *ret_handle)
@@ -93,17 +91,11 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
     //S2 Oneshot read only supports 13 bits, DMA read only supports 12 bits
     ESP_RETURN_ON_FALSE(((config->bitwidth == ADC_LL_RTC_MAX_BITWIDTH || config->bitwidth == SOC_ADC_DIGI_MAX_BITWIDTH) || config->bitwidth == ADC_BITWIDTH_DEFAULT), ESP_ERR_INVALID_ARG, TAG, "invalid bitwidth");
     // current version only accepts encoding ver 1 and ver 2.
-    uint8_t adc_encoding_version = esp_efuse_rtc_table_read_calib_version();
+    uint8_t adc_encoding_version = adc_hal_efuse_get_version();
     ESP_RETURN_ON_FALSE(((adc_encoding_version == 1) || (adc_encoding_version == 2)), ESP_ERR_NOT_SUPPORTED, TAG, "Calibration required eFuse bits not burnt");
 
-    adc_cali_scheme_t *scheme = (adc_cali_scheme_t *)heap_caps_calloc(1, sizeof(adc_cali_scheme_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(scheme, ESP_ERR_NO_MEM, TAG, "no mem for adc calibration scheme");
-
     cali_chars_line_fitting_t *chars = (cali_chars_line_fitting_t *)heap_caps_calloc(1, sizeof(cali_chars_line_fitting_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_GOTO_ON_FALSE(chars, ESP_ERR_NO_MEM, err, TAG, "no memory for the calibration characteristics");
-
-    scheme->raw_to_voltage = cali_raw_to_voltage;
-    scheme->ctx = chars;
+    ESP_RETURN_ON_FALSE(chars, ESP_ERR_NO_MEM, TAG, "no memory for the calibration characteristics");
 
     adc_calib_parsed_info_t efuse_parsed_data = {0};
     bool success = prepare_calib_data_for(config->unit_id, config->atten, &efuse_parsed_data);
@@ -115,31 +107,25 @@ esp_err_t adc_cali_create_scheme_line_fitting(const adc_cali_line_fitting_config
     chars->unit_id = config->unit_id;
     chars->atten = config->atten;
 
-    *ret_handle = scheme;
-
-    return ESP_OK;
-
-err:
-    if (scheme) {
-        heap_caps_free(scheme);
+    ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+    if (ret != ESP_OK) {
+        free(chars);
     }
     return ret;
 }
 
 esp_err_t adc_cali_delete_scheme_line_fitting(adc_cali_handle_t handle)
 {
-    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
-
-    heap_caps_free(handle->ctx);
-    handle->ctx = NULL;
-
-    heap_caps_free(handle);
-    handle = NULL;
-
-    return ESP_OK;
+    return adc_cali_delete_scheme(handle);
 }
 
 /* ------------------------ Interface Functions --------------------------- */
+static esp_err_t delete_cali_ctx(void *arg)
+{
+    free(arg);
+    return ESP_OK;
+}
+
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 {
     //pointers are checked in the upper layer
@@ -153,47 +139,35 @@ static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 /* ----------------------- Characterization Functions ----------------------- */
 static bool prepare_calib_data_for(adc_unit_t unit_id, adc_atten_t atten, adc_calib_parsed_info_t *parsed_data_storage)
 {
-    int version_num = esp_efuse_rtc_table_read_calib_version();
-    int tag;
+    int version_num = adc_hal_efuse_get_version();
+    uint32_t cal_code;
+    uint32_t voltage_mv;
     parsed_data_storage->version_num = version_num;
     parsed_data_storage->unit_id = unit_id;
     parsed_data_storage->atten_level = atten;
     switch (version_num) {
     case 1:
-        // note: use the unit_id as in hal, which start from 0.
-        tag = esp_efuse_rtc_table_get_tag(version_num, unit_id, atten, RTCCALIB_V1_PARAM_VLOW);
-        parsed_data_storage->efuse_data.ver1.adc_calib_low = esp_efuse_rtc_table_get_parsed_efuse_value(tag, false);
-        tag = esp_efuse_rtc_table_get_tag(version_num, unit_id, atten, RTCCALIB_V1_PARAM_VHIGH);
-        parsed_data_storage->efuse_data.ver1.adc_calib_high = esp_efuse_rtc_table_get_parsed_efuse_value(tag, false);
+        if (adc_hal_efuse_get_cal_voltage_low(version_num, unit_id, atten,
+                                              &cal_code, &voltage_mv) != ESP_OK) {
+            return false;
+        }
+        parsed_data_storage->efuse_data.ver1.adc_calib_low = (int)cal_code;
+        if (adc_hal_efuse_get_cal_voltage(version_num, unit_id, atten,
+                                          &cal_code, &voltage_mv) != ESP_OK) {
+            return false;
+        }
+        parsed_data_storage->efuse_data.ver1.adc_calib_high = (int)cal_code;
         break;
     case 2:
-        tag = esp_efuse_rtc_table_get_tag(version_num, unit_id, atten, RTCCALIB_V2_PARAM_VHIGH);
-        parsed_data_storage->efuse_data.ver2.adc_calib_high = esp_efuse_rtc_table_get_parsed_efuse_value(tag, false);
-        switch (parsed_data_storage->atten_level) {
-        case ADC_ATTEN_DB_0:
-            parsed_data_storage->efuse_data.ver2.adc_calib_high_voltage = 600;
-            break;
-        case ADC_ATTEN_DB_2_5:
-            parsed_data_storage->efuse_data.ver2.adc_calib_high_voltage = 800;
-            break;
-        case ADC_ATTEN_DB_6:
-            parsed_data_storage->efuse_data.ver2.adc_calib_high_voltage = 1000;
-            break;
-        case ADC_ATTEN_DB_12:
-            parsed_data_storage->efuse_data.ver2.adc_calib_high_voltage = 2000;
-            break;
-        default:
-            break;
+        if (adc_hal_efuse_get_cal_voltage(version_num, unit_id, atten,
+                                          &cal_code, &voltage_mv) != ESP_OK) {
+            return false;
         }
+        parsed_data_storage->efuse_data.ver2.adc_calib_high = (int)cal_code;
+        parsed_data_storage->efuse_data.ver2.adc_calib_high_voltage = (int)voltage_mv;
         break;
     default:
-        // fall back to case 1 with zeros as params.
-        parsed_data_storage->version_num = 1;
-        tag = esp_efuse_rtc_table_get_tag(version_num, unit_id, atten, RTCCALIB_V1_PARAM_VLOW);
-        parsed_data_storage->efuse_data.ver1.adc_calib_high = esp_efuse_rtc_table_get_parsed_efuse_value(tag, true);
-        tag = esp_efuse_rtc_table_get_tag(version_num, unit_id, atten, RTCCALIB_V1_PARAM_VHIGH);
-        parsed_data_storage->efuse_data.ver1.adc_calib_low = esp_efuse_rtc_table_get_parsed_efuse_value(tag, true);
-        break;
+        return false;
     }
     return true;
 }

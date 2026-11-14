@@ -7,18 +7,29 @@
 # SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
 #
 # SPDX-License-Identifier: Apache-2.0
-import argparse
 import hashlib
 import os
 import re
 import sys
 from datetime import datetime
 
+import rich_click as click
+from esp_pylib.errors import FatalError
+from esp_pylib.excepthook import install_exception_reporting
+from esp_pylib.logger import Verbosity
+from esp_pylib.logger import log
+
 __version__ = '1.0'
 
-quiet = False
 max_blk_len = 256
 idf_target = 'esp32'
+quiet = False
+
+
+def status(msg: str) -> None:
+    """Print non-critical status to stderr (suppressed by --quiet)."""
+    if not quiet:
+        log.print(msg, file=sys.stderr, markup=False)
 
 
 def get_copyright():
@@ -29,18 +40,6 @@ def get_copyright():
  */
 """
     return copyright_str % datetime.today().year
-
-
-def status(msg):
-    """Print status message to stderr"""
-    if not quiet:
-        critical(msg)
-
-
-def critical(msg):
-    """Print critical message to stderr"""
-    sys.stderr.write(msg)
-    sys.stderr.write('\n')
 
 
 class FuseTable(list):
@@ -69,7 +68,7 @@ class FuseTable(list):
             except InputError as e:
                 raise InputError(f'Error at line {line_no + 1}: {e}')
             except Exception:
-                critical(f'Unexpected error parsing line {line_no + 1}: {line}')
+                log.err(f'Unexpected error parsing line {line_no + 1}: {line}')
                 raise
 
         # fix up missing bit_start
@@ -126,7 +125,7 @@ class FuseTable(list):
                 field_name = p.field_name + p.group
                 if field_name != '' and len(duplicates.intersection([field_name])) != 0:
                     fl_error = True
-                    print(
+                    log.err(
                         f'Field at {p.field_name}, {p.efuse_block}, {p.bit_start}, {p.bit_count} '
                         'have duplicate field_name'
                     )
@@ -519,57 +518,57 @@ def create_output_files(name, output_table, debug):
         with open(file_c_path, 'w', encoding='utf-8') as f:
             f.write(output)
     else:
+        # Always visible (same as pre-pylib plain print), even under --quiet.
         print('Source files do not require updating correspond to csv file.')
 
 
-def main():
-    global quiet
+@click.command(
+    context_settings={'help_option_names': ['-h', '--help']},
+    help='ESP32 eFuse Manager',
+)
+@click.option('--idf_target', '-t', 'target_chip', default='esp32', help='Target chip type')
+@click.option('--quiet', '-q', 'quiet_flag', is_flag=True, help="Don't print non-critical status messages")
+@click.option('--debug', is_flag=True, default=False, help='Create header file with debug info')
+@click.option('--info', is_flag=True, help='Print info about range of used bits')
+@click.option('--max_blk_len', 'max_blk_len_arg', type=int, default=256, help='Max number of bits in BLOCKs')
+@click.argument('common_input', type=click.File('r'))
+@click.argument('custom_input', type=click.File('r'), required=False)
+def main(target_chip, quiet_flag, debug, info, max_blk_len_arg, common_input, custom_input):
     global max_blk_len
     global idf_target
+    global quiet
 
-    parser = argparse.ArgumentParser(description='ESP32 eFuse Manager')
-    parser.add_argument('--idf_target', '-t', help='Target chip type', default='esp32')
-    parser.add_argument('--quiet', '-q', help="Don't print non-critical status messages to stderr", action='store_true')
-    parser.add_argument('--debug', help='Create header file with debug info', default=False, action='store_false')
-    parser.add_argument('--info', help='Print info about range of used bits', default=False, action='store_true')
-    parser.add_argument('--max_blk_len', help='Max number of bits in BLOCKs', type=int, default=256)
-    parser.add_argument('common_input', help='Path to common CSV file to parse.', type=argparse.FileType('r'))
-    parser.add_argument(
-        'custom_input', help='Path to custom CSV file to parse.', type=argparse.FileType('r'), nargs='?', default=None
-    )
+    idf_target = target_chip
 
-    args = parser.parse_args()
-
-    idf_target = args.idf_target
-
-    max_blk_len = args.max_blk_len
+    max_blk_len = max_blk_len_arg
+    # Always print Max bits before applying --quiet (pre-pylib behavior).
     print(f'Max number of bits in BLK {max_blk_len:d}')
     if max_blk_len not in [256, 192, 128]:
         raise InputError(f'Unsupported block length = {max_blk_len:d}')
 
-    quiet = args.quiet
-    debug = args.debug
-    info = args.info
+    quiet = quiet_flag
+    if quiet:
+        log.set_verbosity(Verbosity.SILENT)
 
-    common_table = process_input_file(args.common_input, 'common_table')
+    common_table = process_input_file(common_input, 'common_table')
     two_table = common_table
-    if args.custom_input is not None:
-        custom_table = process_input_file(args.custom_input, 'custom_table')
+    custom_table = None
+    if custom_input is not None:
+        custom_table = process_input_file(custom_input, 'custom_table')
         two_table += custom_table
         two_table.verify()
 
     # save files.
     if info is False:
-        if args.custom_input is None:
-            create_output_files(args.common_input.name, common_table, debug)
+        if custom_input is None:
+            create_output_files(common_input.name, common_table, debug)
         else:
-            create_output_files(args.custom_input.name, custom_table, debug)
+            create_output_files(custom_input.name, custom_table, debug)
     else:
         print(two_table.show_range_used_bits())
-    return 0
 
 
-class InputError(RuntimeError):
+class InputError(FatalError):
     def __init__(self, e):
         super().__init__(e)
 
@@ -580,8 +579,8 @@ class ValidationError(InputError):
 
 
 if __name__ == '__main__':
+    install_exception_reporting()
     try:
         main()
     except InputError as e:
-        print(e, file=sys.stderr)
-        sys.exit(2)
+        log.die(str(e), exit_code=2)

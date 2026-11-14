@@ -17,8 +17,7 @@
 #include "esp_private/phy.h"
 #include "esp_phy.h"
 #include "esp_attr.h"
-
-#include <zephyr/kernel.h>
+#include "freertos/FreeRTOS.h"
 
 #if SOC_PM_SUPPORT_PMU_MODEM_STATE && CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
 #include "hal/temperature_sensor_ll.h"
@@ -37,7 +36,25 @@ static const char* TAG = "phy_comm";
 static volatile uint16_t s_phy_modem_flag = 0;
 
 #if !CONFIG_ESP_PHY_DISABLE_PLL_TRACK
+#define RFPLL BIT(0)
+#define WIFI_POWER BIT(1)
+#define BT154_POWER BIT(2)
+#define RXCAL BIT(3)
+#define TXCAL BIT(4)
+
+typedef struct {
+    int16_t temp_curr;
+    int16_t temp_rfpll;
+    int16_t temp_wifi_power;
+    int16_t temp_bt_power;
+    int16_t temp_rxcal;
+    int16_t temp_txcal;
+    uint16_t flag;
+} phy_param_track_result_t;
+
 extern void phy_param_track_tot(bool en_wifi, bool en_ble_154);
+extern const phy_param_track_result_t* phy_debug_get_track_result();
+
 static esp_timer_handle_t phy_track_pll_timer;
 #if CONFIG_ESP_WIFI_ENABLED
 static volatile int64_t s_wifi_prev_timestamp;
@@ -45,9 +62,13 @@ static volatile int64_t s_wifi_prev_timestamp;
 #if CONFIG_IEEE802154_ENABLED || CONFIG_BT_ENABLED
 static volatile int64_t s_bt_154_prev_timestamp;
 #endif
-#define PHY_TRACK_PLL_PERIOD_IN_US 1000000
+#define PHY_TRACK_PLL_PERIOD_IN_US (CONFIG_ESP_PHY_PLL_TRACK_PERIOD_MS * 1000)
 static void phy_track_pll_internal(void);
 #endif
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+extern void phy_i2c_enter_critical(void);
+extern void phy_i2c_exit_critical(void);
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
 
 static esp_phy_ant_gpio_config_t s_phy_ant_gpio_config = { 0 };
 static esp_phy_ant_config_t s_phy_ant_config = { 0 };
@@ -99,31 +120,53 @@ static void phy_track_pll_internal(void)
     }
 #endif
     if (wifi_track_pll || ble_154_track_pll) {
+        phy_param_track_tot(wifi_track_pll, ble_154_track_pll);
 #if CONFIG_ESP_PHY_PLL_TRACK_DEBUG
+// TODO:Support other targets
+#if CONFIG_IDF_TARGET_ESP32S31
+        const phy_param_track_result_t* result = phy_debug_get_track_result();
+        if (result && result->flag != 0) {
 #if CONFIG_IEEE802154_ENABLED || CONFIG_BT_ENABLED
-        ESP_LOGI("PLL_TRACK", "BT or IEEE802154 tracks PLL: %s", ble_154_track_pll ? "True" : "False");
+            ESP_LOGI("TEMP_TRACK", "BT or IEEE802154 tracks: %s", ble_154_track_pll ? "True" : "False");
 #endif
 #if CONFIG_ESP_WIFI_ENABLED
-        ESP_LOGI("PLL_TRACK", "Wi-Fi tracks PLL: %s", wifi_track_pll ? "True" : "False");
+            ESP_LOGI("TEMP_TRACK", "Wi-Fi tracks: %s", wifi_track_pll ? "True" : "False");
+#endif
+            if (result->flag & RFPLL) {
+                ESP_LOGI("TEMP_TRACK", "RFPLL processed, temperature: %d", result->temp_rfpll);
+            }
+            if (result->flag & WIFI_POWER) {
+                ESP_LOGI("TEMP_TRACK", "WIFI_POWER processed, temperature: %d", result->temp_wifi_power);
+            }
+            if (result->flag & BT154_POWER) {
+                ESP_LOGI("TEMP_TRACK", "BT154_POWER processed, temperature: %d", result->temp_bt_power);
+            }
+            if (result->flag & RXCAL) {
+                ESP_LOGI("TEMP_TRACK", "RXCAL processed, temperature: %d", result->temp_rxcal);
+            }
+            if (result->flag & TXCAL) {
+                ESP_LOGI("TEMP_TRACK", "TXCAL processed, temperature: %d", result->temp_txcal);
+            }
+            ESP_LOGI("TEMP_TRACK", "Current temperature: %d", result->temp_curr);
+        }
 #endif
 #endif
-        phy_param_track_tot(wifi_track_pll, ble_154_track_pll);
     }
 }
 
 static void phy_track_pll_timer_callback(void* arg)
 {
-    struct k_mutex *phy_lock = phy_get_lock();
-    k_mutex_lock(phy_lock, K_FOREVER);
+    _lock_t phy_lock = phy_get_lock();
+    _lock_acquire(&phy_lock);
     phy_track_pll_internal();
-    k_mutex_unlock(phy_lock);
+    _lock_release(&phy_lock);
 }
 
 void phy_track_pll_init(void)
 {
     const esp_timer_create_args_t phy_track_pll_timer_args = {
             .callback = &phy_track_pll_timer_callback,
-            .name = "phy-track-pll-timer"
+            .name = "phy-track-timer"
     };
     ESP_ERROR_CHECK(esp_timer_create(&phy_track_pll_timer_args, &phy_track_pll_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(phy_track_pll_timer, PHY_TRACK_PLL_PERIOD_IN_US));
@@ -327,7 +370,7 @@ esp_err_t esp_phy_get_ant(esp_phy_ant_config_t *config)
     return ESP_OK;
 }
 
-#if SOC_PM_SUPPORT_PMU_MODEM_STATE
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 typedef enum {
     PHY_I2C_MST_CMD_TYPE_RF_OFF = 0,
     PHY_I2C_MST_CMD_TYPE_RF_ON,
@@ -337,8 +380,13 @@ typedef enum {
 
 static uint32_t phy_ana_i2c_master_burst_config(phy_i2c_master_command_attribute_t *attr, int size, phy_i2c_master_command_type_t type)
 {
+#if CONFIG_IDF_TARGET_ESP32H4
+    #define I2C0_BURST_VAL(valid, start, end) (((valid) << 15) | ((end) << 7) | (start))
+    #define I2C1_BURST_VAL(valid, start, end) (((valid) << 31) | ((end) << 23) | ((start) << 16))
+#else
     #define I2C1_BURST_VAL(en, start, end) (((en) << 31) | ((end) << 22) | ((start) << 16))
     #define I2C0_BURST_VAL(en, start, end) (((en) << 15) | ((end) <<  6) | ((start) <<  0))
+#endif // !CONFIG_IDF_TARGET_ESP32H4
 
     uint32_t brust = 0;
     for (int i = 0; i < size; i++) {
@@ -387,9 +435,13 @@ void phy_wakeup_from_modem_state_extra_init(void)
 }
 #endif
 #endif
-
-__attribute__((weak)) void phy_wait_freq_hw_hop_done(void)
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+void IRAM_ATTR phy_regi2c_lock_apply(bool enable)
 {
-    ESP_LOGD(TAG, "phy_wait_freq_hw_hop_done is not implemented");
-    return;
+    if (enable) {
+        phy_i2c_enter_critical();
+    } else {
+        phy_i2c_exit_critical();
+    }
 }
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT

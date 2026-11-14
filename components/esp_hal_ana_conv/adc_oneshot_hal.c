@@ -1,10 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "soc/soc_caps.h"
 #include "hal/adc_oneshot_hal.h"
 #include "hal/adc_hal_common.h"
@@ -16,10 +16,7 @@
 #include "hal/dac_ll.h"
 #endif
 
-#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
-/**
- * For chips without RTC controller, Digital controller is used to trigger an ADC single read.
- */
+#if ADC_LL_ONESHOT_START_PULSE
 #include "esp_rom_sys.h"
 #endif
 
@@ -37,7 +34,6 @@ void adc_oneshot_hal_init(adc_oneshot_hal_ctx_t *hal, const adc_oneshot_hal_cfg_
     hal->clk_src = config->clk_src;
     hal->clk_src_freq_hz = config->clk_src_freq_hz;
     hal->disable_dac_output = config->disable_dac_output;
-    hal->conv_timeout_us = config->conv_timeout_us;
 }
 
 void adc_oneshot_hal_channel_config(adc_oneshot_hal_ctx_t *hal, const adc_oneshot_hal_chan_cfg_t *config, adc_channel_t chan)
@@ -98,8 +94,7 @@ void adc_oneshot_hal_setup(adc_oneshot_hal_ctx_t *hal, adc_channel_t chan)
 
 static void adc_hal_onetime_start(adc_unit_t unit, uint32_t clk_src_freq_hz, uint32_t *read_delay_us)
 {
-#if SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
-    (void)unit;
+#if ADC_LL_ONESHOT_START_PULSE
     /**
      * There is a hardware limitation. If the APB clock frequency is high, the step of this reg signal: ``onetime_start`` may not be captured by the
      * ADC digital controller (when its clock frequency is too slow). A rough estimate for this step should be at least 3 ADC digital controller
@@ -117,9 +112,9 @@ static void adc_hal_onetime_start(adc_unit_t unit, uint32_t clk_src_freq_hz, uin
 
     HAL_EARLY_LOGD(TAG, "delay for `onetime_start` signal captured: %"PRIu32"", sample_delay_us);
 
-    adc_oneshot_ll_start(true);
+    adc_oneshot_ll_start(unit, true);
     esp_rom_delay_us(sample_delay_us);
-    adc_oneshot_ll_start(false);
+    adc_oneshot_ll_start(unit, false);
     esp_rom_delay_us(sample_delay_us);
 
 #if ADC_LL_DELAY_CYCLE_AFTER_DONE_SIGNAL
@@ -132,14 +127,10 @@ static void adc_hal_onetime_start(adc_unit_t unit, uint32_t clk_src_freq_hz, uin
     *read_delay_us = ((1000 * 1000) / sar_clk + 1) * ADC_LL_DELAY_CYCLE_AFTER_DONE_SIGNAL;
     HAL_EARLY_LOGD(TAG, "clk_src_freq_hz: %"PRIu32", sar_clk: %"PRIu32", read_delay_us: %"PRIu32"", clk_src_freq_hz, sar_clk, read_delay_us);
 #endif //ADC_LL_DELAY_CYCLE_AFTER_DONE_SIGNAL
-
 #else
-    adc_oneshot_ll_start(unit);
-#endif // SOC_ADC_DIG_CTRL_SUPPORTED && !SOC_ADC_RTC_CTRL_SUPPORTED
+    adc_oneshot_ll_start(unit, true);
+#endif
 }
-
-/* Default upper bound for a single oneshot conversion, in microseconds */
-#define ADC_ONESHOT_READ_TIMEOUT_US    (2 * 1000)
 
 bool adc_oneshot_hal_convert(adc_oneshot_hal_ctx_t *hal, int *out_raw)
 {
@@ -156,18 +147,8 @@ bool adc_oneshot_hal_convert(adc_oneshot_hal_ctx_t *hal, int *out_raw)
     adc_oneshot_ll_enable(hal->unit);
 
     adc_hal_onetime_start(hal->unit, hal->clk_src_freq_hz, &read_delay_us);
-    /* The conversion done event never fires if a shared analog block
-     * (SAR power, regi2c clock or the modem ADC front-end) is gated by
-     * a concurrent user such as the Wi-Fi modem sleep, so bound the
-     * wait instead of polling forever.
-     */
-    uint32_t timeout_us = hal->conv_timeout_us ? hal->conv_timeout_us : ADC_ONESHOT_READ_TIMEOUT_US;
     while (!adc_oneshot_ll_get_event(event)) {
-        if (timeout_us-- == 0) {
-            adc_oneshot_ll_disable_all_unit();
-            return false;
-        }
-        esp_rom_delay_us(1);
+        ;
     }
     esp_rom_delay_us(read_delay_us);
     *out_raw = adc_oneshot_ll_get_raw_result(hal->unit);
@@ -195,25 +176,25 @@ static void s_disable_dac(adc_oneshot_hal_ctx_t *hal, adc_channel_t channel)
      * If enabled(default), ADC RTC controller sampling will cause the DAC channel output voltage.
      */
     if (hal->unit == ADC_UNIT_1) {
-        dac_ll_rtc_sync_by_adc(false);
+        dac_ll_sync_by_adc(false);
     }
 
 #if SOC_IS(ESP32)
     if (hal->unit == ADC_UNIT_2) {
         if (channel == ADC_CHANNEL_8) {
-            dac_ll_power_down(DAC_CHAN_0);  // the same as DAC channel 0
+            dac_ll_pad_power_down(DAC_CHAN_0);  // the same as DAC channel 0
         }
         if (channel == ADC_CHANNEL_9) {
-            dac_ll_power_down(DAC_CHAN_1);
+            dac_ll_pad_power_down(DAC_CHAN_1);
         }
     }
 #elif SOC_IS(ESP32S2)
     if (hal->unit == ADC_UNIT_2) {
         if (channel == ADC_CHANNEL_6) {
-            dac_ll_power_down(DAC_CHAN_0);  // the same as DAC channel 0
+            dac_ll_pad_power_down(DAC_CHAN_0);  // the same as DAC channel 0
         }
         if (channel == ADC_CHANNEL_7) {
-            dac_ll_power_down(DAC_CHAN_1);
+            dac_ll_pad_power_down(DAC_CHAN_1);
         }
     }
 #else

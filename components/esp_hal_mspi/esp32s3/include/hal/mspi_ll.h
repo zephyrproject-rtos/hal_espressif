@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include <stdbool.h>
 #include "esp_bit_defs.h"
 #include "hal/assert.h"
@@ -42,10 +42,7 @@ extern "C" {
 #define MSPI_TIMING_LL_MSPI_ID_0                      0
 #define MSPI_TIMING_LL_MSPI_ID_1                      1
 
-/* Zephyr provides ARRAY_SIZE in sys/util.h, avoid redefinition warning */
-#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof((arr))/sizeof(*(arr)))
-#endif
 #define MSPI_TIMING_LL_FLASH_OCT_MASK                 (SPI_MEM_FCMD_OCT | SPI_MEM_FADDR_OCT | SPI_MEM_FDIN_OCT | SPI_MEM_FDOUT_OCT)
 #define MSPI_TIMING_LL_FLASH_QUAD_MASK                (SPI_MEM_FASTRD_MODE | SPI_MEM_FREAD_DUAL | SPI_MEM_FREAD_DIO | SPI_MEM_FREAD_QUAD | SPI_MEM_FREAD_QIO)
 #define MSPI_TIMING_LL_FLASH_QIO_MODE_MASK            (SPI_MEM_FREAD_QIO | SPI_MEM_FASTRD_MODE)

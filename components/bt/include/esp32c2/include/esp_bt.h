@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,8 +11,10 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "sdkconfig.h"
+#include "esp_task.h"
 
-#include "../../../controller/esp32c2/esp_bt_cfg.h"
+#include "nimble/nimble_npl.h"
+#include "../../../../controller/esp32c2/esp_bt_cfg.h"
 #include "hal/efuse_hal.h"
 #include "esp_private/esp_modem_clock.h"
 
@@ -22,37 +24,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#if defined(CONFIG_BT_CTLR_TX_PWR_PLUS_21)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 20
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_18)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 18
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_15)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 15
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_12)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 12
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_9)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 9
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_6)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 6
-#elif defined(CONFIG_BT_CTLR_TX_PWR_PLUS_3)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 3
-#elif defined(CONFIG_BT_CTLR_TX_PWR_0)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_3)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -3
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_6)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -6
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_9)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -9
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_12)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -12
-#elif defined(CONFIG_BT_CTLR_TX_PWR_MINUS_15)
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF -15
-#else
-/* use 0dB TX power as default */
-#define CONFIG_ESP32_BT_CTRL_DFT_TX_POWER_LEVEL_EFF 0
 #endif
 
 /**
@@ -266,16 +237,16 @@ typedef struct {
 
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                           \
     .config_version = CONFIG_VERSION,                                                   \
-    .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
+    .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
     .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
     .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
     .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
     .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-    .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
-    .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+    .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+    .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
     .ble_ll_tx_pwr_dbm = BLE_LL_TX_PWR_DBM_N,                                           \
     .rtc_freq = RTC_FREQ_N,                                                             \
-    .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
+    .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
     .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
     .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
     .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
@@ -293,7 +264,7 @@ typedef struct {
     .ble_multi_adv_instances = DEFAULT_BT_LE_MAX_EXT_ADV_INSTANCES,                     \
     .ble_ext_adv_max_size = DEFAULT_BT_LE_EXT_ADV_MAX_SIZE,                             \
     .controller_task_stack_size = NIMBLE_LL_STACK_SIZE,                                 \
-    .controller_task_prio       = CONFIG_ESP32_BT_CONTROLLER_TASK_PRIO,                 \
+    .controller_task_prio       = ESP_TASK_BT_CONTROLLER_PRIO,                          \
     .controller_run_cpu         = 0,                                                    \
     .enable_qa_test             = RUN_QA_TEST,                                          \
     .enable_bqb_test            = RUN_BQB_TEST,                                         \
@@ -352,6 +323,9 @@ esp_err_t esp_bt_controller_deinit(void);
  *               Due to a known issue, you cannot call esp_bt_controller_enable() a second time
  *               to change the controller mode dynamically. To change controller mode, call
  *               esp_bt_controller_disable() and then call esp_bt_controller_enable() with the new mode.
+ * @note With controller BLE Log v2 enabled, enabling the controller does not reopen
+ *       logging paused by disable. A full BLE Log deinit/init cycle is required
+ *       to start a new logging session; repeated log init alone does not reopen it.
  * @param mode : the mode(BLE/BT/BTDM) to enable. For compatible of API, retain this argument.
  * @return       ESP_OK - success, other - failed
  */
@@ -359,6 +333,10 @@ esp_err_t esp_bt_controller_enable(esp_bt_mode_t mode);
 
 /**
  * @brief  Disable BT controller
+ * @note With controller BLE Log v2 enabled, once disable pauses logging, the shared
+ *       write gate stays closed, including if the controller subsequently fails to
+ *       disable. This also stops host and HCI writes to BLE Log. Buffered output
+ *       can still drain. A later controller enable does not reopen logging.
  * @return       ESP_OK - success, other - failed
  */
 esp_err_t esp_bt_controller_disable(void);

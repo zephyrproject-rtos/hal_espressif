@@ -17,10 +17,10 @@
 #include "hal/gpio_hal.h"
 #include "esp_rom_gpio.h"
 #include "esp_private/cache_utils.h"
+#include "esp_private/log_util.h"
 #include "esp_private/startup_internal.h"
 #include "esp_spi_flash_counters.h"
 #include "esp_rom_spiflash.h"
-#include "bootloader_flash.h"
 #include "esp_check.h"
 #include "esp_private/esp_clk_tree_common.h"
 #include "esp_clk_tree.h"
@@ -32,6 +32,7 @@
 #include "esp_flash.h"
 #include "esp_flash_spi_init.h"
 #include "esp_flash_chips/spi_flash_chip_driver.h"
+#include "esp_flash_chips/esp_flash_types.h"
 #include "esp_private/memspi_host_driver.h"
 #include "esp_private/esp_flash_internal.h"
 #include "esp_private/spi_flash_os.h"
@@ -50,6 +51,8 @@ __attribute__((unused)) static const char TAG[] = "spi_flash";
 #if !CONFIG_SPI_FLASH_ROM_IMPL
 esp_flash_t *esp_flash_default_chip = NULL;
 #endif
+
+#define ESP_FLASH_GPSPI_PERIPH_SRC_FREQ_MAX     (80*1000*1000)    //peripheral hardware limitation for clock source into peripheral
 
 #if defined CONFIG_ESPTOOLPY_FLASHFREQ_120M
 #define DEFAULT_FLASH_SPEED 120
@@ -173,7 +176,7 @@ static IRAM_ATTR NOINLINE_ATTR void cs_initialize(esp_flash_t *chip, const esp_f
 
     //To avoid the panic caused by flash data line conflicts during cs line
     //initialization, disable the cache temporarily
-    chip->os_func->start(chip->os_func_data, 0);
+    chip->os_func->start(chip->os_func_data, ESP_FLASH_START_FLAG_NO_READ);
     gpio_hal_input_enable(&gpio_hal, cs_io_num);
     if (cs_use_iomux) {
         gpio_hal_func_sel(&gpio_hal, cs_io_num, spics_func);
@@ -257,13 +260,13 @@ static esp_err_t acquire_spi_device(const esp_flash_spi_device_config_t *config,
 #if GPSPI_FLASH_LL_SUPPORT_CLK_SRC_PRE_DIV
 static uint32_t s_spi_find_clock_src_pre_div(uint32_t src_freq, uint32_t target_freq)
 {
-    // pre division must be even and at least 2
-    uint32_t min_div = ((src_freq / GPSPI_FLASH_LL_PERIPHERAL_FREQUENCY_MHZ) + 1) & (~0x01UL);
-    min_div = min_div < 2 ? 2 : min_div;
+    // no timing tuning, no need pre division to be even
+    uint32_t min_div = (src_freq / ESP_FLASH_GPSPI_PERIPH_SRC_FREQ_MAX);
+    min_div = min_div < 1 ? 1 : min_div;
 
     uint32_t total_div = src_freq / target_freq;
     // Loop the `div` to find a divisible value of `total_div`
-    for (uint32_t pre_div = min_div; pre_div <= total_div; pre_div += 2) {
+    for (uint32_t pre_div = min_div; pre_div <= total_div; pre_div += 1) {
         if ((total_div % pre_div) || (total_div / pre_div) > GPSPI_FLASH_LL_PERIPH_CLK_DIV_MAX) {
             continue;
         }
@@ -286,7 +289,7 @@ static uint32_t init_gpspi_clock(esp_flash_t *chip, const esp_flash_spi_device_c
     uint32_t clk_src_freq = 0;
     spi_clock_source_t clk_src = config->clock_source ? config->clock_source : SPI_CLK_SRC_DEFAULT;
 
-    esp_clk_tree_enable_src(clk_src, true);
+    esp_clk_tree_acquire_src(clk_src, NULL);
     esp_clk_tree_src_get_freq_hz(clk_src, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &clk_src_freq);
 
     // Enable GPSPI clock
@@ -301,9 +304,9 @@ static uint32_t init_gpspi_clock(esp_flash_t *chip, const esp_flash_spi_device_c
     // Calculate final clock source frequency
     uint32_t final_freq_mhz;
 #if GPSPI_FLASH_LL_SUPPORT_CLK_SRC_PRE_DIV
-    uint32_t pre_div = s_spi_find_clock_src_pre_div(clk_src_freq, GPSPI_FLASH_LL_PERIPHERAL_FREQUENCY_MHZ * 1000 * 1000);
-    gpspi_flash_ll_clk_source_pre_div(spi_flash_ll_get_hw(config->host_id), pre_div / 2, 2);
-    final_freq_mhz = clk_src_freq / (pre_div);
+    uint32_t pre_div = s_spi_find_clock_src_pre_div(clk_src_freq, config->freq_mhz * 1000 * 1000);
+    gpspi_flash_ll_clk_source_pre_div(spi_flash_ll_get_hw(config->host_id), pre_div, 1);
+    final_freq_mhz = clk_src_freq / (1000 * 1000) / pre_div;
 #else
     final_freq_mhz = clk_src_freq / (1 * 1000 * 1000);
 #endif
@@ -351,7 +354,7 @@ static void deinit_gpspi_clock(esp_flash_t *chip)
     }
 
     // Disable the clock source
-    esp_clk_tree_enable_src(chip->clock_source, false);
+    esp_clk_tree_release_src(chip->clock_source);
 #endif // !CONFIG_IDF_TARGET_ESP32
 }
 
@@ -436,17 +439,21 @@ esp_err_t spi_bus_remove_flash_device(esp_flash_t *chip)
         return ESP_ERR_INVALID_ARG;
     }
 
+    spi_bus_lock_dev_handle_t dev_handle = NULL;
+    esp_err_t ret = esp_flash_deinit_os_functions(chip, &dev_handle);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
     // Disable GPSPI clocks before cleanup
     deinit_gpspi_clock(chip);
 
-    spi_bus_lock_dev_handle_t dev_handle = NULL;
-    esp_flash_deinit_os_functions(chip, &dev_handle);
     if (dev_handle) {
         spi_bus_lock_unregister_dev(dev_handle);
     }
-    heap_caps_free(chip->host);
-    heap_caps_free(chip);
-    return ESP_OK;
+    free(chip->host);
+    free(chip);
+    return ret;
 }
 
 /* The default (ie initial boot) no-OS ROM esp_flash_os_functions_t */
@@ -465,7 +472,7 @@ static DRAM_ATTR esp_flash_t default_chip = {
 static void s_esp_flash_choose_correct_mode(memspi_host_config_t *cfg)
 {
     static const char *mode = FLASH_MODE_STRING;
-    if (bootloader_flash_is_octal_mode_enabled()) {
+    if (spi_flash_is_octal_mode_enabled()) {
     #if !CONFIG_ESPTOOLPY_FLASHMODE_OPI
         ESP_EARLY_LOGW(TAG, "Octal flash chip is using but %s mode is selected, will automatically switch to Octal mode", mode);
         cfg->octal_mode_en = 1;
@@ -493,6 +500,7 @@ esp_err_t esp_flash_init_default_chip(void)
     // Only these chips have efuses for spi pin configuration.
     cfg.iomux = esp_rom_efuse_get_flash_gpio_info() == 0 ?  true : false;
     #endif
+
     #if CONFIG_ESPTOOLPY_OCT_FLASH
     // Default value. When `CONFIG_ESPTOOLPY_FLASH_MODE_AUTO_DETECT` selected, if the selected mode not consistent with
     // hardware, will be overwritten in s_esp_flash_choose_correct_mode.
@@ -518,6 +526,7 @@ esp_err_t esp_flash_init_default_chip(void)
     #endif // SOC_SPI_MEM_SUPPORT_TIMING_TUNING
 
     cfg.clock_src_freq = spi_flash_ll_get_source_clock_freq_mhz(cfg.host_id);
+
     #if CONFIG_SPI_FLASH_AUTO_SUSPEND
     if (TSUS_VAL_SUSPEND > 400 || TSUS_VAL_SUSPEND < 20) {
         // Assume that the tsus value cannot larger than 400 (because the performance might be really bad)
@@ -548,7 +557,7 @@ esp_err_t esp_flash_init_default_chip(void)
     #endif
 
     //the host is already initialized, only do init for the data and load it to the host
-    esp_err_t err = memspi_host_init_pointers(&esp_flash_default_host, &cfg);
+    esp_err_t err = memspi_host_init_spi1_pointers(&esp_flash_default_host, &cfg);
     if (err != ESP_OK) {
         return err;
     }
@@ -571,6 +580,7 @@ esp_err_t esp_flash_init_default_chip(void)
     }
     if (default_chip.size < legacy_chip->chip_size) {
         ESP_EARLY_LOGE(TAG, "Detected size(%dk) smaller than the size in the binary image header(%dk). Probe failed.", default_chip.size/1024, legacy_chip->chip_size/1024);
+        return ESP_ERR_FLASH_SIZE_NOT_MATCH;
     }
 
     if (default_chip.size > legacy_chip->chip_size) {
@@ -626,15 +636,13 @@ esp_err_t esp_flash_app_init(void)
 #if CONFIG_SPI_FLASH_ENABLE_COUNTERS
     esp_flash_reset_counters();
 #endif
-#if CONFIG_SPI_FLASH_SHARE_SPI1_BUS
-    err = esp_flash_init_main_bus_lock();
+    err = esp_flash_app_init_os_functions();
     if (err != ESP_OK) return err;
-#endif
     err = esp_flash_app_enable_os_functions(&default_chip);
     return err;
 }
 
-#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP && !defined(__ZEPHYR__)
+#if !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP
 ESP_SYSTEM_INIT_FN(init_flash, CORE, BIT(0), 130)
 {
 #if CONFIG_SPI_FLASH_ROM_IMPL
@@ -655,6 +663,7 @@ ESP_SYSTEM_INIT_FN(init_flash, CORE, BIT(0), 130)
     esp_mspi_register_isr(NULL);
 #endif
     //else register flash standalone ISR to deal with CPU / API flash access
+
     return ESP_OK;
 }
 #endif // !CONFIG_APP_BUILD_TYPE_PURE_RAM_APP

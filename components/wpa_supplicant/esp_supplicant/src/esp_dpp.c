@@ -309,8 +309,14 @@ static esp_err_t esp_dpp_rx_auth_req(struct action_rx_param *rx_param, uint8_t *
         return ESP_ERR_DPP_INVALID_ATTR;
     }
     if (s_dpp_ctx.dpp_auth) {
-        wpa_printf(MSG_DEBUG, "DPP: Already in DPP authentication exchange - ignore new one");
-        return ESP_OK;
+        if (s_dpp_ctx.dpp_auth->auth_success || !s_dpp_ctx.dpp_auth->waiting_auth_conf) {
+            wpa_printf(MSG_INFO, "DPP: Cleaning up old completed DPP auth context for new exchange");
+            dpp_cancel_auth_gas_eloop_timeouts();
+            dpp_deinit_auth();
+        } else {
+            wpa_printf(MSG_DEBUG, "DPP: Already in DPP authentication exchange - ignore new one");
+            return ESP_OK;
+        }
     }
     s_dpp_ctx.dpp_auth = dpp_auth_req_rx(NULL, DPP_CAPAB_ENROLLEE, 0, NULL,
                                          own_bi, rx_param->channel,
@@ -326,7 +332,8 @@ static esp_err_t esp_dpp_rx_auth_req(struct action_rx_param *rx_param, uint8_t *
     }
     os_memcpy(s_dpp_ctx.dpp_auth->peer_mac_addr, rx_param->sa, ETH_ALEN);
 
-    wpa_printf(MSG_INFO, "DPP: Sending authentication response chan(%d)", rx_param->channel);
+    wpa_printf(MSG_INFO, "DPP: Sending authentication response chan(%d)",
+               s_dpp_ctx.dpp_auth->curr_chan);
     eloop_cancel_timeout(esp_dpp_auth_resp_retry_timeout, NULL, NULL);
     if (eloop_register_timeout(0, 200000, esp_dpp_auth_resp_retry_timeout, NULL, NULL) < 0) {
         wpa_printf(MSG_ERROR, "DPP: Failed to register auth_resp_retry_timeout");
@@ -334,7 +341,7 @@ static esp_err_t esp_dpp_rx_auth_req(struct action_rx_param *rx_param, uint8_t *
     }
     esp_err_t err = esp_dpp_send_action_frame(rx_param->sa, wpabuf_head(s_dpp_ctx.dpp_auth->resp_msg),
                                               wpabuf_len(s_dpp_ctx.dpp_auth->resp_msg),
-                                              rx_param->channel, 1000 + OFFCHAN_TX_WAIT_TIME,
+                                              s_dpp_ctx.dpp_auth->curr_chan, 1000 + OFFCHAN_TX_WAIT_TIME,
                                               DPP_TX_AUTHENTICATION_RESP);
     if (err != ESP_OK) {
         return ESP_ERR_DPP_TX_FAILURE;
@@ -361,10 +368,17 @@ static int esp_dpp_rx_auth_conf(struct action_rx_param *rx_param, uint8_t *dpp_d
     if (os_memcmp(rx_param->sa, auth->peer_mac_addr, ETH_ALEN) != 0) {
         wpa_printf(MSG_DEBUG, "DPP: MAC address mismatch (expected "
                    MACSTR ") - drop", MAC2STR(auth->peer_mac_addr));
-        return ESP_ERR_DPP_FAILURE;
+        return ESP_OK;
+    }
+
+    if (auth->auth_success || !auth->waiting_auth_conf) {
+        wpa_printf(MSG_DEBUG, "DPP: Not waiting for Auth Confirm - drop");
+        return ESP_OK;
     }
 
     eloop_cancel_timeout(esp_dpp_auth_conf_wait_timeout, NULL, NULL);
+    eloop_cancel_timeout(esp_dpp_auth_resp_retry_timeout, NULL, NULL);
+    eloop_cancel_timeout(esp_dpp_auth_resp_retry, NULL, NULL);
 
     if (dpp_auth_conf_rx(auth, (const u8 *)&public_action->v,
                          dpp_data, len) < 0) {
@@ -392,7 +406,8 @@ static esp_err_t esp_dpp_rx_peer_disc_resp(struct action_rx_param *rx_param)
     uint8_t *buf;
 
     if (!dc) {
-        return ESP_ERR_DPP_FAILURE;
+        wpa_printf(MSG_DEBUG, "DPP: No config store for Peer Discovery Response - drop");
+        return ESP_OK;
     }
     const uint8_t *trans_id;
     uint16_t trans_id_len;
@@ -402,6 +417,11 @@ static esp_err_t esp_dpp_rx_peer_disc_resp(struct action_rx_param *rx_param)
 
     if (os_memcmp(dc->peer_mac_addr, rx_param->sa, ETH_ALEN) != 0) {
         wpa_printf(MSG_DEBUG, "DPP: Not expecting Peer Discovery response from " MACSTR, MAC2STR(rx_param->sa));
+        return ESP_OK;
+    }
+
+    if (s_dpp_ctx.peer_disc_resp_received) {
+        wpa_printf(MSG_DEBUG, "DPP: Peer Discovery Response already processed - drop");
         return ESP_OK;
     }
 
@@ -416,6 +436,10 @@ static esp_err_t esp_dpp_rx_peer_disc_resp(struct action_rx_param *rx_param)
         wpa_printf(MSG_DEBUG, "DPP: Ignore frame with unexpected Transaction ID %u", trans_id[0]);
         return ESP_OK;
     }
+
+    eloop_cancel_timeout(peer_disc_timeout, ELOOP_ALL_CTX, ELOOP_ALL_CTX);
+    eloop_cancel_timeout(esp_dpp_peer_disc_retry, NULL, NULL);
+    s_dpp_ctx.peer_disc_resp_received = true;
 
     const uint8_t *status_val;
     uint16_t status_len;
@@ -452,9 +476,6 @@ static esp_err_t esp_dpp_rx_peer_disc_resp(struct action_rx_param *rx_param)
         goto out;
     }
 
-    /* peer_disc_timeout handles timeout in Enrollee role */
-    eloop_cancel_timeout(peer_disc_timeout, NULL, s_dpp_ctx.dpp_auth);
-
     if (!conf->connector || !conf->net_access_key || !conf->c_sign_key) {
         wpa_printf(MSG_ERROR, "DPP: Incomplete config for network introduction");
         ret = ESP_ERR_DPP_FAILURE;
@@ -482,11 +503,12 @@ static esp_err_t esp_dpp_rx_peer_disc_resp(struct action_rx_param *rx_param)
     }
 
     os_memcpy(entry->aa, rx_param->sa, ETH_ALEN);
+    os_memcpy(entry->spa, gWpaSm.own_addr, ETH_ALEN);
     os_memcpy(entry->pmkid, intro->pmkid, PMKID_LEN);
     os_memcpy(entry->pmk, intro->pmk, intro->pmk_len);
     entry->pmk_len = intro->pmk_len;
     entry->akmp = WPA_KEY_MGMT_DPP;
-    entry->network_ctx = NULL;
+    entry->network_ctx = gWpaSm.network_ctx;
 
     if (expiry > 0) {
         struct os_time now;
@@ -784,9 +806,23 @@ static void esp_dpp_fill_wifi_cfg_from_config(const esp_dpp_config_data_t *dpp, 
         }
     }
 
-    if (dpp_akm_sae((enum dpp_akm) dpp->akm)) {
+    if (dpp_akm_sae((enum dpp_akm) dpp->akm) || dpp_akm_dpp((enum dpp_akm) dpp->akm)) {
         wifi_cfg->sta.pmf_cfg.capable = true;
         wifi_cfg->sta.pmf_cfg.required = true;
+    }
+
+    switch ((enum dpp_akm) dpp->akm) {
+    case DPP_AKM_DPP:
+    case DPP_AKM_SAE_DPP:
+    case DPP_AKM_SAE:
+        wifi_cfg->sta.threshold.authmode = WIFI_AUTH_WPA3_PSK;
+        break;
+    case DPP_AKM_PSK_SAE_DPP:
+    case DPP_AKM_PSK_SAE:
+    case DPP_AKM_PSK:
+    default:
+        wifi_cfg->sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+        break;
     }
 
     if (dpp->curr_chan) {
@@ -886,6 +922,7 @@ static esp_err_t gas_process_complete_resp(struct dpp_authentication *auth,
              * no Connector is rejected without touching the stored entry. */
             dpp_clear_confs(s_dpp_ctx.dpp_config_store->conf);
             s_dpp_ctx.dpp_config_store->conf = NULL;
+            esp_wifi_sta_notify_dpp_config_set_internal(false);
         }
     }
 
@@ -926,6 +963,7 @@ static esp_err_t gas_process_complete_resp(struct dpp_authentication *auth,
             } else {
                 dpp_clear_confs(dc->conf);
                 dc->conf = new_conf_pending;
+                esp_wifi_sta_notify_dpp_config_set_internal(true);
             }
         } else {
             dpp_clear_confs(new_conf_pending);
@@ -1574,6 +1612,7 @@ static int esp_dpp_deinit(void *data, void *user_ctx)
     if (s_dpp_ctx.dpp_config_store) {
         dpp_config_store_deinit(s_dpp_ctx.dpp_config_store);
         s_dpp_ctx.dpp_config_store = NULL;
+        esp_wifi_sta_notify_dpp_config_set_internal(false);
     }
     if (s_dpp_ctx.dpp_auth) {
         dpp_auth_deinit(s_dpp_ctx.dpp_auth);
@@ -1810,11 +1849,15 @@ static void tx_status_eloop_handler(void *eloop_ctx, void *event_data)
         } else if (evt->status == WIFI_ACTION_TX_DONE) {
             /* Peer discovery sent, wait for response. */
             eloop_cancel_timeout(peer_disc_timeout, NULL, auth);
-            if (eloop_register_timeout(ESP_GAS_TIMEOUT_SECS, 0, peer_disc_timeout, NULL, auth) < 0) {
-                wpa_printf(MSG_ERROR, "DPP: Failed to register peer_disc_timeout after disc TX");
-                dpp_abort_failure_locked(ESP_ERR_DPP_FAILURE);
-                os_free(evt);
-                return;
+            if (!s_dpp_ctx.peer_disc_resp_received) {
+                if (eloop_register_timeout(ESP_GAS_TIMEOUT_SECS, 0, peer_disc_timeout, NULL, auth) < 0) {
+                    wpa_printf(MSG_ERROR, "DPP: Failed to register peer_disc_timeout after disc TX");
+                    dpp_abort_failure_locked(ESP_ERR_DPP_FAILURE);
+                    os_free(evt);
+                    return;
+                }
+            } else {
+                wpa_printf(MSG_DEBUG, "DPP: Peer Discovery Response already received, skip registering peer_disc_timeout");
             }
         }
     } else if (type == DPP_TX_AUTHENTICATION_CONF) {
@@ -2357,6 +2400,7 @@ init_fail:
     if (s_dpp_ctx.dpp_config_store) {
         dpp_config_store_deinit(s_dpp_ctx.dpp_config_store);
         s_dpp_ctx.dpp_config_store = NULL;
+        esp_wifi_sta_notify_dpp_config_set_internal(false);
     }
     dpp_api_unlock();
     return ret;
@@ -2368,7 +2412,7 @@ esp_err_t esp_supp_dpp_init(void)
     int eloop_ret;
 
     wifi_mode_t mode = 0;
-    if (esp_wifi_get_mode(&mode) || ((mode != ESP32_WIFI_MODE_STA) && (mode != ESP32_WIFI_MODE_APSTA))) {
+    if (esp_wifi_get_mode(&mode) || ((mode != WIFI_MODE_STA) && (mode != WIFI_MODE_APSTA))) {
         wpa_printf(MSG_ERROR, "DPP: failed to init as not in station mode.");
         return ESP_ERR_DPP_FAILURE;
     }
@@ -2428,8 +2472,24 @@ static esp_err_t esp_dpp_start_net_intro_protocol_internal(uint8_t *bssid)
     }
 
     config_store = s_dpp_ctx.dpp_config_store;
+    if (!config_store) {
+        wpa_printf(MSG_ERROR, "DPP: config store not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
     os_memcpy(config_store->peer_mac_addr, bssid, ETH_ALEN);
-    curr_chan = config->curr_chan;
+
+    curr_chan = esp_wifi_sta_get_bss_channel_internal(bssid);
+    if (curr_chan == 0) {
+        curr_chan = config->curr_chan;
+        wpa_printf(MSG_WARNING,
+                   "DPP: AP channel unknown for " MACSTR ", using provisioning channel %d",
+                   MAC2STR(bssid), curr_chan);
+    } else if (curr_chan != config->curr_chan) {
+        wpa_printf(MSG_INFO,
+                   "DPP: Peer Discovery on AP operating channel %d (provisioning channel %d)",
+                   curr_chan, config->curr_chan);
+    }
+
     buf = dpp_build_peer_disc_req(config_store, config);
 
     if (!buf) {
@@ -2471,6 +2531,7 @@ esp_err_t esp_dpp_start_net_intro_protocol(uint8_t *bssid)
      * is reserved for deinit. */
     dpp_cancel_auth_gas_eloop_timeouts();
     s_dpp_ctx.gas_query_tries = 0;
+    s_dpp_ctx.peer_disc_resp_received = false;
 
     wpa_printf(MSG_INFO, "DPP: Starting Network Introduction to " MACSTR, MAC2STR(bssid));
 
@@ -2674,28 +2735,33 @@ esp_err_t esp_supp_dpp_set_config(const esp_dpp_config_data_t *config)
 
     dc = s_dpp_ctx.dpp_config_store;
 
-    if (!config) {
-        if (dc && dc->conf) {
-            dpp_clear_confs(dc->conf);
-            dc->conf = NULL;
-        }
-        dpp_api_unlock();
-        return ESP_OK;
-    }
-
     if (!dc) {
         dpp_api_unlock();
         return ESP_ERR_INVALID_STATE;
     }
 
+    if (!config) {
+        if (dc->conf) {
+            dpp_clear_confs(dc->conf);
+            dc->conf = NULL;
+        }
+        dpp_api_unlock();
+        esp_wifi_sta_notify_dpp_config_set_internal(false);
+        return ESP_OK;
+    }
+
     if (esp_dpp_stored_conf_matches_row(dc, config)) {
         dpp_api_unlock();
+        esp_wifi_sta_notify_dpp_config_set_internal(true);
         return ESP_OK;
     }
 
     err = esp_dpp_conf_alloc_from_config_data(config, &new_conf);
     if (err != ESP_OK) {
+        dpp_clear_confs(dc->conf);
+        dc->conf = NULL;
         dpp_api_unlock();
+        esp_wifi_sta_notify_dpp_config_set_internal(false);
         return err;
     }
 
@@ -2703,6 +2769,7 @@ esp_err_t esp_supp_dpp_set_config(const esp_dpp_config_data_t *config)
     dc->conf = new_conf;
 
     dpp_api_unlock();
+    esp_wifi_sta_notify_dpp_config_set_internal(true);
 
     return ESP_OK;
 }

@@ -88,12 +88,7 @@ extern xt_handler xt_set_interrupt_handler(int n, xt_handler f, void * arg);
     mask     - Bit mask of interrupts to be enabled.
 -------------------------------------------------------------------------------
 */
-#ifdef __ZEPHYR__
-#include <zephyr/arch/xtensa/irq.h>
-#define xt_ints_on(mask)  z_xt_ints_on(mask)
-#else
 extern void xt_ints_on(unsigned int mask);
-#endif
 
 
 /*
@@ -104,11 +99,7 @@ extern void xt_ints_on(unsigned int mask);
     mask     - Bit mask of interrupts to be disabled.
 -------------------------------------------------------------------------------
 */
-#ifdef __ZEPHYR__
-#define xt_ints_off(mask) z_xt_ints_off(mask)
-#else
 extern void xt_ints_off(unsigned int mask);
-#endif
 
 
 /*

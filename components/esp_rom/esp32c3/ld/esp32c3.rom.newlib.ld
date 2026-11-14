@@ -19,29 +19,22 @@
  Group newlib
  ***************************************/
 
-/* Zephyr: reentrant ROM call, provided by the selected libc */
-/* strdup  = 0x400003dc; */
-/* strndup = 0x40000400; */
-/* rand    = 0x4000043c; */
-/* srand   = 0x40000440; */
-/* rand_r  = 0x40000438; */
-/* atoi    = 0x4000044c; */
-/* atol    = 0x40000450; */
-/* strtol  = 0x40000454; */
-/* strtoul = 0x40000458; */
-/* fflush       = 0x4000045c; */
-/* _fflush_r    = 0x40000460; */
-/* _fwalk       = 0x40000464; */
-/* _fwalk_reent = 0x40000468; */
-/* __swbuf_r    = 0x40000474; */
-
 /* Functions */
-/* The ROM implementation routes through syscall_table_ptr,
- * which this port never installs, and would fault on a NULL
- * pointer if a libc build ever referenced it. Keep the
- * compiled libc version instead.
- * __swbuf = 0x40000478;
- */
+strdup = 0x400003dc;
+strndup = 0x40000400;
+rand_r = 0x40000438;
+rand = 0x4000043c;
+srand = 0x40000440;
+atoi = 0x4000044c;
+atol = 0x40000450;
+strtol = 0x40000454;
+strtoul = 0x40000458;
+PROVIDE( fflush = 0x4000045c );
+PROVIDE( _fflush_r = 0x40000460 );
+PROVIDE( _fwalk = 0x40000464 );
+PROVIDE( _fwalk_reent = 0x40000468 );
+PROVIDE( __swbuf_r = 0x40000474 );
+__swbuf = 0x40000478;
 toupper = 0x400003b8;
 tolower = 0x400003bc;
 isalnum = 0x40000388;
@@ -55,11 +48,5 @@ strcoll = 0x400003e8;
 strlwr = 0x400003f4;
 strncasecmp = 0x400003f8;
 strupr = 0x40000418;
-/* The ROM hmac_md5 implementations call the ROM malloc, which
- * dispatches through syscall_table_ptr. That table is never
- * installed in this port, so any call faults on a NULL pointer.
- * The supplicant builds its own hmac_md5/hmac_md5_vector from
- * src/crypto/md5.c, which must win the link instead.
- * hmac_md5_vector = 0x40000620;
- * hmac_md5 = 0x40000624;
- */
+hmac_md5_vector = 0x40000620;
+hmac_md5 = 0x40000624;

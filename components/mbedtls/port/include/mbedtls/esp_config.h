@@ -59,6 +59,11 @@
  */
 #define MBEDTLS_PSA_ASSUME_EXCLUSIVE_BUFFERS
 
+/* In ECB mode, reject an input/output overlap that cannot be honoured, rather than returning a wrong result. */
+#ifdef MBEDTLS_PSA_ASSUME_EXCLUSIVE_BUFFERS
+#define MBEDTLS_PSA_CHECK_ECB_BUFFER_OVERLAP
+#endif // MBEDTLS_PSA_ASSUME_EXCLUSIVE_BUFFERS
+
 /**
  * \name SECTION: System support
  *
@@ -190,7 +195,7 @@
 #ifdef CONFIG_MBEDTLS_HARDWARE_SHA
     #define ESP_SHA_DRIVER_ENABLED
     #define MBEDTLS_PSA_ACCEL_ALG_HMAC
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
     #if SOC_SHA_SUPPORT_SHA1
         #define MBEDTLS_PSA_ACCEL_ALG_SHA_1
         #undef MBEDTLS_PSA_BUILTIN_ALG_SHA_1
@@ -204,6 +209,7 @@
     #if SOC_SHA_SUPPORT_SHA256
         #define MBEDTLS_PSA_ACCEL_ALG_SHA_256
         #undef MBEDTLS_PSA_BUILTIN_ALG_SHA_256
+        #undef MBEDTLS_SHA256_C
     #endif // SOC_SHA_SUPPORT_SHA256
     #if SOC_SHA_SUPPORT_SHA512
         #define MBEDTLS_PSA_ACCEL_ALG_SHA_512
@@ -233,7 +239,7 @@
 #else
 #if !defined(MBEDTLS_PSA_BUILTIN_ALG_HMAC)
     /* If ROM MD5 is not enabled, use the builtin HMAC algorithm for HMAC(MD5) operations */
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
 #endif
 #endif /* MBEDTLS_PSA_BUILTIN_ALG_HMAC */
 
@@ -257,22 +263,34 @@
 #undef MBEDTLS_MPI_MUL_MPI_ALT
 #endif
 
-#if defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY) || defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN) || defined(CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
-#define ESP_ECDSA_DRIVER_ENABLED
-#ifdef CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY
-#define ESP_ECDSA_VERIFY_DRIVER_ENABLED
-#endif
-#if defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN) || defined(CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
-#define ESP_ECDSA_SIGN_DRIVER_ENABLED
-#endif
-#endif
-
-#ifdef CONFIG_MBEDTLS_ATCA_HW_ECDSA_SIGN
-#define MBEDTLS_ECDSA_SIGN_ALT
+/* mbedtls 4.1.1 made the small-factor test used in prime
+ * generation constant-time, which slows RSA key generation down roughly
+ * tenfold and starves the idle task (the computation never yields the CPU).
+ * The non constant-time variant is the default; when it is disabled,
+ * fall back to the variable-time trial division from earlier releases. See
+ * MBEDTLS_MPI_PRIME_SIEVE_VARIABLE_TIME in
+ * tf-psa-crypto/drivers/builtin/src/bignum.c.
+ */
+#ifndef CONFIG_MBEDTLS_CONSTANT_TIME_PRIME_GEN
+#define MBEDTLS_MPI_PRIME_SIEVE_VARIABLE_TIME
 #endif
 
-#ifdef CONFIG_MBEDTLS_ATCA_HW_ECDSA_VERIFY
-#define MBEDTLS_ECDSA_VERIFY_ALT
+#if defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY) || defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN) \
+    || defined(CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
+    #define ESP_ECDSA_DRIVER_ENABLED
+    #ifdef CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY
+        #define ESP_ECDSA_VERIFY_DRIVER_ENABLED
+    #endif
+    #if defined(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN) || defined(CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
+        #define ESP_ECDSA_SIGN_DRIVER_ENABLED
+        #ifdef SOC_ECDSA_SUPPORT_SOFTWARE_KEY
+            #define ESP_ECDSA_TRANSPARENT_SIGN_DRIVER_ENABLED
+        #endif /* SOC_ECDSA_SUPPORT_SOFTWARE_KEY */
+    #endif
+#endif
+
+#ifdef CONFIG_MBEDTLS_SECURE_ELEMENT_DRIVER_ENABLED
+#define SECURE_ELEMENT_DRIVER_ENABLED
 #endif
 
 #ifdef CONFIG_MBEDTLS_HARDWARE_ECC
@@ -573,6 +591,10 @@
 #else
 #undef PSA_WANT_ECC_MONTGOMERY_255
 #endif
+/* ESP-IDF exposes no Curve448 option, but the TF-PSA-Crypto default config
+ * wants it. Undefine it so that the Curve448 data and code stay out of the
+ * build. */
+#undef PSA_WANT_ECC_MONTGOMERY_448
 
 /**
  * \def MBEDTLS_ECP_NIST_OPTIM
@@ -596,7 +618,6 @@
  *
  * Comment this macro to disable FIXED POINT curves optimisation.
  */
-#undef MBEDTLS_ECP_FIXED_POINT_OPTIM
 #ifdef CONFIG_MBEDTLS_ECP_FIXED_POINT_OPTIM
 #define MBEDTLS_ECP_FIXED_POINT_OPTIM 1
 #else
@@ -1989,7 +2010,6 @@
 #ifdef CONFIG_MBEDTLS_CHACHA20_C
 #define PSA_WANT_KEY_TYPE_CHACHA20 1
 #else
-#undef MBEDTLS_CHACHA20_C
 #undef PSA_WANT_KEY_TYPE_CHACHA20
 #endif
 
@@ -2000,12 +2020,11 @@
  *
  * Module:  library/chachapoly.c
  *
- * This module requires: MBEDTLS_CHACHA20_C, MBEDTLS_POLY1305_C
+ * This module requires: MBEDTLS_CHACHA20_C
  */
 #ifdef CONFIG_MBEDTLS_CHACHAPOLY_C
 #define PSA_WANT_ALG_CHACHA20_POLY1305 1
 #else
-#undef MBEDTLS_CHACHAPOLY_C
 #undef PSA_WANT_ALG_CHACHA20_POLY1305
 #endif
 
@@ -2489,20 +2508,6 @@
 #define MBEDTLS_PLATFORM_C
 
 /**
- * \def MBEDTLS_POLY1305_C
- *
- * Enable the Poly1305 MAC algorithm.
- *
- * Module:  library/poly1305.c
- * Caller:  library/chachapoly.c
- */
-#ifdef CONFIG_MBEDTLS_POLY1305_C
-#define MBEDTLS_POLY1305_C
-#else
-#undef MBEDTLS_POLY1305_C
-#endif
-
-/**
  * \def MBEDTLS_RIPEMD160_C
  *
  * Enable the RIPEMD-160 hash algorithm.
@@ -2567,7 +2572,7 @@
  *            on it, and considering stronger message digests instead.
  *
  */
-#if defined(CONFIG_MBEDTLS_SHA1_C) || defined(CONFIG_PSA_WANT_ALG_SHA_1)
+#if CONFIG_MBEDTLS_SHA1_C
 #define PSA_WANT_ALG_SHA_1 1
 #else
 #undef PSA_WANT_ALG_SHA_1
@@ -2606,7 +2611,7 @@
  *
  * This module adds support for SHA-384 and SHA-512.
  */
-#if defined(CONFIG_MBEDTLS_SHA512_C) || defined(CONFIG_PSA_WANT_ALG_SHA_512)
+#ifdef CONFIG_MBEDTLS_SHA512_C
 #define PSA_WANT_ALG_SHA_512 1
 #else
 #undef PSA_WANT_ALG_SHA_512
@@ -2627,7 +2632,7 @@
  *
  * Comment to disable SHA-384
  */
-#if defined(CONFIG_MBEDTLS_SHA384_C) || defined(CONFIG_PSA_WANT_ALG_SHA_384)
+#ifdef CONFIG_MBEDTLS_SHA384_C
 #define PSA_WANT_ALG_SHA_384 1
 #else
 #undef PSA_WANT_ALG_SHA_384
@@ -2650,20 +2655,11 @@
  * This module is required for the SSL/TLS 1.2 PRF function.
  */
 #ifdef CONFIG_MBEDTLS_SHA256_C
-#define MBEDTLS_SHA256_C
-#endif
-
-#if defined(CONFIG_MBEDTLS_SHA256_C) || defined(CONFIG_PSA_WANT_ALG_SHA_256)
 #define PSA_WANT_ALG_SHA_256 1
+#define PSA_WANT_ALG_SHA_224 1
 #else
 #undef PSA_WANT_ALG_SHA_256
 #undef MBEDTLS_PSA_ACCEL_ALG_SHA_256
-#endif
-
-#if defined(CONFIG_MBEDTLS_SHA224_C) || defined(CONFIG_MBEDTLS_SHA256_C) || \
-    defined(CONFIG_PSA_WANT_ALG_SHA_224)
-#define PSA_WANT_ALG_SHA_224 1
-#else
 #undef PSA_WANT_ALG_SHA_224
 #undef MBEDTLS_PSA_ACCEL_ALG_SHA_224
 #endif
@@ -2708,7 +2704,7 @@
 #define PSA_WANT_ALG_SHA3_512 1
 #if !defined(MBEDTLS_PSA_BUILTIN_ALG_HMAC)
     /* If SHA3 is enabled, use the builtin HMAC algorithm for HMAC(SHA3) operations */
-    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC 1
+    #define MBEDTLS_PSA_BUILTIN_ALG_HMAC
 #endif /* MBEDTLS_PSA_BUILTIN_ALG_HMAC */
 #else
 #undef PSA_WANT_ALG_SHA3_224

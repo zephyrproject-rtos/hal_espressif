@@ -5,7 +5,9 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/util.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -32,7 +34,11 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+
+#define RTC_XTAL_CAL_RETRY 3
+
+#define MHZ (1000000)
 
 /* Indicates that this 32k oscillator gets input from external oscillator, rather
  * than a crystal.
@@ -94,11 +100,11 @@ __attribute__((weak)) void esp_clk_init(void)
     wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 #endif
 
-#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SLOW_CLK_32K_XTAL);
-#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SLOW_CLK_32K_EXT_OSC);
-#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_8MD256)
+#elif defined(CONFIG_RTC_CLK_SRC_INT_8MD256)
     select_rtc_slow_clk(SLOW_CLK_8MD256);
 #else
     select_rtc_slow_clk(SLOW_CLK_RTC);
@@ -142,7 +148,7 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
     /* number of times to repeat 32k XTAL calibration
      * before giving up and switching to the internal RC
      */
-    int retry_32k_xtal = 3;
+    int retry_32k_xtal = RTC_XTAL_CAL_RETRY;
 
     soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
@@ -157,6 +163,13 @@ static void select_rtc_slow_clk(slow_clk_sel_t slow_clk)
              */
             ESP_EARLY_LOGD(TAG, "waiting for 32k oscillator to start up");
             if (slow_clk == SLOW_CLK_32K_XTAL) {
+                /* 1、The bootloader should already have it enabled.
+                 * 2、Because 32kHz crystal oscillators have a slow startup time, if they are not enabled beforehand,
+                 *  there is a high probability that they will not be detected if enabled here.
+                 */
+                if (!rtc_clk_32k_enabled()) {
+                    ESP_EARLY_LOGW(TAG, "32 kHz XTAL not enabled in advance");
+                }
                 rtc_clk_32k_enable(true);
             } else if (slow_clk == SLOW_CLK_32K_EXT_OSC) {
                 rtc_clk_32k_enable_external();
@@ -256,6 +269,9 @@ __attribute__((weak)) void esp_perip_clk_init(void)
                            SYSTEM_WIFI_CLK_UNUSED_BIT12;
 
 #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
+        /* This function only called on startup thus is thread safe. To avoid build errors/warnings
+         * declare __DECLARE_RCC_ATOMIC_ENV here. */
+        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
         // Disable USB-Serial-JTAG clock and it's pad if not used
         usb_serial_jtag_ll_phy_enable_pad(false);   // should not reset USJ registers in the code below, otherwises, usb pad will be enabled again
         usb_serial_jtag_ll_enable_bus_clock(false);

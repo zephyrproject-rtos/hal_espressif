@@ -5,7 +5,9 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/util.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <sys/param.h>
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
@@ -39,7 +41,11 @@
  * Larger values increase startup delay. Smaller values may cause false positive
  * detection (i.e. oscillator runs for a few cycles and then stops).
  */
-#define SLOW_CLK_CAL_CYCLES     CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_CAL_CYCLES
+#define SLOW_CLK_CAL_CYCLES     CONFIG_RTC_CLK_CAL_CYCLES
+
+#define RTC_XTAL_CAL_RETRY 3
+
+#define MHZ (1000000)
 
 static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src);
 
@@ -47,8 +53,8 @@ ESP_LOG_ATTR_TAG(TAG, "clk");
 
 void esp_rtc_init(void)
 {
-#if !CONFIG_IDF_ENV_FPGA && !CONFIG_MCUBOOT
-	pmu_init();
+#if !CONFIG_IDF_ENV_FPGA
+    pmu_init();
 #endif
 }
 
@@ -58,7 +64,16 @@ __attribute__((weak)) void esp_clk_init(void)
     assert((rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_48M) || (rtc_clk_xtal_freq_get() == SOC_XTAL_FREQ_40M));
 
     rtc_clk_8m_enable(true);
+#if CONFIG_RTC_FAST_CLK_SRC_RC_FAST
     rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_RC_FAST);
+#elif CONFIG_RTC_FAST_CLK_SRC_XTAL
+    rtc_clk_fast_src_set(SOC_RTC_FAST_CLK_SRC_XTAL);
+    if (esp_sleep_sub_mode_dump_config(NULL)[ESP_SLEEP_RTC_FAST_USE_XTAL_MODE] == 0) {
+        esp_sleep_sub_mode_config(ESP_SLEEP_RTC_FAST_USE_XTAL_MODE, true);
+    }
+#else
+#error "No RTC fast clock source configured"
+#endif
 #endif //!CONFIG_IDF_ENV_FPGA
 
 #if defined(CONFIG_BOOTLOADER_WDT_ENABLE) && SOC_RTC_WDT_SUPPORTED
@@ -77,9 +92,9 @@ __attribute__((weak)) void esp_clk_init(void)
 #endif
 
     modem_clock_deselect_all_module_lp_clock_source();
-#if defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS)
+#if defined(CONFIG_RTC_CLK_SRC_EXT_CRYS)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_XTAL32K);
-#elif defined(CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC)
+#elif defined(CONFIG_RTC_CLK_SRC_EXT_OSC)
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_OSC_SLOW);
 #else
     select_rtc_slow_clk(SOC_RTC_SLOW_CLK_SRC_RC_SLOW);
@@ -122,7 +137,7 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
     /* number of times to repeat 32k XTAL calibration
      * before giving up and switching to the internal RC
      */
-    int retry_32k_xtal = 3;
+    int retry_32k_xtal = RTC_XTAL_CAL_RETRY;
 
     soc_rtc_slow_clk_src_t old_rtc_slow_clk_src = rtc_clk_slow_src_get();
     do {
@@ -138,6 +153,13 @@ static void select_rtc_slow_clk(soc_rtc_slow_clk_src_t rtc_slow_clk_src)
             ESP_EARLY_LOGD(TAG, "waiting for 32k oscillator to start up");
             soc_clk_freq_calculation_src_t cal_sel = -1;
             if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
+                /* 1、The bootloader should already have it enabled.
+                 * 2、Because 32kHz crystal oscillators have a slow startup time, if they are not enabled beforehand,
+                 *  there is a high probability that they will not be detected if enabled here.
+                 */
+                if (!rtc_clk_32k_enabled()) {
+                    ESP_EARLY_LOGW(TAG, "32 kHz XTAL not enabled in advance");
+                }
                 rtc_clk_32k_enable(true);
                 cal_sel = CLK_CAL_32K_XTAL;
             } else if (rtc_slow_clk_src == SOC_RTC_SLOW_CLK_SRC_OSC_SLOW) {

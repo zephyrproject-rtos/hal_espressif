@@ -82,6 +82,9 @@ const u8 * wpas_mbo_get_bss_attr(struct wpa_bss *bss, enum mbo_attr_id attr)
 	if (!mbo)
 		return NULL;
 
+	if (mbo[1] < MBO_IE_HEADER - 2)
+		return NULL;
+
 	end = mbo + 2 + mbo[1];
 	mbo += MBO_IE_HEADER;
 
@@ -464,6 +467,10 @@ int wpas_mbo_update_non_pref_chan(struct wpa_supplicant *wpa_s,
 
 
 	chans = os_malloc(sizeof(struct wpa_mbo_non_pref_channel) * non_pref_chan->non_pref_chan_num);
+	if (!chans) {
+		wpa_printf(MSG_ERROR, "Failed to allocate memory for non_pref_chan");
+		return -1;
+	}
 	os_memcpy(chans, non_pref_chan->chan, sizeof(struct wpa_mbo_non_pref_channel) * non_pref_chan->non_pref_chan_num);
 
 update:

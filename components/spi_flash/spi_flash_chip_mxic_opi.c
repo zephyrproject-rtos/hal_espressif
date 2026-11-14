@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include "esp_log.h"
 #include "string.h"
-#include <zephyr/sys/util.h>
+#include <sys/param.h> // For MIN/MAX
 
 #include "hal/spi_flash_hal.h"
-#include "esp_flash_chips/spi_flash_defs.h"
+#include "spi_flash_defs.h"
 #include "esp_flash_chips/spi_flash_chip_generic.h"
 
 #define CMD_OPI_FLASH_MXIC(cmd)              ((((~(cmd) & 0xff) << 8)) | ((cmd) & 0xff))

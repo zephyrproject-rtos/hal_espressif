@@ -14,7 +14,6 @@
 #include "esp_log.h"
 #include "riscv/rv_utils.h"
 #include "esp_rom_serial_output.h"
-#include "esp_rom_sys.h"
 #include "soc/gpio_reg.h"
 #include "soc/timer_group_reg.h"
 #include "esp_cpu.h"

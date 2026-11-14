@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include "esp_attr.h"
 #include "soc/rtc.h"
 #include "esp_private/rtc_clk.h"
 #include "esp_private/esp_sleep_internal.h"
@@ -133,26 +132,26 @@ void rtc_clk_32k_disable_external(void)
 void rtc_clk_32k_bootstrap(uint32_t cycle)
 {
     if (cycle){
-        esp_rom_gpio_pad_select_gpio(XTAL32K_P_GPIO_NUM);
-        esp_rom_gpio_pad_select_gpio(XTAL32K_N_GPIO_NUM);
-        gpio_ll_output_enable(&GPIO, XTAL32K_P_GPIO_NUM);
-        gpio_ll_output_enable(&GPIO, XTAL32K_N_GPIO_NUM);
-        gpio_ll_set_level(&GPIO, XTAL32K_P_GPIO_NUM, 1);
-        gpio_ll_set_level(&GPIO, XTAL32K_N_GPIO_NUM, 0);
+        esp_rom_gpio_pad_select_gpio(SOC_XTAL32K_P_GPIO_NUM);
+        esp_rom_gpio_pad_select_gpio(SOC_XTAL32K_N_GPIO_NUM);
+        gpio_ll_output_enable(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+        gpio_ll_output_enable(&GPIO, SOC_XTAL32K_N_GPIO_NUM);
+        gpio_ll_set_level(&GPIO, SOC_XTAL32K_P_GPIO_NUM, 1);
+        gpio_ll_set_level(&GPIO, SOC_XTAL32K_N_GPIO_NUM, 0);
 
         const uint32_t delay_us = (1000000 / SOC_CLK_XTAL32K_FREQ_APPROX / 2);
         while (cycle) {
-            gpio_ll_set_level(&GPIO, XTAL32K_P_GPIO_NUM, 1);
-            gpio_ll_set_level(&GPIO, XTAL32K_N_GPIO_NUM, 0);
+            gpio_ll_set_level(&GPIO, SOC_XTAL32K_P_GPIO_NUM, 1);
+            gpio_ll_set_level(&GPIO, SOC_XTAL32K_N_GPIO_NUM, 0);
             esp_rom_delay_us(delay_us);
-            gpio_ll_set_level(&GPIO, XTAL32K_N_GPIO_NUM, 1);
-            gpio_ll_set_level(&GPIO, XTAL32K_P_GPIO_NUM, 0);
+            gpio_ll_set_level(&GPIO, SOC_XTAL32K_N_GPIO_NUM, 1);
+            gpio_ll_set_level(&GPIO, SOC_XTAL32K_P_GPIO_NUM, 0);
             esp_rom_delay_us(delay_us);
             cycle--;
         }
         // disable pins
-        gpio_ll_output_disable(&GPIO, XTAL32K_P_GPIO_NUM);
-        gpio_ll_output_disable(&GPIO, XTAL32K_N_GPIO_NUM);
+        gpio_ll_output_disable(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+        gpio_ll_output_disable(&GPIO, SOC_XTAL32K_N_GPIO_NUM);
     }
 
     clk_ll_xtal32k_disable();
@@ -246,21 +245,21 @@ uint32_t rtc_clk_apll_coeff_calc(uint32_t freq, uint32_t *_o_div, uint32_t *_sdm
         }
     }
     // sdm2 = (int)(((o_div + 2) * 2) * apll_freq / xtal_freq) - 4
-    sdm2 = (int)(((o_div + 2) * 2 * freq) / (xtal_freq_mhz * MHZ(1))) - 4;
+    sdm2 = (int)(((o_div + 2) * 2 * freq) / (xtal_freq_mhz * MHZ)) - 4;
     // numrator = (((o_div + 2) * 2) * apll_freq / xtal_freq) - 4 - sdm2
-    float numrator = (((o_div + 2) * 2 * freq) / ((float)xtal_freq_mhz * MHZ(1))) - 4 - sdm2;
+    float numrator = (((o_div + 2) * 2 * freq) / ((float)xtal_freq_mhz * MHZ)) - 4 - sdm2;
     // If numrator is bigger than 255/256 + 255/65536 + (1/65536)/2 = 1 - (1 / 65536)/2, carry bit to sdm2
-    if (numrator > 1.0f - (1.0f / 65536.0f) / 2.0f) {
+    if (numrator > 1.0 - (1.0 / 65536.0) / 2.0) {
         sdm2++;
     }
     // If numrator is smaller than (1/65536)/2, keep sdm0 = sdm1 = 0, otherwise calculate sdm0 and sdm1
-    else if (numrator > (1.0f / 65536.0f) / 2.0f) {
+    else if (numrator > (1.0 / 65536.0) / 2.0) {
         // Get the closest sdm1
-        sdm1 = (int)(numrator * 65536.0f + 0.5f) / 256;
+        sdm1 = (int)(numrator * 65536.0 + 0.5) / 256;
         // Get the closest sdm0
-        sdm0 = (int)(numrator * 65536.0f + 0.5f) % 256;
+        sdm0 = (int)(numrator * 65536.0 + 0.5) % 256;
     }
-    uint32_t real_freq = (uint32_t)(xtal_freq_mhz * MHZ(1) * (4 + sdm2 + (float)sdm1/256.0f + (float)sdm0/65536.0f) / (((float)o_div + 2) * 2));
+    uint32_t real_freq = (uint32_t)(xtal_freq_mhz * MHZ * (4 + sdm2 + (float)sdm1/256.0 + (float)sdm0/65536.0) / (((float)o_div + 2) * 2));
     *_o_div = o_div;
     *_sdm0 = sdm0;
     *_sdm1 = sdm1;
@@ -383,7 +382,7 @@ FORCE_IRAM_ATTR void rtc_clk_cpu_freq_to_xtal(int cpu_freq, int div)
 #ifndef BOOTLOADER_BUILD
     lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), cpu_freq / LACT_TICKS_PER_US);
 #endif
-    rtc_clk_apb_freq_update(cpu_freq * MHZ(1));
+    rtc_clk_apb_freq_update(cpu_freq * MHZ);
     /* lower the voltage */
     int dbias = (cpu_freq <= 2) ? DIG_DBIAS_2M : DIG_DBIAS_XTAL;
     REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_DIG_DBIAS_WAK, dbias);
@@ -399,7 +398,7 @@ static void rtc_clk_cpu_freq_to_rc_fast(void)
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_RC_FAST);
 #ifndef BOOTLOADER_BUILD
-    lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), SOC_CLK_RC_FAST_FREQ_APPROX / MHZ(1) / LACT_TICKS_PER_US);
+    lact_ll_set_clock_prescale(LACT_LL_GET_HW(LACT_MODULE), SOC_CLK_RC_FAST_FREQ_APPROX / MHZ / LACT_TICKS_PER_US);
 #endif
     rtc_clk_apb_freq_update(SOC_CLK_RC_FAST_FREQ_APPROX);
 }
@@ -443,7 +442,7 @@ NOINLINE_ATTR static void rtc_clk_cpu_freq_to_pll_mhz(int cpu_freq_mhz)
     clk_ll_ref_tick_set_divider(SOC_CPU_CLK_SRC_PLL, cpu_freq_mhz);
     /* switch clock source */
     clk_ll_cpu_set_src(SOC_CPU_CLK_SRC_PLL);
-    rtc_clk_apb_freq_update(80 * MHZ(1));
+    rtc_clk_apb_freq_update(80 * MHZ);
     esp_rom_set_cpu_ticks_per_us(cpu_freq_mhz);
 #ifndef BOOTLOADER_BUILD
     if (cur_freq <= 40 && delay_cycle < 0) {
@@ -631,7 +630,7 @@ FORCE_IRAM_ATTR void rtc_clk_apb_freq_update(uint32_t apb_freq)
 uint32_t rtc_clk_apb_freq_get(void)
 {
 #if CONFIG_IDF_ENV_FPGA
-    return CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ * MHZ(1);
+    return CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ * MHZ;
 #endif // CONFIG_IDF_ENV_FPGA
     return clk_ll_apb_load_freq_hz();
 }

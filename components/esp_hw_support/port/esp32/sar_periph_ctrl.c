@@ -14,9 +14,9 @@
  * - PWDET
  */
 
-#include <zephyr/kernel.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "esp_private/sar_periph_ctrl.h"
 #include "esp_private/critical_section.h"
 #include "esp_private/adc_share_hw_ctrl.h"
@@ -24,7 +24,7 @@
 #include "hal/adc_ll.h"
 
 ESP_LOG_ATTR_TAG(TAG, "sar_periph_ctrl");
-extern esp_os_spinlock_t rtc_spinlock;
+extern portMUX_TYPE rtc_spinlock;
 
 
 void sar_periph_ctrl_init(void)

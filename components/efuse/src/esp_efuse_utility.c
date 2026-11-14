@@ -11,7 +11,7 @@
 #include "esp_rom_sys.h"
 #include "assert.h"
 #include "sdkconfig.h"
-#include <zephyr/sys/util.h>
+#include <sys/param.h>
 #include "esp_efuse_table.h"
 
 ESP_LOG_ATTR_TAG(TAG, "efuse");
@@ -65,7 +65,7 @@ esp_err_t esp_efuse_utility_process(const esp_efuse_desc_t* field[], void* ptr, 
             if ((bits_counter + use_bit_in_reg) > req_size) { // Limits the length of the field.
                 use_bit_in_reg = req_size - bits_counter;
             }
-            int end_bit_in_reg __attribute__((unused)) = start_bit_in_reg + use_bit_in_reg - 1;
+            int end_bit_in_reg = start_bit_in_reg + use_bit_in_reg - 1;
             ESP_EARLY_LOGD(TAG, "BLK%d REG%d [%d-%d], len=%d bits", (int)f->efuse_block, num_reg, start_bit_in_reg, end_bit_in_reg, use_bit_in_reg);
 
             err = func_proc(num_reg, f->efuse_block, start_bit_in_reg, use_bit_in_reg, ptr, &bits_counter);
@@ -390,7 +390,7 @@ void esp_efuse_init_virtual_mode_in_ram(void)
 
 #ifdef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 
-#include "../bootloader_flash/include/bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
 
 static uint32_t esp_efuse_flash_offset = 0;
 static uint32_t esp_efuse_flash_size = 0;

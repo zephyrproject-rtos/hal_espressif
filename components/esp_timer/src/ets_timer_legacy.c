@@ -16,12 +16,14 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "sdkconfig.h"
 #include "esp_timer.h"
 #include "esp_timer_impl.h"
-#include "esp_rom_sys.h"
 
-/* for ETSTimer type */
+// for ETSTimer type
 #include "rom/ets_sys.h"
 
 /* We abuse 'timer_arg' field of ETSTimer structure to hold a pointer to esp_timer */
@@ -45,10 +47,6 @@ void ets_timer_setfn(ETSTimer *ptimer, ETSTimerFunc *pfunction, void *parg)
         TIMER_INITIALIZED_FIELD(ptimer) = TIMER_INITIALIZED_VAL;
     }
 
-    /* Store the callback function pointer in the ETSTimer struct */
-    /* The blob may check this field */
-    ptimer->timer_func = pfunction;
-
     if (ESP_TIMER(ptimer) == NULL) {
         const esp_timer_create_args_t create_args = {
             .callback = pfunction,
@@ -64,7 +62,7 @@ void ets_timer_setfn(ETSTimer *ptimer, ETSTimerFunc *pfunction, void *parg)
 void ESP_TIMER_IRAM_ATTR ets_timer_arm_us(ETSTimer *ptimer, uint32_t time_us, bool repeat_flag)
 {
     assert(timer_initialized(ptimer));
-    esp_timer_stop(ESP_TIMER(ptimer));
+    esp_timer_stop(ESP_TIMER(ptimer));  // no error check
     if (!repeat_flag) {
         ESP_ERROR_CHECK(esp_timer_start_once(ESP_TIMER(ptimer), time_us));
     } else {
@@ -76,7 +74,7 @@ void ESP_TIMER_IRAM_ATTR ets_timer_arm(ETSTimer *ptimer, uint32_t time_ms, bool 
 {
     uint64_t time_us = 1000LL * (uint64_t) time_ms;
     assert(timer_initialized(ptimer));
-    esp_timer_stop(ESP_TIMER(ptimer));
+    esp_timer_stop(ESP_TIMER(ptimer));  // no error check
     if (!repeat_flag) {
         ESP_ERROR_CHECK(esp_timer_start_once(ESP_TIMER(ptimer), time_us));
     } else {

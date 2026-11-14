@@ -26,6 +26,8 @@
 #include "hal/misc.h"
 #include "hal/efuse_hal.h"
 
+#define MHZ                 (1000000)
+
 #define CLK_LL_PLL_80M_FREQ_MHZ    (80)
 #define CLK_LL_PLL_120M_FREQ_MHZ   (120)
 #define CLK_LL_PLL_160M_FREQ_MHZ   (160)

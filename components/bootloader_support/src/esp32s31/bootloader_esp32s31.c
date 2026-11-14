@@ -16,7 +16,7 @@
 #include "bootloader_flash_config.h"
 #include "bootloader_mem.h"
 #include "bootloader_console.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
 #include "bootloader_soc.h"
 #include "esp_efuse.h"
 #include "esp_private/bootloader_flash_internal.h"
@@ -29,11 +29,15 @@
 #include "soc/pmu_reg.h"
 #include "hal/regi2c_ctrl_ll.h"
 #include "hal/modem_lpcon_ll.h"
+#include "hal/modem_clock_ll.h"
 #include "soc/reset_reasons.h"
 #include "hal/assist_debug_ll.h"
 #include "esp_rom_sys.h"
 #include "soc/regi2c_bias.h"
+#include "soc/regi2c_mpll.h"
 #include "hal/regi2c_ctrl.h"
+#include "hal/psram_ctrlr_ll.h"
+#include "hal/riscv_trace_hal.h"
 
 ESP_LOG_ATTR_TAG(TAG, "boot.esp32s31");
 
@@ -48,6 +52,10 @@ static inline void bootloader_hardware_init(void)
     gpio_ll_func_sel(&GPIO, 41, PIN_FUNC_GPIO);
 
     modem_lpcon_ll_enable_bus_clock(true);
+    /* SW_CPU_RESET retains modem_conf; ungate bus/root clock and clear reset. */
+    _modem_clock_ll_ungate();
+    /* BBPLL may be disabled, reset clock selection to XTAL. */
+    _modem_clock_ll_enable_pll_clock_source(false);
 
 #if !CONFIG_IDF_ENV_FPGA
     /* Enable analog i2c master clock */
@@ -56,8 +64,17 @@ static inline void bootloader_hardware_init(void)
     regi2c_ctrl_ll_master_configure_clock();
 #endif
 
-    REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1, 10);
-    REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1_PVT, 10);
+    REGI2C_WRITE_MASK(I2C_MPLL, I2C_MPLL_IR_CAL_EXT_CAP, 3);
+    REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1, 12);
+    REGI2C_WRITE_MASK(I2C_BIAS, I2C_BIAS_DREG_1P1_PVT, 12);
+
+    /* During mmu_hal_init, a valid clock source is required for the PSRAM,
+       so before shutting down MPLL in rtc_clk_init, the PSRAM clock source
+       should be selected to an always-on source. */
+    _psram_ctrlr_ll_select_clk_source(PSRAM_CTRLR_LL_MSPI_ID_2, PSRAM_CLK_SRC_XTAL);
+    _psram_ctrlr_ll_select_clk_source(PSRAM_CTRLR_LL_MSPI_ID_3, PSRAM_CLK_SRC_XTAL);
+    /* A reset leaves the trace encoders running, and they would write into RAM the app will use */
+    riscv_trace_hal_stop_all_encoders();
 }
 
 void bootloader_enable_cpu_reset_info(void)

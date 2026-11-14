@@ -10,8 +10,7 @@
 #include "esp_check.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/io_mux.h"
-#include "esp_private/critical_section.h"
-#include <zephyr/kernel.h>
+#include "freertos/FreeRTOS.h"
 #include "driver/rtc_io.h"
 #include "driver/lp_io.h"
 #include "hal/rtc_io_hal.h"
@@ -23,11 +22,9 @@
 
 static const char __attribute__((__unused__)) *RTCIO_TAG = "RTCIO";
 
-#if SOC_RTCIO_PIN_COUNT > 0
-static esp_os_spinlock_t s_rtcio_spinlock = ESP_OS_SPINLOCK_INIT;
-#define RTCIO_ENTER_CRITICAL()  esp_os_enter_critical(&s_rtcio_spinlock)
-#define RTCIO_EXIT_CRITICAL()   esp_os_exit_critical(&s_rtcio_spinlock)
-#endif
+extern portMUX_TYPE rtc_spinlock; //TODO: Will be placed in the appropriate position after the rtc module is finished.
+#define RTCIO_ENTER_CRITICAL()  portENTER_CRITICAL(&rtc_spinlock)
+#define RTCIO_EXIT_CRITICAL()  portEXIT_CRITICAL(&rtc_spinlock)
 
 bool rtc_gpio_is_valid_gpio(gpio_num_t gpio_num)
 {
@@ -186,6 +183,28 @@ esp_err_t rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
 
     return ESP_OK;
 }
+
+#if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
+esp_err_t rtc_gpio_hysteresis_en(gpio_num_t gpio_num)
+{
+    ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
+    RTCIO_ENTER_CRITICAL();
+    rtcio_hal_input_hysteresis_soft_enable(rtc_io_number_get(gpio_num), true);
+    RTCIO_EXIT_CRITICAL();
+
+    return ESP_OK;
+}
+
+esp_err_t rtc_gpio_hysteresis_dis(gpio_num_t gpio_num)
+{
+    ESP_RETURN_ON_FALSE(rtc_gpio_is_valid_gpio(gpio_num), ESP_ERR_INVALID_ARG, RTCIO_TAG, "RTCIO number error");
+    RTCIO_ENTER_CRITICAL();
+    rtcio_hal_input_hysteresis_soft_enable(rtc_io_number_get(gpio_num), false);
+    RTCIO_EXIT_CRITICAL();
+
+    return ESP_OK;
+}
+#endif
 
 esp_err_t rtc_gpio_iomux_func_sel(gpio_num_t gpio_num, int func)
 {

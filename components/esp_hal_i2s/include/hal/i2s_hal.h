@@ -95,11 +95,11 @@ typedef struct {
         } pdm_tx;                                       /*!< Specific configurations for PDM TX mode */
 #endif
 #if SOC_I2S_SUPPORTS_PDM_RX
-        /* PDM TX configurations */
+        /* PDM RX configurations */
         struct {
             i2s_pdm_slot_mask_t     slot_mask;          /*!< Choose the slots to activate */
             i2s_pdm_data_fmt_t      data_fmt;           /*!< The data format of PDM RX mode. It determines what kind of data format is read in software.
-                                                         *   Typically, set this field to I2S_PDM_DATA_FMT_PCM when PCM2PDM filter is supported in the hardware,
+                                                         *   Typically, set this field to I2S_PDM_DATA_FMT_PCM when PDM2PCM filter is supported in the hardware,
                                                          *   so that the hardware PDM2PCM filter will help to convert the raw PDM data on the line into PCM format,
                                                          *   And then you can read PCM format data in software. Otherwise if this field is set to I2S_PDM_DATA_FMT_RAW,
                                                          *   The data read in software are still in raw PDM format, you may need to convert the raw PDM data into PCM format manually by a software filter.
@@ -178,7 +178,6 @@ void _i2s_hal_set_tx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *c
 void i2s_hal_set_tx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
 #endif  // SOC_PERIPH_CLK_CTRL_SHARED
 
-#if SOC_PERIPH_CLK_CTRL_SHARED
 /**
  * @brief Set rx channel clock
  *
@@ -188,6 +187,8 @@ void i2s_hal_set_tx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *cl
  * @param ret_mclk_div return mclk division coefficients, including integer part and decimal part
  */
 void _i2s_hal_set_rx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
+
+#if SOC_PERIPH_CLK_CTRL_SHARED
 /// use a macro to wrap the function, force the caller to use it in a critical section
 /// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
 #define i2s_hal_set_rx_clock(...) do { \
@@ -195,15 +196,7 @@ void _i2s_hal_set_rx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *c
         _i2s_hal_set_rx_clock(__VA_ARGS__); \
     } while(0)
 #else
-/**
- * @brief Set rx channel clock
- *
- * @param hal Context of the HAL layer
- * @param clk_info clock information, if it is NULL, only set the clock source
- * @param clk_src clock source
- * @param ret_mclk_div return mclk division coefficients, including integer part and decimal part
- */
-void i2s_hal_set_rx_clock(i2s_hal_context_t *hal, const i2s_hal_clock_info_t *clk_info, i2s_clock_src_t clk_src, hal_utils_clk_div_t *ret_mclk_div);
+#define i2s_hal_set_rx_clock(...)   _i2s_hal_set_rx_clock(__VA_ARGS__)
 #endif
 
 /*-------------------------------------------------------------------------

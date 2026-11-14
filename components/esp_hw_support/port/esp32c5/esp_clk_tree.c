@@ -5,7 +5,7 @@
  */
 
 #include <stdint.h>
-#include <zephyr/sys/atomic.h>
+#include <stdatomic.h>
 #include "sdkconfig.h"
 #include "esp_clk_tree.h"
 #include "esp_err.h"
@@ -33,19 +33,19 @@ uint32_t *freq_value)
         clk_src_freq = clk_hal_cpu_get_freq_hz();
         break;
     case SOC_MOD_CLK_XTAL:
-        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ(1);
+        clk_src_freq = clk_hal_xtal_get_freq_mhz() * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F80M:
-        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_80M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F160M:
-        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_160M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_PLL_F240M:
-        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_240M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_SPLL:
-        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1);
+        clk_src_freq = CLK_LL_PLL_480M_FREQ_MHZ * MHZ;
         break;
     case SOC_MOD_CLK_RTC_SLOW:
         clk_src_freq = esp_clk_tree_lp_slow_get_freq_hz(precision);
@@ -60,7 +60,7 @@ uint32_t *freq_value)
         clk_src_freq = esp_clk_tree_xtal32k_get_freq_hz(precision);
         break;
     case SOC_MOD_CLK_XTAL_D2:
-        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ(1)) >> 1;
+        clk_src_freq = (clk_hal_xtal_get_freq_mhz() * MHZ) >> 1;
         break;
     default:
         break;
@@ -78,41 +78,45 @@ esp_err_t esp_clk_tree_src_set_freq_hz(soc_module_clk_t clk_src, uint32_t expt_f
     return ESP_ERR_NOT_SUPPORTED;
 }
 
-static atomic_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID];
+static _Atomic int16_t s_pll_src_cg_ref_cnt[SOC_MOD_CLK_INVALID] = { 0 };
 static bool esp_clk_tree_initialized = false;
 
 void esp_clk_tree_initialize(void)
 {
     soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
-    if ((rst_reason == RESET_REASON_CPU0_MWDT0) || (rst_reason == RESET_REASON_CPU0_MWDT1)          \
-            || (rst_reason == RESET_REASON_CPU0_SW) || (rst_reason == RESET_REASON_CPU0_RTC_WDT)    \
-            || (rst_reason == RESET_REASON_CPU0_JTAG) || (rst_reason == RESET_REASON_CPU0_LOCKUP)) {
-        esp_clk_tree_initialized = true;
-        return;
-    }
-
-    soc_cpu_clk_src_t current_cpu_clk_src = clk_ll_cpu_get_src();
-
-    if (current_cpu_clk_src == SOC_CPU_CLK_SRC_PLL_F160M) {
-        s_pll_src_cg_ref_cnt[SOC_MOD_CLK_PLL_F160M] = 1;
-        _clk_gate_ll_ref_240m_clk_en(false);
-    } else if (current_cpu_clk_src == SOC_CPU_CLK_SRC_PLL_F240M) {
-        s_pll_src_cg_ref_cnt[SOC_MOD_CLK_PLL_F240M] = 1;
-        _clk_gate_ll_ref_160m_clk_en(false);
-    }
-    _clk_gate_ll_ref_120m_clk_en(false);
-    _clk_gate_ll_ref_80m_clk_en(false);
-    _clk_gate_ll_ref_60m_clk_en(false);
+    soc_cpu_clk_src_t cpu_src = clk_ll_cpu_get_src();
+    bool cpu_reset = (rst_reason == RESET_REASON_CPU0_MWDT0) || (rst_reason == RESET_REASON_CPU0_MWDT1) \
+                     || (rst_reason == RESET_REASON_CPU0_SW) || (rst_reason == RESET_REASON_CPU0_RTC_WDT) \
+                     || (rst_reason == RESET_REASON_CPU0_JTAG) || (rst_reason == RESET_REASON_CPU0_LOCKUP);
+    if (!cpu_reset) {
+        /* Cold boot only: gate clocks the CPU is not using. */
+        if (cpu_src == SOC_CPU_CLK_SRC_PLL_F160M) {
+            _clk_gate_ll_ref_240m_clk_en(false);
+        } else if (cpu_src == SOC_CPU_CLK_SRC_PLL_F240M) {
+            _clk_gate_ll_ref_160m_clk_en(false);
+        }
+        _clk_gate_ll_ref_120m_clk_en(false);
+        _clk_gate_ll_ref_80m_clk_en(false);
+        _clk_gate_ll_ref_60m_clk_en(false);
 #if !CONFIG_USJ_ENABLE_USB_SERIAL_JTAG && !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED
-    _clk_gate_ll_ref_48m_clk_en(false);
+        _clk_gate_ll_ref_48m_clk_en(false);
 #endif
-    _clk_gate_ll_ref_40m_clk_en(false);
-    _clk_gate_ll_ref_20m_clk_en(false);
-    _clk_gate_ll_ref_12m_clk_en(false);
+        _clk_gate_ll_ref_40m_clk_en(false);
+        _clk_gate_ll_ref_20m_clk_en(false);
+        _clk_gate_ll_ref_12m_clk_en(false);
+    }
+
     esp_clk_tree_initialized = true;
+    /* Always count the CPU clock, including after a CPU-only reset. Same as S31:
+     * a later release must not gate the source the CPU is running from. */
+    if (cpu_src == SOC_CPU_CLK_SRC_PLL_F160M) {
+        esp_clk_tree_acquire_src(SOC_MOD_CLK_PLL_F160M, NULL);
+    } else if (cpu_src == SOC_CPU_CLK_SRC_PLL_F240M) {
+        esp_clk_tree_acquire_src(SOC_MOD_CLK_PLL_F240M, NULL);
+    }
 }
 
-bool esp_clk_tree_is_power_on(soc_root_clk_circuit_t clk_circuit)
+bool esp_clk_tree_port_is_power_on(soc_root_clk_circuit_t clk_circuit)
 {
     (void)clk_circuit;
     return false;
@@ -129,8 +133,10 @@ bool esp_clk_tree_enable_power(soc_root_clk_circuit_t clk_circuit, bool enable)
         clk_src_en_func(enable); \
     }
 
-esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
+esp_err_t esp_clk_tree_manage_src(soc_module_clk_t clk_src, bool acquire,
+                                  const esp_clk_tree_src_config_t *config)
 {
+    (void)config;
     if (clk_src < 1 || clk_src >= SOC_MOD_CLK_INVALID) {
         // some conditions is legal, e.g. -1 means external clock source
         return ESP_OK;
@@ -140,28 +146,28 @@ esp_err_t esp_clk_tree_enable_src(soc_module_clk_t clk_src, bool enable)
     }
 
     int16_t prev_ref_cnt = 0;
-    if (enable) {
-        prev_ref_cnt = atomic_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
+    if (acquire) {
+        prev_ref_cnt = atomic_fetch_add(&s_pll_src_cg_ref_cnt[clk_src], 1);
     } else {
-        prev_ref_cnt = atomic_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
+        prev_ref_cnt = atomic_fetch_sub(&s_pll_src_cg_ref_cnt[clk_src], 1);
         if (prev_ref_cnt <= 0) {
             ESP_EARLY_LOGW(TAG, "soc_module_clk_t %d disabled multiple times!!", clk_src);
-            atomic_set(&s_pll_src_cg_ref_cnt[clk_src], 0);
+            atomic_store(&s_pll_src_cg_ref_cnt[clk_src], 0);
             return ESP_OK;
         }
     }
-    if ((prev_ref_cnt == 0 && enable) || (prev_ref_cnt == 1 && !enable)) {
+    if ((prev_ref_cnt == 0 && acquire) || (prev_ref_cnt == 1 && !acquire)) {
         switch (clk_src) {
-            case SOC_MOD_CLK_RC_FAST:   enable ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable();  break;
-            case SOC_MOD_CLK_PLL_F12M:  ENABLE_CLK_GATE(clk_gate_ll_ref_12m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F40M:  ENABLE_CLK_GATE(clk_gate_ll_ref_40m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F48M:  ENABLE_CLK_GATE(clk_gate_ll_ref_48m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F60M:  ENABLE_CLK_GATE(clk_gate_ll_ref_60m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, enable);  break;
-            case SOC_MOD_CLK_PLL_F120M: ENABLE_CLK_GATE(clk_gate_ll_ref_120m_clk_en, enable); break;
-            case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, enable); break;
-            case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, enable); break;
+            case SOC_MOD_CLK_RC_FAST:   acquire ? rtc_dig_clk8m_enable() : rtc_dig_clk8m_disable();  break;
+            case SOC_MOD_CLK_PLL_F12M:  ENABLE_CLK_GATE(clk_gate_ll_ref_12m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F20M:  ENABLE_CLK_GATE(clk_gate_ll_ref_20m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F40M:  ENABLE_CLK_GATE(clk_gate_ll_ref_40m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F48M:  ENABLE_CLK_GATE(clk_gate_ll_ref_48m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F60M:  ENABLE_CLK_GATE(clk_gate_ll_ref_60m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F80M:  ENABLE_CLK_GATE(clk_gate_ll_ref_80m_clk_en, acquire);  break;
+            case SOC_MOD_CLK_PLL_F120M: ENABLE_CLK_GATE(clk_gate_ll_ref_120m_clk_en, acquire); break;
+            case SOC_MOD_CLK_PLL_F160M: ENABLE_CLK_GATE(clk_gate_ll_ref_160m_clk_en, acquire); break;
+            case SOC_MOD_CLK_PLL_F240M: ENABLE_CLK_GATE(clk_gate_ll_ref_240m_clk_en, acquire); break;
             default: break;
         }
     }

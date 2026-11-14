@@ -1,76 +1,190 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <zephyr/kernel.h>
+#include "sdkconfig.h"
+#if CONFIG_DAC_ENABLE_DEBUG_LOG
+// The local log level must be defined before including esp_log.h
+// Set the maximum log level for DAC driver
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+#endif
+#include "freertos/FreeRTOS.h"
+#include "driver/dac_types.h"
 #include "hal/dac_types.h"
+#include "hal/dac_types_private.h"
 #include "hal/dac_ll.h"
+#include "esp_log.h"
+#include "esp_check.h"
 #include "esp_err.h"
-#include "esp_private/critical_section.h"
+#include "esp_attr.h"
+#include "esp_heap_caps.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern esp_os_spinlock_t rtc_spinlock;  /*!< Extern global rtc spinlock */
+ESP_LOG_ATTR_TAG(TAG, "dac");
 
-#define DAC_RTC_ENTER_CRITICAL()         esp_os_enter_critical(&rtc_spinlock)
-#define DAC_RTC_EXIT_CRITICAL()          esp_os_exit_critical(&rtc_spinlock)
+/**
+ * DAC driver spinlock
+ *
+ * - ESP32 / ESP32-S2: use the global rtc_spinlock
+ * - ESP32-S31: dedicated DAC register block, use dac_priv_spinlock
+ */
+#if SOC_IS(ESP32) || SOC_IS(ESP32S2)
+extern portMUX_TYPE rtc_spinlock;
 
-#define DAC_RTC_ENTER_CRITICAL_SAFE()    esp_os_enter_critical_safe(&rtc_spinlock)
-#define DAC_RTC_EXIT_CRITICAL_SAFE()     esp_os_exit_critical_safe(&rtc_spinlock)
+#define DAC_ENTER_CRITICAL()         portENTER_CRITICAL(&rtc_spinlock)
+#define DAC_EXIT_CRITICAL()          portEXIT_CRITICAL(&rtc_spinlock)
+#define DAC_ENTER_CRITICAL_SAFE()    portENTER_CRITICAL_SAFE(&rtc_spinlock)
+#define DAC_EXIT_CRITICAL_SAFE()     portEXIT_CRITICAL_SAFE(&rtc_spinlock)
+#else
+extern portMUX_TYPE dac_priv_spinlock;
+
+#define DAC_ENTER_CRITICAL()         portENTER_CRITICAL(&dac_priv_spinlock)
+#define DAC_EXIT_CRITICAL()          portEXIT_CRITICAL(&dac_priv_spinlock)
+#define DAC_ENTER_CRITICAL_SAFE()    portENTER_CRITICAL_SAFE(&dac_priv_spinlock)
+#define DAC_EXIT_CRITICAL_SAFE()     portEXIT_CRITICAL_SAFE(&dac_priv_spinlock)
+#endif // SOC_IS(ESP32) || SOC_IS(ESP32S2)
 
 #define DAC_NULL_POINTER_CHECK(p)     ESP_RETURN_ON_FALSE((p), ESP_ERR_INVALID_ARG, TAG, "input parameter '"#p"' is NULL")
 #define DAC_NULL_POINTER_CHECK_ISR(p) ESP_RETURN_ON_FALSE_ISR((p), ESP_ERR_INVALID_ARG, TAG, "input parameter '"#p"' is NULL")
+
+#if CONFIG_DAC_ISR_IRAM_SAFE || CONFIG_DAC_CTRL_FUNC_IN_IRAM
+#define DAC_MEM_ALLOC_CAPS      (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+#else
+#define DAC_MEM_ALLOC_CAPS      MALLOC_CAP_DEFAULT
+#endif
+
+#define DAC_DIV_ROUND(n, d) (((n) + (d) / 2) / (d))
+#define DAC_DIV_CEIL(n, d) (((n) + (d) - 1) / (d))
+#define DAC_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define DAC_CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
+
+static inline bool dac_priv_is_valid_channel_config(const dac_channel_config_t *cfg)
+{
+    bool valid_output = cfg->output_mode == DAC_CHANNEL_OUTPUT_VOLTAGE;
+    bool valid_buffer = cfg->buffer_mode == DAC_CHANNEL_BUFFER_FULL_SWING;
+#if SOC_DAC_HS_RESOLUTION
+    valid_output |= cfg->output_mode == DAC_CHANNEL_OUTPUT_CURRENT;
+#endif
+#if SOC_DAC_SUPPORT_BUFFER_CFG
+    valid_buffer |= cfg->buffer_mode == DAC_CHANNEL_BUFFER_REDUCED_SWING || cfg->buffer_mode == DAC_CHANNEL_BUFFER_BYPASS;
+#endif
+    return valid_output && valid_buffer;
+}
+
+/**
+ * @brief Get the DAC code bit width from a channel (analog pad) configuration
+ */
+FORCE_INLINE_ATTR uint8_t dac_priv_chan_cfg_get_bitwidth(const dac_channel_config_t *cfg)
+{
+#if SOC_DAC_HS_RESOLUTION
+    return (cfg->output_mode == DAC_CHANNEL_OUTPUT_CURRENT) ? SOC_DAC_HS_RESOLUTION : SOC_DAC_RESOLUTION;
+#else
+    (void)cfg;
+    return SOC_DAC_RESOLUTION;
+#endif
+}
 
 /**
  * @brief Register dac channel in the driver, in case a same channel is reused by different modes
  *
  * @param[in] chan_id   DAC channel id
- * @param[in] mode_name The const string of mode name
  * @return
  *      - ESP_ERR_INVALID_STATE The channel has been occupied
  *      - ESP_ERR_INVALID_ARG   The channel id is incorrect
  *      - ESP_OK                Register the channel success
  */
-esp_err_t dac_priv_register_channel(dac_channel_t chan_id, const char *mode_name);
+esp_err_t dac_priv_channel_register(dac_channel_t chan_id);
 
 /**
  * @brief Deregister dac channel in the driver
  *
  * @param[in] chan_id   DAC channel id
  * @return
- *      - ESP_ERR_INVALID_STATE The channel has been freed
+ *      - ESP_ERR_INVALID_STATE The channel has been freed or not disabled
  *      - ESP_ERR_INVALID_ARG   The channel id is incorrect
  *      - ESP_OK                Deregister the channel success
  */
-esp_err_t dac_priv_deregister_channel(dac_channel_t chan_id);
+esp_err_t dac_priv_channel_deregister(dac_channel_t chan_id);
 
 /**
  * @brief Enable the DAC channel and turn on its power
  *
  * @param chan_id       DAC channel id
+ * @param chan_cfg      Channel (analog pad) configuration
+ * @param source        Channel data source
  * @return
- *      - ESP_ERR_INVALID_STATE The channel has not been registered
+ *      - ESP_ERR_INVALID_STATE The channel has not been registered or already enabled
  *      - ESP_ERR_INVALID_ARG   The channel id is incorrect
- *      - ESP_OK                Deregister the channel success
+ *      - ESP_OK                Enable the channel success
  */
-esp_err_t dac_priv_enable_channel(dac_channel_t chan_id);
+esp_err_t dac_priv_channel_enable(dac_channel_t chan_id, dac_channel_config_t chan_cfg, dac_data_source_t source);
 
 /**
  * @brief Disable the DAC channel and turn off its power
  *
  * @param chan_id       DAC channel id
  * @return
- *      - ESP_ERR_INVALID_STATE The channel has not been registered
+ *      - ESP_ERR_INVALID_STATE The channel is not enabled
  *      - ESP_ERR_INVALID_ARG   The channel id is incorrect
- *      - ESP_OK                Deregister the channel success
+ *      - ESP_OK                Disable the channel success
  */
-esp_err_t dac_priv_disable_channel(dac_channel_t chan_id);
+esp_err_t dac_priv_channel_disable(dac_channel_t chan_id);
+
+/**
+ * @brief Acquire the shared cosine wave (Sintx/tone) generator (reference counted)
+ *
+ * @note  The cosine wave generator is a single shared resource: all DAC channels that output a
+ *        cosine wave share one generator (and thus one frequency). This claims the generator in tone
+ *        mode, programs the wave frequency, and starts the generator on the first acquire. The first
+ *        acquirer (or any acquirer passing `force_set_freq`) programs the frequency; a later acquirer
+ *        requesting a different frequency without `force_set_freq` is rejected. On targets where the
+ *        tone generator and the direct (DC) output share one Sintx generator, a tone acquire is also
+ *        rejected while the DC path is in use.
+ *
+ * @param[in] freq_hz         The cosine wave frequency in Hz
+ * @param[in] clk_freq_hz     The clock frequency that drives the generator in Hz
+ * @param[in] force_set_freq  Force (re)programming the frequency even if the generator is in use
+ * @return
+ *      - ESP_ERR_INVALID_STATE The generator is busy on a conflicting mode or frequency
+ *      - ESP_OK                Success
+ */
+esp_err_t dac_priv_sintx_acquire_tone(uint32_t freq_hz, uint32_t clk_freq_hz, bool force_set_freq);
+
+#if SOC_DAC_DC_VIA_SINTX
+/**
+ * @brief Acquire the shared Sintx generator for the direct (DC) software output (reference counted)
+ *
+ * @note  On some targets, the direct (DC) software output runs through the same Sintx generator as
+ *        the cosine wave output, so the two are mutually exclusive. This claims the generator in DC
+ *        mode and, on the first acquire, starts the Sintx timer that pushes the written DC value to
+ *        the pad.
+ *
+ * @return
+ *      - ESP_ERR_INVALID_STATE The generator is busy on the cosine path
+ *      - ESP_OK                Success
+ */
+esp_err_t dac_priv_sintx_acquire_dc(void);
+#endif // SOC_DAC_DC_VIA_SINTX
+
+/**
+ * @brief Release the shared Sintx generator (reference counted)
+ *
+ * @note  Releases one reference acquired by `dac_priv_sintx_acquire_tone()` or
+ *        `dac_priv_sintx_acquire_dc()`. The generator is stopped once the last reference is
+ *        released.
+ *
+ * @return
+ *      - ESP_ERR_INVALID_STATE The generator is not in use
+ *      - ESP_OK                Success
+ */
+esp_err_t dac_priv_sintx_release(void);
 
 #ifdef __cplusplus
 }

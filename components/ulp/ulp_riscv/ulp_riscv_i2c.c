@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -45,7 +45,7 @@ rtc_io_dev_t *rtc_io_dev = &RTCIO;
 #define MICROSEC_TO_RTC_FAST_CLK(period)    (period) * ((float)(SOC_CLK_RC_FAST_FREQ_APPROX) / (1000000.0))
 
 /* Read/Write timeout (number of iterations)*/
-#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ESP32_ULP_RISCV_I2C_RW_TIMEOUT
+#define ULP_RISCV_I2C_RW_TIMEOUT            CONFIG_ULP_RISCV_I2C_RW_TIMEOUT
 
 /* RTC I2C lock */
 static portMUX_TYPE rtc_i2c_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -254,30 +254,32 @@ static inline esp_err_t ulp_riscv_i2c_wait_for_interrupt(int32_t ticks_to_wait)
     while (1) {
         status = READ_PERI_REG(RTC_I2C_INT_ST_REG);
 
-        /* Return ESP_OK if Tx or Rx data interrupt bits are set. */
-        if ((status & RTC_I2C_TX_DATA_INT_ST) ||
-                (status & RTC_I2C_RX_DATA_INT_ST)) {
-            ret = ESP_OK;
-            break;
-            /* In case of error status, break and return ESP_FAIL */
+        /* If a NAK, Timeout, or Arbitration Loss occurs, abort immediately. */
 #if CONFIG_IDF_TARGET_ESP32S2
-        } else if ((status & RTC_I2C_TIMEOUT_INT_ST) ||
+        if ((status & RTC_I2C_TIMEOUT_INT_ST) ||
 #elif CONFIG_IDF_TARGET_ESP32S3
-        } else if ((status & RTC_I2C_TIME_OUT_INT_ST) ||
+        if ((status & RTC_I2C_TIME_OUT_INT_ST) ||
 #endif // CONFIG_IDF_TARGET_ESP32S2
-                   (status & RTC_I2C_ACK_ERR_INT_ST) ||
-                   (status & RTC_I2C_ARBITRATION_LOST_INT_ST)) {
+                (status & RTC_I2C_ACK_ERR_INT_ST) ||
+                (status & RTC_I2C_ARBITRATION_LOST_INT_ST)) {
             ret = ESP_FAIL;
             break;
         }
 
-        if (ticks_to_wait > -1) {
+        /* Return ESP_OK only if hardware channels are error-free and data bits are latched. */
+        if ((status & RTC_I2C_TX_DATA_INT_ST) ||
+                (status & RTC_I2C_RX_DATA_INT_ST)) {
+            ret = ESP_OK;
+            break;
+        }
+
+        if ((uint32_t)ticks_to_wait != (uint32_t) -1) {
             /* If the ticks_to_wait value is not -1, keep track of ticks and
              * break from the loop once the timeout is reached.
              */
             vTaskDelay(1);
             to++;
-            if (to >= ticks_to_wait) {
+            if (to >= (uint32_t)ticks_to_wait) {
                 ret = ESP_ERR_TIMEOUT;
                 break;
             }
