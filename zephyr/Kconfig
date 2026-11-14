@@ -157,6 +157,10 @@ config ESP_PHY_ENABLED
 	bool
 	default y if (SOC_PHY_SUPPORTED)
 
+config SPIRAM_BOOT_HW_INIT
+	bool
+	default y if ESP_SPIRAM
+
 config SOC_XTAL_FREQ_MHZ
 	int
 	default XTAL_FREQ if SOC_SERIES_ESP32C2
