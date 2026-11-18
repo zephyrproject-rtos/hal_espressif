@@ -36,6 +36,7 @@ struct rsn_pmksa_cache_entry {
      */
     void *network_ctx;
     int opportunistic;
+    bool external; /* Imported; removable by an external-only clear */
 };
 
 struct rsn_pmksa_cache;
@@ -53,6 +54,7 @@ pmksa_cache_init(void (*free_cb)(struct rsn_pmksa_cache_entry *entry,
             void *ctx, enum pmksa_free_reason reason),
         void *ctx, struct wpa_sm *sm);
 void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa);
+struct rsn_pmksa_cache_entry * pmksa_cache_head(struct rsn_pmksa_cache *pmksa);
 struct rsn_pmksa_cache_entry * pmksa_cache_get(struct rsn_pmksa_cache *pmksa,
         const u8 *aa, const u8 *spa, const u8 *pmkid,
         const void *network_ctx);
@@ -89,6 +91,12 @@ pmksa_cache_init(void (*free_cb)(struct rsn_pmksa_cache_entry *entry,
 
 static inline void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa)
 {
+}
+
+    static inline struct rsn_pmksa_cache_entry *
+pmksa_cache_head(struct rsn_pmksa_cache *pmksa)
+{
+    return NULL;
 }
 
     static inline struct rsn_pmksa_cache_entry *
