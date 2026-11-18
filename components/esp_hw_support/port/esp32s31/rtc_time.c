@@ -37,16 +37,16 @@ __attribute__((unused)) static const char *TAG = "rtc_time";
 
 // CLK_CAL_FREQ_APPROX = CLK_FREQ_APPROX / CLK_CAL_DIV_VAL
 #define CLK_CAL_FREQ_APPROX(cal_clk_sel) \
-            ((cal_clk_sel == CLK_CAL_MPLL) ? (CLK_LL_PLL_500M_FREQ_MHZ * MHZ / 4000) : \
-             (cal_clk_sel == CLK_CAL_BBPLL) ? (CLK_LL_PLL_480M_FREQ_MHZ * MHZ / 4000) : \
-             (cal_clk_sel == CLK_CAL_CPLL) ? (CLK_LL_PLL_320M_FREQ_MHZ * MHZ / 4000) : \
-             (cal_clk_sel == CLK_CAL_APLL) ? (105 * MHZ / 200) : \
-             (cal_clk_sel == CLK_CAL_AHB || cal_clk_sel == CLK_CAL_ROM) ? (100 * MHZ / 200) : \
+            ((cal_clk_sel == CLK_CAL_MPLL) ? (CLK_LL_PLL_500M_FREQ_MHZ * MHZ(1) / 4000) : \
+             (cal_clk_sel == CLK_CAL_BBPLL) ? (CLK_LL_PLL_480M_FREQ_MHZ * MHZ(1) / 4000) : \
+             (cal_clk_sel == CLK_CAL_CPLL) ? (CLK_LL_PLL_320M_FREQ_MHZ * MHZ(1) / 4000) : \
+             (cal_clk_sel == CLK_CAL_APLL) ? (105 * MHZ(1) / 200) : \
+             (cal_clk_sel == CLK_CAL_AHB || cal_clk_sel == CLK_CAL_ROM) ? (100 * MHZ(1) / 200) : \
              (cal_clk_sel == CLK_CAL_RC_FAST) ? (SOC_CLK_RC_FAST_FREQ_APPROX / 50) : \
              (cal_clk_sel == CLK_CAL_RC_SLOW) ? (SOC_CLK_RC_SLOW_FREQ_APPROX) : \
              (cal_clk_sel == CLK_CAL_32K_XTAL) ? (SOC_CLK_XTAL32K_FREQ_APPROX) : \
-             (cal_clk_sel == CLK_CAL_XTAL || cal_clk_sel == CLK_CAL_APB) ? (40 * MHZ / 100) : \
-             (cal_clk_sel == CLK_CAL_CORE0 || cal_clk_sel == CLK_CAL_CORE1) ? (CLK_LL_PLL_320M_FREQ_MHZ * MHZ / 1000) : \
+             (cal_clk_sel == CLK_CAL_XTAL || cal_clk_sel == CLK_CAL_APB) ? (40 * MHZ(1) / 100) : \
+             (cal_clk_sel == CLK_CAL_CORE0 || cal_clk_sel == CLK_CAL_CORE1) ? (CLK_LL_PLL_320M_FREQ_MHZ * MHZ(1) / 1000) : \
              0)
 
 /**
@@ -123,7 +123,7 @@ uint32_t rtc_clk_cal_internal(soc_clk_freq_calculation_src_t cal_clk_sel, uint32
     REG_SET_FIELD(TIMG_RTCCALICFG2_REG(0), TIMG_RTC_CALI_TIMEOUT_THRES, CLK_CAL_TIMEOUT_THRES(cal_clk_sel, slowclk_cycles));
     uint32_t expected_freq = CLK_CAL_FREQ_APPROX(cal_clk_sel);
     assert(expected_freq);
-    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ / expected_freq);
+    uint32_t us_time_estimate = (uint32_t) (((uint64_t) slowclk_cycles) * MHZ(1) / expected_freq);
     /* Start calibration */
     CLEAR_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
     SET_PERI_REG_MASK(TIMG_RTCCALICFG_REG(0), TIMG_RTC_CALI_START);
@@ -216,8 +216,7 @@ uint32_t rtc_clk_freq_cal(uint32_t cal_val)
 uint32_t rtc_clk_freq_to_period(uint32_t) __attribute__((alias("rtc_clk_freq_cal")));
 
 /// @brief if the calibration is used, we need to enable the timer group0 first
-__attribute__((constructor))
-static void enable_timer_group0_for_calibration(void)
+static void __attribute__((unused)) enable_timer_group0_for_calibration(void)
 {
 #ifndef BOOTLOADER_BUILD
     PERIPH_RCC_ACQUIRE_ATOMIC(PERIPH_TIMG0_MODULE, ref_count) {
