@@ -5,6 +5,11 @@ esp_err_t esp_mesh_init(void)
 	return ESP_OK;
 }
 
+esp_err_t esp_mesh_deinit(void)
+{
+	return ESP_OK;
+}
+
 esp_err_t esp_mesh_start(void)
 {
 	return ESP_OK;
