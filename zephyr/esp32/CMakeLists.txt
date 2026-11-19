@@ -173,6 +173,12 @@ if(CONFIG_SOC_SERIES_ESP32)
       -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/soc/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.peripherals.ld
     )
 
+  # Secure Boot v2 on classic ESP32 is the ECO3 ROM. Those entry points are
+  # not in esp32.rom.ld.
+  zephyr_link_libraries_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_SECURE_BOOT
+    -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.eco3.ld
+    )
+
   zephyr_compile_definitions(ESP_PLATFORM)
 
   zephyr_sources_ifdef(CONFIG_XTENSA_ENABLE_BACKTRACE ../common/windowspill_asm.S)

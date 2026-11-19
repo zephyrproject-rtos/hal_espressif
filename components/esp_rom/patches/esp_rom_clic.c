@@ -20,4 +20,14 @@ void esprv_int_set_type(int rv_int_num, enum intr_type type)
 {
     REG_SET_FIELD(CLIC_INT_CTRL_REG(rv_int_num + CLIC_EXT_INTR_NUM_OFFSET), CLIC_INT_ATTR_TRIG, type);
 }
+
+/*
+ * riscv/ld/rom.api.ld aliases esprv_int_set_type to this name. The pre-v3
+ * ROM does not export it, so the alias expression needs a definition or the
+ * link fails. Keep the patched implementation on both names.
+ */
+void esprv_intc_int_set_type(int rv_int_num, enum intr_type type)
+{
+    esprv_int_set_type(rv_int_num, type);
+}
 #endif

@@ -16,14 +16,14 @@ extern "C" {
 
 /**
  * Shared security context owned by esp_mcuboot_security.c.
- * Secure Boot / Flash Encryption prepare hooks fill their fields;
- * finalize uses them for orchestration (including a future
- * CONFIG_SECURE_BOOT_FLASH_ENC_KEYS_BURN_TOGETHER path,
- * planned for Secure Boot implementation).
+ * Secure Boot / Flash Encryption prepare hooks fill their fields.
+ * combined_batch_open is the outer eFuse batch used when
+ * CONFIG_SECURE_BOOT_FLASH_ENC_KEYS_BURN_TOGETHER is set (ESP32-C2).
  */
 typedef struct {
 	bool flash_encryption_already_enabled;
 	bool secure_boot_already_enabled;
+	bool combined_batch_open;
 } esp_mcuboot_security_ctx_t;
 
 /**
