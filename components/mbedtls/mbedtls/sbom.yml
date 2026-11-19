@@ -1,0 +1,19 @@
+version: 4.1.0
+cpe: cpe:2.3:a:arm:mbed_tls:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+originator: 'Organization: Trusted Firmware <mbed-tls-security@lists.trustedfirmware.org>'
+description: An open source, portable, easy to use, readable and flexible SSL library with additional features and patches from Espressif.
+cve-keywords:
+  - mbed tls
+  - mbedtls
+cve-exclude-list:
+  - cve: CVE-2025-54764
+    reason: Fixed in 3.6.5
+  - cve: CVE-2025-59438
+    reason: Fixed in 3.6.5
+  - cve: CVE-2025-52496
+    reason: Fixed in 3.6.4
+  - cve: CVE-2025-27810
+    reason: Fixed in 3.6.3
+  - cve: CVE-2025-66442
+    reason: Applicable only with Clang with select-optimize feature. ESP-IDF uses gcc as the default compiler and uses -Os as the default optimisation flag

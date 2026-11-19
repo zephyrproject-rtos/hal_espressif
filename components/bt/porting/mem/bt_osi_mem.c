@@ -18,6 +18,11 @@ IRAM_ATTR void *bt_osi_mem_calloc(size_t n, size_t size)
     return esp_bt_calloc_func(n, size);
 }
 
+IRAM_ATTR void *bt_osi_mem_realloc(void *ptr, size_t size)
+{
+    return esp_bt_realloc_func(ptr, size);
+}
+
 IRAM_ATTR void *bt_osi_mem_malloc_internal(size_t size)
 {
     return esp_bt_malloc_func(size);

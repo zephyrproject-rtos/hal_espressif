@@ -6,22 +6,25 @@ if(esp_tee_build)
     include(${COMPONENT_DIR}/esp_tee/esp_tee_mbedtls.cmake)
     return()
 elseif(BOOTLOADER_BUILD)   # TODO: IDF-11673
+    set(srcs)
+    set(include_dirs)
+    set(public_compile_definitions)
     if(CONFIG_MBEDTLS_USE_CRYPTO_ROM_IMPL_BOOTLOADER)
-        set(include_dirs "${COMPONENT_DIR}/port/include"
+        list(APPEND include_dirs "${COMPONENT_DIR}/port/include"
                          "${COMPONENT_DIR}/mbedtls/include"
                          "${COMPONENT_DIR}/mbedtls/tf-psa-crypto/include"
                          "${COMPONENT_DIR}/mbedtls/tf-psa-crypto/drivers/builtin/include"
                          "${COMPONENT_DIR}/port/psa_driver/include"
                          "port/mbedtls_rom")
-        set(srcs "port/mbedtls_rom/mbedtls_rom_osi_bootloader.c")
-        set(public_compile_definitions
+        list(APPEND srcs "port/mbedtls_rom/mbedtls_rom_osi_bootloader.c")
+        list(APPEND public_compile_definitions
             -DMBEDTLS_CONFIG_FILE="mbedtls/esp_config.h"
             MBEDTLS_CIPHER_MODE_XTS)
     endif()
 
     idf_component_register(SRCS "${srcs}"
                            INCLUDE_DIRS "${include_dirs}"
-                           PRIV_REQUIRES esp_hal_dma)
+                           PRIV_REQUIRES esp_hal_dma esp_hal_cache)
     if(public_compile_definitions)
         target_compile_definitions(${COMPONENT_LIB} PUBLIC ${public_compile_definitions})
     endif()
@@ -31,12 +34,18 @@ endif()
 if(NOT ${IDF_TARGET} STREQUAL "linux")
     set(priv_requires soc esp_hw_support)
     if(NOT BOOTLOADER_BUILD)
-        list(APPEND priv_requires esp_pm esp_driver_dma)
+        # esp_mspi provides esp_mspi_align, used by the AES and SHA DMA ports
+        list(APPEND priv_requires esp_driver_dma esp_mspi)
+        if(NOT IDF_BUILD_V2)
+            # V1 resolves requirements before Kconfig is available.
+            list(APPEND priv_requires esp_pm)
+        endif()
         set(requires esp_security esp_hal_security)
     endif()
 endif()
 
-set(mbedtls_srcs "port/esp_mem.c")
+set(mbedtls_srcs "port/esp_mem.c"
+                 "port/psa_crypto_storage/esp_psa_key_file.c")
 set(mbedtls_include_dirs
     "port/include"
     "mbedtls/include"
@@ -57,12 +66,17 @@ endif()
 
 
 list(APPEND mbedtls_include_dirs "${COMPONENT_DIR}/port/psa_driver/include")
+list(APPEND mbedtls_include_dirs "${COMPONENT_DIR}/port/psa_crypto_storage/include")
 
 idf_component_register(SRCS "${mbedtls_srcs}"
     INCLUDE_DIRS "${mbedtls_include_dirs}"
     PRIV_REQUIRES "${priv_requires}"
     REQUIRES "${requires}"
     )
+
+if(IDF_BUILD_V2 AND CONFIG_PM_ENABLE)
+    idf_component_include(esp_pm)
+endif()
 
 # Add MBEDTLS_MAJOR_VERSION definition to the component library
 target_compile_definitions(${COMPONENT_LIB} INTERFACE MBEDTLS_MAJOR_VERSION=4)
@@ -123,7 +137,8 @@ if(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE)
     add_dependencies(${COMPONENT_LIB} custom_bundle)
 
 
-    target_add_binary_data(${COMPONENT_LIB} ${crt_bundle} BINARY)
+    # ALIGN 4: the offset table at the bundle head is 32-bit values
+    target_add_binary_data(${COMPONENT_LIB} ${crt_bundle} BINARY ALIGN 4)
     set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         APPEND PROPERTY ADDITIONAL_CLEAN_FILES
         "${crt_bundle}")
@@ -240,6 +255,7 @@ if(NOT ${IDF_TARGET} STREQUAL "linux")
         target_link_libraries(tfpsacrypto PRIVATE "$<$<TARGET_EXISTS:idf::nvs_flash>:idf::nvs_flash>")
         # Define compile definition to indicate ESP-IDF PSA ITS implementation is available
         target_compile_definitions(tfpsacrypto PUBLIC "$<$<TARGET_EXISTS:idf::nvs_flash>:ESP_PSA_ITS_AVAILABLE>")
+        target_include_directories(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/psa_crypto_storage/include")
     else()
         # For v1: check if component is in build before adding source and linking
         idf_build_get_property(build_components BUILD_COMPONENTS)
@@ -248,6 +264,7 @@ if(NOT ${IDF_TARGET} STREQUAL "linux")
             idf_component_get_property(nvs_flash_lib nvs_flash COMPONENT_LIB)
             target_link_libraries(tfpsacrypto PRIVATE ${nvs_flash_lib})
             target_compile_definitions(tfpsacrypto PUBLIC ESP_PSA_ITS_AVAILABLE)
+            target_include_directories(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/psa_crypto_storage/include")
         endif()
     endif()
 endif()
@@ -362,8 +379,11 @@ if(CONFIG_SOC_SHA_GDMA OR CONFIG_SOC_AES_GDMA)
 endif()
 
 if((SHA_PERIPHERAL_TYPE STREQUAL "core" AND CONFIG_SOC_SHA_SUPPORT_DMA) OR AES_PERIPHERAL_TYPE STREQUAL "dma")
+    target_link_libraries(tfpsacrypto PRIVATE idf::esp_hw_support)
+    target_link_libraries(builtin PRIVATE idf::esp_hw_support)
     target_link_libraries(tfpsacrypto PRIVATE idf::esp_mm)
     target_link_libraries(builtin PRIVATE idf::esp_mm)
+    target_link_libraries(tfpsacrypto PRIVATE idf::esp_mspi)
     if(CONFIG_SOC_SHA_GDMA OR CONFIG_SOC_AES_GDMA)
         if(CONFIG_SOC_AXI_DMA_EXT_MEM_ENC_ALIGNMENT)
             target_link_libraries(tfpsacrypto PRIVATE idf::bootloader_support)
@@ -390,7 +410,6 @@ if(CONFIG_SOC_SHA_SUPPORTED)
     if(CONFIG_MBEDTLS_HARDWARE_SHA)
         target_sources(tfpsacrypto PRIVATE
             "${COMPONENT_DIR}/port/psa_driver/esp_sha/psa_crypto_driver_esp_sha.c"
-            "${COMPONENT_DIR}/port/psa_driver/esp_sha/${SHA_PERIPHERAL_TYPE}/psa_crypto_driver_esp_sha256.c"
             "${COMPONENT_DIR}/port/psa_driver/esp_sha/${SHA_PERIPHERAL_TYPE}/psa_crypto_driver_esp_sha512.c"
             "${COMPONENT_DIR}/port/sha/esp_sha.c"
             "${COMPONENT_DIR}/port/psa_driver/esp_mac/psa_crypto_driver_esp_hmac_transparent.c"
@@ -398,6 +417,7 @@ if(CONFIG_SOC_SHA_SUPPORTED)
     endif()
     target_sources(tfpsacrypto PRIVATE
             "${COMPONENT_DIR}/port/psa_driver/esp_sha/${SHA_PERIPHERAL_TYPE}/psa_crypto_driver_esp_sha1.c"
+            "${COMPONENT_DIR}/port/psa_driver/esp_sha/${SHA_PERIPHERAL_TYPE}/psa_crypto_driver_esp_sha256.c"
             "${COMPONENT_DIR}/port/sha/${SHA_PERIPHERAL_TYPE}/sha.c"
     )
 endif()
@@ -460,8 +480,12 @@ if(CONFIG_SOC_ECC_SUPPORTED)
     endif()
 endif()
 
-if(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN OR CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY OR CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
-    target_sources(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/psa_driver/esp_ecdsa/psa_crypto_driver_esp_ecdsa.c")
+if(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN OR CONFIG_MBEDTLS_HARDWARE_ECDSA_VERIFY
+        OR CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
+    target_sources(tfpsacrypto PRIVATE
+        "${COMPONENT_DIR}/port/psa_driver/esp_ecdsa/psa_crypto_driver_esp_ecdsa.c"
+        "${COMPONENT_DIR}/port/psa_driver/esp_ecdsa/psa_crypto_driver_esp_ecdsa_transparent.c"
+    )
     target_include_directories(tfpsacrypto PUBLIC "${COMPONENT_DIR}/port/psa_driver/include")
     target_link_libraries(tfpsacrypto PRIVATE idf::efuse)
     if(CONFIG_MBEDTLS_TEE_SEC_STG_ECDSA_SIGN)
@@ -472,6 +496,12 @@ endif()
 if(CONFIG_MBEDTLS_USE_CRYPTO_ROM_IMPL)
     target_sources(tfpsacrypto PRIVATE "${COMPONENT_DIR}/port/mbedtls_rom/mbedtls_rom_osi.c")
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-u mbedtls_rom_osi_functions_init")
+endif()
+
+if(CONFIG_MBEDTLS_SECURE_ELEMENT_DRIVER_ENABLED)
+    target_sources(tfpsacrypto PRIVATE
+        "${COMPONENT_DIR}/port/psa_driver/secure_element/psa_crypto_driver_secure_element.c")
+    target_include_directories(tfpsacrypto PUBLIC "${COMPONENT_DIR}/port/psa_driver/include")
 endif()
 
 if(CONFIG_COMPILER_STATIC_ANALYZER AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -500,6 +530,7 @@ if(CONFIG_MBEDTLS_DYNAMIC_BUFFER)
         mbedtls_ssl_handshake_client_step
         mbedtls_ssl_tls13_handshake_client_step
         mbedtls_ssl_handshake_server_step
+        mbedtls_ssl_tls13_handshake_server_step
         mbedtls_ssl_read
         mbedtls_ssl_write
         mbedtls_ssl_free
@@ -522,10 +553,17 @@ target_link_libraries(${COMPONENT_LIB} ${linkage_type} ${mbedtls_link_targets})
 
 # Ensure PSA crypto initialization is included in the build.
 # On macOS (Mach-O), C symbols have a leading underscore prefix.
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" AND ${IDF_TARGET} STREQUAL "linux")
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND ${IDF_TARGET} STREQUAL "linux")
     target_link_libraries(${COMPONENT_LIB} ${linkage_type} "-u _mbedtls_psa_crypto_init_include_impl")
 else()
     target_link_libraries(${COMPONENT_LIB} ${linkage_type} "-u mbedtls_psa_crypto_init_include_impl")
+endif()
+
+# Force-link esp_mem.c so esp_mbedtls_mem_calloc/free are present whenever
+# mbedtls is in the link. Without this, link order breaks for apps that pull
+# mbedtls but don't call any mbedtls function
+if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND ${IDF_TARGET} STREQUAL "linux"))
+    target_link_libraries(${COMPONENT_LIB} ${linkage_type} "-u esp_mbedtls_mem_calloc")
 endif()
 
 # Additional optional dependencies for the mbedcrypto library
@@ -540,11 +578,6 @@ endfunction()
 if(CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN_CONSTANT_TIME_CM)
     target_link_libraries(tfpsacrypto PRIVATE idf::esp_timer)
 endif()
-
-# # Link esp-cryptoauthlib to mbedtls
-# if(CONFIG_ATCA_MBEDTLS_ECDSA)
-#     mbedcrypto_optional_deps(espressif__esp-cryptoauthlib esp-cryptoauthlib)
-# endif()
 
 # Apply -fno-analyzer to ALL mbedTLS targets at the very end when all targets are created
 if(CONFIG_COMPILER_STATIC_ANALYZER AND CMAKE_C_COMPILER_ID STREQUAL "GNU")

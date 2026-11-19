@@ -85,24 +85,23 @@ static HEAP_IRAM_ATTR __attribute__((noinline)) void get_call_stack(void **calle
 
 #else // !CONFIG_IDF_TARGET_ARCH_XTENSA
 
-extern uint32_t esp_fp_get_callers(uint32_t frame, void** callers, void** stacks, uint32_t depth);
-
 static HEAP_IRAM_ATTR __attribute__((noinline)) void get_call_stack(void **callers)
 {
+#if STACK_DEPTH == 0
+    /* alloced_by[] / freed_by[] are empty — nothing to capture;
+     * writing callers[0] would smash the caller's stack. */
+    (void)callers;
+#else
     uint32_t fp = (uint32_t) __builtin_frame_address(0);
     memset(callers, 0, sizeof(void *) * STACK_DEPTH);
 
-#if CONFIG_ESP_SYSTEM_USE_FRAME_POINTER
     /* We can skip the current return address since this function won't be inlined */
+    uint32_t esp_fp_get_callers(uint32_t, void **, void **, uint32_t);
     esp_fp_get_callers(fp, callers, NULL, STACK_DEPTH);
-#else
-    /* RISC-V compiler doesn't support `__builtin_frame_address` with a parameter bigger than 0 */
-    callers[0] = (void*) fp;
 #endif
 }
 
-#endif
-
+#endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
 
 ESP_STATIC_ASSERT(STACK_DEPTH >= 0 && STACK_DEPTH <= 32, "CONFIG_HEAP_TRACING_STACK_DEPTH must be in range 0-32");
 
@@ -112,6 +111,7 @@ typedef enum {
 } trace_malloc_mode_t;
 
 void *__real_heap_caps_malloc_base( size_t size, uint32_t caps);
+void *__real_heap_caps_calloc_base(size_t n, size_t size, uint32_t caps);
 void *__real_heap_caps_realloc_base( void *ptr, size_t size, uint32_t caps);
 void *__real_heap_caps_aligned_alloc_base(size_t alignment, size_t size, uint32_t caps);
 void __real_heap_caps_free(void *p);
@@ -132,6 +132,28 @@ static HEAP_IRAM_ATTR __attribute__((noinline)) void *trace_malloc(size_t alignm
         .address = p,
         .ccount = ccount,
         .size = size,
+        .freed = false,
+    };
+    get_call_stack(rec.alloced_by);
+    record_allocation(&rec);
+    return p;
+}
+
+/* trace any 'calloc' event */
+static HEAP_IRAM_ATTR __attribute__((noinline)) void *trace_calloc(size_t n, size_t size, uint32_t caps)
+{
+    uint32_t ccount = get_ccount();
+    size_t size_bytes;
+    void *p = __real_heap_caps_calloc_base(n, size, caps);
+
+    if (__builtin_mul_overflow(n, size, &size_bytes)) {
+        size_bytes = 0;
+    }
+
+    heap_trace_record_t rec = {
+        .address = p,
+        .ccount = ccount,
+        .size = size_bytes,
         .freed = false,
     };
     get_call_stack(rec.alloced_by);
@@ -187,6 +209,11 @@ HEAP_IRAM_ATTR void *__wrap_heap_caps_realloc_base(void *ptr, size_t size, uint3
 HEAP_IRAM_ATTR void *__wrap_heap_caps_malloc_base(size_t size, uint32_t caps)
 {
     return trace_malloc(0, size, caps, TRACE_MALLOC_DEFAULT);
+}
+
+HEAP_IRAM_ATTR void *__wrap_heap_caps_calloc_base(size_t n, size_t size, uint32_t caps)
+{
+    return trace_calloc(n, size, caps);
 }
 
 HEAP_IRAM_ATTR void *__wrap_heap_caps_aligned_alloc_base(size_t alignment, size_t size, uint32_t caps)

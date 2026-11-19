@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -149,6 +149,14 @@ __attribute__((always_inline)) static inline uint32_t efuse_ll_get_rtc_ldo_act_d
     return EFUSE.rd_blk2_data5.rtc_ldo_act_dbias13;
 }
 
+__attribute__((always_inline)) static inline uint32_t efuse_ll_get_coding_error(unsigned index)
+{
+    if (index == 0) {
+        return EFUSE.rd_repeat_err.val;
+    }
+    return EFUSE.rd_rs_err.val;
+}
+
 /******************* eFuse control functions *************************/
 
 __attribute__((always_inline)) static inline bool efuse_ll_get_read_cmd(void)
@@ -206,6 +214,7 @@ __attribute__((always_inline)) static inline void efuse_ll_set_tpgm_inactive(uin
 {
     HAL_FORCE_MODIFY_U32_REG_FIELD(EFUSE.wr_tim_conf0, tpgm_inactive, value);
 }
+
 /******************* eFuse control functions *************************/
 
 #ifdef __cplusplus

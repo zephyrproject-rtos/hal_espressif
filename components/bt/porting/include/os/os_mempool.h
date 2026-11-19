@@ -195,9 +195,25 @@ typedef __uint128_t os_membuf_t;
 #endif /* OS_ALIGNMENT == * */
 #define OS_MEMPOOL_SIZE(n,blksize)      ((((blksize) + ((OS_ALIGNMENT)-1)) / (OS_ALIGNMENT)) * (n))
 
-/** Calculates the number of bytes required to initialize a memory pool. */
+/**
+ * Calculates the number of bytes required to initialize a memory pool.
+ * When OS_MEMPOOL_GUARD is enabled, one extra os_membuf_t word per block is
+ * included for the guard pattern written by os_mempool_init; the buffer passed
+ * to os_mempool_init must be at least this size.
+ */
+#if CONFIG_BT_NIMBLE_ENABLED
+#if MYNEWT_VAL(OS_MEMPOOL_GUARD)
+#define OS_MEMPOOL_BYTES(n,blksize)     \
+    (sizeof (os_membuf_t) * (OS_MEMPOOL_SIZE((n), (blksize)) + (n)))
+#else
 #define OS_MEMPOOL_BYTES(n,blksize)     \
     (sizeof (os_membuf_t) * OS_MEMPOOL_SIZE((n), (blksize)))
+#endif
+#else
+/* When NimBLE is disabled, provide basic macro without guard support */
+#define OS_MEMPOOL_BYTES(n,blksize)     \
+    (sizeof (os_membuf_t) * OS_MEMPOOL_SIZE((n), (blksize)))
+#endif
 
 /**
  * Initialize a memory pool.
@@ -357,6 +373,29 @@ void os_mempool_flags_set(struct os_mempool *mp, uint8_t flags);
  * @param flags Flags value
  */
 void os_mempool_flags_clear(struct os_mempool *mp, uint8_t flags);
+
+/**
+ * @brief Deinitialize a memory pool.
+ *
+ * @param mp Pointer to memory pool
+ */
+void os_mempool_deinit(struct os_mempool *mp);
+
+ /**
+ * @brief Deinitialize all of memory pools.
+ *
+ * @param is_controller Whether called from controller.
+ *
+ * @return OS_OK on success; OS_INVALID_PARM if not found corresponding memory pools.
+ */
+os_error_t os_mempool_deinit_all(bool is_controller);
+
+/**
+ * @brief Check if there are any live memory pools.
+ *
+ * @return true if there are any live memory pools; false otherwise.
+ */
+bool os_mempool_has_live_pool(void);
 
 #ifdef __cplusplus
 }

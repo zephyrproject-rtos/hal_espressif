@@ -40,6 +40,7 @@ extern "C" {
 #define TEMPERATURE_SENSOR_LL_ADC_FACTOR_INT     (4386)
 #define TEMPERATURE_SENSOR_LL_DAC_FACTOR_INT     (278800)
 #define TEMPERATURE_SENSOR_LL_OFFSET_FACTOR_INT  (205200)
+#define TEMPERATURE_SENSOR_LL_OFFSET_SCALE        (10)
 #define TEMPERATURE_SENSOR_LL_DENOMINATOR    (10000)
 #define TEMPERATURE_SENSOR_LL_MEASURE_MAX    (125)
 #define TEMPERATURE_SENSOR_LL_MEASURE_MIN    (-40)
@@ -279,7 +280,8 @@ static inline void temperature_sensor_ll_set_sample_rate(uint16_t rate)
  */
 static inline int temperature_sensor_ll_load_calib_param(void)
 {
-    return 0; // IDF-15117
+    uint32_t cal_temp = EFUSE.rd_mac_sys5.temp_calib;
+    return (cal_temp & BIT(9)) ? -(int)(cal_temp & ~BIT(9)) : (int)cal_temp;
 }
 
 /**

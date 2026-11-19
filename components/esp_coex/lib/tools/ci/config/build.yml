@@ -1,0 +1,28 @@
+build_ssc_esp32:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp-env-v5.4:1
+  tags:
+     - wlan_feature
+
+  artifacts:
+    paths:
+     - ${board}-${CI_PIPELINE_ID}.debug.tar.gz
+    expire_in: 1 week
+  
+  only:
+    refs:
+     - triggers     
+   
+  script:
+    - rm -rf /tmp/esp_coex_lib
+    - mkdir /tmp/esp_coex_lib
+    - cp -rf * /tmp/esp_coex_lib
+    - coex_lib_path=`grep -B 1 esp-coex-lib .gitmodules | grep path | cut -d' ' -f3`
+    - cd $CI_PROJECT_DIR
+    - rm -rf esp-idf/$coex_lib_path/*
+    - cp -rf /tmp/esp_coex_lib/* esp-idf/$coex_lib_path/.
+    - if [[ "${BOT_CUSTOMIZED_REVISION}" ]] && [[ "$BOT_CUSTOMIZED_REVISION" == *"ssc"* ]]; then SSC_BRANCH=$(python -c 'import os;print eval(os.environ["BOT_CUSTOMIZED_REVISION"])["ssc"]') ; fi
+    - echo Cloning SSC - ${SSC_BRANCH} ...
+    - git clone --recursive --single-branch -b $SSC_BRANCH --dissociate ${GITLAB_SSH_SERVER}/yinling/SSC.git
+    - chmod +x tools/ci/build_app.sh
+    - ./tools/ci/build_app.sh

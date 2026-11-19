@@ -79,6 +79,10 @@ config ESP_ROM_HAS_NEWLIB_NANO_PRINTF_FLOAT_BUG
     bool
     default y
 
+config ESP_ROM_HAS_LIBGCC
+    bool
+    default y
+
 config ESP_ROM_HAS_VERSION
     bool
     default y
@@ -104,6 +108,10 @@ config ESP_ROM_HAS_OUTPUT_PUTC_FUNC
     default y
 
 config ESP_ROM_HAS_SUBOPTIMAL_NEWLIB_ON_MISALIGNED_MEMORY
+    bool
+    default y
+
+config ESP_ROM_ECDSA_VERIFY_PATCH
     bool
     default y
 

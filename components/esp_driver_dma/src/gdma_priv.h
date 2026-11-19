@@ -12,7 +12,7 @@
 #include "esp_private/sleep_retention.h"
 #include <zephyr/sys/util.h>
 
-#if SOC_PHY_SUPPORTED
+#if SOC_PM_SUPPORT_PMU_MODEM_STATE
 #define GDMA_RETENTION_ENTRY    (ENTRY(0) | ENTRY(2))
 #else
 #define GDMA_RETENTION_ENTRY    (ENTRY(0))

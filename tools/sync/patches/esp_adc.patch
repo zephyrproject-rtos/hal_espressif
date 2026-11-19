@@ -1,16 +1,35 @@
 --- a/components/esp_adc/adc_cali.c
 +++ b/components/esp_adc/adc_cali.c
-@@ -5,7 +5,6 @@
-  */
+@@ -62,7 +62,7 @@
+         return ret;
+     }
+     handle->ctx = NULL;
+-    free(handle);
++    heap_caps_free(handle);
  
- #include <string.h>
--#include <sys/cdefs.h>
- #include "esp_types.h"
- #include "sdkconfig.h"
- #include "esp_err.h"
+     return ESP_OK;
+ }
 --- a/components/esp_adc/adc_cali_curve_fitting.c
 +++ b/components/esp_adc/adc_cali_curve_fitting.c
-@@ -187,11 +187,17 @@
+@@ -97,7 +97,7 @@
+ 
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
+     }
+     return ret;
+ }
+@@ -110,7 +110,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
+ {
+-    free(arg);
++    heap_caps_free(arg);
+     return ESP_OK;
+ }
+ 
+@@ -176,11 +176,17 @@
          return 0;
      }
  
@@ -32,7 +51,7 @@
  
 --- a/components/esp_adc/adc_common.c
 +++ b/components/esp_adc/adc_common.c
-@@ -56,7 +56,7 @@
+@@ -58,7 +58,7 @@
  /*---------------------------------------------------------------
              ADC Hardware Calibration
  ---------------------------------------------------------------*/
@@ -41,3 +60,63 @@
  {
      ANALOG_CLOCK_ENABLE();
      //Calculate all ICode
+--- a/components/esp_adc/esp32/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32/adc_cali_line_fitting.c
+@@ -206,7 +206,7 @@
+ 
+ err:
+     if (chars) {
+-        free(chars);
++        heap_caps_free(chars);
+     }
+     return ret;
+ }
+@@ -234,7 +234,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
+ {
+-    free(arg);
++    heap_caps_free(arg);
+     return ESP_OK;
+ }
+ 
+--- a/components/esp_adc/esp32c2/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32c2/adc_cali_line_fitting.c
+@@ -78,7 +78,7 @@
+ 
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
+     }
+     return ret;
+ }
+@@ -91,7 +91,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
+ {
+-    free(arg);
++    heap_caps_free(arg);
+     return ESP_OK;
+ }
+ 
+--- a/components/esp_adc/esp32s2/adc_cali_line_fitting.c
++++ b/components/esp_adc/esp32s2/adc_cali_line_fitting.c
+@@ -109,7 +109,7 @@
+ 
+     ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+     if (ret != ESP_OK) {
+-        free(chars);
++        heap_caps_free(chars);
+     }
+     return ret;
+ }
+@@ -122,7 +122,7 @@
+ /* ------------------------ Interface Functions --------------------------- */
+ static esp_err_t delete_cali_ctx(void *arg)
+ {
+-    free(arg);
++    heap_caps_free(arg);
+     return ESP_OK;
+ }
+ 

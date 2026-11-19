@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -65,6 +65,7 @@ static inline void spimem_flash_ll_reset(spi_mem_dev_t *dev)
  *
  * @return true if last command is done, otherwise false.
  */
+__attribute__((always_inline))
 static inline bool spimem_flash_ll_cmd_is_done(const spi_mem_dev_t *dev)
 {
     return (dev->cmd.val == 0);
@@ -75,6 +76,7 @@ static inline bool spimem_flash_ll_cmd_is_done(const spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_ce = 1;
@@ -85,6 +87,7 @@ static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
 {
     dev->ctrl.val = 0;
@@ -96,6 +99,7 @@ static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_block(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_be = 1;
@@ -230,6 +234,23 @@ static inline void spimem_flash_ll_set_sus_delay(spi_mem_dev_t *dev, uint32_t dl
     dev->sus_status.flash_per_dly_128 = 1;
 }
 
+/**
+ * @brief Get trs unit values in SPI_CLK cycles
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @return uint32_t trs unit values
+ */
+static inline uint32_t spimem_flash_ll_get_trs_unit_in_cycles(spi_mem_dev_t *dev)
+{
+    uint32_t trs_unit = 0;
+    if (dev->sus_status.flash_per_dly_128 == 1) {
+        trs_unit = 128;
+    } else {
+        trs_unit = 4;
+    }
+    return trs_unit;
+}
+
 #if (HAL_CONFIG(CHIP_SUPPORT_MIN_REV) >= 300)
 /**
  * Configure the delay after Resume
@@ -240,7 +261,6 @@ static inline void spimem_flash_ll_set_sus_delay(spi_mem_dev_t *dev, uint32_t dl
 static inline void spimem_flash_ll_set_rs_delay(spi_mem_dev_t *dev, uint32_t dly_val)
 {
     dev->ctrl1.cs_hold_dly_per = dly_val;
-    dev->sus_status.flash_per_dly_128 = 1;
 }
 #endif
 
@@ -348,6 +368,7 @@ static inline void spimem_flash_ll_set_write_protect(spi_mem_dev_t *dev, bool wp
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_dp = 1;
@@ -358,6 +379,7 @@ static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_exit_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_res = 1;
@@ -419,6 +441,7 @@ static inline void spimem_flash_ll_set_buffer_data(spi_mem_dev_t *dev, const voi
  * @param buffer Buffer holding the data to program
  * @param length Length to program.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_program_page(spi_mem_dev_t *dev, const void *buffer, uint32_t length)
 {
     dev->user.usr_dummy = 0;
@@ -614,6 +637,7 @@ static inline void spimem_flash_ll_set_extra_address(spi_mem_dev_t *dev, uint32_
  * @param dev Beginning address of the peripheral registers.
  * @param addr Address to send
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_set_address(spi_mem_dev_t *dev, uint32_t addr)
 {
     dev->addr = addr;

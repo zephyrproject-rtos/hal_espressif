@@ -27,6 +27,22 @@
 
 ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk_init");
 
+static inline void rtc_clk_pll_disable(rtc_clk_config_t cfg)
+{
+    if (cfg.disable_apll) {
+        clk_ll_apll_disable();
+    }
+    if (cfg.disable_mpll) {
+        clk_ll_mpll_disable();
+    }
+    if (cfg.disable_cpll) {
+        clk_ll_cpll_disable();
+    }
+    if (cfg.disable_bbpll) {
+        clk_ll_bbpll_disable();
+    }
+}
+
 void rtc_clk_init(rtc_clk_config_t cfg)
 {
     rtc_cpu_freq_config_t old_config, new_config;
@@ -49,6 +65,9 @@ void rtc_clk_init(rtc_clk_config_t cfg)
     // XTAL freq determined by efuse, and can be directly informed from register field LP_AONCLKRST_CLK_XTAL_FREQ
 
     // No need to wait UART0 TX idle since its default clock source is XTAL, should not be affected by system clock configuration
+
+    /* Disable PLLs to save power, the PLLs will be enabled by the user in application code */
+    rtc_clk_pll_disable(cfg);
 
     /* Set CPU frequency */
     rtc_clk_cpu_freq_get_config(&old_config);

@@ -216,7 +216,7 @@ void phy_ant_clr_update_flag(void);
  */
 void phy_ant_update(void);
 
-#if SOC_PM_SUPPORT_PMU_MODEM_STATE
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 /**
  * @brief Get the REGDMA config value of the BBPLL in analog i2c master burst mode
  *
@@ -256,7 +256,7 @@ void esp_phy_modem_rf_flag_update(void);
 
 #if SOC_PM_MODEM_RETENTION_BY_REGDMA && CONFIG_MAC_BB_PD
 /**
- * @brief PHY module sleep data (includes AGC, TX, NRX, BB, FE, etc..) initialize.
+ * @brief PHY module sleep data (includes AGC, TX, NRX, BB, etc..) initialize.
  */
 void esp_phy_sleep_data_init(void);
 
@@ -290,6 +290,10 @@ void esp_phy_sleep_data_deinit(void);
  */
 void phy_wait_freq_hw_hop_done(void);
 
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+void phy_regi2c_lock_apply(bool enable);
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+
 #if CONFIG_ESP_PHY_PLL_TRACK_TEMP_DEBUG
 /**
  * @brief Set the temperature delta for PHY track pll
@@ -298,6 +302,29 @@ void phy_wait_freq_hw_hop_done(void);
  * @param     track_temp   Temperature delta for PHY temperature tracking
  */
 void phy_track_temp_debug(uint8_t debug_flag, uint8_t track_temp);
+#endif
+#if SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_ESP_PHY_HW_SWITCH_RF)
+/**
+ * @brief PHY module common memory (FE) initialize
+ *
+ */
+esp_err_t esp_phy_fe_sleep_data_init(void);
+
+/**
+ * @brief PHY module common memory (FE) de-initialize
+ *
+ */
+void esp_phy_fe_sleep_data_deinit(void);
+#endif // SOC_PM_MODEM_RETENTION_BY_REGDMA && (CONFIG_MAC_BB_PD || CONFIG_ESP_PHY_HW_SWITCH_RF)
+
+#if CONFIG_ESP_PHY_MULTIPLE_INIT_DATA_BIN
+/**
+ * @brief Get the PHY init data type that is currently applied to the PHY
+ *
+ * @return the applied init data type, ESP_PHY_INIT_DATA_TYPE_DEFAULT as long as no
+ *         certified init data has been selected by a country code
+ */
+phy_init_data_type_t esp_phy_get_init_data_type(void);
 #endif
 
 #ifdef __cplusplus

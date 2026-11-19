@@ -97,6 +97,7 @@ extern "C" {
 #define SDMMC_LL_SDR50_SUPPORTED                      1
 
 #define SDMMC_LL_DEFAULT_DIV                          8
+#define SDMMC_LL_DMA_BURST_SIZE_DEFAULT               64
 
 /**
  * SDMMC delay phase
@@ -233,14 +234,20 @@ static inline void sdmmc_ll_mem_set_low_power_mode(sdmmc_dev_t *dev, sdmmc_ll_me
 /**
  * @brief Set SDMMC pad pin dedicated ctrl
  *
+ * Enable it when the slot is in use, disable it when the slot is released, so
+ * that the pads can be used as normal GPIOs again.
+ *
  * @param dev Peripheral instance address
+ * @param slot Slot index
  * @param enable True to enable, False to disable
  */
-static inline void sdmmc_ll_pad_set_pin_dedicated_ctrl(sdmmc_dev_t *dev, bool enable)
+static inline void sdmmc_ll_pad_set_pin_dedicated_ctrl(sdmmc_dev_t *dev, uint32_t slot, bool enable)
 {
-    CNNT_PAD_CTRL.ctrl.sdio_pad_pin_ctrl_ded_sel = enable;
+    // only slot 0 is routed to the dedicated SDIO pads, slot 1 doesn't rely on this bit
+    if (slot == 0) {
+        CNNT_PAD_CTRL.ctrl.sdio_pad_pin_ctrl_ded_sel = enable;
+    }
 }
-
 /// use a macro to wrap the function, force the caller to use it in a critical section
 /// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
 #define sdmmc_ll_pad_set_pin_dedicated_ctrl(...) do { \
@@ -818,6 +825,20 @@ static inline void sdmmc_ll_init_dma(sdmmc_dev_t *hw)
     hw->fifoth.dma_multiple_transaction_size = 0x5;
     hw->bmod.bmod_fb = 1;
     hw->bmod.bmod_pbl = 0x7;
+}
+
+/**
+ * @brief Set the burst size of the internal DMA
+ *
+ * @param hw          hardware instance address
+ * @param burst_size  burst size in bytes, 1 to disable the data burst,
+ *                    otherwise a power of two between 4 and 256
+ */
+static inline void sdmmc_ll_set_dma_burst_size(sdmmc_dev_t *hw, size_t burst_size)
+{
+    HAL_ASSERT(burst_size == 1 ||
+               (burst_size >= 4 && burst_size <= 256 && (burst_size & (burst_size - 1)) == 0));
+    hw->fifoth.dma_multiple_transaction_size = (burst_size == 1) ? 0 : (__builtin_ctz(burst_size) - 1);
 }
 
 /**

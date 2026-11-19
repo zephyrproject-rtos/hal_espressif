@@ -40,6 +40,14 @@ esp_err_t esp_ieee802154_enable(void);
 esp_err_t esp_ieee802154_disable(void);
 
 /**
+ * @brief  Get the receive sensitivity.
+ *
+ * @return The receive sensitivity in dBm.
+ *
+ */
+int8_t esp_ieee802154_get_receive_sensitivity(void);
+
+/**
  * @brief  Get the operational channel.
  *
  * @return The channel number (11~26).
@@ -279,98 +287,6 @@ esp_err_t esp_ieee802154_get_extended_address(uint8_t *ext_addr);
 esp_err_t esp_ieee802154_set_extended_address(const uint8_t *ext_addr);
 
 /**
- * @brief  Get the device PAN ID for specific interface.
- *
- * @param[in]  index  The interface index.
- *
- * @return  The device PAN ID.
- *
- */
-uint16_t esp_ieee802154_get_multipan_panid(esp_ieee802154_multipan_index_t index);
-
-/**
- * @brief  Set the device PAN ID for specific interface.
- *
- * @param[in]  index  The interface index.
- * @param[in]  panid  The device PAN ID.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_set_multipan_panid(esp_ieee802154_multipan_index_t index, uint16_t panid);
-
-/**
- * @brief  Get the device short address for specific interface.
- *
- * @param[in]  index  The interface index.
- *
- * @return  The device short address.
- *
- */
-uint16_t esp_ieee802154_get_multipan_short_address(esp_ieee802154_multipan_index_t index);
-
-/**
- * @brief  Set the device short address for specific interface.
- *
- * @param[in]  index  The interface index.
- * @param[in]  short_address  The device short address.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_set_multipan_short_address(esp_ieee802154_multipan_index_t index, uint16_t short_address);
-
-/**
- * @brief  Get the device extended address for specific interface.
- *
- * @param[in]  index  The interface index.
- * @param[out]  ext_addr  The pointer to the device extended address. Must not be NULL.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_ERR_INVALID_ARG if ext_addr is NULL.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_get_multipan_extended_address(esp_ieee802154_multipan_index_t index, uint8_t *ext_addr);
-
-/**
- * @brief  Set the device extended address for specific interface.
- *
- * @param[in]  index  The interface index.
- * @param[in]  ext_addr  The pointer to the device extended address. Must not be NULL.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_ERR_INVALID_ARG if addr is NULL.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_set_multipan_extended_address(esp_ieee802154_multipan_index_t index, const uint8_t *ext_addr);
-
-/**
- * @brief  Get the device current multipan interface enable mask.
- *
- * @return  Current multipan interface enable mask.
- *
- */
-uint8_t esp_ieee802154_get_multipan_enable(void);
-
-/**
- * @brief Enable specific interface for the device.
- *
- * As an example, call `esp_ieee802154_set_multipan_enable(BIT(ESP_IEEE802154_MULTIPAN_0) | BIT(ESP_IEEE802154_MULTIPAN_1));`
- * to enable multipan interface 0 and 1.
- *
- * @param[in]  mask  The multipan interface bit mask.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_set_multipan_enable(uint8_t mask);
-
-/**
  * @brief  Get the device coordinator.
  *
  * @return
@@ -607,6 +523,8 @@ extern void esp_ieee802154_receive_at_done(void);
  * @brief  Set the IEEE 802.15.4 Radio to receive state at a specific time, for a specific duration.
  *
  * @note   Radio will start receiving after the timestamp, and continue receiving for the specific duration.
+ * @note   If a duration is specified and the target end time (time + duration) is earlier than the current
+ *         time, the receive window has already expired and no operation will be performed.
  *
  * @param[in]  time      A specific timestamp for starting receiving.
  * @param[in]  duration  A specific duration after which to stop receiving. Set duration = 0 to rx indefinitely.
@@ -659,7 +577,7 @@ uint8_t esp_ieee802154_get_recent_lqi(void);
  *
  * @return
  *      - ESP_OK on success.
- *      - ESP_ERR_INVALID_ARG if frame, key, or addr is NULL.
+ *      - ESP_ERR_INVALID_ARG if frame, key, or addr is NULL, or if the frame security payload offset is invalid.
  *      - ESP_FAIL on failure.
  */
 esp_err_t esp_ieee802154_set_transmit_security(uint8_t *frame, uint8_t *key, uint8_t *addr);
@@ -671,6 +589,10 @@ esp_err_t esp_ieee802154_set_transmit_security(uint8_t *frame, uint8_t *key, uin
  * @param[in]  frame          The received frame. Must not be NULL.
  * @param[in]  frame_info     The frame information. Refer to `esp_ieee802154_frame_info_t`.
  * @param[out] enhack_frame   The Enh-ack frame need to be generated via this function, HW will send it back after AIFS.
+ *
+ * @warning The buffer pointed to by `enhack_frame` is 128 bytes long. Byte 0 stores the PSDU length, and bytes 1 to 127
+ *          store the PSDU. The callback must not write beyond `enhack_frame[127]` and must not set `enhack_frame[0]`
+ *          to a value greater than 127.
  *
  * @return
  *        - ESP_OK if Enh-Ack generates done.
@@ -768,80 +690,6 @@ esp_err_t esp_ieee802154_event_callback_list_register(esp_ieee802154_event_cb_li
  *
  */
 esp_err_t esp_ieee802154_event_callback_list_unregister(void);
-
-/**
- * @brief  Add a pending address to the multipan table for the specified interface.
- *
- * @note   This API should be called only when the IEEE 802.15.4 subsystem is enabled.
- *
- * @param  inf_index  Index of the interface.
- * @param  addr       Pointer to the address to add.
- * @param  is_short   True if the address is a short address, false if extended.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_multipan_add_pending_addr(esp_ieee802154_multipan_index_t inf_index, const uint8_t *addr, bool is_short);
-
-/**
- * @brief  Remove a pending address from the multipan table for the specified interface.
- *
- * @note   This API should be called only when the IEEE 802.15.4 subsystem is enabled.
- *
- * @param  inf_index  Index of the interface.
- * @param  addr       Pointer to the address to remove.
- * @param  is_short   True if the address is a short address, false if extended.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_multipan_clear_pending_addr(esp_ieee802154_multipan_index_t inf_index, const uint8_t *addr, bool is_short);
-
-/**
- * @brief  Reset the pending address table for the specified interface.
- *
- * @note   This API clears all pending addresses of the specified type (short or extended) for the interface.
- *
- * @param  inf_index  Index of the interface.
- * @param  is_short   True to reset short addresses, false to reset extended addresses.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_multipan_reset_pending_table(esp_ieee802154_multipan_index_t inf_index, bool is_short);
-
-/**
- * @brief  Get the auto frame pending mode of the specified multipan interface.
- *
- * @note   This API returns the logical pending mode configured for a given multipan
- *         interface. The value is used by the ACK generation logic together with the
- *         per-interface pending address table.
- *
- * @param  inf_index  Index of the multipan interface.
- *
- * @return
- *      - Current pending mode of type refer to esp_ieee802154_pending_mode_t
- */
-esp_ieee802154_pending_mode_t esp_ieee802154_multipan_get_pending_mode(esp_ieee802154_multipan_index_t inf_index);
-
-/**
- * @brief  Set the auto frame pending mode of the specified multipan interface.
- *
- * @note   This API configures the logical pending mode for a given multipan interface.
- *         The configured mode is used by the ACK generation logic together with the
- *         per-interface pending address table.
- *
- * @param  inf_index      Index of the multipan interface.
- * @param  pending_mode   Pending mode to set for this interface.
- *
- * @return
- *      - ESP_OK on success.
- *      - ESP_FAIL on failure.
- */
-esp_err_t esp_ieee802154_multipan_set_pending_mode(esp_ieee802154_multipan_index_t inf_index, esp_ieee802154_pending_mode_t pending_mode);
 
 #ifdef __cplusplus
 }

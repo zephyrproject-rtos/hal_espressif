@@ -21,7 +21,6 @@
 #include "soc/spi_struct.h"
 #include "soc/spi_reg.h"
 #include "soc/dport_reg.h"
-#include "soc/lldesc.h"
 #include "soc/soc_caps.h"
 #include "hal/assert.h"
 #include "hal/misc.h"
@@ -43,21 +42,20 @@ extern "C" {
 /// Swap the bit order to its correct place to send
 #define HAL_SPI_SWAP_DATA_TX(data, len) HAL_SWAP32((uint32_t)(data) << (32 - len))
 
-#define SPI_LL_PERIPH_CS_NUM(i)   (((i)==0)? 2: (((i)==1)? 6: 3))
-#define SPI_LL_DMA_CHANNEL_NUM    (3)
-#define SPI_LL_DMA_MAX_BIT_LEN    (1 << 23)    //reg len: 23 bits
-#define SPI_LL_CPU_MAX_BIT_LEN    (18 * 32)    //Fifo len: 18 words
-#define SPI_LL_TX_MINI_EXTRA_BITS 1            //Minimum length of TX non byte aligned data in bits
-#define SPI_LL_RX_MINI_EXTRA_BITS 8            //Minimum length of RX non byte aligned data in bits
-#define SPI_LL_MAX_PRE_DIV_NUM    (8192)
+#define SPI_LL_PERIPH_CS_NUM(i)         (((i)==0)? 2: (((i)==1)? 6: 3))
 #define SPI_LL_PERIPH_BITWIDTH(host)    ((host == 2) ? 1 : 8) // Supported line mode: SPI3: 1, SPI1/2: 1, 2, 4, 8
-#define SPI_LL_PERIPH_HAS_SCT(host)  ((host) == SPI2_HOST)  //If peripheral support SCT (DMA Segmented Configured Transaction) mode
-#define SPI_LL_MAX_SCT_CONF_LEN   0x7FFFFD     //23 bit wide reg
-#define SPI_LL_SCT_CONF_BUF_NUM   (1 + 27)     //1-word-bitmap + 27-word-regs according to TRM
-#define SPI_LL_MOSI_FREE_LEVEL    1            //Default level after bus initialized
-#define SPI_LL_DMA_SHARED         1            //spi_dma shared with adc and dac on S2
-
-#define SPI_LL_SUPPORT_SEG_GAP    1            // support update seg_gap_len by conf buffer
+#define SPI_LL_PERIPH_HAS_SCT(host)     ((host) == SPI2_HOST)  //If peripheral support SCT (DMA Segmented Configured Transaction) mode
+#define SPI_LL_DMA_CHANNEL_NUM          (3)
+#define SPI_LL_DMA_MAX_BIT_LEN          (1 << 23)    //reg len: 23 bits
+#define SPI_LL_CPU_MAX_BIT_LEN          (18 * 32)    //Fifo len: 18 words
+#define SPI_LL_TX_MINI_EXTRA_BITS       1            //Minimum length of TX non byte aligned data in bits
+#define SPI_LL_RX_MINI_EXTRA_BITS       8            //Minimum length of RX non byte aligned data in bits
+#define SPI_LL_MAX_PRE_DIV_NUM          (8192)
+#define SPI_LL_MAX_SCT_CONF_LEN         0x7FFFFD     //23 bit wide reg
+#define SPI_LL_SCT_CONF_BUF_NUM         (1 + 17)     //1-word-bitmap + 17-word-regs according to TRM (except some unused registers)
+#define SPI_LL_SCT_MAGIC_NUMBER         (0x2)
+#define SPI_LL_MOSI_FREE_LEVEL          1            //Default level after bus initialized
+#define SPI_LL_DMA_SHARED               1            //spi_dma shared with adc and dac on S2
 
 /**
  * The data structure holding calculated clock configuration. Since the
@@ -86,6 +84,7 @@ typedef enum {
     SPI_LL_INTR_CMD9 =          BIT(12),    ///< Has received CMD9 command. Only available in slave HD.
     SPI_LL_INTR_CMDA =          BIT(13),    ///< Has received CMDA command. Only available in slave HD.
     SPI_LL_INTR_SEG_DONE =      BIT(14),
+    SPI_LL_INTR_OUT_DONE =      BIT(15),    ///< DMA out_done triggered
 } spi_ll_intr_t;
 
 ///< Flags for conditions under which the transaction length should be recorded
@@ -356,6 +355,7 @@ static inline void spi_ll_cpu_rx_fifo_reset(spi_dev_t *hw)
  *
  * @param hw Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spi_ll_dma_tx_fifo_reset(spi_dev_t *hw)
 {
     hw->dma_conf.val |= SPI_LL_DMA_FIFO_RST_MASK;
@@ -369,6 +369,7 @@ static inline void spi_ll_dma_tx_fifo_reset(spi_dev_t *hw)
  *
  * @param hw Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spi_ll_dma_rx_fifo_reset(spi_dev_t *hw)
 {
     hw->dma_conf.val |= SPI_LL_DMA_FIFO_RST_MASK;
@@ -382,8 +383,8 @@ static inline void spi_ll_dma_rx_fifo_reset(spi_dev_t *hw)
  */
 static inline void spi_ll_infifo_full_clr(spi_dev_t *hw)
 {
-    hw->dma_conf.infifo_full_clr = 1;
-    hw->dma_conf.infifo_full_clr = 0;
+    hw->dma_conf.dma_infifo_full_clr = 1;
+    hw->dma_conf.dma_infifo_full_clr = 0;
 }
 
 /**
@@ -393,8 +394,8 @@ static inline void spi_ll_infifo_full_clr(spi_dev_t *hw)
  */
 static inline void spi_ll_outfifo_empty_clr(spi_dev_t *hw)
 {
-    hw->dma_conf.outfifo_empty_clr = 1;
-    hw->dma_conf.outfifo_empty_clr = 0;
+    hw->dma_conf.dma_outfifo_empty_clr = 1;
+    hw->dma_conf.dma_outfifo_empty_clr = 0;
 }
 
 /*------------------------------------------------------------------------------
@@ -668,7 +669,7 @@ static inline void spi_ll_master_set_line_mode(spi_dev_t *hw, spi_line_mode_t li
 
 static inline void spi_ll_slave_set_seg_mode(spi_dev_t *hw, bool seg_trans)
 {
-    hw->dma_conf.dma_seg_trans_en = seg_trans;
+    hw->dma_conf.dma_slv_seg_trans_en = seg_trans;
 }
 
 /**
@@ -889,6 +890,7 @@ static inline void spi_ll_set_dummy(spi_dev_t *hw, int dummy_n)
 {
     hw->user.usr_dummy = dummy_n ? 1 : 0;
     if (dummy_n > 0) {
+        hw->user.usr_dummy_idle = 0;
         HAL_FORCE_MODIFY_U32_REG_FIELD(hw->user1, usr_dummy_cyclelen, dummy_n - 1);
     }
 }
@@ -928,7 +930,7 @@ static inline void spi_ll_master_set_cs_setup(spi_dev_t *hw, uint8_t setup)
  */
 static inline void spi_ll_slave_set_seg_en(spi_dev_t *hw, bool en)
 {
-    hw->dma_conf.dma_seg_trans_en = en;
+    hw->dma_conf.dma_slv_seg_trans_en = en;
 }
 
 /*------------------------------------------------------------------------------
@@ -942,7 +944,9 @@ static inline void spi_ll_slave_set_seg_en(spi_dev_t *hw, bool en)
  */
 static inline void spi_ll_set_miso_bitlen(spi_dev_t *hw, size_t bitlen)
 {
-    hw->miso_dlen.usr_miso_bit_len = bitlen - 1;
+    if (bitlen) {
+        hw->miso_dlen.usr_miso_dbitlen = bitlen - 1;
+    }
 }
 
 /**
@@ -953,7 +957,9 @@ static inline void spi_ll_set_miso_bitlen(spi_dev_t *hw, size_t bitlen)
  */
 static inline void spi_ll_set_mosi_bitlen(spi_dev_t *hw, size_t bitlen)
 {
-    hw->mosi_dlen.usr_mosi_bit_len = bitlen - 1;
+    if (bitlen) {
+        hw->mosi_dlen.usr_mosi_dbitlen = bitlen - 1;
+    }
 }
 
 /**
@@ -1009,6 +1015,17 @@ static inline void spi_ll_set_addr_bitlen(spi_dev_t *hw, int bitlen)
 }
 
 /**
+ * Set the DDR mode for the SPI.
+ *
+ * @param hw     Beginning address of the peripheral registers.
+ * @param enable True to enable DDR mode, false to disable.
+ */
+static inline void spi_ll_enable_ddr_mode(spi_dev_t *hw, bool enable)
+{
+    hw->misc.clk_data_dtr_en = enable;
+}
+
+/**
  * Set the address value in an intuitive way.
  *
  * The length and lsbfirst is required to shift and swap the address to the right place.
@@ -1029,11 +1046,11 @@ static inline void spi_ll_set_address(spi_dev_t *hw, uint64_t addr, int addrlen,
         */
         addr = HAL_SWAP32(addr);
         //otherwise only addr register is sent
-        hw->addr = addr;
+        hw->addr.val = addr;
     } else {
         // shift the address to MSB of addr register.
         // output address will be sent from MSB to LSB of addr register
-        hw->addr = addr << (32 - addrlen);
+        hw->addr.val = addr << (32 - addrlen);
     }
 }
 
@@ -1103,7 +1120,7 @@ static inline void spi_ll_slave_reset(spi_dev_t *hw)
  */
 static inline uint32_t spi_ll_slave_get_rcv_bitlen(spi_dev_t *hw)
 {
-    return hw->slv_rd_byte.data_bytelen * 8;
+    return hw->slv_rd_byte.slv_data_bytelen * 8;
 }
 
 /*------------------------------------------------------------------------------
@@ -1113,20 +1130,21 @@ static inline uint32_t spi_ll_slave_get_rcv_bitlen(spi_dev_t *hw)
 #define FOR_EACH_ITEM(op, list) do { list(op) } while(0)
 #define INTR_LIST(item)    \
     item(SPI_LL_INTR_TRANS_DONE,    slave.int_trans_done_en,        slave.trans_done,               slave.trans_done=0) \
-    item(SPI_LL_INTR_RDBUF,         slave.int_rd_buf_done_en,       slv_rdbuf_dlen.rd_buf_done,     slv_rdbuf_dlen.rd_buf_done=0) \
-    item(SPI_LL_INTR_WRBUF,         slave.int_wr_buf_done_en,       slv_wrbuf_dlen.wr_buf_done,     slv_wrbuf_dlen.wr_buf_done=0) \
-    item(SPI_LL_INTR_RDDMA,         slave.int_rd_dma_done_en,       slv_rd_byte.rd_dma_done,        slv_rd_byte.rd_dma_done=0) \
-    item(SPI_LL_INTR_WRDMA,         slave.int_wr_dma_done_en,       slave1.wr_dma_done,             slave1.wr_dma_done=0) \
+    item(SPI_LL_INTR_RDBUF,         slave.int_rd_buf_done_en,       slv_rdbuf_dlen.slv_rd_buf_done,     slv_rdbuf_dlen.slv_rd_buf_done=0) \
+    item(SPI_LL_INTR_WRBUF,         slave.int_wr_buf_done_en,       slv_wrbuf_dlen.slv_wr_buf_done,     slv_wrbuf_dlen.slv_wr_buf_done=0) \
+    item(SPI_LL_INTR_RDDMA,         slave.int_rd_dma_done_en,       slv_rd_byte.slv_rd_dma_done,        slv_rd_byte.slv_rd_dma_done=0) \
+    item(SPI_LL_INTR_WRDMA,         slave.int_wr_dma_done_en,       slave1.slv_wr_dma_done,             slave1.slv_wr_dma_done=0) \
     item(SPI_LL_INTR_SEG_DONE,      slave.int_dma_seg_trans_en,     hold.dma_seg_trans_done,        hold.dma_seg_trans_done=0) \
-    item(SPI_LL_INTR_IN_SUC_EOF,    dma_int_ena.in_suc_eof,         dma_int_raw.in_suc_eof,         dma_int_clr.in_suc_eof=1) \
-    item(SPI_LL_INTR_OUT_EOF,       dma_int_ena.out_eof,            dma_int_raw.out_eof,            dma_int_clr.out_eof=1) \
-    item(SPI_LL_INTR_OUT_TOTAL_EOF, dma_int_ena.out_total_eof,      dma_int_raw.out_total_eof,      dma_int_clr.out_total_eof=1) \
-    item(SPI_LL_INTR_IN_FULL,       dma_int_ena.infifo_full_err,    dma_int_raw.infifo_full_err,    dma_int_clr.infifo_full_err=1) \
-    item(SPI_LL_INTR_OUT_EMPTY,     dma_int_ena.outfifo_empty_err,  dma_int_raw.outfifo_empty_err,  dma_int_clr.outfifo_empty_err=1) \
-    item(SPI_LL_INTR_CMD7,          dma_int_ena.cmd7,               dma_int_raw.cmd7,               dma_int_clr.cmd7=1) \
-    item(SPI_LL_INTR_CMD8,          dma_int_ena.cmd8,               dma_int_raw.cmd8,               dma_int_clr.cmd8=1) \
-    item(SPI_LL_INTR_CMD9,          dma_int_ena.cmd9,               dma_int_raw.cmd9,               dma_int_clr.cmd9=1) \
-    item(SPI_LL_INTR_CMDA,          dma_int_ena.cmda,               dma_int_raw.cmda,               dma_int_clr.cmda=1)
+    item(SPI_LL_INTR_IN_SUC_EOF,    dma_int_ena.in_suc_eof_int_ena,         dma_int_raw.in_suc_eof_int_raw,         dma_int_clr.in_suc_eof_int_clr=1) \
+    item(SPI_LL_INTR_OUT_EOF,       dma_int_ena.out_eof_int_ena,            dma_int_raw.out_eof_int_raw,            dma_int_clr.out_eof_int_clr=1) \
+    item(SPI_LL_INTR_OUT_TOTAL_EOF, dma_int_ena.out_total_eof_int_ena,      dma_int_raw.out_total_eof_int_raw,      dma_int_clr.out_total_eof_int_clr=1) \
+    item(SPI_LL_INTR_IN_FULL,       dma_int_ena.infifo_full_err_int_ena,    dma_int_raw.infifo_full_err_int_raw,    dma_int_clr.infifo_full_err_int_clr=1) \
+    item(SPI_LL_INTR_OUT_EMPTY,     dma_int_ena.outfifo_empty_err_int_ena,  dma_int_raw.outfifo_empty_err_int_raw,  dma_int_clr.outfifo_empty_err_int_clr=1) \
+    item(SPI_LL_INTR_CMD7,          dma_int_ena.slv_cmd7_int_ena,               dma_int_raw.slv_cmd7_int_raw,               dma_int_clr.slv_cmd7_int_clr=1) \
+    item(SPI_LL_INTR_CMD8,          dma_int_ena.slv_cmd8_int_ena,               dma_int_raw.slv_cmd8_int_raw,               dma_int_clr.slv_cmd8_int_clr=1) \
+    item(SPI_LL_INTR_CMD9,          dma_int_ena.slv_cmd9_int_ena,               dma_int_raw.slv_cmd9_int_raw,               dma_int_clr.slv_cmd9_int_clr=1) \
+    item(SPI_LL_INTR_CMDA,          dma_int_ena.slv_cmda_int_ena,               dma_int_raw.slv_cmda_int_raw,               dma_int_clr.slv_cmda_int_clr=1) \
+    item(SPI_LL_INTR_OUT_DONE,      dma_int_ena.out_done_int_ena,           dma_int_raw.out_done_int_raw,           dma_int_clr.out_done_int_clr=1)
 
 __attribute__((always_inline))
 static inline void spi_ll_enable_intr(spi_dev_t *hw, spi_ll_intr_t intr_mask)
@@ -1216,20 +1234,20 @@ static inline void spi_ll_enable_int(spi_dev_t *hw)
  *----------------------------------------------------------------------------*/
 static inline void spi_ll_slave_hd_set_len_cond(spi_dev_t *hw, spi_ll_trans_len_cond_t cond_mask)
 {
-    hw->slv_rd_byte.rdbuf_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_RDBUF) ? 1 : 0;
-    hw->slv_rd_byte.wrbuf_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_WRBUF) ? 1 : 0;
-    hw->slv_rd_byte.rddma_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_RDDMA) ? 1 : 0;
-    hw->slv_rd_byte.wrdma_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_WRDMA) ? 1 : 0;
+    hw->slv_rd_byte.slv_rdbuf_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_RDBUF) ? 1 : 0;
+    hw->slv_rd_byte.slv_wrbuf_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_WRBUF) ? 1 : 0;
+    hw->slv_rd_byte.slv_rddma_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_RDDMA) ? 1 : 0;
+    hw->slv_rd_byte.slv_wrdma_bytelen_en = (cond_mask & SPI_LL_TRANS_LEN_COND_WRDMA) ? 1 : 0;
 }
 
 static inline int spi_ll_slave_get_rx_byte_len(spi_dev_t *hw)
 {
-    return hw->slv_rd_byte.data_bytelen;
+    return hw->slv_rd_byte.slv_data_bytelen;
 }
 
 static inline uint32_t spi_ll_slave_hd_get_last_addr(spi_dev_t *hw)
 {
-    return HAL_FORCE_READ_U32_REG_FIELD(hw->slave1, last_addr);
+    return HAL_FORCE_READ_U32_REG_FIELD(hw->slave1, slv_last_addr);
 }
 
 /*------------------------------------------------------------------------------
@@ -1243,7 +1261,7 @@ static inline uint32_t spi_ll_slave_hd_get_last_addr(spi_dev_t *hw)
  * @param host_id   Peripheral index number, see `spi_host_device_t`
  * @param enable    Enable/Disable
  */
-static inline void spi_dma_ll_enable_bus_clock(spi_host_device_t host_id, bool enable)
+static inline void spi_ll_dma_enable_bus_clock(spi_host_device_t host_id, bool enable)
 {
     if (enable) {
         switch (host_id) {
@@ -1272,9 +1290,9 @@ static inline void spi_dma_ll_enable_bus_clock(spi_host_device_t host_id, bool e
 
 /// use a macro to wrap the function, force the caller to use it in a critical section
 /// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
-#define spi_dma_ll_enable_bus_clock(...) do { \
+#define spi_ll_dma_enable_bus_clock(...) do { \
         (void)__DECLARE_RCC_RC_ATOMIC_ENV; \
-        spi_dma_ll_enable_bus_clock(__VA_ARGS__); \
+        spi_ll_dma_enable_bus_clock(__VA_ARGS__); \
     } while(0)
 
 /**
@@ -1282,7 +1300,7 @@ static inline void spi_dma_ll_enable_bus_clock(spi_host_device_t host_id, bool e
  *
  * @param host_id   Peripheral index number, see `spi_host_device_t`
  */
-static inline void spi_dma_ll_reset_register(spi_host_device_t host_id)
+static inline void spi_ll_dma_reset_register(spi_host_device_t host_id)
 {
     switch (host_id) {
     case SPI2_HOST:
@@ -1300,10 +1318,31 @@ static inline void spi_dma_ll_reset_register(spi_host_device_t host_id)
 
 /// use a macro to wrap the function, force the caller to use it in a critical section
 /// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
-#define spi_dma_ll_reset_register(...) do { \
+#define spi_ll_dma_reset_register(...) do { \
         (void)__DECLARE_RCC_RC_ATOMIC_ENV; \
-        spi_dma_ll_reset_register(__VA_ARGS__); \
+        spi_ll_dma_reset_register(__VA_ARGS__); \
     } while(0)
+
+/**
+ * Connect DMA channel for SPI
+ *
+ * @param host_id   SPI host ID
+ * @param dma_chan  DMA channel ID
+ */
+static inline void spi_ll_dma_connect_host(spi_host_device_t host_id, int dma_chan)
+{
+    //On ESP32S2, each SPI controller has its own DMA channel. So there is no need to connect them.
+}
+
+/**
+ * Disconnect DMA channel for SPI
+ *
+ * @param host_id   SPI host ID
+ */
+static inline void spi_ll_dma_disconnect_host(spi_host_device_t host_id)
+{
+    //On ESP32S2, each SPI controller has its own DMA channel. So there is no need to disconnect them.
+}
 
 //---------------------------------------------------RX-------------------------------------------------//
 /**
@@ -1313,7 +1352,7 @@ static inline void spi_dma_ll_reset_register(spi_host_device_t host_id)
  * @param channel DMA channel, for chip version compatibility, not used.
  */
 __attribute__((always_inline))
-static inline void spi_dma_ll_rx_reset(spi_dma_dev_t *dma_in, uint32_t channel)
+static inline void spi_ll_dma_rx_reset(spi_dma_dev_t *dma_in, uint32_t channel)
 {
     dma_in->dma_conf.in_rst = 1;
     dma_in->dma_conf.in_rst = 0;
@@ -1327,10 +1366,10 @@ static inline void spi_dma_ll_rx_reset(spi_dma_dev_t *dma_in, uint32_t channel)
  * @param addr    Address of the beginning DMA descriptor.
  */
 __attribute__((always_inline))
-static inline void spi_dma_ll_rx_start(spi_dma_dev_t *dma_in, uint32_t channel, lldesc_t *addr)
+static inline void spi_ll_dma_rx_start(spi_dma_dev_t *dma_in, uint32_t channel, void *addr)
 {
-    dma_in->dma_in_link.addr = (int) addr & 0xFFFFF;
-    dma_in->dma_in_link.start = 1;
+    dma_in->dma_in_link.inlink_addr = (int) addr & 0xFFFFF;
+    dma_in->dma_in_link.inlink_start = 1;
 }
 
 /**
@@ -1339,9 +1378,9 @@ static inline void spi_dma_ll_rx_start(spi_dma_dev_t *dma_in, uint32_t channel, 
  * @param dma_in  Beginning address of the DMA peripheral registers which stores the data received from a peripheral into RAM.
  * @param channel DMA channel, for chip version compatibility, not used.
  */
-static inline void spi_dma_ll_rx_stop(spi_dma_dev_t *dma_in, uint32_t channel)
+static inline void spi_ll_dma_rx_stop(spi_dma_dev_t *dma_in, uint32_t channel)
 {
-    dma_in->dma_in_link.stop = 1;
+    dma_in->dma_in_link.inlink_stop = 1;
 }
 
 /**
@@ -1351,7 +1390,7 @@ static inline void spi_dma_ll_rx_stop(spi_dma_dev_t *dma_in, uint32_t channel)
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  True to enable, false to disable
  */
-static inline void spi_dma_ll_rx_enable_burst_data(spi_dma_dev_t *dma_in, uint32_t channel, bool enable)
+static inline void spi_ll_dma_rx_enable_burst_data(spi_dma_dev_t *dma_in, uint32_t channel, bool enable)
 {
     //This is not supported in esp32s2
 }
@@ -1363,7 +1402,7 @@ static inline void spi_dma_ll_rx_enable_burst_data(spi_dma_dev_t *dma_in, uint32
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  True to enable, false to disable
  */
-static inline void spi_dma_ll_rx_enable_burst_desc(spi_dma_dev_t *dma_in, uint32_t channel, bool enable)
+static inline void spi_ll_dma_rx_enable_burst_desc(spi_dma_dev_t *dma_in, uint32_t channel, bool enable)
 {
     dma_in->dma_conf.indscr_burst_en = enable;
 }
@@ -1376,10 +1415,10 @@ static inline void spi_dma_ll_rx_enable_burst_desc(spi_dma_dev_t *dma_in, uint32
  * @return        The address
  */
 __attribute__((always_inline))
-static inline uint32_t spi_dma_ll_get_in_suc_eof_desc_addr(spi_dma_dev_t *dma_in, uint32_t channel)
+static inline uint32_t spi_ll_dma_get_in_suc_eof_desc_addr(spi_dma_dev_t *dma_in, uint32_t channel)
 {
     ESP_STATIC_ANALYZER_CHECK(!dma_in, -1);
-    return dma_in->dma_in_suc_eof_des_addr;
+    return dma_in->in_suc_eof_des_addr.val;
 }
 
 /**
@@ -1389,7 +1428,7 @@ static inline uint32_t spi_dma_ll_get_in_suc_eof_desc_addr(spi_dma_dev_t *dma_in
  * @param internal_size The internal memory alignment requirements.
  * @param external_size The external memory alignment requirements.
  */
-static inline void spi_dma_ll_get_rx_alignment_require(spi_dma_dev_t *dma_dev, uint32_t *internal_size, uint32_t *external_size)
+static inline void spi_ll_dma_get_rx_alignment_require(spi_dma_dev_t *dma_dev, uint32_t *internal_size, uint32_t *external_size)
 {
     *internal_size = 4;
     // SPI2 supports external memory, SPI3 does not
@@ -1404,7 +1443,7 @@ static inline void spi_dma_ll_get_rx_alignment_require(spi_dma_dev_t *dma_dev, u
  * @param channel DMA channel, for chip version compatibility, not used.
  */
 __attribute__((always_inline))
-static inline void spi_dma_ll_tx_reset(spi_dma_dev_t *dma_out, uint32_t channel)
+static inline void spi_ll_dma_tx_reset(spi_dma_dev_t *dma_out, uint32_t channel)
 {
     //Reset TX DMA peripheral
     dma_out->dma_conf.out_rst = 1;
@@ -1419,10 +1458,10 @@ static inline void spi_dma_ll_tx_reset(spi_dma_dev_t *dma_out, uint32_t channel)
  * @param addr    Address of the beginning DMA descriptor.
  */
 __attribute__((always_inline))
-static inline void spi_dma_ll_tx_start(spi_dma_dev_t *dma_out, uint32_t channel, lldesc_t *addr)
+static inline void spi_ll_dma_tx_start(spi_dma_dev_t *dma_out, uint32_t channel, void *addr)
 {
-    dma_out->dma_out_link.addr = (int) addr & 0xFFFFF;
-    dma_out->dma_out_link.start = 1;
+    dma_out->dma_out_link.outlink_addr = (int) addr & 0xFFFFF;
+    dma_out->dma_out_link.outlink_start = 1;
 }
 
 /**
@@ -1431,9 +1470,9 @@ static inline void spi_dma_ll_tx_start(spi_dma_dev_t *dma_out, uint32_t channel,
  * @param dma_out Beginning address of the DMA peripheral registers which transmits the data from RAM to a peripheral.
  * @param channel DMA channel, for chip version compatibility, not used.
  */
-static inline void spi_dma_ll_tx_stop(spi_dma_dev_t *dma_out, uint32_t channel)
+static inline void spi_ll_dma_tx_stop(spi_dma_dev_t *dma_out, uint32_t channel)
 {
-    dma_out->dma_out_link.stop = 1;
+    dma_out->dma_out_link.outlink_stop = 1;
 }
 
 /**
@@ -1443,7 +1482,7 @@ static inline void spi_dma_ll_tx_stop(spi_dma_dev_t *dma_out, uint32_t channel)
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  True to enable, false to disable
  */
-static inline void spi_dma_ll_tx_enable_burst_data(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
+static inline void spi_ll_dma_tx_enable_burst_data(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
 {
     dma_out->dma_conf.out_data_burst_en = enable;
 }
@@ -1455,7 +1494,7 @@ static inline void spi_dma_ll_tx_enable_burst_data(spi_dma_dev_t *dma_out, uint3
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  True to enable, false to disable
  */
-static inline void spi_dma_ll_tx_enable_burst_desc(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
+static inline void spi_ll_dma_tx_enable_burst_desc(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
 {
     dma_out->dma_conf.outdscr_burst_en = enable;
 }
@@ -1467,7 +1506,7 @@ static inline void spi_dma_ll_tx_enable_burst_desc(spi_dma_dev_t *dma_out, uint3
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  1: when dma pop all data from fifo  0:when ahb push all data to fifo.
  */
-static inline void spi_dma_ll_set_out_eof_generation(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
+static inline void spi_ll_dma_set_out_eof_generation(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
 {
     dma_out->dma_conf.out_eof_mode = enable;
 }
@@ -1479,7 +1518,7 @@ static inline void spi_dma_ll_set_out_eof_generation(spi_dma_dev_t *dma_out, uin
  * @param channel DMA channel, for chip version compatibility, not used.
  * @param enable  True to enable, false to disable
  */
-static inline void spi_dma_ll_enable_out_auto_wrback(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
+static inline void spi_ll_dma_enable_out_auto_wrback(spi_dma_dev_t *dma_out, uint32_t channel, bool enable)
 {
     dma_out->dma_conf.out_auto_wrback = enable;
 }
@@ -1492,89 +1531,93 @@ static inline void spi_dma_ll_enable_out_auto_wrback(spi_dma_dev_t *dma_out, uin
  * @return        The address
  */
 __attribute__((always_inline))
-static inline uint32_t spi_dma_ll_get_out_eof_desc_addr(spi_dma_dev_t *dma_out, uint32_t channel)
+static inline uint32_t spi_ll_dma_get_out_eof_desc_addr(spi_dma_dev_t *dma_out, uint32_t channel)
 {
     ESP_STATIC_ANALYZER_CHECK(!dma_out, -1);
-    return dma_out->dma_out_eof_des_addr;
+    return dma_out->out_eof_des_addr.val;
 }
 
-static inline void spi_dma_ll_rx_restart(spi_dma_dev_t *dma_in, uint32_t channel)
+static inline void spi_ll_dma_rx_restart(spi_dma_dev_t *dma_in, uint32_t channel)
 {
-    dma_in->dma_in_link.restart = 1;
+    dma_in->dma_in_link.inlink_restart = 1;
 }
 
-static inline void spi_dma_ll_tx_restart(spi_dma_dev_t *dma_out, uint32_t channel)
+static inline void spi_ll_dma_tx_restart(spi_dma_dev_t *dma_out, uint32_t channel)
 {
-    dma_out->dma_out_link.restart = 1;
+    dma_out->dma_out_link.outlink_restart = 1;
 }
 
-static inline void spi_dma_ll_rx_disable(spi_dma_dev_t *dma_in)
+static inline void spi_ll_dma_rx_disable(spi_dma_dev_t *dma_in)
 {
     dma_in->dma_in_link.dma_rx_ena = 0;
 }
 
-static inline void spi_dma_ll_tx_disable(spi_dma_dev_t *dma_out)
+static inline void spi_ll_dma_tx_disable(spi_dma_dev_t *dma_out)
 {
     dma_out->dma_out_link.dma_tx_ena = 0;
 }
 
 static inline bool spi_ll_tx_get_empty_err(spi_dev_t *hw)
 {
-    return hw->dma_int_raw.outfifo_empty_err;
+    return hw->dma_int_raw.outfifo_empty_err_int_raw;
 }
 
 /*------------------------------------------------------------------------------
  * Segmented-Configure-Transfer
  *----------------------------------------------------------------------------*/
-#define SPI_LL_CONF_BUF_SET_BIT(_w, _m)  ({                                                                                        \
-            (_w) |= (_m);                                                                       \
-        })
-#define SPI_LL_CONF_BUF_CLR_BIT(_w, _m)  ({                                                                                        \
-            (_w) &= ~(_m);                                                                      \
-        })
 
-#define SPI_LL_CONF_BUF_SET_FIELD(_w, _f, val) ({                                                                                   \
-            ((_w) = (((_w) & ~((_f##_V) << (_f##_S))) | (((val) & (_f##_V))<<(_f##_S))));                \
-        })
+typedef union {
+    struct {
+        uint32_t bitmap: 28;
+        uint32_t magic_value: 4;
+    };
+    uint32_t val;
+} spi_ll_sct_bitmap_reg_t;
 
-#define SPI_LL_CONF_BUF_GET_FIELD(_w, _f) ({                                                                                       \
-            (((_w) >> (_f##_S)) & (_f##_V));                                                                   \
-        })
+typedef struct spi_ll_sct_full_reg_t {
+    volatile spi_ll_sct_bitmap_reg_t bitmap;
+    // volatile spi_cmd_reg_t cmd;  // don't use cmd reg to align to other targets
+    volatile spi_addr_reg_t addr;
+    volatile spi_ctrl_reg_t ctrl;
+    volatile spi_ctrl1_reg_t ctrl1;
+    volatile spi_ctrl2_reg_t ctrl2;
+    volatile spi_clock_reg_t clock;
+    volatile spi_user_reg_t user;
+    volatile spi_user1_reg_t user1;
+    volatile spi_user2_reg_t user2;
+    volatile spi_mosi_dlen_reg_t mosi_dlen;
+    volatile spi_miso_dlen_reg_t miso_dlen;
+    volatile spi_misc_reg_t misc;
+    volatile spi_slave_reg_t slave;
+    volatile spi_fsm_reg_t fsm;
+    volatile spi_hold_reg_t hold;
+    volatile spi_dma_int_ena_reg_t dma_int_ena;
+    volatile spi_dma_int_raw_reg_t dma_int_raw;
+    volatile spi_dma_int_clr_reg_t dma_int_clr;
+    /** Below registers are hardware supported but not used in spi sct mode
+     *  keep here for reference
+     */
+    // volatile spi_din_mode_reg_t din_mode;
+    // volatile spi_din_num_reg_t din_num;
+    // volatile spi_dout_mode_reg_t dout_mode;
+    // volatile spi_dout_num_reg_t dout_num;
+    // volatile spi_lcd_ctrl_reg_t lcd_ctrl;
+    // volatile spi_lcd_ctrl1_reg_t lcd_ctrl1;
+    // volatile spi_lcd_ctrl2_reg_t lcd_ctrl2;
+    // volatile spi_lcd_d_mode_reg_t lcd_d_mode;
+    // volatile spi_lcd_d_num_reg_t lcd_d_num;
+} spi_ll_sct_full_reg_t;
 
-//This offset is 1, for bitmap
-#define SPI_LL_CONF_BUFFER_OFFSET               (1)
-//bitmap must be the first
-#define SPI_LL_CONF_BITMAP_POS                  (0)
-
-#define SPI_LL_CMD_REG_POS                      (0)
-#define SPI_LL_ADDR_REG_POS                     (1)
-#define SPI_LL_CTRL_REG_POS                     (2)
-#define SPI_LL_CTRL1_REG_POS                    (3)
-#define SPI_LL_CTRL2_REG_POS                    (4)
-#define SPI_LL_CLOCK_REG_POS                    (5)
-#define SPI_LL_USER_REG_POS                     (6)
-#define SPI_LL_USER1_REG_POS                    (7)
-#define SPI_LL_USER2_REG_POS                    (8)
-#define SPI_LL_MOSI_DLEN_REG_POS                (9)
-#define SPI_LL_MISO_DLEN_REG_POS                (10)
-#define SPI_LL_MISC_REG_POS                     (11)
-#define SPI_LL_SLAVE_REG_POS                    (12)
-#define SPI_LL_FSM_REG_POS                      (13)
-#define SPI_LL_HOLD_REG_POS                     (14)
-#define SPI_LL_DMA_INT_ENA_REG_POS              (15)
-#define SPI_LL_DMA_INT_RAW_REG_POS              (16)
-#define SPI_LL_DMA_INT_CLR_REG_POS              (17)
-#define SPI_LL_DIN_MODE_REG_POS                 (18)
-#define SPI_LL_DIN_NUM_REG_POS                  (19)
-#define SPI_LL_DOUT_MODE_REG_POS                (20)
-#define SPI_LL_DOUT_NUM_REG_POS                 (21)
-#define SPI_LL_LCD_CTRL_REG_POS                 (22)
-#define SPI_LL_LCD_CTRL1_REG_POS                (23)
-#define SPI_LL_LCD_CTRL2_REG_POS                (24)
-#define SPI_LL_LCD_D_MODE_REG_POS               (25)
-#define SPI_LL_LCD_D_NUM_REG_POS                (26)
-
-#define SPI_LL_SCT_MAGIC_NUMBER                 (0x2)
+/**
+ * Enable/Disable the conf phase
+ *
+ * @param hw Beginning address of the peripheral registers.
+ * @param enable True: enable; False: disable
+ */
+static inline void spi_ll_enable_conf_phase(spi_dev_t *hw, bool enable)
+{
+    hw->slv_rd_byte.usr_conf = enable;
+}
 
 /**
  * Set conf phase base bits len to HW for segment config trans mode.
@@ -1597,293 +1640,11 @@ static inline void spi_ll_set_conf_base_bitslen(spi_dev_t *hw, uint8_t conf_base
  * @param hw Beginning address of the peripheral registers.
  * @param conf_bitlen Value of field conf_bitslen in cmd reg.
  */
-static inline void spi_ll_set_conf_phase_bits_len(spi_dev_t *hw, uint32_t conf_bitlen)
+static inline void spi_ll_set_conf_phase_bitlen(spi_dev_t *hw, uint32_t conf_bitlen)
 {
     if (conf_bitlen <= SPI_LL_MAX_SCT_CONF_LEN) {
         hw->cmd.conf_bitlen = conf_bitlen;
     }
-}
-
-/**
- * Set conf phase bits len to config buffer for segment config trans mode.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param conf_bitlen Value of field conf_bitslen in cmd reg.
- */
-static inline void spi_ll_format_conf_bitslen_buffer(spi_dev_t *hw, uint32_t conf_bitlen, uint32_t *conf_buffer)
-{
-    //cmd reg: conf_bitlen
-    if (conf_bitlen <= SPI_LL_MAX_SCT_CONF_LEN) {
-        SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_CMD_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CONF_BITLEN, conf_bitlen);
-    }
-}
-
-/**
- * Update the conf buffer for conf phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param is_end Is this transaction the end of this segment.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_conf_phase_conf_buffer(spi_dev_t *hw, bool is_end, uint32_t *conf_buffer)
-{
-    //user reg: usr_conf_nxt
-    if (is_end) {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_CONF_NXT_M);
-    } else {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_CONF_NXT_M);
-    }
-}
-
-/**
- * Update the line mode of conf buffer for conf phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param line_mode line mode struct of each phase.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_line_mode_conf_buff(spi_dev_t *hw, spi_line_mode_t line_mode, uint32_t *conf_buffer)
-{
-    conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] &= ~SPI_LL_ONE_LINE_CTRL_MASK;
-    conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] &= ~SPI_LL_ONE_LINE_USER_MASK;
-
-    switch (line_mode.cmd_lines) {
-    case 2: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FCMD_DUAL_M); break;
-    case 4: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FCMD_QUAD_M); break;
-    case 8: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FCMD_OCT_M); break;
-    default: break;
-    }
-
-    switch (line_mode.addr_lines) {
-    case 2: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FADDR_DUAL_M); break;
-    case 4: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FADDR_QUAD_M); break;
-    case 8: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FADDR_OCT_M); break;
-    default: break;
-    }
-
-    switch (line_mode.data_lines) {
-    case 2: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FREAD_DUAL_M);
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FWRITE_DUAL_M);
-        break;
-    case 4: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FREAD_QUAD_M);
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FWRITE_QUAD_M);
-        break;
-    case 8: SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FREAD_OCT_M);
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_FWRITE_OCT_M);
-        break;
-    default: break;
-    }
-}
-
-/**
- * Update the conf buffer for prep phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param setup CS setup time
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_prep_phase_conf_buffer(spi_dev_t *hw, uint8_t setup, uint32_t *conf_buffer)
-{
-    //user reg: cs_setup
-    if (setup) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_SETUP_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_SETUP_M);
-    }
-
-    //ctrl2 reg: cs_setup_time
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_CTRL2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_SETUP_TIME, setup - 1);
-}
-
-/**
- * Update the conf buffer for cmd phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param cmd Command value
- * @param cmdlen Length of the cmd phase
- * @param lsbfirst Whether LSB first
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_cmd_phase_conf_buffer(spi_dev_t *hw, uint16_t cmd, int cmdlen, bool lsbfirst, uint32_t *conf_buffer)
-{
-    //user reg: usr_command
-    if (cmdlen) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_COMMAND_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_COMMAND_M);
-    }
-
-    //user2 reg: usr_command_bitlen
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_USER2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_COMMAND_BITLEN, cmdlen - 1);
-
-    //user2 reg: usr_command_value
-    if (lsbfirst) {
-        SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_USER2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_COMMAND_VALUE, cmd);
-    } else {
-        SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_USER2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_COMMAND_VALUE, HAL_SPI_SWAP_DATA_TX(cmd, cmdlen));
-    }
-}
-
-/**
- * Update the conf buffer for addr phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param addr Address to set
- * @param addrlen Length of the address phase
- * @param lsbfirst whether the LSB first feature is enabled.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_addr_phase_conf_buffer(spi_dev_t *hw, uint64_t addr, int addrlen, bool lsbfirst, uint32_t *conf_buffer)
-{
-    //user reg: usr_addr
-    if (addrlen) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_ADDR_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_ADDR_M);
-    }
-
-    //user1 reg: usr_addr_bitlen
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_USER1_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_ADDR_BITLEN, addrlen - 1);
-
-    //addr reg: addr
-    if (lsbfirst) {
-        SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_ADDR_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_ADDR_VALUE, HAL_SWAP32(addr));
-    } else {
-        SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_ADDR_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_ADDR_VALUE, (addr << (32 - addrlen)));
-    }
-}
-
-/**
- * Update the conf buffer for dummy phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param dummy_n Dummy cycles used. 0 to disable the dummy phase.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_dummy_phase_conf_buffer(spi_dev_t *hw, int dummy_n, uint32_t *conf_buffer)
-{
-    //user reg: usr_dummy
-    if (dummy_n) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_DUMMY_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_DUMMY_M);
-    }
-
-    //user1 reg: usr_dummy_cyclelen
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_USER1_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_DUMMY_CYCLELEN, dummy_n - 1);
-}
-
-/**
- * Update the conf buffer for dout phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param bitlen output length, in bits.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_dout_phase_conf_buffer(spi_dev_t *hw, int bitlen, uint32_t *conf_buffer)
-{
-    //user reg: usr_mosi
-    if (bitlen) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MOSI_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MOSI_M);
-    }
-
-    //mosi_dlen reg: usr_mosi_bit_len
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_MOSI_DLEN_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MOSI_DBITLEN, bitlen - 1);
-}
-
-/**
- * Update the conf buffer for din phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param bitlen input length, in bits.
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_din_phase_conf_buffer(spi_dev_t *hw, int bitlen, uint32_t *conf_buffer)
-{
-    //user reg: usr_miso
-    if (bitlen) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MISO_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MISO_M);
-    }
-
-    //miso_dlen reg: usr_miso_bit_len
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_MISO_DLEN_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_USR_MISO_DBITLEN, bitlen - 1);
-}
-
-/**
- * Update the conf buffer for done phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param setup CS hold time
- * @param conf_buffer Conf buffer to be updated.
- */
-static inline void spi_ll_format_done_phase_conf_buffer(spi_dev_t *hw, int hold, uint32_t *conf_buffer)
-{
-    //user reg: cs_hold
-    if (hold) {
-        SPI_LL_CONF_BUF_SET_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_HOLD_M);
-    } else {
-        SPI_LL_CONF_BUF_CLR_BIT(conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_HOLD_M);
-    }
-
-    //ctrl2 reg: cs_hold_time
-    SPI_LL_CONF_BUF_SET_FIELD(conf_buffer[SPI_LL_CTRL2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET], SPI_CS_HOLD_TIME, hold);
-}
-
-/**
- * Initialize the conf buffer:
- *
- * - init bitmap
- * - save all register values into the rest of the conf buffer words
- *
- * @param hw Beginning address of the peripheral registers.
- * @param conf_buffer Conf buffer to be updated.
- */
-__attribute__((always_inline))
-static inline void spi_ll_init_conf_buffer(spi_dev_t *hw, uint32_t *conf_buffer)
-{
-    conf_buffer[SPI_LL_CONF_BITMAP_POS] = 0x7FFFFFF | (SPI_LL_SCT_MAGIC_NUMBER << 28);
-    conf_buffer[SPI_LL_CMD_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->cmd.val;
-    conf_buffer[SPI_LL_ADDR_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->addr;
-    conf_buffer[SPI_LL_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->ctrl.val;
-    conf_buffer[SPI_LL_CTRL1_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->ctrl1.val;
-    conf_buffer[SPI_LL_CTRL2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->ctrl2.val;
-    conf_buffer[SPI_LL_CLOCK_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->clock.val;
-    conf_buffer[SPI_LL_USER_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->user.val;
-    conf_buffer[SPI_LL_USER1_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->user1.val;
-    conf_buffer[SPI_LL_USER2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->user2.val;
-    conf_buffer[SPI_LL_MOSI_DLEN_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->mosi_dlen.val;
-    conf_buffer[SPI_LL_MISO_DLEN_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->miso_dlen.val;
-    conf_buffer[SPI_LL_MISC_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->misc.val;
-    conf_buffer[SPI_LL_SLAVE_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->slave.val;
-    conf_buffer[SPI_LL_FSM_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->fsm.val;
-    conf_buffer[SPI_LL_HOLD_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->hold.val;
-    conf_buffer[SPI_LL_DMA_INT_ENA_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->dma_int_ena.val;
-    conf_buffer[SPI_LL_DMA_INT_RAW_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->dma_int_raw.val;
-    conf_buffer[SPI_LL_DMA_INT_CLR_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->dma_int_clr.val;
-    conf_buffer[SPI_LL_DIN_MODE_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->din_mode.val;
-    conf_buffer[SPI_LL_DIN_NUM_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->din_num.val;
-    conf_buffer[SPI_LL_DOUT_MODE_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->dout_mode.val;
-    conf_buffer[SPI_LL_DOUT_NUM_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->dout_num.val;
-    conf_buffer[SPI_LL_LCD_CTRL_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->lcd_ctrl.val;
-    conf_buffer[SPI_LL_LCD_CTRL1_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->lcd_ctrl1.val;
-    conf_buffer[SPI_LL_LCD_CTRL2_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->lcd_ctrl2.val;
-    conf_buffer[SPI_LL_LCD_D_MODE_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->lcd_d_mode.val;
-    conf_buffer[SPI_LL_LCD_D_NUM_REG_POS + SPI_LL_CONF_BUFFER_OFFSET] = hw->lcd_d_num.val;
-}
-
-/**
- * Enable/Disable the conf phase
- *
- * @param hw Beginning address of the peripheral registers.
- * @param enable True: enable; False: disable
- */
-static inline void spi_ll_conf_state_enable(spi_dev_t *hw, bool enable)
-{
-    hw->slv_rd_byte.usr_conf = enable;
 }
 
 /**
@@ -1897,7 +1658,194 @@ static inline void spi_ll_set_magic_number(spi_dev_t *hw, uint8_t magic_value)
     hw->slv_rd_byte.dma_seg_magic_value = magic_value;
 }
 
-#undef SPI_LL_RST_MASK
+/**
+ * Initialize the conf buffer:
+ *
+ * - init bitmap
+ * - save all register values into the rest of the conf buffer words
+ *
+ * @param hw Beginning address of the peripheral registers.
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ */
+__attribute__((always_inline))
+static inline void spi_sct_ll_init_conf_buffer(spi_dev_t *hw, spi_ll_sct_full_reg_t *sct_cfg)
+{
+    sct_cfg->bitmap.bitmap = 0x3FFFE;
+    sct_cfg->bitmap.magic_value = SPI_LL_SCT_MAGIC_NUMBER;
+    sct_cfg->addr.val = hw->addr.val;
+    sct_cfg->ctrl.val = hw->ctrl.val;
+    sct_cfg->ctrl1.val = hw->ctrl1.val;
+    sct_cfg->ctrl2.val = hw->ctrl2.val;
+    sct_cfg->clock.val = hw->clock.val;
+    sct_cfg->user.val = hw->user.val;
+    sct_cfg->user1.val = hw->user1.val;
+    sct_cfg->user2.val = hw->user2.val;
+    sct_cfg->mosi_dlen.val = hw->mosi_dlen.val;
+    sct_cfg->miso_dlen.val = hw->miso_dlen.val;
+    sct_cfg->misc.val = hw->misc.val;
+    sct_cfg->slave.val = hw->slave.val;
+    sct_cfg->fsm.val = hw->fsm.val;
+    sct_cfg->hold.val = hw->hold.val;
+    sct_cfg->dma_int_ena.val = hw->dma_int_ena.val;
+    sct_cfg->dma_int_raw.val = hw->dma_int_raw.val;
+    sct_cfg->dma_int_clr.val = hw->dma_int_clr.val;
+}
+
+/**
+ * Update the conf buffer for conf phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param is_end Is this transaction the end of this segment.
+ */
+static inline void spi_sct_ll_mark_sct_end(spi_ll_sct_full_reg_t *sct_cfg, bool is_end)
+{
+    sct_cfg->user.usr_conf_nxt = !is_end;
+}
+
+/**
+ * Set SPI to work in full duplex or half duplex mode.
+ *
+ * @param sct_cfg      Beginning address of the SCT conf buffer.
+ * @param half_duplex True to work in half duplex mode, otherwise in full duplex mode.
+ */
+static inline void spi_sct_ll_set_duplex(spi_ll_sct_full_reg_t *sct_cfg, bool half_duplex)
+{
+    sct_cfg->user.doutdin = !half_duplex;
+}
+
+/**
+ * Set CS setup time for a transaction in SCT
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param setup CS setup time
+ */
+static inline void spi_sct_ll_set_cs_setup(spi_ll_sct_full_reg_t *sct_cfg, uint8_t setup)
+{
+    sct_cfg->user.cs_setup = !!setup;
+    sct_cfg->ctrl2.cs_setup_time = setup - 1;
+}
+
+/**
+ * Set CS keep active for a transaction in SCT
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param cs_active True to keep CS active, otherwise to release CS.
+ */
+static inline void spi_sct_ll_set_cs_keep(spi_ll_sct_full_reg_t *sct_cfg, bool cs_active)
+{
+    sct_cfg->misc.cs_keep_active = cs_active;
+}
+
+/**
+ * Set CS hold time post trans for a transaction in SCT
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param hold CS hold time
+ */
+static inline void spi_sct_ll_set_cs_hold(spi_ll_sct_full_reg_t *sct_cfg, int hold)
+{
+    sct_cfg->user.cs_hold = !!hold;
+    sct_cfg->ctrl2.cs_hold_time = hold;
+}
+
+/**
+ * Update the line mode of conf buffer for conf phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param line_mode line mode struct of each phase.
+ */
+static inline void spi_sct_ll_set_line_mode(spi_ll_sct_full_reg_t *sct_cfg, spi_line_mode_t line_mode)
+{
+    sct_cfg->ctrl.val &= ~SPI_LL_ONE_LINE_CTRL_MASK;
+    sct_cfg->user.val &= ~SPI_LL_ONE_LINE_USER_MASK;
+    sct_cfg->ctrl.fcmd_dual = (line_mode.cmd_lines == 2);
+    sct_cfg->ctrl.fcmd_quad = (line_mode.cmd_lines == 4);
+    sct_cfg->ctrl.fcmd_oct = (line_mode.cmd_lines == 8);
+    sct_cfg->ctrl.faddr_dual = (line_mode.addr_lines == 2);
+    sct_cfg->ctrl.faddr_quad = (line_mode.addr_lines == 4);
+    sct_cfg->ctrl.faddr_oct = (line_mode.addr_lines == 8);
+    sct_cfg->ctrl.fread_dual = (line_mode.data_lines == 2);
+    sct_cfg->user.fwrite_dual = (line_mode.data_lines == 2);
+    sct_cfg->ctrl.fread_quad = (line_mode.data_lines == 4);
+    sct_cfg->user.fwrite_quad = (line_mode.data_lines == 4);
+    sct_cfg->ctrl.fread_oct = (line_mode.data_lines == 8);
+    sct_cfg->user.fwrite_oct = (line_mode.data_lines == 8);
+}
+
+/**
+ * Update the conf buffer for cmd phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param cmd Command value
+ * @param cmdlen Length of the cmd phase
+ * @param lsbfirst Whether LSB first
+ */
+static inline void spi_sct_ll_set_command(spi_ll_sct_full_reg_t *sct_cfg, uint16_t cmd, int cmdlen, bool lsbfirst)
+{
+    sct_cfg->user.usr_command = !!cmdlen;
+    if (cmdlen > 0) {
+        sct_cfg->user2.usr_command_bitlen = cmdlen - 1;
+        HAL_FORCE_MODIFY_U32_REG_FIELD(sct_cfg->user2, usr_command_value, lsbfirst ? cmd : HAL_SPI_SWAP_DATA_TX(cmd, cmdlen));
+    }
+}
+
+/**
+ * Update the conf buffer for addr phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param addr Address to set
+ * @param addrlen Length of the address phase
+ * @param lsbfirst whether the LSB first feature is enabled.
+ */
+static inline void spi_sct_ll_set_addr(spi_ll_sct_full_reg_t *sct_cfg, uint64_t addr, int addrlen, bool lsbfirst)
+{
+    sct_cfg->user.usr_addr = !!addrlen;
+    if (addrlen > 0) {
+        sct_cfg->user1.usr_addr_bitlen = addrlen - 1;
+        sct_cfg->addr.val = lsbfirst ? HAL_SWAP32(addr) : (addr << (32 - addrlen));
+    }
+}
+
+/**
+ * Update the conf buffer for dummy phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param dummy_n Dummy cycles used. 0 to disable the dummy phase.
+ * @param silent_dummy True to keep dummy clock idle, otherwise to output clock.
+ */
+static inline void spi_sct_ll_set_dummy(spi_ll_sct_full_reg_t *sct_cfg, int dummy_n, bool silent_dummy)
+{
+    sct_cfg->user.usr_dummy = !!dummy_n;
+    if (dummy_n > 0) {
+        sct_cfg->user.usr_dummy_idle = silent_dummy;
+        HAL_FORCE_MODIFY_U32_REG_FIELD(sct_cfg->user1, usr_dummy_cyclelen, dummy_n - 1);
+    }
+}
+
+/**
+ * Update the conf buffer for dout phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param bitlen output length, in bits.
+ */
+static inline void spi_sct_ll_set_mosi_bitlen(spi_ll_sct_full_reg_t *sct_cfg, int bitlen)
+{
+    sct_cfg->user.usr_mosi = !!bitlen;
+    sct_cfg->mosi_dlen.usr_mosi_dbitlen = bitlen - 1;
+}
+
+/**
+ * Update the conf buffer for din phase
+ *
+ * @param sct_cfg Beginning address of the SCT conf buffer.
+ * @param bitlen input length, in bits.
+ */
+static inline void spi_sct_ll_set_miso_bitlen(spi_ll_sct_full_reg_t *sct_cfg, int bitlen)
+{
+    sct_cfg->user.usr_miso = !!bitlen;
+    sct_cfg->miso_dlen.usr_miso_dbitlen = bitlen - 1;
+}
+
 #undef SPI_LL_UNUSED_INT_MASK
 
 /**

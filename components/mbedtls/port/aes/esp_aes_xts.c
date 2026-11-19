@@ -37,6 +37,7 @@
 #include <string.h>
 #include "aes/esp_aes.h"
 #include "psa/crypto_values.h"
+#include "mbedtls/platform_util.h"
 
 void esp_aes_xts_init( esp_aes_xts_context *ctx )
 {
@@ -187,7 +188,9 @@ int esp_aes_crypt_xts( esp_aes_xts_context *ctx,
     int ret;
     size_t blocks = length / 16;
     size_t leftover = length % 16;
+    size_t bulk_blocks;
     unsigned char tweak[16];
+    unsigned char bulk_tweak[16];
     unsigned char prev_tweak[16];
     unsigned char tmp[16];
 
@@ -205,7 +208,42 @@ int esp_aes_crypt_xts( esp_aes_xts_context *ctx,
     ret = esp_aes_crypt_ecb( &ctx->tweak, ESP_AES_ENCRYPT,
                              data_unit, tweak );
     if ( ret != 0 ) {
-        return ( ret );
+        goto cleanup;
+    }
+
+    bulk_blocks = blocks;
+    if ( leftover && ( mode == ESP_AES_DECRYPT ) ) {
+        bulk_blocks--;
+    }
+
+    if ( bulk_blocks > 0 ) {
+        size_t i, j;
+
+        memcpy( bulk_tweak, tweak, sizeof( bulk_tweak ) );
+        for ( i = 0; i < bulk_blocks; i++ ) {
+            for ( j = 0; j < 16; j++ ) {
+                output[i * 16 + j] = input[i * 16 + j] ^ bulk_tweak[j];
+            }
+            esp_gf128mul_x_ble( bulk_tweak, bulk_tweak );
+        }
+
+        /* A single hardware operation for every staged block. */
+        ret = esp_aes_crypt_ecb_blocks( &ctx->crypt, mode, bulk_blocks * 16,
+                                        output, output );
+        if ( ret != 0 ) {
+            goto cleanup;
+        }
+
+        for ( i = 0; i < bulk_blocks; i++ ) {
+            for ( j = 0; j < 16; j++ ) {
+                output[i * 16 + j] ^= tweak[j];
+            }
+            esp_gf128mul_x_ble( tweak, tweak );
+        }
+
+        input  += bulk_blocks * 16;
+        output += bulk_blocks * 16;
+        blocks -= bulk_blocks;
     }
 
     while ( blocks-- ) {
@@ -227,7 +265,7 @@ int esp_aes_crypt_xts( esp_aes_xts_context *ctx,
 
         ret = esp_aes_crypt_ecb( &ctx->crypt, mode, tmp, tmp );
         if ( ret != 0 ) {
-            return ( ret );
+            goto cleanup;
         }
 
         for ( i = 0; i < 16; i++ ) {
@@ -268,7 +306,7 @@ int esp_aes_crypt_xts( esp_aes_xts_context *ctx,
 
         ret = esp_aes_crypt_ecb( &ctx->crypt, mode, tmp, tmp );
         if ( ret != 0 ) {
-            return ret;
+            goto cleanup;
         }
 
         /* Write the result back to the previous block, overriding the previous
@@ -278,5 +316,12 @@ int esp_aes_crypt_xts( esp_aes_xts_context *ctx,
         }
     }
 
-    return ( 0 );
+cleanup:
+    /* tweak/prev_tweak are key-derived and tmp holds plaintext-derived data.
+     * Scrub all three on every exit so they cannot be recovered from stack RAM. */
+    mbedtls_platform_zeroize( tweak, sizeof( tweak ) );
+    mbedtls_platform_zeroize( bulk_tweak, sizeof( bulk_tweak ) );
+    mbedtls_platform_zeroize( prev_tweak, sizeof( prev_tweak ) );
+    mbedtls_platform_zeroize( tmp, sizeof( tmp ) );
+    return ( ret );
 }

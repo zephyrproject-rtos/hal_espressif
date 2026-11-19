@@ -9,6 +9,7 @@
 #include "soc/soc.h"
 #include "esp_rom_caps.h"
 #include "esp_assert.h"
+#include "esp_macros.h"
 #include <zephyr/devicetree.h>
 
 #define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))

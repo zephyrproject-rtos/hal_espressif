@@ -48,9 +48,7 @@
 #include "esp_private/esp_clk_tree_common.h"
 #include "bt_osi_mem.h"
 
-#if CONFIG_ESP32_BT_LE_SLEEP_ENABLE
 #include "esp_private/sleep_modem.h"
-#endif /* CONFIG_ESP32_BT_LE_SLEEP_ENABLE */
 #include "esp_private/esp_modem_clock.h"
 
 #include <zephyr/kernel.h>
@@ -423,7 +421,7 @@ void esp_bt_read_ctrl_log_from_flash(bool output)
 
     print_len = 0;
     max_print_len = 4096;
-    err = esp_partition_mmap(log_partition, 0, MAX_STORAGE_SIZE, ESP_PARTITION_MMAP_DATA, &mapped_ptr, &mmap_handle);
+    err = esp_partition_mmap(log_partition, 0, MAX_STORAGE_SIZE, ESP_PARTITION_MMAP_DATA | ESP_PARTITION_MMAP_BLOCKS_WRITE, &mapped_ptr, &mmap_handle);
     if (err != ESP_OK) {
         ESP_LOGE("FLASH", "Mmap failed: %s", esp_err_to_name(err));
         return;
@@ -976,7 +974,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
     os_msys_init();
 
-    esp_phy_modem_init();
+    esp_phy_modem_init(SLEEP_MODEM_BT);
     periph_module_enable(PERIPH_BT_MODULE);
     periph_module_reset(PERIPH_BT_MODULE);
 
@@ -1056,7 +1054,7 @@ controller_init_err:
 #endif // CONFIG_ESP32_BT_LE_CONTROLLER_LOG_ENABLED
     ble_controller_deinit();
 modem_deint:
-    esp_phy_modem_deinit();
+    esp_phy_modem_deinit(SLEEP_MODEM_BT);
     periph_module_disable(PERIPH_BT_MODULE);
 
 free_mem:
@@ -1096,7 +1094,7 @@ esp_err_t esp_bt_controller_deinit(void)
 
     npl_zephyr_mempool_deinit();
 
-    esp_phy_modem_deinit();
+    esp_phy_modem_deinit(SLEEP_MODEM_BT);
 
     ble_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
 
@@ -1164,6 +1162,11 @@ esp_err_t esp_bt_controller_disable(void)
         ESP_LOGW(NIMBLE_PORT_LOG_TAG, "invalid controller state");
         return ESP_FAIL;
     }
+#if CONFIG_ESP32_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2
+    if (log_is_inited) {
+        ble_log_pause();
+    }
+#endif
     ble_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
 
     ble_controller_disable();
@@ -1178,6 +1181,7 @@ esp_err_t esp_bt_controller_disable(void)
 #if CONFIG_SW_COEXIST_ENABLE
     coex_disable();
 #endif
+    /* Keep log admission closed until log deinit. */
     return ESP_OK;
 }
 

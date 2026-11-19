@@ -6,7 +6,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2025-2026 Espressif Systems (Shanghai) CO LTD
  */
 /*
  *  The AES block cipher was designed by Vincent Rijmen and Joan Daemen.
@@ -119,7 +119,7 @@ static int esp_aes_validate_input(esp_aes_context *ctx, const unsigned char *inp
  *
  * Call only while holding esp_aes_acquire_hardware().
  *
- * The function esp_aes_block zeroises the output buffer in the case of following conditions:
+ * The function zeroises the output buffer in the case of following conditions:
  * 1. If key is not written in the hardware
  * 2. If the fault injection check failed
  */
@@ -167,6 +167,37 @@ static int esp_aes_block(esp_aes_context *ctx, const void *input, void *output)
 
     return 0;
 }
+
+/* Run a single 16 byte block of AES for every block which produces ciphertext or keystream.
+ *
+ * Call only while holding esp_aes_acquire_hardware().
+ */
+static int esp_aes_block_encrypt(esp_aes_context *ctx, const void *input, void *output)
+{
+    int ret = esp_aes_block(ctx, input, output);
+    if (ret != 0) {
+        return ret;
+    }
+
+    const uint32_t *output_words = (const uint32_t *)output;
+
+    // Physical security check: Verify the AES output was read and wasn't skipped
+    if (output_words[0] == 0x00u && output_words[1] == 0x00u && output_words[2] == 0x00u && output_words[3] == 0x00u) {
+        memset(output, 0, 16);
+        mbedtls_platform_zeroize(output, 16);
+        abort();
+    }
+
+    return 0;
+}
+
+/* Run a single 16 byte block of AES for every block which produces plaintext.
+ * Call only while holding esp_aes_acquire_hardware().
+ */
+static int esp_aes_block_decrypt(esp_aes_context *ctx, const void *input, void *output)
+{
+    return esp_aes_block(ctx, input, output);
+}
 #endif /* !SOC_AES_SUPPORT_DMA || CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM */
 
 /*
@@ -197,6 +228,15 @@ int esp_aes_crypt_ecb(esp_aes_context *ctx,
                       const unsigned char input[16],
                       unsigned char output[16] )
 {
+#if SOC_AES_SUPPORT_DMA
+    /* A single block is the length 16 case of the multi-block entry point,
+       which picks the same hardware path this function used to pick on its
+       own: the accelerator when the small data optimisation is off, the block
+       registers when it is on. */
+    return esp_aes_crypt_ecb_blocks(ctx, mode, AES_BLOCK_BYTES, input, output);
+#else /* !SOC_AES_SUPPORT_DMA */
+    /* Without AES DMA there is nothing to batch, so this stays exactly as it
+       has always been on such a target. */
     // Use helper for validation
     int ret = esp_aes_validate_input(ctx, input, output, NULL, false);
     if (ret != 0) {
@@ -207,15 +247,111 @@ int esp_aes_crypt_ecb(esp_aes_context *ctx,
     ctx->key_in_hardware = 0;
     ctx->key_in_hardware = aes_hal_setkey(ctx->key, ctx->key_bytes, mode);
 
-#if SOC_AES_SUPPORT_DMA && !CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
-    aes_hal_mode_init(ESP_AES_BLOCK_MODE_ECB);
-    ret = esp_aes_process_dma(ctx, input, output, AES_BLOCK_BYTES, NULL);
-#else
-    ret = esp_aes_block(ctx, input, output);
-#endif
+    if (mode == ESP_AES_ENCRYPT) {
+        ret = esp_aes_block_encrypt(ctx, input, output);
+    } else {
+        ret = esp_aes_block_decrypt(ctx, input, output);
+    }
 
     esp_aes_release_hardware();
     return ret;
+#endif /* SOC_AES_SUPPORT_DMA */
+}
+
+/*
+ * AES-ECB buffer (multi-block) encryption/decryption
+ *
+ * On a target with AES DMA, submits the whole buffer to the accelerator in a
+ * single hardware operation instead of one 16-byte block per operation. ECB
+ * blocks are independent, so this is equivalent to looping esp_aes_crypt_ecb()
+ * over each block, but the cost of acquiring the peripheral and writing the key
+ * is paid once for the buffer rather than once per block.
+ *
+ * Without AES DMA, esp_aes_acquire_hardware() enters a critical section rather
+ * than taking a mutex, so holding it for the whole buffer would keep interrupts
+ * disabled for as long as the caller's length. Such a target loops over
+ * esp_aes_crypt_ecb() instead, leaving its behaviour unchanged.
+ */
+int esp_aes_crypt_ecb_blocks(esp_aes_context *ctx,
+                             int mode,
+                             size_t length,
+                             const unsigned char *input,
+                             unsigned char *output )
+{
+    // Use helpers for validation
+    int ret = esp_aes_validate_input(ctx, input, output, NULL, false);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* For ECB input length should be multiple of AES BLOCK BYTES */
+    if ( (length % AES_BLOCK_BYTES) || (length == 0) ) {
+        return ERR_ESP_AES_INVALID_INPUT_LENGTH;
+    }
+
+#if SOC_AES_SUPPORT_DMA
+    esp_aes_acquire_hardware();
+    ctx->key_in_hardware = 0;
+
+#if CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
+    if (length > AES_DMA_MODE_THRESHOLD) {
+#endif /* CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM */
+        ctx->key_in_hardware = aes_hal_setkey(ctx->key, ctx->key_bytes, mode);
+        aes_hal_mode_init(ESP_AES_BLOCK_MODE_ECB);
+
+        ret = esp_aes_process_dma(ctx, input, output, length, NULL);
+        if (ret != 0) {
+            goto cleanup;
+        }
+
+#if CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
+    } else {
+        /* Short buffers stay on the block path. The peripheral lock is a mutex
+           on this target, not a critical section, so one acquire for the whole
+           buffer does not affect interrupt latency. */
+        ctx->key_in_hardware = aes_hal_setkey(ctx->key, ctx->key_bytes, mode);
+
+        uint32_t *output_words = (uint32_t *)output;
+        const uint32_t *input_words = (const uint32_t *)input;
+        size_t remaining = length;
+
+        while (remaining > 0) {
+            if (mode == ESP_AES_ENCRYPT) {
+                ret = esp_aes_block_encrypt(ctx, input_words, output_words);
+            } else {
+                ret = esp_aes_block_decrypt(ctx, input_words, output_words);
+            }
+            if (ret != 0) {
+                /* The DMA path zeroizes the whole output buffer when it fails,
+                   do the same here so no partial ciphertext is left behind. */
+                mbedtls_platform_zeroize(output, length);
+                goto cleanup;
+            }
+            input_words += AES_BLOCK_BYTES / sizeof(uint32_t);
+            output_words += AES_BLOCK_BYTES / sizeof(uint32_t);
+            remaining -= AES_BLOCK_BYTES;
+        }
+
+        ret = 0;
+    }
+#endif /* CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM */
+
+cleanup:
+    esp_aes_release_hardware();
+    return ret;
+#else /* !SOC_AES_SUPPORT_DMA */
+    for (size_t offset = 0; offset < length; offset += AES_BLOCK_BYTES) {
+        ret = esp_aes_crypt_ecb(ctx, mode, input + offset, output + offset);
+        if (ret != 0) {
+            /* The DMA path zeroizes the whole output buffer when it fails, do
+               the same here so no partial ciphertext is left behind. */
+            mbedtls_platform_zeroize(output, length);
+            return ret;
+        }
+    }
+
+    return 0;
+#endif /* SOC_AES_SUPPORT_DMA */
 }
 
 /*
@@ -272,7 +408,7 @@ int esp_aes_crypt_cbc(esp_aes_context *ctx,
         if (mode == ESP_AES_DECRYPT) {
             while (length > 0) {
                 memcpy(temp, input_words, 16);
-                ret = esp_aes_block(ctx, input_words, output_words);
+                ret = esp_aes_block_decrypt(ctx, input_words, output_words);
                 if (ret != 0) {
                     goto cleanup;
                 }
@@ -296,7 +432,7 @@ int esp_aes_crypt_cbc(esp_aes_context *ctx,
                 output_words[2] = input_words[2] ^ iv_words[2];
                 output_words[3] = input_words[3] ^ iv_words[3];
 
-                ret = esp_aes_block(ctx, output_words, output_words);
+                ret = esp_aes_block_encrypt(ctx, output_words, output_words);
                 if (ret != 0) {
                     goto cleanup;
                 }
@@ -403,7 +539,7 @@ int esp_aes_crypt_cfb8(esp_aes_context *ctx,
 
         while (length--) {
             memcpy( ov, iv, 16 );
-            ret = esp_aes_block(ctx, iv, iv);
+            ret = esp_aes_block_encrypt(ctx, iv, iv);
             if (ret != 0) {
                 goto cleanup;
             }
@@ -424,6 +560,9 @@ int esp_aes_crypt_cfb8(esp_aes_context *ctx,
     }
 #endif /* !SOC_AES_SUPPORT_DMA || CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM */
 cleanup:
+    /* ov holds the CFB8 feedback register (key/IV-derived state). Scrub it
+     * before returning so it cannot be recovered from stack RAM. */
+    mbedtls_platform_zeroize( ov, sizeof( ov ) );
     esp_aes_release_hardware();
     return ret;
 }
@@ -455,6 +594,15 @@ int esp_aes_crypt_cfb128(esp_aes_context *ctx,
     }
 
     n = *iv_off;
+
+    /* iv[] is a fixed 16-byte buffer and n indexes it directly (before the modulo-16 update),
+     * so a caller-supplied *iv_off > 15 -- attacker-controlled via the TEE secure service --
+     * is an out-of-bounds read/write of iv[] in TEE context (CWE-787 / CWE-125). Bound it here,
+     * matching the guard already present in esp_aes_crypt_ofb(). */
+    if (n >= AES_BLOCK_BYTES) {
+        ESP_LOGE(TAG, "IV offset out of bounds");
+        return MBEDTLS_ERR_AES_BAD_INPUT_DATA;
+    }
 
 #if SOC_AES_SUPPORT_DMA
 #if CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
@@ -521,7 +669,7 @@ int esp_aes_crypt_cfb128(esp_aes_context *ctx,
         if (mode == ESP_AES_DECRYPT) {
             while (length--) {
                 if (n == 0) {
-                    ret = esp_aes_block(ctx, iv, iv);
+                    ret = esp_aes_block_encrypt(ctx, iv, iv);
                     if (ret != 0) {
                         esp_aes_release_hardware();
                         return ret;
@@ -536,7 +684,7 @@ int esp_aes_crypt_cfb128(esp_aes_context *ctx,
         } else {
             while (length--) {
                 if ( n == 0 ) {
-                    ret = esp_aes_block(ctx, iv, iv);
+                    ret = esp_aes_block_encrypt(ctx, iv, iv);
                     if (ret != 0) {
                         esp_aes_release_hardware();
                         return ret;
@@ -580,6 +728,10 @@ int esp_aes_crypt_ofb(esp_aes_context *ctx,
     }
 
     n = *iv_off;
+    if (n >= AES_BLOCK_BYTES) {
+        ESP_LOGE(TAG, "IV offset out of bounds");
+        return MBEDTLS_ERR_AES_BAD_INPUT_DATA;
+    }
 
 #if SOC_AES_SUPPORT_DMA
 #if CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
@@ -632,7 +784,7 @@ int esp_aes_crypt_ofb(esp_aes_context *ctx,
 
         while (length--) {
             if (n == 0) {
-                ret = esp_aes_block(ctx, iv, iv);
+                ret = esp_aes_block_encrypt(ctx, iv, iv);
                 if (ret != 0) {
                     esp_aes_release_hardware();
                     return ret;
@@ -684,6 +836,10 @@ int esp_aes_crypt_ctr(esp_aes_context *ctx,
     }
 
     n = *nc_off;
+    if (n >= AES_BLOCK_BYTES) {
+        ESP_LOGE(TAG, "IV offset out of bounds");
+        return MBEDTLS_ERR_AES_BAD_INPUT_DATA;
+    }
 
 #if SOC_AES_SUPPORT_DMA
 #if CONFIG_MBEDTLS_AES_HW_SMALL_DATA_LEN_OPTIM
@@ -703,6 +859,7 @@ int esp_aes_crypt_ctr(esp_aes_context *ctx,
             ctx->key_in_hardware = aes_hal_setkey(ctx->key, ctx->key_bytes, ESP_AES_DECRYPT);
 
             aes_hal_mode_init(ESP_AES_BLOCK_MODE_CTR);
+            aes_hal_set_inc(ctx->ctr_inc32 ? ESP_AES_INC_32 : ESP_AES_INC_128);
             aes_hal_set_iv(nonce_counter);
 
             ret = esp_aes_process_dma(ctx, input, output, length, stream_block);
@@ -727,15 +884,16 @@ int esp_aes_crypt_ctr(esp_aes_context *ctx,
         ctx->key_in_hardware = aes_hal_setkey(ctx->key, ctx->key_bytes, ESP_AES_ENCRYPT);
 
         int c, i;
+        int inc_end = ctx->ctr_inc32 ? AES_BLOCK_BYTES - 4 : 0;
         while (length--) {
             if (n == 0) {
-                ret = esp_aes_block(ctx, nonce_counter, stream_block);
+                ret = esp_aes_block_encrypt(ctx, nonce_counter, stream_block);
                 if (ret != 0) {
                     esp_aes_release_hardware();
                     return ret;
                 }
 
-                for (i = 16; i > 0; i--) {
+                for (i = AES_BLOCK_BYTES; i > inc_end; i--) {
                     if (++nonce_counter[i - 1] != 0) {
                         break;
                     }

@@ -267,6 +267,7 @@ int esp_aes_gcm_setkey( esp_gcm_context *ctx,
 
 
     ctx->aes_ctx.key_bytes = keybits / 8;
+    ctx->aes_ctx.ctr_inc32 = true;
 
     memcpy(ctx->aes_ctx.key, key, ctx->aes_ctx.key_bytes);
 
@@ -311,6 +312,46 @@ static void esp_gcm_ghash(esp_gcm_context *ctx, const unsigned char *x, size_t x
         memcpy(tmp, x, x_len);
         xor_data(z, tmp);
         gcm_mult(ctx, z, z);
+    }
+}
+
+/* Feed data into the running GHASH one full 16-byte block at a time, carrying
+ * any sub-block remainder across calls in ctx->ghash_buf.
+ */
+static void esp_gcm_ghash_buffered(esp_gcm_context *ctx, const unsigned char *data, size_t len)
+{
+    size_t buffered = ctx->ghash_buf_len;
+
+    if (len == 0) {
+        return;
+    }
+
+    if (buffered) {
+        size_t fill = AES_BLOCK_BYTES - buffered;
+        if (fill > len) {
+            fill = len;
+        }
+        memcpy(ctx->ghash_buf + buffered, data, fill);
+        buffered += fill;
+        data += fill;
+        len -= fill;
+        if (buffered == AES_BLOCK_BYTES) {
+            esp_gcm_ghash(ctx, ctx->ghash_buf, AES_BLOCK_BYTES, ctx->ghash);
+            buffered = 0;
+        }
+        ctx->ghash_buf_len = buffered;
+    }
+
+    size_t full = len - (len % AES_BLOCK_BYTES);
+    if (full) {
+        esp_gcm_ghash(ctx, data, full, ctx->ghash);
+        data += full;
+        len -= full;
+    }
+
+    if (len) {
+        memcpy(ctx->ghash_buf, data, len);
+        ctx->ghash_buf_len = len;
     }
 }
 
@@ -368,6 +409,12 @@ int esp_aes_gcm_starts( esp_gcm_context *ctx,
     ctx->data_len = 0;
     ctx->aad = NULL;
     ctx->aad_len = 0;
+
+    /* Reset the streaming state carried across esp_aes_gcm_update() calls */
+    ctx->nc_off = 0;
+    ctx->ghash_buf_len = 0;
+    memset(ctx->stream_block, 0, sizeof(ctx->stream_block));
+    memset(ctx->ghash_buf, 0, sizeof(ctx->ghash_buf));
 
     ctx->iv = iv;
     ctx->iv_len = iv_len;
@@ -432,11 +479,13 @@ int esp_aes_gcm_update_ad( esp_gcm_context *ctx,
         return PSA_ERROR_BAD_STATE;
     }
 
-    /* Initialise associated data */
-    ctx->aad = aad;
-    ctx->aad_len = aad_len;
+    if ( ( ctx->aad_len + aad_len ) >> 29 != 0 ) {
+        return ( PSA_ERROR_INVALID_ARGUMENT );
+    }
 
-    esp_gcm_ghash(ctx, ctx->aad, ctx->aad_len, ctx->ghash);
+    /* Accumulate the data across (possibly multiple) calls. */
+    ctx->aad_len += aad_len;
+    esp_gcm_ghash_buffered(ctx, aad, aad_len);
 
     return ( 0 );
 }
@@ -452,9 +501,7 @@ int esp_aes_gcm_update( esp_gcm_context *ctx,
         return -1;
     }
 
-    size_t nc_off = 0;
     uint8_t nonce_counter[AES_BLOCK_BYTES] = {0};
-    uint8_t stream[AES_BLOCK_BYTES] = {0};
 
     if (!output_length) {
         ESP_LOGE(TAG, "No output length supplied");
@@ -462,16 +509,28 @@ int esp_aes_gcm_update( esp_gcm_context *ctx,
     }
     *output_length = input_length;
 
-    if (!input) {
+    /* A zero-length payload is legal in PSA and in mbedtls, and (NULL, 0) is how a
+     * caller expresses it. GCM with an empty payload is the GMAC case: authenticate
+     * the additional data only. Reject a NULL buffer only when it is dereferenced. */
+    if (input_length > 0 && !input) {
         ESP_LOGE(TAG, "No input supplied");
         return PSA_ERROR_INVALID_ARGUMENT;
     }
-    if (!output) {
+    if (input_length > 0 && !output) {
         ESP_LOGE(TAG, "No output supplied");
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    if ( output > input && (size_t) ( output - input ) < input_length ) {
+    /* The output buffer must hold input_length bytes, which are
+     * written unconditionally below; without this check an undersized buffer overflows. */
+    if ( output_size < input_length ) {
+        ESP_LOGE(TAG, "Output buffer too small");
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* The length test comes first: an empty payload has no overlap to test, and the
+     * pointer arithmetic below is not defined for the NULL input it now admits. */
+    if ( input_length > 0 && output > input && (size_t) ( output - input ) < input_length ) {
         return ( PSA_ERROR_INVALID_ARGUMENT );
     }
     /* If this is the first time esp_gcm_update is getting called
@@ -482,6 +541,12 @@ int esp_aes_gcm_update( esp_gcm_context *ctx,
          * operation will auto update it
          */
         increment32_j0(ctx, nonce_counter);
+        /* Zero-pad and flush any buffered partial AAD block so the ciphertext
+         * GHASH starts on a fresh block */
+        if (ctx->ghash_buf_len) {
+            esp_gcm_ghash(ctx, ctx->ghash_buf, ctx->ghash_buf_len, ctx->ghash);
+            ctx->ghash_buf_len = 0;
+        }
         ctx->gcm_state = ESP_AES_GCM_STATE_UPDATE;
     } else if (ctx->gcm_state == ESP_AES_GCM_STATE_UPDATE) {
         memcpy(nonce_counter, ctx->J0, AES_BLOCK_BYTES);
@@ -489,27 +554,35 @@ int esp_aes_gcm_update( esp_gcm_context *ctx,
 
     /* Perform intermediate GHASH on "encrypted" data during decryption */
     if (ctx->mode == ESP_AES_DECRYPT) {
-        esp_gcm_ghash(ctx, input, input_length, ctx->ghash);
+        esp_gcm_ghash_buffered(ctx, input, input_length);
     }
 
-    /* Output = GCTR(J0, Input): Encrypt/Decrypt the input */
-    int ret = esp_aes_crypt_ctr(&ctx->aes_ctx, input_length, &nc_off, nonce_counter, stream, input, output);
-    if (ret != 0) {
-        return ret;
+    /* Output = GCTR(J0, Input): Encrypt/Decrypt the input. An empty payload skips
+     * the call, because esp_aes_crypt_ctr() rejects a NULL input or output whatever
+     * the length is. The context needs no update either: the incremented J0 of the
+     * branch above is already in place and the data length does not change. */
+    int ret = 0;
+    if (input_length > 0) {
+        ret = esp_aes_crypt_ctr(&ctx->aes_ctx, input_length, &ctx->nc_off, nonce_counter, ctx->stream_block, input, output);
+    }
+    if (ret == 0 && input_length > 0) {
+        /* ICB gets auto incremented after GCTR operation here so update the context */
+        memcpy(ctx->J0, nonce_counter, AES_BLOCK_BYTES);
+
+        /* Keep updating the length counter for final tag calculation */
+        ctx->data_len += input_length;
+
+        /* Perform intermediate GHASH on "encrypted" data during encryption*/
+        if (ctx->mode == ESP_AES_ENCRYPT) {
+            esp_gcm_ghash_buffered(ctx, output, input_length);
+        }
     }
 
-    /* ICB gets auto incremented after GCTR operation here so update the context */
-    memcpy(ctx->J0, nonce_counter, AES_BLOCK_BYTES);
-
-    /* Keep updating the length counter for final tag calculation */
-    ctx->data_len += input_length;
-
-    /* Perform intermediate GHASH on "encrypted" data during encryption*/
-    if (ctx->mode == ESP_AES_ENCRYPT) {
-        esp_gcm_ghash(ctx, output, input_length, ctx->ghash);
-    }
-
-    return 0;
+    /* nonce_counter holds the live CTR state (key-derived); scrub the stack
+     * copy on every exit. The persistent keystream in ctx->stream_block is
+     * required for the next update and is scrubbed in esp_aes_gcm_free(). */
+    mbedtls_platform_zeroize(nonce_counter, sizeof(nonce_counter));
+    return ret;
 }
 
 /* Function to read the tag value */
@@ -522,8 +595,19 @@ int esp_aes_gcm_finish( esp_gcm_context *ctx,
     uint8_t len_block[AES_BLOCK_BYTES] = {0};
     uint8_t stream[AES_BLOCK_BYTES] = {0};
 
+    (void)output;
+    (void)output_size;
+    *output_length = 0;
+
     if ( tag_len > 16 || tag_len < 4 ) {
         return ( PSA_ERROR_INVALID_ARGUMENT );
+    }
+
+    /* Flush the final buffered partial block (zero-padded) into GHASH before
+     * the length block, completing the ciphertext portion of the hash. */
+    if (ctx->ghash_buf_len) {
+        esp_gcm_ghash(ctx, ctx->ghash_buf, ctx->ghash_buf_len, ctx->ghash);
+        ctx->ghash_buf_len = 0;
     }
 
     /* Calculate final GHASH on aad_len, data length */
@@ -532,7 +616,13 @@ int esp_aes_gcm_finish( esp_gcm_context *ctx,
     esp_gcm_ghash(ctx, len_block, AES_BLOCK_BYTES, ctx->ghash);
 
     /* Tag T = GCTR(J0, ) where T is truncated to tag_len */
-    return esp_aes_crypt_ctr(&ctx->aes_ctx, tag_len, &nc_off, ctx->ori_j0, stream, ctx->ghash, tag);
+    int ret = esp_aes_crypt_ctr(&ctx->aes_ctx, tag_len, &nc_off, ctx->ori_j0, stream, ctx->ghash, tag);
+
+    /* stream holds the AES-CTR keystream used to encrypt the tag (key-derived);
+     * len_block holds the GHASH length block. Scrub both before returning. */
+    mbedtls_platform_zeroize(stream, sizeof(stream));
+    mbedtls_platform_zeroize(len_block, sizeof(len_block));
+    return ret;
 }
 
 #if CONFIG_MBEDTLS_HARDWARE_GCM
@@ -545,14 +635,14 @@ static bool esp_aes_gcm_input_support_hw_accel(size_t length, const unsigned cha
 
     if (aad_len > ESP_AES_GCM_AAD_MAX_BYTES) {
         support_hw_accel = false;
-    } else if (!esp_ptr_dma_capable(aad) && aad_len > 0) {
-        /* aad in non internal DMA memory */
+    } else if (!esp_aes_gcm_buffer_dma_capable(aad, aad_len, false) && aad_len > 0) {
+        /* aad in memory the DMA cannot reach */
         support_hw_accel = false;
-    } else if (!esp_ptr_dma_capable(input) && length > 0) {
-        /* input in non internal DMA memory */
+    } else if (!esp_aes_gcm_buffer_dma_capable(input, length, false) && length > 0) {
+        /* input in memory the DMA cannot reach */
         support_hw_accel = false;
-    } else if (!esp_ptr_dma_capable(output) && length > 0) {
-        /* output in non internal DMA memory */
+    } else if (!esp_aes_gcm_buffer_dma_capable(output, length, true) && length > 0) {
+        /* output in memory the DMA cannot reach, or that this port cannot align */
         support_hw_accel = false;
     } else if (length == 0) {
         support_hw_accel = false;
@@ -586,7 +676,7 @@ static int esp_aes_gcm_crypt_and_tag_partial_hw( esp_gcm_context *ctx,
         return ( ret );
     }
 
-    if ( ( ret = esp_aes_gcm_update( ctx, input, length, output, 0, &olen ) ) != 0 ) {
+    if ( ( ret = esp_aes_gcm_update( ctx, input, length, output, length, &olen ) ) != 0 ) {
         return ( ret );
     }
 
@@ -611,6 +701,12 @@ int esp_aes_gcm_crypt_and_tag( esp_gcm_context *ctx,
 {
     if (!ctx) {
         ESP_LOGE(TAG, "No AES context supplied");
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+    /* GCM tags are 4..16 bytes. Validate here so the hardware path also rejects an invalid
+     * tag_len (the software path enforces this in esp_aes_gcm_finish()); otherwise the HAL tag
+     * read would be driven with an out-of-range length (CWE-125 / CWE-787). */
+    if ( tag_len < 4 || tag_len > 16 ) {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 #if CONFIG_MBEDTLS_HARDWARE_GCM
@@ -708,10 +804,17 @@ int esp_aes_gcm_auth_decrypt( esp_gcm_context *ctx,
     size_t i;
     int diff;
 
+    /* Validate tag_len before use: a zero tag_len makes the constant-time comparison loop
+     * below run zero iterations, so diff stays 0 and any forged ciphertext is accepted as
+     * authentic (CWE-347). Enforce the same 4..16 range as esp_aes_gcm_finish(). */
+    if ( tag_len > 16 || tag_len < 4 ) {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
     if ( ( ret = esp_aes_gcm_crypt_and_tag( ctx, ESP_AES_DECRYPT, length,
                                             iv, iv_len, aad, aad_len,
                                             input, output, tag_len, check_tag ) ) != 0 ) {
-        return ( ret );
+        goto cleanup;
     }
 
     /* Check tag in "constant-time" */
@@ -721,8 +824,11 @@ int esp_aes_gcm_auth_decrypt( esp_gcm_context *ctx,
 
     if ( diff != 0 ) {
         mbedtls_platform_zeroize( output, length );
-        return ( PSA_ERROR_INVALID_SIGNATURE );
+        ret = PSA_ERROR_INVALID_SIGNATURE;
     }
 
-    return ( 0 );
+cleanup:
+    /* check_tag holds the locally recomputed authentication tag. */
+    mbedtls_platform_zeroize( check_tag, sizeof(check_tag) );
+    return ( ret );
 }

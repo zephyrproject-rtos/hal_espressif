@@ -9,16 +9,16 @@
  #include <assert.h>
  
  #include "sdkconfig.h"
-@@ -54,8 +54,6 @@
- #include "esp_memory_utils.h"
- #include "esp_rom_sys.h"
+@@ -84,8 +84,6 @@
+ #endif /* !SOC_LP_PERIPH_SHARE_INTERRUPT */
+ #endif /* CONFIG_PM_TICKLESS_IDLE_WAITI */
  
 -#define MHZ (1000000)
 -
  #ifdef CONFIG_FREERTOS_SYSTICK_USES_CCOUNT
  /* CCOMPARE update timeout, in CPU cycles. Any value above ~600 cycles will work
   * for the purpose of detecting a deadlock.
-@@ -431,9 +429,9 @@
+@@ -461,9 +459,9 @@
      }
  
  #ifdef REF_CLK_DIV_MIN
@@ -31,7 +31,7 @@
          return ESP_ERR_INVALID_ARG;
      }
  #endif
-@@ -459,9 +457,9 @@
+@@ -489,9 +487,9 @@
  #else
      /* Maximum SOC APB clock frequency is 40 MHz, maximum Modem (WiFi,
       * Bluetooth, etc..) APB clock frequency is 80 MHz */
@@ -43,7 +43,7 @@
  #endif
      int apb_max_freq = MIN(max_freq_mhz, apb_clk_freq); /* CPU frequency in APB_MAX mode */
  #endif
-@@ -587,7 +585,7 @@
+@@ -617,7 +615,7 @@
  #ifdef CONFIG_FREERTOS_SYSTICK_USES_CCOUNT
  #ifdef XT_RTOS_TIMER_INT
      /* Calculate new tick divisor */
@@ -52,8 +52,8 @@
  #endif
  
      int core_id = xPortGetCoreID();
-@@ -1021,7 +1019,7 @@
-     }
+@@ -1328,7 +1326,7 @@
+ #endif
  
  #ifdef CONFIG_PM_DFS_INIT_AUTO
 -    int xtal_freq_mhz = esp_clk_xtal_freq() / MHZ;

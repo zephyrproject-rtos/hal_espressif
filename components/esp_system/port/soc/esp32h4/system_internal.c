@@ -24,9 +24,13 @@
 #include "hal/wdt_hal.h"
 #endif
 #include "hal/uart_ll.h"
+#include "hal/sec_ll.h"
+#include "hal/riscv_trace_hal.h"
 #include "esp_memory_utils.h"
+#if CONFIG_ESP_SYSTEM_HW_STACK_GUARD && CONFIG_COMPILER_ENABLE_RISCV_ZCMP
+#include "esp_private/hw_stack_guard.h"
+#endif
 
-#define ALIGN_DOWN(val, align)  ((val) & ~((align) - 1))
 extern int _bss_end;
 
 #include "esp32h4/rom/cache.h"
@@ -35,6 +39,9 @@ extern int _bss_end;
 
 void esp_system_reset_modules_on_exit(void)
 {
+    // A software reset leaves the trace encoders running, and they would write into RAM after restart
+    riscv_trace_hal_stop_all_encoders();
+
     // Flush any data left in UART FIFOs before reset the UART peripheral
     for (int i = 0; i < SOC_UART_HP_NUM; ++i) {
         if (uart_ll_is_enabled(i)) {
@@ -42,13 +49,20 @@ void esp_system_reset_modules_on_exit(void)
         }
     }
 
+    // Stop the USB OTG 1.1 core before the bus is reset below
+    SET_PERI_REG_MASK(PCR_USB_OTG11_CONF_REG, PCR_USB_OTG11_RST_EN);
+    CLEAR_PERI_REG_MASK(PCR_USB_OTG11_CONF_REG, PCR_USB_OTG11_RST_EN);
+
+    // Stop the DMA masters before the MSPI AXI bus is reset below: a DMA can still be moving data from/to PSRAM.
+    SET_PERI_REG_MASK(PCR_GDMA_CONF_REG, PCR_GDMA_RST_EN);
+    CLEAR_PERI_REG_MASK(PCR_GDMA_CONF_REG, PCR_GDMA_RST_EN);
+
     // Set Peripheral clk rst
     SET_PERI_REG_MASK(PCR_MSPI_CLK_CONF_REG, PCR_MSPI_AXI_RST_EN); // Must reset mspi AXI before reset mspi core.
     SET_PERI_REG_MASK(PCR_MSPI_CONF_REG, PCR_MSPI_RST_EN);
     SET_PERI_REG_MASK(PCR_UART0_CONF_REG, PCR_UART0_RST_EN);
     SET_PERI_REG_MASK(PCR_UART1_CONF_REG, PCR_UART1_RST_EN);
     SET_PERI_REG_MASK(PCR_SYSTIMER_CONF_REG, PCR_SYSTIMER_RST_EN);
-    SET_PERI_REG_MASK(PCR_GDMA_CONF_REG, PCR_GDMA_RST_EN);
     SET_PERI_REG_MASK(PCR_MODEM_CONF_REG, PCR_MODEM_RST_EN);
     SET_PERI_REG_MASK(PCR_PWM0_CONF_REG, PCR_PWM0_RST_EN);
     SET_PERI_REG_MASK(PCR_PWM1_CONF_REG, PCR_PWM1_RST_EN);
@@ -62,7 +76,6 @@ void esp_system_reset_modules_on_exit(void)
     CLEAR_PERI_REG_MASK(PCR_UART0_CONF_REG, PCR_UART0_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_UART1_CONF_REG, PCR_UART1_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_SYSTIMER_CONF_REG, PCR_SYSTIMER_RST_EN);
-    CLEAR_PERI_REG_MASK(PCR_GDMA_CONF_REG, PCR_GDMA_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_MODEM_CONF_REG, PCR_MODEM_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_PWM0_CONF_REG, PCR_PWM0_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_PWM1_CONF_REG, PCR_PWM1_RST_EN);
@@ -85,6 +98,12 @@ void esp_system_reset_modules_on_exit(void)
     CLEAR_PERI_REG_MASK(PCR_HMAC_CONF_REG, PCR_HMAC_RST_EN);
     SET_PERI_REG_MASK(PCR_SHA_CONF_REG, PCR_SHA_RST_EN);
     CLEAR_PERI_REG_MASK(PCR_SHA_CONF_REG, PCR_SHA_RST_EN);
+    CLEAR_PERI_REG_MASK(PCR_ECC_MEM_LP_CTRL_REG, PCR_ECC_MEM_LP_EN);
+    SET_PERI_REG_MASK(PCR_ECC_MEM_LP_CTRL_REG, PCR_ECC_MEM_FORCE_CTRL);
+
+    // Reset crypto clk mux to XTAL (always-on); otherwise if the parent is gated off,
+    // next-boot ROM encryption ops can hang.
+    sec_ll_crypto_clk_src_sel(SOC_MOD_CLK_XTAL);
 
     // UART's sclk is controlled in the PCR register and does not reset with the UART module. The ROM missed enabling
     // it when initializing the ROM UART. If it is not turned on, it will trigger LP_WDT in the ROM.
@@ -96,7 +115,7 @@ static void IRAM_ATTR __attribute__((noinline, noreturn)) esp_restart_noos_inner
     const uint32_t core_id = esp_cpu_get_core_id();
 
     // Disable cache
-    Cache_Disable_Cache(CACHE_MAP_ALL);
+    Cache_Disable_Cache(CACHE_MAP_MASK);
 
     esp_system_reset_modules_on_exit();
 
@@ -176,7 +195,14 @@ void esp_restart_noos(void)
         // If stack is in external RAM (CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM), switch SP to
         // internal RAM before disabling the cache to avoid a "Cache disabled but cached memory
         // region accessed" crash.
-        uint32_t new_sp = ALIGN_DOWN((uint32_t)&_bss_end, 16);
+
+#if CONFIG_ESP_SYSTEM_HW_STACK_GUARD && CONFIG_COMPILER_ENABLE_RISCV_ZCMP
+        // Stop hw stack guard before changing SP: new SP is outside task stack bounds.
+        // rtc_clk_cpu_set_to_default_config() (called later) uses vPortEnterCritical() via
+        // ENABLE_CLK_GATE, which can trigger DIG-661 (assist-debug interrupt with mstatus.mie=0).
+        esp_hw_stack_guard_monitor_stop();
+#endif
+        uint32_t new_sp = ESP_ALIGN_DOWN((uint32_t)&_bss_end, 16);
         rv_utils_set_sp((void *)new_sp);
     }
 #endif

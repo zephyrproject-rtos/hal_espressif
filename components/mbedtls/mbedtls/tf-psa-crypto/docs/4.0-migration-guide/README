@@ -1,0 +1,22 @@
+This directory contains sections intended for the migration guide
+from Mbed TLS 3.6 to TF-PSA-Crypto 1.0 + Mbed TLS 4.0.
+
+The files in this document should be markdown files with the .md
+extension. They should generally contain level-2 sections (## title).
+The files will be consolidated into a single cohesive document or
+document set shortly before the .0 releases.
+
+The reason to have multiple files is that each strand of work can create
+one file, without worrying about where to fit in the document structure.
+We'll worry about the general structure once we have the content.
+Furthermore, placing different strands of work in separate files will
+avoid merge conflicts (as would happen e.g. if parallel strands of
+work append to the same file in concurrent pull requests).
+
+Files can be placed in the docs/4.0-migration-guide indifferently in
+mbedtls or TF-PSA-Crypto, as convenient.
+
+Documentation that is specifically about migrating from the legacy
+crypto API to the PSA crypto API should be added to the existing
+docs/psa-transition.md instead.
+

@@ -20,6 +20,8 @@ extern "C" {
 #include "soc/crypto_dma_reg.h"
 #include "soc/dport_reg.h"
 
+#define CRYPTO_DMA_LL_DESC_ALIGNMENT    4
+
 typedef enum {
     CRYPTO_DMA_AES = 0,
     CRYPTO_DMA_SHA,
@@ -68,8 +70,8 @@ static inline void crypto_dma_ll_reset_register(void)
  */
 static inline void crypto_dma_ll_reset(void)
 {
-    SET_PERI_REG_MASK(CRYPTO_DMA_CONF0_REG, CONF0_REG_AHBM_RST | CONF0_REG_OUT_RST | CONF0_REG_AHBM_FIFO_RST);
-    CLEAR_PERI_REG_MASK(CRYPTO_DMA_CONF0_REG, CONF0_REG_AHBM_RST | CONF0_REG_OUT_RST | CONF0_REG_AHBM_FIFO_RST);
+    SET_PERI_REG_MASK(CRYPTO_DMA_CONF0_REG, CONF0_REG_AHBM_RST | CONF0_REG_IN_RST | CONF0_REG_OUT_RST | CONF0_REG_AHBM_FIFO_RST);
+    CLEAR_PERI_REG_MASK(CRYPTO_DMA_CONF0_REG, CONF0_REG_AHBM_RST | CONF0_REG_IN_RST | CONF0_REG_OUT_RST | CONF0_REG_AHBM_FIFO_RST);
 }
 
 /**

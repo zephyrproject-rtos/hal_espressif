@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -18,6 +18,8 @@ extern "C" {
 
 #if SOC_PAU_SUPPORTED
 
+#include "soc/retention_periph_defs.h"
+
 #define REGDMA_LINK_ENTRY_NUM   (SOC_PM_PAU_LINK_NUM) /* Maximum number of REG DMA linked list entries */
 
 #ifndef ARRAY_SIZE
@@ -35,6 +37,7 @@ extern "C" {
 #define REGDMA_MODEMLPCON_LINK(_pri)        ((0x03 << 8) | _pri)
 #define REGDMA_PAU_LINK(_pri)               ((0x04 << 8) | _pri)
 #define REGDMA_PVT_LINK(_pri)               ((0x05 << 8) | _pri)
+#define REGDMA_PLL_LINK(_pri)               ((0x06 << 8) | _pri)
 
 #define REGDMA_CACHE_LINK(_pri)             ((0x0c << 8) | _pri)
 #define REGDMA_INTMTX_LINK(_pri)            ((0x0d << 8) | _pri)
@@ -67,14 +70,21 @@ extern "C" {
 #define REGDMA_EMAC_LINK(_pri)              ((0x27 << 8) | _pri)
 #define REGDMA_JPEG_LINK(_pri)              ((0x28 << 8) | _pri)
 #define REGDMA_LCDCAM_LINK(_pri)            ((0x29 << 8) | _pri)
-#define REGDMA_H264_LINK(_pri)              ((0x2a << 8) | _pri)
+#define REGDMA_H264_LINK(_pri)              ((0x2A << 8) | _pri)
+#define REGDMA_PPA_LINK(_pri)               ((0x2B << 8) | _pri)
+#define REGDMA_DMA2D_LINK(_pri)             ((0x2C << 8) | _pri)
+#define REGDMA_ASRC_LINK(_pri)              ((0x2D << 8) | _pri)
+#define REGDMA_CNNT_LINK(_pri)              ((0x2E << 8) | _pri)
+
 #define REGDMA_POWER_LINK(_pri)             ((0xFD << 8) | _pri)
 #define REGDMA_CLOCK_ICG_LINK(_pri)         ((0xFE << 8) | _pri)
+
 #define REGDMA_MODEM_FE_LINK(_pri)          ((0xFF << 8) | _pri)
 
-#define REGDMA_LINK_PRI_SYS_CLK                 REGDMA_LINK_PRI_0
-#define REGDMA_LINK_PRI_MODEM_CLK               REGDMA_LINK_PRI_1
-#define REGDMA_LINK_PRI_CLOCK_ICG               REGDMA_LINK_PRI_1
+#define REGDMA_LINK_PRI_PLL_SOURCE              REGDMA_LINK_PRI_0
+#define REGDMA_LINK_PRI_SYS_CLK                 REGDMA_LINK_PRI_1
+#define REGDMA_LINK_PRI_MODEM_CLK               REGDMA_LINK_PRI_2
+#define REGDMA_LINK_PRI_CLOCK_ICG               REGDMA_LINK_PRI_2
 #define REGDMA_LINK_PRI_CRITICAL_TEE_APM        REGDMA_LINK_PRI_2
 #define REGDMA_LINK_PRI_WIFI_MAC_BB             REGDMA_LINK_PRI_3
 #define REGDMA_LINK_PRI_NON_CRITICAL_TEE_APM    REGDMA_LINK_PRI_4
@@ -102,6 +112,9 @@ extern "C" {
 #define REGDMA_LINK_PRI_JPEG                    REGDMA_LINK_PRI_GENERAL_PERIPH
 #define REGDMA_LINK_PRI_LCDCAM                  REGDMA_LINK_PRI_GENERAL_PERIPH
 #define REGDMA_LINK_PRI_H264                    REGDMA_LINK_PRI_GENERAL_PERIPH
+#define REGDMA_LINK_PRI_PPA                     REGDMA_LINK_PRI_GENERAL_PERIPH
+#define REGDMA_LINK_PRI_DMA2D                   REGDMA_LINK_PRI_GENERAL_PERIPH
+#define REGDMA_LINK_PRI_ASRC                    REGDMA_LINK_PRI_GENERAL_PERIPH
 
 typedef enum {
     REGDMA_LINK_PRI_0 = 0,
@@ -184,15 +197,15 @@ typedef struct regdma_link_branch_write_wait_body {
     volatile uint32_t   mask;
 } regdma_link_branch_write_wait_body_t;
 
-ESP_STATIC_ASSERT(REGDMA_LINK_ENTRY_NUM <= 16, "regdma link entry number should equal to and less than 16");
+ESP_STATIC_ASSERT(REGDMA_LINK_ENTRY_NUM < 16, "regdma link entry number must be less than 16 to pack module into stats");
 typedef struct regdma_link_stats {
     volatile uint32_t   ref: REGDMA_LINK_ENTRY_NUM, /* a bitmap, identifies which entry has referenced the current link */
-#if REGDMA_LINK_ENTRY_NUM < 16
-             reserve: 16 - REGDMA_LINK_ENTRY_NUM,
-#endif
+             module: 16 - REGDMA_LINK_ENTRY_NUM, /* module id; width leaves room beside ref within the low 16 bits */
              id: 16; /* REGDMA linked list node unique identifier */
-    volatile int    module; /* a number used to identify the module to which the current node belongs */
 } regdma_link_stats_t;
+ESP_STATIC_ASSERT(sizeof(regdma_link_stats_t) == 4, "regdma_link_stats_t must be 4 bytes");
+ESP_STATIC_ASSERT(SLEEP_RETENTION_MODULE_MAX < (1u << (16 - REGDMA_LINK_ENTRY_NUM)),
+                  "module id exceeds bitfield width");
 
 typedef struct regdma_link_continuous {
     regdma_link_stats_t             stat;

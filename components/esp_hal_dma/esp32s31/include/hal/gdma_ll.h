@@ -12,6 +12,7 @@
 #include "soc/lp_peri_clkrst_struct.h"
 #include "soc/soc_etm_source.h"
 #include "hal/ahb_dma_ll.h"
+#include "hal/axi_dma_ll.h"
 
 #define GDMA_LL_GET(_attr)          GDMA_LL_ ## _attr
 
@@ -20,6 +21,7 @@
 #define GDMA_LL_PAIRS_PER_INST      MAX(MAX(GDMA_LL_AHB_PAIRS_PER_GROUP, GDMA_LL_AXI_PAIRS_PER_GROUP), GDMA_LL_LP_AHB_PAIRS_PER_GROUP)
 
 #define GDMA_LL_CHANNEL_MAX_PRIORITY 5 // supported priority levels: [0,5]
+#define GDMA_LL_CHANNEL_MAX_WEIGHT   15 // supported weight levels: [0,15]
 
 // the following event bits are only supported by axi-dma
 #define GDMA_LL_EVENT_TX_LINK_SWITCH (1<<10)
@@ -169,6 +171,21 @@ static inline void gdma_ll_enable_bus_clock(int group_id, bool enable)
         HP_SYS_CLKRST.axi_pdma_ctrl0.reg_axi_pdma_sys_clk_en = enable;
     } else { // group_id == 2, LP AHB GDMA
         LP_PERI_CLKRST.ahb_dma_ctrl.lp_ahb_dma_clk_en = enable;
+    }
+}
+
+/**
+ * @brief Check if the bus clock is enabled for the DMA module
+ */
+__attribute__((always_inline))
+static inline bool gdma_ll_is_bus_clock_enabled(int group_id)
+{
+    if (group_id == 0) {
+        return HP_SYS_CLKRST.ahb_pdma_ctrl0.reg_ahb_pdma_sys_clk_en;
+    } else if (group_id == 1) {
+        return HP_SYS_CLKRST.axi_pdma_ctrl0.reg_axi_pdma_sys_clk_en;
+    } else { // group_id == 2, LP AHB GDMA
+        return LP_PERI_CLKRST.ahb_dma_ctrl.lp_ahb_dma_clk_en;
     }
 }
 

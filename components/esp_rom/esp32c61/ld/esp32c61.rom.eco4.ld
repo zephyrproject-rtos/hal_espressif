@@ -8,7 +8,7 @@
  eco4 fixed
  ***************************************/
 
-coex_core_timer_idx_get = 0x40000a54;
+/* coex_core_timer_idx_get = 0x40000a54; */
 coex_status_get = 0x40000a74;
 ets_delay_us = 0x4000003c;
 
@@ -17,6 +17,8 @@ ieee80211_set_tx_desc = 0x40000ad8;
 sta_input = 0x40000b3c;
 //sta_rx_eapol = 0x40000b40;
 //sta_reset_beacon_timeout = 0x40000b44;
+esf_buf_alloc = 0x40000b5c;
+esf_buf_alloc_dynamic = 0x40000b60;
 hal_mac_tx_set_ppdu = 0x40000b74;
 ic_mac_deinit = 0x40000be8;
 ic_mac_init = 0x40000bec;
@@ -26,7 +28,7 @@ pm_check_state = 0x40000cb4;
 pm_set_beacon_filter = 0x40000cd8;
 //pm_is_in_wifi_slice_threshold = 0x40000cdc;
 //pm_keep_alive = 0x40000ce4;
-pm_process_tim = 0x40000d14;
+//pm_process_tim = 0x40000d14;
 //pm_tbtt_process = 0x40000d28;
 pm_tx_data_process = 0x40000d44;
 pm_twt_process = 0x40000d54;
@@ -41,11 +43,12 @@ pm_mac_enable_tsf_tbtt_soc_wakeup = 0x40000d84;
 pm_coex_pwr_update = 0x40000d9c;
 //ppMapTxQueue = 0x40000ddc;
 ppProcTxSecFrame = 0x40000de0;
-ppProcessTxQ = 0x40000de8;
+//ppProcessTxQ = 0x40000de8;
 ppRxPkt = 0x40000e04;
 ppRxProtoProc = 0x40000e08;
 //ppProcessLifeTime = 0x40000e54;
 rcGetSched = 0x40000eb4;
+wDev_IndicateFrame = 0x40000f34;
 //wDev_ProcessRxSucData = 0x40000f54;
 pm_get_tbtt_count = 0x400014c8;
 pm_beacon_offset_check = 0x40001564;

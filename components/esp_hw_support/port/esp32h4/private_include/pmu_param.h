@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <esp_types.h>
+#include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include "soc/pmu_struct.h"
 #include "hal/pmu_hal.h"
 
@@ -110,7 +112,48 @@ typedef struct {
 
 const pmu_lp_system_analog_param_t* pmu_lp_system_analog_param_default(pmu_lp_mode_t mode);
 
+#if CONFIG_PM_MODEM_STATE_ENABLED
+#define ANALOG_WAIT_CTRL_NUM        3 // S2M, M2S, M2A
+/**
+ * @brief Update content of selected analog wait ctrl REGDMA links.
+ *
+ * @param data PMU sleep data context.
+ * @param analog_wait Update analog wait values at S2M, M2S, M2A retention links.
+ */
+void pmu_sleep_power_analog_wait_config(void *data, const uint16_t analog_wait[ANALOG_WAIT_CTRL_NUM]);
 
+#if SOC_PM_MODEM_LOCK_CLK_WORKAROUND
+/**
+ * @brief Back-fill M2A clk power REGDMA write values before sleep.
+ *
+ * @param data    PMU sleep data context.
+ * @param config  IMM TIE_HIGH bits to write.
+ */
+void pmu_sleep_power_clock_config(void *data, const uint32_t config);
+#endif // SOC_PM_MODEM_LOCK_CLK_WORKAROUND
+
+#endif // CONFIG_PM_MODEM_STATE_ENABLED
+
+/* Enabled when this chip needs any pmu_sleep_data_t priv slot; conditions differ per chip. */
+#define PMU_SLEEP_PRIV_ENABLED (CONFIG_PM_MODEM_STATE_ENABLED || SOC_PM_SUPPORT_PMU_RETENTION_CLK_ICG || SOC_PM_MODEM_LOCK_CLK_WORKAROUND)
+#if PMU_SLEEP_PRIV_ENABLED
+enum {
+#if CONFIG_PM_MODEM_STATE_ENABLED
+    PMU_SLEEP_PRIV_SKIP_MODEM_TO_ACTIVE_ANALOG_WAIT,
+#if SOC_PM_MODEM_LOCK_CLK_WORKAROUND
+    PMU_SLEEP_PRIV_MODEM_LOCK_CLK_POWER,
+#endif // SOC_PM_MODEM_LOCK_CLK_WORKAROUND
+#endif // CONFIG_PM_MODEM_STATE_ENABLED
+#if SOC_PM_SUPPORT_PMU_RETENTION_CLK_ICG
+    PMU_SLEEP_PRIV_HW_RETENTION_ICG_CLK,
+#endif
+    PMU_SLEEP_PRIV_MAX,
+};
+
+typedef struct {
+    void *func[PMU_SLEEP_PRIV_MAX];
+} pmu_sleep_data_t;
+#endif
 
 /* Following software configuration instance type from pmu_struct.h used for the PMU state machine in sleep flow*/
 typedef union {
@@ -352,7 +395,7 @@ typedef struct {
 
 typedef struct {
     pmu_hp_sys_cntl_reg_t   syscntl;
-    uint32_t                icg_func;
+    uint32_t                sleep_icg_func;
 } pmu_sleep_digital_config_t;
 
 #define PMU_SLEEP_DIGITAL_LSLP_CONFIG_DEFAULT(sleep_flags, clk_flags) { \
@@ -360,15 +403,15 @@ typedef struct {
         .dig_pad_slp_sel = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 0 : 1,  \
         .dig_pause_wdt = ((sleep_flags) & RTC_SLEEP_USE_RTC_WDT) ? 0 : 1, \
     },                                                                  \
-    .icg_func = clk_flags                                               \
+    .sleep_icg_func = (uint32_t)((clk_flags)[0]),                       \
 }
 
-#define PMU_SLEEP_DIGITAL_DSLP_CONFIG_DEFAULT(sleep_flags, clk_flags) { \
+#define PMU_SLEEP_DIGITAL_DSLP_CONFIG_DEFAULT(sleep_flags) {            \
     .syscntl = {                                                        \
         .dig_pad_slp_sel = 1,                                           \
         .dig_pause_wdt = ((sleep_flags) & RTC_SLEEP_USE_RTC_WDT) ? 0 : 1, \
     },                                                                  \
-    .icg_func = 0                                                       \
+    .sleep_icg_func = 0,                                                \
 }
 
 typedef struct {
@@ -526,8 +569,8 @@ typedef struct pmu_sleep_machine_constant {
     .lp = {                                     \
         .min_slp_time_us                = 450,  \
         .wakeup_wait_cycle              = 4,    \
-        .analog_wait_time_us            = 130,  \
-        .xtal_wait_stable_time_us       = 160,  \
+        .analog_wait_time_us            = 154,  \
+        .xtal_wait_stable_time_us       = 250,  \
         .clk_switch_cycle               = 1,    \
         .clk_power_on_wait_cycle        = 1,    \
         .isolate_wait_time_us           = 1,    \
@@ -539,7 +582,7 @@ typedef struct pmu_sleep_machine_constant {
         .min_slp_time_us                = 450,  \
         .clock_domain_sync_time_us      = 150,  \
         .system_dfs_up_work_time_us     = 124,  \
-        .analog_wait_time_us            = 190, \
+        .analog_wait_time_us            = 154,  \
         .isolate_wait_time_us           = 1,    \
         .reset_wait_time_us             = 1,    \
         .power_supply_wait_time_us      = 2,    \
@@ -550,7 +593,7 @@ typedef struct pmu_sleep_machine_constant {
         .regdma_a2s_work_time_us        = 265,  \
         .regdma_rf_on_work_time_us      = 70,   \
         .regdma_rf_off_work_time_us     = 23,   \
-        .xtal_wait_stable_time_us       = 160,  \
+        .xtal_wait_stable_time_us       = 250,  \
         .pll_wait_stable_time_us        = 1     \
     }                                           \
 }

@@ -16,8 +16,13 @@ int bredr_stack_enable(void);
 
 void bredr_stack_disable(void);
 
+int bredr_stack_reset(void);
+
+int bredr_hci_cmd_rx_handler(uint16_t opcode, const uint8_t *cmdbuf, uint8_t len, uint8_t *rspbuf,
+                             uint8_t *rsplen);
+
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
-esp_err_t sleep_modem_bredr_mac_modem_state_init(void);
+esp_err_t sleep_modem_bredr_mac_retention_create(void);
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE
 
 void bredr_osal_elem_calc(esp_bt_controller_config_t *cfg, btdm_osal_elem_num_t *elem);

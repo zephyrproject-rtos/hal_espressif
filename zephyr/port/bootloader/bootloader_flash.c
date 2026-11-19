@@ -24,6 +24,7 @@
 
 /* This dependency will be removed in the future.  IDF-5025 */
 #include "esp_flash.h"
+#include "spi_flash_mmap.h"
 
 #include "esp_rom_spiflash.h"
 
@@ -50,7 +51,7 @@ static spi_flash_mmap_handle_t map;
 
 uint32_t bootloader_mmap_get_free_pages(void)
 {
-    return spi_flash_mmap_get_free_pages(SPI_FLASH_MMAP_DATA);
+    return spi_flash_mmap_get_free_pages(SPI_FLASH_MMAP_FLAG_DATA);
 }
 
 const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
@@ -62,7 +63,7 @@ const void *bootloader_mmap(uint32_t src_addr, uint32_t size)
     const void *result = NULL;
     uint32_t src_page = src_addr & ~(SPI_FLASH_MMU_PAGE_SIZE - 1);
     size += (src_addr - src_page);
-    esp_err_t err = spi_flash_mmap(src_page, size, SPI_FLASH_MMAP_DATA, &result, &map);
+    esp_err_t err = spi_flash_mmap(src_page, size, SPI_FLASH_MMAP_FLAG_DATA, &result, &map);
     if (err != ESP_OK) {
         ESP_EARLY_LOGE(TAG, "spi_flash_mmap failed: 0x%x", err);
         return NULL;
@@ -491,7 +492,7 @@ void bootloader_flash_32bits_address_map_enable(esp_rom_spiflash_read_mode_t fla
         break;
     }
     cache_hal_disable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
-    esp_rom_opiflash_cache_mode_config(flash_mode, &cache_rd);
+    esp_rom_spiflash_cache_mode_config(flash_mode, &cache_rd);
     cache_hal_enable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 }
 #endif

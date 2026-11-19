@@ -45,7 +45,13 @@ pmu_context_t * __attribute__((weak)) IRAM_ATTR PMU_instance(void)
      * instance will be used in pmu_sleep.c */
     static DRAM_ATTR pmu_hal_context_t pmu_hal = { .dev = &PMU };
     static DRAM_ATTR pmu_sleep_machine_constant_t pmu_mc = PMU_SLEEP_MC_DEFAULT();
-    static DRAM_ATTR pmu_context_t pmu_context = { .hal = &pmu_hal, .mc = (void *)&pmu_mc };
+    static DRAM_ATTR pmu_context_t pmu_context = {
+        .hal = &pmu_hal,
+        .mc = (void *)&pmu_mc,
+#if PMU_SLEEP_PRIV_ENABLED
+        .priv = NULL,
+#endif
+    };
     return &pmu_context;
 }
 
@@ -86,8 +92,7 @@ void pmu_hp_system_init(pmu_context_t *ctx, pmu_hp_mode_t mode, const pmu_hp_sys
      * sleep modes */
     pmu_ll_hp_set_bias_xpd                    (ctx->hal->dev, mode, anlg->bias.xpd_bias);
     pmu_ll_hp_set_dbg_atten                   (ctx->hal->dev, mode, anlg->bias.dbg_atten);
-    pmu_ll_hp_set_current_power_off           (ctx->hal->dev, mode, anlg->bias.pd_cur);
-    pmu_ll_hp_set_bias_sleep_enable           (ctx->hal->dev, mode, anlg->bias.bias_sleep);
+    pmu_ll_hp_set_pd_cur_bias_sleep(ctx->hal->dev, mode, anlg->bias.pd_cur, anlg->bias.bias_sleep);
     pmu_ll_hp_set_regulator_sleep_memory_xpd  (ctx->hal->dev, mode, anlg->regulator0.slp_mem_xpd);
     pmu_ll_hp_set_regulator_sleep_logic_xpd   (ctx->hal->dev, mode, anlg->regulator0.slp_logic_xpd);
     pmu_ll_hp_set_regulator_xpd               (ctx->hal->dev, mode, anlg->regulator0.xpd);
@@ -121,10 +126,11 @@ void pmu_lp_system_init(pmu_context_t *ctx, pmu_lp_mode_t mode, const pmu_lp_sys
 
     /* Default configuration of lp-system analog sub-system in active and
      * sleep modes */
-    pmu_ll_lp_set_bias_xpd             (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.xpd_bias);
-    pmu_ll_lp_set_dbg_atten            (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.dbg_atten);
-    pmu_ll_lp_set_current_power_off    (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.pd_cur);
-    pmu_ll_lp_set_bias_sleep_enable    (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.bias_sleep);
+    if (mode == PMU_MODE_LP_SLEEP) {
+        pmu_ll_lp_set_bias_xpd             (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.xpd_bias);
+        pmu_ll_lp_set_dbg_atten            (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.dbg_atten);
+        pmu_ll_lp_set_pd_cur_bias_sleep    (ctx->hal->dev, PMU_MODE_LP_SLEEP, anlg->bias.pd_cur, anlg->bias.bias_sleep);
+    }
     pmu_ll_lp_set_regulator_slp_xpd    (ctx->hal->dev, mode, anlg->regulator0.slp_xpd);
     pmu_ll_lp_set_regulator_xpd        (ctx->hal->dev, mode, anlg->regulator0.xpd);
     pmu_ll_lp_set_regulator_sleep_dbias(ctx->hal->dev, mode, anlg->regulator0.slp_dbias);
@@ -227,18 +233,21 @@ void pmu_init(void)
 #endif
 
 #if CONFIG_ESP_ENABLE_PVT
-    /*setup pvt function*/
+    /* Setup pvt function */
     uint32_t blk_version = efuse_hal_blk_version();
-    if (blk_version >= 2) {
-        pvt_auto_dbias_init();
-        charge_pump_init();
-
-        pvt_func_enable(true);
-        charge_pump_enable(true);
+    soc_reset_reason_t rst_reason = esp_rom_get_reset_reason(0);
+    if (blk_version >= 1) {
+        if ((rst_reason == RESET_REASON_CHIP_POWER_ON) || (rst_reason == RESET_REASON_SYS_BROWN_OUT)   \
+            || (rst_reason == RESET_REASON_SYS_RTC_WDT) || (rst_reason == RESET_REASON_SYS_SUPER_WDT)   \
+            || (rst_reason == RESET_REASON_RTC_BROWN_OUT) || (rst_reason == RESET_REASON_CORE_DEEP_SLEEP)) {
+            /* INIT + hand over DBIAS_SEL together on power-on style reset and deep-sleep wake */
+            pvt_dig_dbias_init();
+        }
+        pvt_auto_dbias_enable(true, true);
         esp_rom_delay_us(1000);
     }
     else {
-        ESP_HW_LOGW(TAG, "blk_version is less than 2, pvt function not supported in efuse.");
+        ESP_HW_LOGW(TAG, "blk_version is less than 1, pvt function not supported in efuse.");
     }
 #endif
 }

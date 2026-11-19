@@ -9,6 +9,7 @@
 #include <zephyr/sys/util.h>
 
 #include "esp_attr.h"
+#include "esp_macros.h"
 #include "esp_log.h"
 
 #include "esp_rom_sys.h"
@@ -36,16 +37,13 @@
 #include "esp_app_desc.h"
 #include "esp_secure_boot.h"
 #include "esp_flash_encrypt.h"
-#ifndef BOOTLOADER_BUILD
-#include "spi_flash_mmap.h"
-#endif
 #include "esp_flash_partitions.h"
-#include "bootloader_flash_priv.h"
+#include "esp_private/bootloader_flash_internal.h"
 #include "bootloader_random.h"
 #include "bootloader_config.h"
 #include "bootloader_common.h"
 #include "bootloader_utility.h"
-#include "bootloader_sha.h"
+#include "bootloader_util.h"
 #include "bootloader_console.h"
 #include "bootloader_soc.h"
 #include "bootloader_memory_utils.h"
@@ -157,6 +155,7 @@ bool bootloader_utility_load_partition_table(bootloader_state_t *bs)
     err = esp_partition_table_verify(partitions, true, &num_partitions);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to verify partition table");
+        bootloader_munmap(partitions);
         return false;
     }
 
@@ -267,7 +266,6 @@ bool bootloader_utility_load_partition_table(bootloader_state_t *bs)
 
     bootloader_munmap(partitions);
 
-    ESP_LOGI(TAG, "End of partition table");
     return true;
 }
 
@@ -392,7 +390,7 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
     ESP_LOGD(TAG, "otadata[0]: sequence values 0x%08"PRIx32, otadata[0].ota_seq);
     ESP_LOGD(TAG, "otadata[1]: sequence values 0x%08"PRIx32, otadata[1].ota_seq);
 
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK
     bool write_encrypted = esp_efuse_is_flash_encryption_enabled();
     for (int i = 0; i < 2; ++i) {
         if (otadata[i].ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
@@ -442,13 +440,13 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
             uint32_t ota_seq = otadata[active_otadata].ota_seq - 1; // Raw OTA sequence number. May be more than # of OTA slots
             boot_index = ota_seq % bs->app_count; // Actual OTA partition selection
             ESP_LOGD(TAG, "Mapping seq %"PRIu32" -> OTA slot %d", ota_seq, boot_index);
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK
             if (otadata[active_otadata].ota_state == ESP_OTA_IMG_NEW) {
                 ESP_LOGD(TAG, "otadata[%d] is selected as new and marked PENDING_VERIFY state", active_otadata);
                 otadata[active_otadata].ota_state = ESP_OTA_IMG_PENDING_VERIFY;
                 write_otadata(&otadata[active_otadata], bs->ota_info.offset + FLASH_SECTOR_SIZE * active_otadata, write_encrypted);
             }
-#endif // CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#endif // CONFIG_BOOTLOADER_APP_ROLLBACK
 
 #ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
             if (otadata[active_otadata].ota_state == ESP_OTA_IMG_VALID) {
@@ -554,14 +552,20 @@ void bootloader_utility_load_boot_image_from_deep_sleep(void)
 void bootloader_utility_load_tee_image(const bootloader_state_t *bs)
 {
     esp_err_t err = ESP_FAIL;
-    uint8_t tee_active_part = bootloader_utility_tee_get_boot_partition(&bs->tee_ota_info);
-    if (tee_active_part != PART_SUBTYPE_TEE_0 && tee_active_part != PART_SUBTYPE_TEE_1) {
+
+#ifdef CONFIG_SECURE_TEE_ANTI_ROLLBACK
+    ESP_LOGI(TAG, "TEE secure version (from eFuse) = %"PRIu32, esp_efuse_read_tee_secure_version());
+#endif
+
+    int tee_active_part = bootloader_utility_tee_get_selected_boot_partition(bs);
+    if (tee_active_part < 0) {
         ESP_LOGE(TAG, "Failed to find valid TEE app");
         bootloader_reset();
     }
 
-    uint8_t tee_part_idx = tee_active_part & 0x01;
-    const esp_partition_pos_t *tee_active_part_pos = &bs->tee[tee_part_idx];
+    const esp_partition_pos_t *tee_active_part_pos = &bs->tee[tee_active_part & 0x01];
+    esp_image_tee_offset_set(tee_active_part_pos->offset);
+
     err = bootloader_load_image(tee_active_part_pos, &tee_data);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to load TEE app");
@@ -787,7 +791,7 @@ static void load_image(const esp_image_metadata_t *image_data)
     }
 #endif
 
-    ESP_LOGI(TAG, "Disabling RNG early entropy source...");
+    ESP_LOGD(TAG, "Disabling RNG early entropy source...");
     bootloader_random_disable();
 
     /* Disable glitch reset after all the security checks are completed.
@@ -1051,6 +1055,17 @@ static void set_cache_and_start_app(
     Cache_Read_Disable(0);
     Cache_Flush(0);
 #else
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
+    // L1 is virtually tagged and keeps the external mappings. cache_hal_disable() drops L2
+    // only, so drop L1 instruction and data lines of the flash and PSRAM windows before it
+    // is disabled and the app mapping is installed. Do not include internal L2MEM in between.
+    cache_ll_invalidate_addr(CACHE_LL_LEVEL_INT_MEM, CACHE_TYPE_ALL, CACHE_LL_ID_ALL,
+                             SOC_DRAM_FLASH_ADDRESS_LOW,
+                             SOC_DRAM_FLASH_ADDRESS_HIGH - SOC_DRAM_FLASH_ADDRESS_LOW);
+    cache_ll_invalidate_addr(CACHE_LL_LEVEL_INT_MEM, CACHE_TYPE_ALL, CACHE_LL_ID_ALL,
+                             SOC_DRAM_PSRAM_ADDRESS_LOW,
+                             SOC_DRAM_PSRAM_ADDRESS_HIGH - SOC_DRAM_PSRAM_ADDRESS_LOW);
+#endif
     cache_hal_disable(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_ALL);
 #endif
 
@@ -1069,12 +1084,12 @@ static void set_cache_and_start_app(
     //The addr is aligned, so we add the mask off length to the size, to make sure the corresponding buses are enabled.
     drom_size = (drom_load_addr - drom_load_addr_aligned) + drom_size;
 #if CONFIG_IDF_TARGET_ESP32
-    uint32_t drom_page_count = (drom_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+    uint32_t drom_page_count = (drom_size + CONFIG_MMU_PAGE_SIZE - 1) / CONFIG_MMU_PAGE_SIZE;
     rc = cache_flash_mmu_set(0, 0, drom_load_addr_aligned, drom_addr_aligned, 64, drom_page_count);
     ESP_EARLY_LOGV(TAG, "rc=%d", rc);
     rc = cache_flash_mmu_set(1, 0, drom_load_addr_aligned, drom_addr_aligned, 64, drom_page_count);
     ESP_EARLY_LOGV(TAG, "rc=%d", rc);
-    ESP_EARLY_LOGV(TAG, "after mapping rodata, starting from paddr=0x%08" PRIx32 " and vaddr=0x%08" PRIx32 ", 0x%" PRIx32 " bytes are mapped", drom_addr_aligned, drom_load_addr_aligned, drom_page_count * SPI_FLASH_MMU_PAGE_SIZE);
+    ESP_EARLY_LOGV(TAG, "after mapping rodata, starting from paddr=0x%08" PRIx32 " and vaddr=0x%08" PRIx32 ", 0x%" PRIx32 " bytes are mapped", drom_addr_aligned, drom_load_addr_aligned, drom_page_count * CONFIG_MMU_PAGE_SIZE);
 #else
     uint32_t actual_mapped_len = 0;
     if (s_flash_seg_needs_map(drom_load_addr_aligned)) {
@@ -1083,7 +1098,7 @@ static void set_cache_and_start_app(
     }
     //we use the MMU_LL_END_DROM_ENTRY_ID mmu entry as a map page for app to find the boot partition
     mmu_hal_map_region(0, MMU_TARGET_FLASH0, MMU_DROM_END_ENTRY_VADDR_FROM_VAL(mmu_page_size), drom_addr_aligned, mmu_page_size, &actual_mapped_len);
-    ESP_EARLY_LOGV(TAG, "mapped one page of the rodata, from paddr=0x%08" PRIx32 " and vaddr=0x%08" PRIx32 ", 0x%" PRIx32 " bytes are mapped", drom_addr_aligned, MMU_LL_END_DROM_ENTRY_VADDR, actual_mapped_len);
+    ESP_EARLY_LOGV(TAG, "mapped one page of the rodata, from paddr=0x%08" PRIx32 " and vaddr=0x%08x, 0x%" PRIx32 " bytes are mapped", drom_addr_aligned, MMU_LL_END_DROM_ENTRY_VADDR, actual_mapped_len);
 #endif
 
     //-----------------------MAP IROM--------------------------
@@ -1093,12 +1108,12 @@ static void set_cache_and_start_app(
     //The addr is aligned, so we add the mask off length to the size, to make sure the corresponding buses are enabled.
     irom_size = (irom_load_addr - irom_load_addr_aligned) + irom_size;
 #if CONFIG_IDF_TARGET_ESP32
-    uint32_t irom_page_count = (irom_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+    uint32_t irom_page_count = (irom_size + CONFIG_MMU_PAGE_SIZE - 1) / CONFIG_MMU_PAGE_SIZE;
     rc = cache_flash_mmu_set(0, 0, irom_load_addr_aligned, irom_addr_aligned, 64, irom_page_count);
     ESP_EARLY_LOGV(TAG, "rc=%d", rc);
     rc = cache_flash_mmu_set(1, 0, irom_load_addr_aligned, irom_addr_aligned, 64, irom_page_count);
     ESP_LOGV(TAG, "rc=%d", rc);
-    ESP_EARLY_LOGV(TAG, "after mapping text, starting from paddr=0x%08" PRIx32 " and vaddr=0x%08" PRIx32 ", 0x%" PRIx32 " bytes are mapped", irom_addr_aligned, irom_load_addr_aligned, irom_page_count * SPI_FLASH_MMU_PAGE_SIZE);
+    ESP_EARLY_LOGV(TAG, "after mapping text, starting from paddr=0x%08" PRIx32 " and vaddr=0x%08" PRIx32 ", 0x%" PRIx32 " bytes are mapped", irom_addr_aligned, irom_load_addr_aligned, irom_page_count * CONFIG_MMU_PAGE_SIZE);
 #else
     if (s_flash_seg_needs_map(irom_load_addr_aligned)) {
         mmu_hal_map_region(0, MMU_TARGET_FLASH0, irom_load_addr_aligned, irom_addr_aligned, irom_size, &actual_mapped_len);
@@ -1162,7 +1177,7 @@ void bootloader_reset(void)
     bootloader_atexit();
     esp_rom_delay_us(1000); /* Allow last byte to leave FIFO */
     esp_rom_software_reset_system();
-    while (1) { }       /* This line will never be reached, used to keep gcc happy */
+    ESP_INFINITE_LOOP();    /* This line will never be reached, used to keep gcc happy */
 #else
     abort();            /* This function should really not be called from application code */
 #endif
@@ -1176,138 +1191,3 @@ void bootloader_atexit(void)
     abort();
 #endif
 }
-
-esp_err_t bootloader_sha256_hex_to_str(char *out_str, const uint8_t *in_array_hex, size_t len)
-{
-    if (out_str == NULL || in_array_hex == NULL || len == 0) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    for (size_t i = 0; i < len; i++) {
-        for (int shift = 0; shift < 2; shift++) {
-            uint8_t nibble = (in_array_hex[i] >> (shift ? 0 : 4)) & 0x0F;
-            if (nibble < 10) {
-                out_str[i * 2 + shift] = '0' + nibble;
-            } else {
-                out_str[i * 2 + shift] = 'a' + nibble - 10;
-            }
-        }
-    }
-    return ESP_OK;
-}
-
-void bootloader_debug_buffer(const void *buffer, size_t length, const char *label)
-{
-#if CONFIG_BOOTLOADER_LOG_LEVEL >= 4
-    const uint8_t *bytes = (const uint8_t *)buffer;
-    const size_t output_len = MIN(length, 128);
-    char hexbuf[128 * 2 + 1];
-
-    bootloader_sha256_hex_to_str(hexbuf, bytes, output_len);
-
-    hexbuf[output_len * 2] = '\0';
-    ESP_LOGD(TAG, "%s: %s", label, hexbuf);
-#else
-    (void) buffer;
-    (void) length;
-    (void) label;
-#endif
-}
-
-static esp_err_t bootloader_sha_flash_contents(esp_sha_type type, uint32_t flash_offset, uint32_t len, uint8_t *digest)
-{
-    if (digest == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    /* Handling firmware images larger than MMU capacity */
-    uint32_t mmu_free_pages_count = bootloader_mmap_get_free_pages();
-    bootloader_sha_handle_t sha_handle = NULL;
-
-    if (type == SHA2_256) {
-        sha_handle = bootloader_sha256_start();
-    } else
-    // Using SOC_ECDSA_SUPPORT_CURVE_P384 here so that there is no flash size impact in the case of existing targets like ESP32.
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-    if (type == SHA2_384) {
-        sha_handle = bootloader_sha512_start(true);
-    } else
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    if (sha_handle == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    while (len > 0) {
-        uint32_t mmu_page_offset = ((flash_offset & MMAP_ALIGNED_MASK) != 0) ? 1 : 0; /* Skip 1st MMU Page if it is already populated */
-        uint32_t max_pages = (mmu_free_pages_count > mmu_page_offset) ? (mmu_free_pages_count - mmu_page_offset) : 0;
-        if (max_pages == 0) {
-            ESP_LOGE(TAG, "No free MMU pages are available");
-            if (type == SHA2_256) {
-                bootloader_sha256_finish(sha_handle, NULL);
-            }
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-            else if (type == SHA2_384) {
-                bootloader_sha512_finish(sha_handle, NULL);
-            }
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */
-            return ESP_ERR_NO_MEM;
-        }
-        uint32_t max_image_len;
-        if (__builtin_mul_overflow(max_pages, SPI_FLASH_MMU_PAGE_SIZE, &max_image_len)) {
-            max_image_len = UINT32_MAX;
-        }
-        uint32_t partial_image_len = MIN(len, max_image_len); /* Read the image that fits in the free MMU pages */
-
-        const void * image = bootloader_mmap(flash_offset, partial_image_len);
-        if (image == NULL) {
-            if (type == SHA2_256) {
-                bootloader_sha256_finish(sha_handle, NULL);
-            }
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-            else if (type == SHA2_384) {
-                bootloader_sha512_finish(sha_handle, NULL);
-            }
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */
-            return ESP_FAIL;
-        }
-
-        if (type == SHA2_256) {
-            bootloader_sha256_data(sha_handle, image, partial_image_len);
-        }
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-        else if (type == SHA2_384) {
-            bootloader_sha512_data(sha_handle, image, partial_image_len);
-        }
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */
-
-        bootloader_munmap(image);
-
-        flash_offset += partial_image_len;
-        len -= partial_image_len;
-    }
-
-    if (type == SHA2_256) {
-        bootloader_sha256_finish(sha_handle, digest);
-    }
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-    else if (type == SHA2_384) {
-        bootloader_sha512_finish(sha_handle, digest);
-    }
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */
-    return ESP_OK;
-}
-
-esp_err_t bootloader_sha256_flash_contents(uint32_t flash_offset, uint32_t len, uint8_t *digest)
-{
-    return bootloader_sha_flash_contents(SHA2_256, flash_offset, len, digest);
-}
-
-#if SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384
-esp_err_t bootloader_sha384_flash_contents(uint32_t flash_offset, uint32_t len, uint8_t *digest)
-{
-    return bootloader_sha_flash_contents(SHA2_384, flash_offset, len, digest);
-}
-#endif /* SOC_SHA_SUPPORT_SHA384 && SOC_ECDSA_SUPPORT_CURVE_P384 */

@@ -381,7 +381,7 @@ extern "C" {
 #define RUN_BQB_TEST                        (0)
 #define RUN_QA_TEST                         (0)
 #define NIMBLE_DISABLE_SCAN_BACKOFF         (0)
-#define BT_LL_CTRL_PRIO_LVL_CFG ((1 << 4) | (1 << 2) | 0)
+#define BT_LL_CTRL_PRIO_LVL_CFG ((1 << 8) | (1 << 6) | (1 << 4) | (1 << 2) | 0)
 
 #ifdef __cplusplus
 }

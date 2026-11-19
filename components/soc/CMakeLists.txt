@@ -4,14 +4,6 @@ set(target_folder "${target}")
 
 set(srcs)
 
-# On Linux the soc component is a simple wrapper, without much functionality
-if(NOT ${target} STREQUAL "linux")
-    set(srcs "lldesc.c"
-            "dport_access_common.c"
-            "${target_folder}/interrupts.c"
-            "${target_folder}/gpio_periph.c")
-endif()
-
 set(includes "include" "${target_folder}")
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${target_folder}/include")
@@ -39,29 +31,46 @@ else()
     endif()
 endif()
 
-if(target STREQUAL "esp32")
-    list(APPEND srcs "${target_folder}/dport_access.c")
+# TODO(IDF-15956): potentially remove __ULP_BUILDV2 handling from soc
+if(__ULP_BUILDV2)
+    idf_component_register(INCLUDE_DIRS ${includes}
+                           REQUIRES esp_common)
+
+    # For an embedded system, the MMU page size should always be defined statically
+    # For IDF, we define it according to the Flash size that user selects
+    # Replace this value in an adaptive way, if Kconfig isn't available on your platform
+    target_compile_definitions(${COMPONENT_LIB} INTERFACE SOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE)
+
+    target_compile_definitions(${COMPONENT_LIB} INTERFACE SOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ)
+
+    if(ULP_TYPE STREQUAL "lp_core")
+        target_linker_script(${COMPONENT_LIB} INTERFACE "${target_folder}/ld/${target}.peripherals.ld")
+    endif()
+
+    return()
 endif()
 
-if(CONFIG_SOC_DEBUG_PROBE_SUPPORTED)
-    list(APPEND srcs "${target_folder}/debug_probe_periph.c")
+# On Linux the soc component is a simple wrapper, without much functionality.
+if(NOT ${target} STREQUAL "linux")
+    set(srcs "lldesc.c"
+            "dport_access_common.c"
+            "${target_folder}/interrupts.c"
+            "${target_folder}/gpio_periph.c")
+endif()
+
+if(target STREQUAL "esp32")
+    list(APPEND srcs "${target_folder}/dport_access.c")
 endif()
 
 if(CONFIG_SOC_MPI_SUPPORTED)
     list(APPEND srcs "${target_folder}/mpi_periph.c")
 endif()
 
-if(CONFIG_SOC_PAU_SUPPORTED AND CONFIG_SOC_LIGHT_SLEEP_SUPPORTED AND CONFIG_SOC_PM_SUPPORT_TOP_PD)
-    list(APPEND srcs "${target_folder}/system_retention_periph.c")
-endif()
-
-if(CONFIG_SOC_BOD_SUPPORTED)
-    list(APPEND srcs "${target_folder}/power_supply_periph.c")
-endif()
+set(ldfragments "linker.lf")
 
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS ${includes}
-                       LDFRAGMENTS "linker.lf")
+                       LDFRAGMENTS ${ldfragments})
 
 # For an embedded system, the MMU page size should always be defined statically
 # For IDF, we define it according to the Flash size that user selects

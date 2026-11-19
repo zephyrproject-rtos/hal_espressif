@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -44,26 +44,6 @@ __attribute__((always_inline)) static inline uint32_t efuse_ll_get_mac0(void)
 __attribute__((always_inline)) static inline uint32_t efuse_ll_get_mac1(void)
 {
     return EFUSE.rd_mac_sys_1.mac_1;
-}
-
-__attribute__((always_inline)) static inline uint32_t efuse_ll_get_active_hp_dbias(void)
-{
-    return EFUSE.rd_mac_sys_2.active_hp_dbias;
-}
-
-__attribute__((always_inline)) static inline uint32_t efuse_ll_get_active_lp_dbias(void)
-{
-    return EFUSE.rd_mac_sys_2.active_lp_dbias;
-}
-
-__attribute__((always_inline)) static inline uint32_t efuse_ll_get_dslp_dbias(void)
-{
-    return EFUSE.rd_mac_sys_2.dslp_dbias;
-}
-
-__attribute__((always_inline)) static inline int32_t efuse_ll_get_dbias_vol_gap(void)
-{
-    return (EFUSE.rd_mac_sys_3.dbias_vol_gap_sign << 4) | (EFUSE.rd_mac_sys_3.dbias_vol_gap_value2 << 1) | EFUSE.rd_mac_sys_2.dbias_vol_gap_value1;
 }
 
 __attribute__((always_inline)) static inline bool efuse_ll_get_secure_boot_v2_en(void)
@@ -111,6 +91,28 @@ __attribute__((always_inline)) static inline uint32_t efuse_ll_get_chip_ver_pkg(
 __attribute__((always_inline)) static inline uint32_t efuse_ll_get_ecdsa_key_blk(void)
 {
     return EFUSE.conf.cfg_ecdsa_blk;
+}
+
+__attribute__((always_inline)) static inline uint32_t efuse_ll_get_coding_error(unsigned index)
+{
+    switch (index) {
+    case 0:
+        return EFUSE.rd_repeat_err0.val;
+    case 1:
+        return EFUSE.rd_repeat_err1.val;
+    case 2:
+        return EFUSE.rd_repeat_err2.val;
+    case 3:
+        return EFUSE.rd_repeat_err3.val;
+    case 4:
+        return EFUSE.rd_repeat_err4.val;
+    case 5:
+        return EFUSE.rd_rs_err0.val;
+    case 6:
+        return EFUSE.rd_rs_err1.val;
+    default:
+        return 0;
+    }
 }
 
 /******************* eFuse control functions *************************/

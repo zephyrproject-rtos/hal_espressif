@@ -25,6 +25,7 @@
 /*-------------------------- COMMON CAPS ---------------------------------------*/
 #define SOC_ADC_SUPPORTED               1
 #define SOC_ANA_CMPR_SUPPORTED          1
+// #define SOC_DAC_SUPPORTED               1  // TODO: [ESP32S31] IDF-14767
 #define SOC_DEDICATED_GPIO_SUPPORTED    1
 #define SOC_UART_SUPPORTED              1
 #define SOC_GDMA_SUPPORTED              1
@@ -49,9 +50,10 @@
 #define SOC_PARLIO_LCD_SUPPORTED        1
 #define SOC_ASYNC_MEMCPY_SUPPORTED      1
 #define SOC_USB_OTG_SUPPORTED           1
+#define SOC_USB_DFU_SUPPORTED           1
 #define SOC_TEMP_SENSOR_SUPPORTED       1
 #define SOC_USB_SERIAL_JTAG_SUPPORTED   1
-// #define SOC_SUPPORTS_SECURE_DL_MODE     1      // TODO: [ESP32S31] IDF-14629
+#define SOC_SUPPORTS_SECURE_DL_MODE     1
 #define SOC_ULP_SUPPORTED               1
 #define SOC_LP_CORE_SUPPORTED           1
 #define SOC_EFUSE_KEY_PURPOSE_FIELD     1
@@ -65,6 +67,7 @@
 #define SOC_LEDC_SUPPORTED              1
 #define SOC_I2C_SUPPORTED               1
 #define SOC_SYSTIMER_SUPPORTED          1
+#define SOC_SUPPORT_COEXISTENCE         1
 #define SOC_AES_SUPPORTED               1
 #define SOC_MPI_SUPPORTED               1
 #define SOC_SHA_SUPPORTED               1
@@ -79,6 +82,7 @@
 // #define SOC_APM_SUPPORTED               1      // TODO: [ESP32S31] IDF-14620
 #define SOC_PAU_SUPPORTED                  1
 #define SOC_PMU_SUPPORTED                  1
+#define SOC_PMU_PVT_SUPPORTED              1
 #define SOC_RTC_TIMER_SUPPORTED            1
 #define SOC_ULP_LP_UART_SUPPORTED       1
 #define SOC_LP_GPIO_MATRIX_SUPPORTED    1
@@ -111,6 +115,7 @@
 #define SOC_JPEG_CODEC_SUPPORTED        1
 #define SOC_EMAC_SUPPORTED              1
 #define SOC_SPI_EXTERNAL_NOR_FLASH_SUPPORTED    1
+#define SOC_RISCV_TRACE_SUPPORTED       1
 
 /*-------------------------- EMAC CAPS ----------------------------------------*/
 #define SOC_EMAC_SUPPORT_1000M                     (1)      /*!< EMAC Supports 1000Mbps mode */
@@ -118,7 +123,8 @@
 #define SOC_EMAC_USE_MULTI_IO_MUX                  (1)      /*!< Multiple GPIO pad options exist to connect EMAC signal via IO_MUX */
 #define SOC_EMAC_MII_USE_GPIO_MATRIX               (1)      /*!< EMAC MII signals are connected to GPIO pads via GPIO Matrix */
 #define SOC_EMAC_DEDICATED_GPIO_CTRL_SUPPORTED     (1)      /*!< EMAC has dedicated CNNT-domain pad control registers */
-// #define SOC_EMAC_SUPPORT_SLEEP_RETENTION           (1)   // TODO: [ESP32S31] IDF-14731 - implement sleep retention for EMAC
+#define SOC_EMAC_SUPPORT_SLEEP_RETENTION           (1)      /*!< EMAC supports register backup/restore in sleep mode */
+#define SOC_PM_SUPPORT_EMAC_WAKEUP                 (1)      /*!< EMAC PMT can wake the chip from Light-sleep */
 
 /*------------------------- Analog Comparator CAPS ---------------------------*/
 #define SOC_ANA_CMPR_SUPPORT_ETM        (1)
@@ -128,6 +134,8 @@
 #define SOC_USB_OTG_PERIPH_NUM          (1U)
 #define SOC_USB_FSLS_PHY_NUM            (0U)
 #define SOC_USB_UTMI_PHY_NUM            (1U)
+#define SOC_USB_OTG_PSRAM_DMA_CAPABLE   (1)                 /*!< USB OTG Peripheral's internal DMA can access PSRAM */
+#define SOC_PM_SUPPORT_USB_WAKEUP        1
 
 #define SOC_PHY_SUPPORTED                1
 #define SOC_WIFI_SUPPORTED               1
@@ -142,7 +150,6 @@
 /*!< SAR ADC Module*/
 #define SOC_ADC_DIG_CTRL_SUPPORTED              1
 #define SOC_ADC_PERIPH_NUM                      (2)
-#define SOC_ADC_CHANNEL_NUM(PERIPH_NUM)         (8)
 #define SOC_ADC_ATTEN_NUM                       (1U)
 
 #define SOC_ADC_DMA_SUPPORTED                   1
@@ -158,20 +165,28 @@
 /*!< ADC power control is shared by PWDET, TempSensor */
 #define SOC_ADC_SHARED_POWER                    1
 
+/*-------------------------- DAC CAPS ----------------------------------------*/
+#define SOC_DAC_CHAN_NUM                        (2)
+#define SOC_DAC_HS_RESOLUTION                   (10)
+#define SOC_DAC_RESOLUTION                      (12)
+#define SOC_DAC_SUPPORT_BUFFER_CFG              1
+
 /*-------------------------- CACHE CAPS --------------------------------------*/
 #define SOC_CACHE_WRITEBACK_SUPPORTED           1
 #define SOC_CACHE_FREEZE_SUPPORTED              1
+#define SOC_CACHE_CNT_SUPPORTED                 1
+#define SOC_CACHE_CNT_UNITS_NUM                 4   //Number of cache profile counter units
 
 /*-------------------------- CPU CAPS ----------------------------------------*/
 #define SOC_CPU_CORES_NUM               (2U)
 #define SOC_CPU_INTR_NUM                32
 #define SOC_CPU_HAS_FLEXIBLE_INTC       1
+#define SOC_CPU_SUPPORT_WFE             1
 #define SOC_INT_CLIC_SUPPORTED          1
 #define SOC_INT_HW_NESTED_SUPPORTED     1       // Support for hardware interrupts nesting
 #define SOC_BRANCH_PREDICTOR_SUPPORTED  1
 #define SOC_CPU_COPROC_NUM              3
 #define SOC_CPU_HAS_FPU                 1
-#define SOC_CPU_HAS_FPU_EXT_ILL_BUG     1       // EXT_ILL CSR doesn't support FLW/FSW
 #define SOC_CPU_HAS_HWLOOP              1
 /* PIE coprocessor assembly is only supported with GCC compiler  */
 #define SOC_CPU_HAS_PIE                 1
@@ -190,6 +205,8 @@
 
 #define SOC_SIMD_PREFERRED_DATA_ALIGNMENT 16 // The preferred data alignment accepted by the SIMD instructions, in bytes
 
+#define SOC_CPU_HAS_ZC_EXTENSIONS       1
+
 /*-------------------------- DMA Common CAPS ----------------------------------------*/
 #define SOC_DMA_CAN_ACCESS_FLASH 1 /*!< DMA can access Flash memory */
 
@@ -197,7 +214,7 @@
 #define SOC_AHB_GDMA_VERSION                2
 #define SOC_GDMA_SUPPORT_ETM                1
 #define SOC_GDMA_SUPPORT_SLEEP_RETENTION    1
-#define SOC_GDMA_EXT_MEM_ENC_ALIGNMENT   (16)
+#define SOC_GDMA_SUPPORT_WEIGHTED_ARBITRATION   1
 
 /*-------------------------- MODEM CAPS --------------------------------------*/
 #define SOC_MODEM_SUPPORT_ETM               1
@@ -304,6 +321,7 @@
 #define SOC_PCNT_SUPPORT_STEP_NOTIFY          1
 
 /*-------------------------- MMU CAPS ----------------------------------------*/
+#define SOC_RISCV_SV32_SUPPORTED               (1) /*!< CPU supports RISC-V Sv32 address translation */
 #define SOC_MMU_PAGE_SIZE_CONFIGURABLE        (1)
 #define SOC_MMU_PERIPH_NUM                    (2U)
 #define SOC_MMU_LINEAR_ADDRESS_REGION_NUM     (2U)
@@ -326,6 +344,7 @@
 #define SOC_SPI_SUPPORT_SLEEP_RETENTION     1
 #define SOC_SPI_SUPPORT_SLAVE_HD_VER2       1
 #define SOC_SPI_SUPPORT_OCT                 1
+#define SOC_SPI_SUPPORT_DDR_CLOCK           1
 
 /*-------------------------- SPIRAM CAPS ----------------------------------------*/
 #define SOC_SPIRAM_XIP_SUPPORTED        1
@@ -337,14 +356,17 @@
 #define SOC_SPI_MEM_SUPPORT_IDLE_INTR                     (1)
 #define SOC_SPI_MEM_SUPPORT_SW_SUSPEND                    (1)
 #define SOC_SPI_MEM_SUPPORT_CHECK_SUS                     (1)
-#define SOC_SPI_MEM_SUPPORT_TIMING_TUNING         (1)
-#define SOC_MEMSPI_TIMING_TUNING_BY_DQS           (1)
+#define SOC_SPI_MEM_SUPPORT_TIMING_TUNING                 (1)
+#define SOC_MEMSPI_TIMING_TUNING_BY_DQS                   (1)
+#define SOC_MEMSPI_TIMING_TUNING_BY_FLASH_DELAY           (1)
 #define SOC_SPI_MEM_SUPPORT_CACHE_32BIT_ADDR_MAP          (1)
 #define SOC_SPI_MEM_SUPPORT_TSUS_TRES_SEPERATE_CTR        (1)
 
 #define SOC_PSRAM_HAS_DEDICATED_LDO               1
 #define SOC_MEMSPI_IS_INDEPENDENT                 1
 #define SOC_PSRAM_MEMSPI_IS_INDEPENDENT           1
+
+#define SOC_SPI_MEM_FLASH_SUPPORT_HPM                     (1) /*!< Support High Performance Mode */
 
 #define SOC_MEMSPI_ENCRYPTION_ALIGNMENT           16    /*!< 16-byte alignment restriction to mem addr and size if encryption is enabled */
 
@@ -377,9 +399,9 @@
 /*-------------------------- AES CAPS ----------------------------------------*/
 #define SOC_AES_GDMA                            (1)
 #define SOC_AES_SUPPORT_DMA                     (1)
+#define SOC_AES_SUPPORT_GCM                     (1)
 #define SOC_AES_SUPPORT_AES_128                 (1)
 #define SOC_AES_SUPPORT_AES_256                 (1)
-// TODO: [ESP32S31] IDF-14633 SOC_AES_SUPPORT_GCM not enabled: GCM control registers (AAD_BLOCK_NUM, REMAINDER_BIT_NUM, CONTINUE) non-functional on v0.0 silicon
 #define SOC_AES_SUPPORT_PSEUDO_ROUND_FUNCTION   (1)
 
 /*-------------------------- SHA CAPS ----------------------------------------*/
@@ -395,6 +417,7 @@
 #define SOC_SHA_SUPPORT_SHA512_224      (1)
 #define SOC_SHA_SUPPORT_SHA512_256      (1)
 #define SOC_SHA_SUPPORT_SHA512_T        (1)
+#define SOC_SHA_SUPPORT_SM3             (1)
 
 /*--------------------------- MPI CAPS ---------------------------------------*/
 #define SOC_MPI_MEM_BLOCKS_NUM          (4)
@@ -406,6 +429,7 @@
 /*--------------------------- ECC CAPS ---------------------------------------*/
 #define SOC_ECC_CONSTANT_TIME_POINT_MUL           1
 #define SOC_ECC_SUPPORT_CURVE_P384      (1)
+#define SOC_ECC_SUPPORT_CURVE_SM2       (1)
 
 /*--------------------------- ECDSA CAPS ---------------------------------------*/
 #define SOC_ECDSA_SUPPORT_EXPORT_PUBKEY              (1)
@@ -413,6 +437,7 @@
 #define SOC_ECDSA_SUPPORT_HW_DETERMINISTIC_LOOP      (1)
 #define SOC_ECDSA_SUPPORT_CURVE_P384                 (1)
 #define SOC_ECDSA_SUPPORT_CURVE_SPECIFIC_KEY_PURPOSES (1)  /*!< Support individual key purposes for different ECDSA curves (P192, P256, P384) */
+#define SOC_ECDSA_SUPPORT_SOFTWARE_KEY               (1)  /*!< Support software supplied private key written into the ECDSA key registers */
 
 /*-------------------------- Digital Signature CAPS ----------------------------------------*/
 #define SOC_DS_SIGNATURE_MAX_BIT_LEN    (4096)
@@ -432,12 +457,15 @@
 #define SOC_EFUSE_ECDSA_KEY_P384 1
 #define SOC_EFUSE_XTS_AES_KEY_128 1
 #define SOC_EFUSE_XTS_AES_KEY_256 1
+/* Capability to disable all the SM crypto functions (SM2, SM3) */
+#define SOC_EFUSE_DIS_SM_CRYPT 1
 
 /*-------------------------- HUK CAPS----------------------------*/
 #define SOC_HUK_SUPPORTED                       1
+#define SOC_HUK_MEM_NEEDS_RECHARGE              1 /*!< HUK memory needs to be recharged on invalid HUK generation */
 
 /*-------------------------- Key Manager CAPS----------------------------*/
-#define SOC_KEY_MANAGER_SUPPORTED                   1
+#define SOC_KEY_MANAGER_SUPPORTED                   0
 #define SOC_KEY_MANAGER_SUPPORT_KEY_DEPLOYMENT      1 /*!< Key manager supports key deployment */
 #define SOC_KEY_MANAGER_ECDSA_KEY_DEPLOY            1 /*!< Key manager responsible to deploy ECDSA key */
 #define SOC_KEY_MANAGER_FE_KEY_DEPLOY               1 /*!< Key manager responsible to deploy Flash Encryption key */
@@ -448,6 +476,9 @@
 
 /*--------------------------- CAM ---------------------------------*/
 #define SOC_LCDCAM_CAM_SUPPORT_RGB_YUV_CONV         (1)
+
+/*--------------------------- LCD ---------------------------------*/
+#define SOC_LCDCAM_LCD_SUPPORT_SLEEP_RETENTION      (1)   /*!< Support back up registers before sleep */
 
 /*-------------------------- Secure Boot CAPS----------------------------*/
 #define SOC_SECURE_BOOT_V2_RSA              1
@@ -463,6 +494,9 @@
 #define SOC_FLASH_ENCRYPTION_XTS_AES_256                   1  /* SOC_EFUSE_XTS_AES_KEY_256 (1) || SOC_KEY_MANAGER_FE_KEY_DEPLOY_XTS_AES_256 (1) */
 #define SOC_FLASH_ENCRYPTION_XTS_AES_SUPPORT_PSEUDO_ROUND  1
 #define SOC_FLASH_ENCRYPTED_XTS_AES_BLOCK_MAX   (64)
+
+/*-------------------------- PSRAM Encryption CAPS----------------------------*/
+#define SOC_PSRAM_ENCRYPTION_PAGE_CONFIGURABLE  1  /* PSRAM encryption can be configured on a MMU page basis */
 
 /*------------------------Bootloader CAPS---------------------------------*/
 /* Support Recovery Bootloader */
@@ -500,6 +534,7 @@
 #define SOC_MODEM_APB_CLOCK_IS_INDEPENDENT        (1)
 #define SOC_MODEM_CLOCK_SOC_PLL_SOURCE_CG_SUPPORTED (1)
 #define SOC_MODEM_CLOCK_WIFI_BB_80X1_AS_APB       (1)
+#define SOC_RNG_CLOCK_IS_INDEPENDENT              (1)
 
 #define SOC_CLK_RC_FAST_SUPPORT_CALIBRATION       (1)
 
@@ -551,6 +586,9 @@
 
 #define SOC_PM_SUPPORT_MODEM_CLOCK_DOMAIN_ICG      (1)
 
+#define SOC_PM_SUPPORT_PMU_CLK_ICG                 (1)
+#define SOC_PM_SUPPORT_PMU_RETENTION_CLK_ICG          (1)
+
 #define SOC_PM_SUPPORT_DEEPSLEEP_CHECK_STUB_ONLY   (1) /*!<Supports CRC only the stub code in RTC memory */
 
 #define SOC_PM_CPU_RETENTION_BY_SW          (1)
@@ -558,16 +596,35 @@
 #define SOC_PM_CACHE_RETENTION_BY_PAU       (1)
 #define SOC_EXT_MEM_CACHE_TAG_IN_CPU_DOMAIN (1)
 
+#define SOC_PM_CNNT_RETENTION_BY_REGDMA     (1)
+
 #define SOC_PM_PAU_LINK_NUM                 (5)
 #define SOC_PM_PAU_REGDMA_LINK_CONFIGURABLE (1)
-#define SOC_PM_PAU_REGDMA_LINK_IDX_WIFIMAC  (4) // The range of values for the link index is [0, SOC_PM_PAU_LINK_NUM)
+#define SOC_PM_PAU_REGDMA_COMMON_PHY_LINK_ENTRY (1)
+#define SOC_PM_PAU_REGDMA_LINK_IDX_PHY      (4) // The range of values for the link index is [0, SOC_PM_PAU_LINK_NUM)
 /** Workaround: software-triggered modem PHY retention uses dedicated WiFi MAC REGDMA, not entry link_sel */
 #define SOC_PM_PAU_REGDMA_MODEM_WIFIMAC_WORKAROUND (1)
 
 #define SOC_PM_MODEM_RETENTION_BY_REGDMA           (1)
-// #define SOC_PM_SUPPORT_PMU_MODEM_STATE      (1) // TODO: [ESP32S31] IDF-14582
+#define SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY        (1)
+#define SOC_PM_SUPPORT_PMU_MODEM_STATE             (1)
+#define MAC_SUPPORT_PMU_MODEM_STATE                SOC_PM_SUPPORT_PMU_MODEM_STATE
+#define SOC_PM_REGDMA_MODEM_LINK_PROTECT           (1)
 
-#define SOC_PM_RETENTION_MODULE_NUM         (64)
+/*
+ * min_slp_val is derived from slow clock period (450us / slow_clk).
+ * With internal slow clock, frequency drift may cause min_slp_val to vary.
+ * If the updated value becomes larger than the previous one, modem wakeup
+ * path may still use the old value, leading to inconsistent PMU timing and
+ * potential modem state hang.
+ *
+ * Therefore, when using internal slow clock, min_slp_val is fixed after init,
+ * and clock drift is handled via separate timing compensation instead of
+ * updating this PMU threshold dynamically.
+ */
+#define SOC_PM_PMU_MIN_SLP_SLOW_CLK_CYCLE_FIXED    (1)
+
+#define SOC_PM_SUPPORT_BUS_CLK_AUTO_GATE    (1)  /*!<Support hardware auto clock gating for system bus*/
 
 /*-------------------------- LP_CORE CAPS ------------------------------------*/
 #define SOC_LP_MAILBOX_SUPPORTED                    (1) /*!< LP Core supports LP-mailbox */
@@ -576,6 +633,7 @@
 #define SOC_LP_CORE_SUPPORT_I2C                     (1) /*!< LP Core supports I2C */
 #define SOC_LP_CORE_HW_AUTO_CLRWAKEUPCAUSE          (1) /*!< LP core requests sleep, PMU clears both HP and LP wakeup causes */
 #define SOC_LP_CORE_HAS_PMP                         (1) /*!< LP Core RISC-V has 16 PMP entries (128-byte granularity, RISC-V v1.10) */
+#define SOC_LP_CORE_LP_UART_WAKEUP_KEEP_TRIGGERED   (1) /*!< LP UART wakeup source is kept triggered */
 
 /*-------------------------- LP_TIMER CAPS ----------------------------------*/
 #define SOC_LP_TIMER_BIT_WIDTH_LO           32 // Bit width of lp_timer low part
@@ -609,6 +667,7 @@
 
 /*---------------------------------- Bluetooth CAPS ----------------------------------*/
 #define SOC_BT_CLASSIC_SUPPORTED                    (1)     /*!< Support Bluetooth Classic hardware */
+#define SOC_ORCA_BREDR_CONTROLLER                   (1)     /*!< Support Espressif Orca BR/EDR controller */
 #define SOC_BLE_SUPPORTED                           (1)     /*!< Support Bluetooth Low Energy hardware */
 #define SOC_BLE_MESH_SUPPORTED                      (1)     /*!< Support BLE MESH */
 #define SOC_BLE_ISO_SUPPORTED                       (1)     /*!< Support BLE ISO */
@@ -623,6 +682,7 @@
 #define SOC_BLE_CTE_SUPPORTED                       (1)     /*!< Support Bluetooth LE Constant Tone Extension (CTE) */
 #define SOC_BLE_SUBRATE_SUPPORTED                   (1)     /*!< Support Bluetooth LE Connection Subrating */
 #define SOC_BLE_PERIODIC_ADV_WITH_RESPONSE          (1)     /*!< Support Bluetooth LE Periodic Advertising with Response (PAwR) */
+#define SOC_BT_H2C_ENC_KEY_CTRL_ENH_VSC_SUPPORTED   (1)     /*!< Support Bluetooth Classic encryption key size configuration through vendor-specific HCI command */
 
 /*-------------------------- I2S CAPS ----------------------------------------*/
 #define SOC_I2S_HW_VERSION_2                  (1)
@@ -638,6 +698,7 @@
 #define SOC_I2S_SUPPORTS_PDM2PCM              (1)     // Support to input PDM format but read PCM format data with the help of PDM to PCM filter (only on I2S0)
 #define SOC_I2S_SUPPORTS_PDM_RX_HP_FILTER     (1)
 #define SOC_I2S_SUPPORTS_TX_SYNC_CNT          (1)     // Support TX synchronization count (ideal_cnt)
+#define SOC_I2S_SUPPORTS_TX_FIFO_SYNC         (1)
 #define SOC_I2S_SUPPORTS_RX_RECOMB            (1)     // Support RX recomb for DMA data format reorganization
 #define SOC_I2S_SUPPORTS_TDM                  (1)
 #define SOC_I2S_SUPPORTS_BT_DEST              (1)     // Support routing I2S TX/RX data to Bluetooth (Classic sync link / voice path), not via DMA
@@ -653,3 +714,15 @@
 #define SOC_TEMPERATURE_SENSOR_SUPPORT_ETM                   (1)
 // temperature sensor on esp32s31 in under low power domain.
 #define SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION       (1)
+
+/*------------------------------------- DEBUG CAPS -------------------------------------*/
+#define SOC_DEBUG_HAVE_OCD_STUB_BINS    (1)
+
+/*-------------------------- RISC-V TRACE CAPS ------------------------------*/
+#define SOC_RISCV_TRACE_PACKET_FORMAT_VER           (200) /*!< Efficient Trace v2.0 */
+#define SOC_RISCV_TRACE_HAS_CONFIG_REG              (1) /*!< Has the encoder config register */
+#define SOC_RISCV_TRACE_AHB_CONFIGURABLE            (1) /*!< AHB write master is configurable */
+#define SOC_RISCV_TRACE_FILTER_SUPPORTED            (1) /*!< Has the filter unit */
+#define SOC_RISCV_TRACE_PRIV_WIDTH                  (2U) /*!< Bits in the privilege field (privilege_width_p) */
+#define SOC_RISCV_TRACE_ECAUSE_WIDTH                (6) /*!< Bits in the exception cause field (ecause_width_p) */
+#define SOC_RISCV_TRACE_MEM_SUPPORT_PSRAM           (1) /*!< Encoder AHB master can reach external PSRAM */

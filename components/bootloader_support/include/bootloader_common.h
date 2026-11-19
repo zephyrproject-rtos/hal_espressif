@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -109,6 +109,8 @@ esp_comm_gpio_hold_t bootloader_common_check_long_hold_gpio_level(uint32_t num_p
 /**
  * @brief Erase the partition data that is specified in the transferred list.
  *
+ * @note This function can't be called in app.
+ *
  * @param[in] list_erase String containing a list of cleared partitions. Like this "nvs, phy". The string must be null-terminal.
  * @param[in] ota_data_erase If true then the OTA data partition will be cleared (if there is it in partition table).
  * @return    Returns true on success, false otherwise.
@@ -151,8 +153,13 @@ void bootloader_configure_spi_pins(int drv);
  *          - ESP_ERR_NO_MEM: Cannot allocate memory for sha256 operation.
  *          - ESP_ERR_IMAGE_INVALID: App partition doesn't contain a valid app image.
  *          - ESP_FAIL: An allocation error occurred.
+ *
+ * @deprecated Use esp_partition_get_sha256() from the esp_partition component instead.
+ *             Requires the esp_image_verify component in the build; otherwise
+ *             calls fail at link time with an undefined reference.
  */
-esp_err_t bootloader_common_get_sha256_of_partition(uint32_t address, uint32_t size, int type, uint8_t *out_sha_256);
+esp_err_t bootloader_common_get_sha256_of_partition(uint32_t address, uint32_t size, int type, uint8_t *out_sha_256)
+__attribute__((deprecated("Use esp_partition_get_sha256() from the esp_partition component instead")));
 
 /**
  * @brief Returns the number of active otadata.

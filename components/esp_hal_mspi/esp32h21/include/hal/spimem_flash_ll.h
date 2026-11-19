@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -60,6 +60,7 @@ static inline void spimem_flash_ll_reset(spi_mem_dev_t *dev)
  *
  * @return true if last command is done, otherwise false.
  */
+__attribute__((always_inline))
 static inline bool spimem_flash_ll_cmd_is_done(const spi_mem_dev_t *dev)
 {
     return (dev->cmd.val == 0);
@@ -70,6 +71,7 @@ static inline bool spimem_flash_ll_cmd_is_done(const spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_ce = 1;
@@ -80,6 +82,7 @@ static inline void spimem_flash_ll_erase_chip(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
 {
     dev->ctrl.val = 0;
@@ -91,6 +94,7 @@ static inline void spimem_flash_ll_erase_sector(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_erase_block(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_be = 1;
@@ -226,6 +230,34 @@ static inline void spimem_flash_ll_set_sus_delay(spi_mem_dev_t *dev, uint32_t dl
 }
 
 /**
+ * @brief Get trs unit values in SPI_CLK cycles
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @return uint32_t trs unit values
+ */
+static inline uint32_t spimem_flash_ll_get_trs_unit_in_cycles(spi_mem_dev_t *dev)
+{
+    uint32_t trs_unit = 0;
+    if (dev->sus_status.flash_per_dly_128 == 1) {
+        trs_unit = 128;
+    } else {
+        trs_unit = 4;
+    }
+    return trs_unit;
+}
+
+/**
+ * Configure the delay after Resume
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @param dly_val delay time
+ */
+static inline void spimem_flash_ll_set_rs_delay(spi_mem_dev_t *dev, uint32_t dly_val)
+{
+    dev->ctrl1.cs_hold_dly_per = dly_val;
+}
+
+/**
  * Configure the cs hold delay time(used to set the minimum CS high time tSHSL)
  *
  * @param dev Beginning address of the peripheral registers.
@@ -324,6 +356,7 @@ static inline void spimem_flash_ll_set_write_protect(spi_mem_dev_t *dev, bool wp
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_dp = 1;
@@ -334,6 +367,7 @@ static inline void spimem_flash_ll_enter_dpd(spi_mem_dev_t *dev)
  *
  * @param dev Beginning address of the peripheral registers.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_exit_dpd(spi_mem_dev_t *dev)
 {
     dev->cmd.flash_res = 1;
@@ -395,6 +429,7 @@ static inline void spimem_flash_ll_set_buffer_data(spi_mem_dev_t *dev, const voi
  * @param buffer Buffer holding the data to program
  * @param length Length to program.
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_program_page(spi_mem_dev_t *dev, const void *buffer, uint32_t length)
 {
     dev->user.usr_dummy = 0;
@@ -561,6 +596,7 @@ static inline int spimem_flash_ll_get_addr_bitlen(spi_mem_dev_t *dev)
  * @param dev Beginning address of the peripheral registers.
  * @param bitlen Length of the address, in bits
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_set_addr_bitlen(spi_mem_dev_t *dev, uint32_t bitlen)
 {
     dev->user1.usr_addr_bitlen = (bitlen - 1);
@@ -585,6 +621,7 @@ static inline void spimem_flash_ll_set_extra_address(spi_mem_dev_t *dev, uint32_
  * @param dev Beginning address of the peripheral registers.
  * @param addr Address to send
  */
+__attribute__((always_inline))
 static inline void spimem_flash_ll_set_address(spi_mem_dev_t *dev, uint32_t addr)
 {
     dev->addr.usr_addr_value = addr;
@@ -643,10 +680,10 @@ static inline uint8_t spimem_flash_ll_get_source_freq_mhz(void)
     uint8_t clock_val = 0;
     switch (PCR.mspi_conf.mspi_clk_sel) {
     case 0:
-        clock_val = 48;
+        clock_val = 32;
         break;
     case 1:
-        clock_val = 8;
+        clock_val = 20;
         break;
     case 2:
         clock_val = 64;

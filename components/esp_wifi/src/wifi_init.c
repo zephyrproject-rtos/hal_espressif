@@ -267,7 +267,7 @@ static esp_err_t wifi_deinit_internal(void)
 #endif
 #endif /* CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP */
 #ifdef CONFIG_ESP_PHY_ENABLED
-    esp_phy_modem_deinit();
+    esp_phy_modem_deinit(SLEEP_MODEM_WIFI);
 #endif
     s_wifi_inited = false;
 
@@ -447,10 +447,10 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         esp_wifi_mac_pd_mem_init();
 #endif
 #ifdef CONFIG_ESP_PHY_ENABLED
-        esp_phy_modem_init();
+        esp_phy_modem_init(SLEEP_MODEM_WIFI);
 #endif
 #if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP
-        if (sleep_modem_wifi_modem_state_enabled()) {
+        if (sleep_modem_wifi_modem_state_is_enabled()) {
             esp_wifi_internal_modem_state_configure(true); /* require WiFi to enable automatically receives the beacon */
 #if ESP_MODEM_RF_FLAG_UPDATE_CB_REQUIRED
             if (esp_register_mac_bb_pd_callback(esp_phy_modem_rf_flag_update) != ESP_OK) {
@@ -466,8 +466,13 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 
 #ifdef CONFIG_PM
         if (s_wifi_modem_sleep_lock == NULL) {
-            result = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "wifi",
-                                        &s_wifi_modem_sleep_lock);
+            esp_pm_lock_type_t lock_type =
+#if SOC_MODEM_APB_CLOCK_IS_INDEPENDENT
+                ESP_PM_NO_LIGHT_SLEEP;
+#else
+                ESP_PM_APB_FREQ_MAX;
+#endif
+            result = esp_pm_lock_create(lock_type, 0, "wifi", &s_wifi_modem_sleep_lock);
             if (result != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to create pm lock (0x%x)", result);
                 goto _deinit;
@@ -543,13 +548,13 @@ esp_err_t esp_wifi_disconnect(void)
 }
 
 #ifdef CONFIG_PM
-void wifi_apb80m_request(void)
+void wifi_pm_sleep_lock_acquire(void)
 {
     assert(s_wifi_modem_sleep_lock);
     esp_pm_lock_acquire(s_wifi_modem_sleep_lock);
 }
 
-void wifi_apb80m_release(void)
+void wifi_pm_sleep_lock_release(void)
 {
     assert(s_wifi_modem_sleep_lock);
     esp_pm_lock_release(s_wifi_modem_sleep_lock);

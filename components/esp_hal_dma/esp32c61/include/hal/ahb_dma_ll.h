@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -21,6 +21,10 @@ extern "C" {
 
 #define AHB_DMA_LL_GET_HW(id) (((id) == 0) ? (&AHB_DMA) : NULL)
 
+#define AHB_DMA_LL_SUPPORTED_BURST_SIZE_MASK (GDMA_BURST_SIZE_SUPPORT_4 | \
+                                              GDMA_BURST_SIZE_SUPPORT_16 | \
+                                              GDMA_BURST_SIZE_SUPPORT_32)
+
 #define GDMA_LL_CHANNEL_MAX_PRIORITY 5 // supported priority levels: [0,5]
 #define GDMA_LL_CHANNEL_MAX_WEIGHT   15  // supported weight levels: [0,15]
 
@@ -29,6 +33,9 @@ extern "C" {
 
 // any "dummy" peripheral ID can be used for M2M mode
 #define AHB_DMA_LL_M2M_FREE_PERIPH_ID_MASK (0xFE75)
+
+// Default value of weighted arbitration timeout, in AHB bus clock cycles
+#define AHB_DMA_LL_DEFAULT_WEIGHTED_ARBITRATION_TIMEOUT (2000)
 
 #define GDMA_LL_EVENT_TX_FIFO_UDF   (1<<5)
 #define GDMA_LL_EVENT_TX_FIFO_OVF   (1<<4)
@@ -151,6 +158,15 @@ static inline void ahb_dma_ll_set_weighted_arb_timeout(ahb_dma_dev_t *dev, uint3
     dev->arb_timeout.arb_timeout_num = timeout;
 }
 
+/**
+ * @brief Check if the weighted arbitration is supported
+ */
+static inline bool ahb_dma_ll_is_weighted_arb_supported(ahb_dma_dev_t *dev)
+{
+    (void) dev;
+    return true;
+}
+
 ///////////////////////////////////// RX /////////////////////////////////////////
 /**
  * @brief Get DMA RX channel interrupt status word
@@ -232,9 +248,6 @@ static inline void ahb_dma_ll_rx_set_burst_size(ahb_dma_dev_t *dev, uint32_t cha
         break;
     case 32:
         burst_mode = 2; // incr8
-        break;
-    case 64:
-        burst_mode = 3; // incr16
         break;
     default:
         HAL_ASSERT(false);
@@ -510,9 +523,6 @@ static inline void ahb_dma_ll_tx_set_burst_size(ahb_dma_dev_t *dev, uint32_t cha
         break;
     case 32:
         burst_mode = 2; // incr8
-        break;
-    case 64:
-        burst_mode = 3; // incr16
         break;
     default:
         HAL_ASSERT(false);

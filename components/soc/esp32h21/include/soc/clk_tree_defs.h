@@ -39,14 +39,24 @@ extern "C" {
  *    OSC_SLOW_CLK can also be calibrated to get its exact frequency.
  */
 
+/* The pin number to connect the external 32kHz crystal clock (XTAL32K_CLK) */
+#define SOC_XTAL32K_P_GPIO_NUM              11
+#define SOC_XTAL32K_N_GPIO_NUM              10
+
 /* The pin number to connect the external slow clock (OSC_SLOW_CLK), XTAL_32K_P */
-#define SOC_EXT_OSC_SLOW_GPIO_NUM           11
+#define SOC_EXT_OSC_SLOW_GPIO_NUM           SOC_XTAL32K_P_GPIO_NUM
 
 /* With the default value of CK8M_DFREQ = 860, RC_FAST clock frequency is 20 MHz +/- 7% */
 #define SOC_CLK_RC_FAST_FREQ_APPROX         20000000                            /*!< Approximate RC_FAST_CLK frequency in Hz */
 #define SOC_CLK_RC_SLOW_FREQ_APPROX         600000                              /*!< Approximate RC_SLOW_CLK frequency in Hz */
 #define SOC_CLK_XTAL32K_FREQ_APPROX         32768                               /*!< Approximate XTAL32K_CLK frequency in Hz */
 #define SOC_CLK_OSC_SLOW_FREQ_APPROX        32768                               /*!< Approximate OSC_SLOW_CLK (external slow clock) frequency in Hz */
+
+/* Default clock accuracy values in ppm (parts per million) at different observation durations */
+/* Row order: 1 s, 10 s, 30 s, 60 s */
+#define SOC_CLK_RC_FAST_ACCURACY_PPM_DEFAULTS    { (620), (1978), (4356), (7409) }
+#define SOC_CLK_RC_SLOW_ACCURACY_PPM_DEFAULTS    { (1795), (3096), (6590), (11899) }
+#define SOC_CLK_CRYSTAL_ACCURACY_PPM_DEFAULTS    { (500), (500), (500), (500) }
 
 // Naming convention: SOC_ROOT_CLK_{loc}_{type}_[attr]
 // {loc}: EXT, INT
@@ -61,6 +71,7 @@ typedef enum {
     SOC_ROOT_CLK_EXT_XTAL,             /*!< External 32MHz crystal */
     SOC_ROOT_CLK_EXT_XTAL32K,          /*!< External 32kHz crystal/clock signal */
     SOC_ROOT_CLK_EXT_OSC_SLOW,         /*!< External slow clock signal at pin11 */
+    SOC_ROOT_CLK_SRC_NUM,              /*!< Number of root clock sources */
 } soc_root_clk_t;
 
 /**
@@ -69,6 +80,7 @@ typedef enum {
 typedef enum {
     SOC_ROOT_CIRCUIT_CLK_BBPLL,        /*!< BBPLL_CLK is the output of the PLL generator circuit */
     SOC_ROOT_CIRCUIT_CLK_XTAL_X2,      /*!< XTAL_X2_CLK is the output of the XTAL_X2 generator circuit */
+    SOC_ROOT_CIRCUIT_CLK_MAX,
 } soc_root_clk_circuit_t;
 
 /**
@@ -131,7 +143,7 @@ typedef enum {
     SOC_MOD_CLK_CPU = 1,                       /*!< CPU_CLK can be sourced from XTAL, PLL, RC_FAST, or FLASH_PLL by configuring soc_cpu_clk_src_t */
     // For RTC domain
     SOC_MOD_CLK_RTC_FAST,                      /*!< RTC_FAST_CLK can be sourced from XTAL_D2, RC_FAST, or LP_PLL by configuring soc_rtc_fast_clk_src_t */
-    SOC_MOD_CLK_RTC_SLOW,                      /*!< RTC_SLOW_CLK can be sourced from RC_SLOW, XTAL32K, OSC_SLOW, or RC32K by configuring soc_rtc_slow_clk_src_t */
+    SOC_MOD_CLK_RTC_SLOW,                      /*!< RTC_SLOW_CLK can be sourced from RC_SLOW_D4, XTAL32K, or OSC_SLOW by configuring soc_rtc_slow_clk_src_t */
     // For digital domain: peripherals, BLE
     SOC_MOD_CLK_APB,                           /*!< APB_CLK is highly dependent on the CPU_CLK source */
     SOC_MOD_CLK_PLL_F48M,                      /*!< PLL_F48M_CLK is derived from PLL (clock gating + fixed divider of 2), it has a fixed frequency of 48MHz */
@@ -140,6 +152,8 @@ typedef enum {
     SOC_MOD_CLK_XTAL32K,                       /*!< XTAL32K_CLK comes from the external 32kHz crystal, passing a clock gating to the peripherals */
     SOC_MOD_CLK_RC_FAST,                       /*!< RC_FAST_CLK comes from the internal 20MHz rc oscillator, passing a clock gating to the peripherals */
     SOC_MOD_CLK_XTAL,                          /*!< XTAL_CLK comes from the external 32MHz crystal */
+    SOC_MOD_CLK_XTAL_X2,                       /*!< XTAL_X2_CLK is the output of the XTAL_X2 generator circuit (64MHz); CPU clock source, not the gated F64M */
+    SOC_MOD_CLK_BBPLL,                         /*!< BBPLL_CLK is the output of the PLL generator circuit (96MHz); CPU clock source, not the gated F96M */
     SOC_MOD_CLK_INVALID,                       /*!< Indication of the end of the available module clock sources */
 } soc_module_clk_t;
 
@@ -274,6 +288,22 @@ typedef enum {
     PCNT_CLK_SRC_APB = SOC_MOD_CLK_APB,           /*!< Select APB as the source clock */
     PCNT_CLK_SRC_DEFAULT = SOC_MOD_CLK_APB,       /*!< Select APB as the default choice */
 } soc_periph_pcnt_clk_src_t;
+
+//////////////////////////////////////////////////Temp Sensor///////////////////////////////////////////////////////////
+
+/**
+ * @brief Array initializer for all supported clock sources of Temperature Sensor
+ */
+#define SOC_TEMP_SENSOR_CLKS {SOC_MOD_CLK_XTAL, SOC_MOD_CLK_RC_FAST}
+
+/**
+ * @brief Type of Temp Sensor clock source
+ */
+typedef enum {
+    TEMPERATURE_SENSOR_CLK_SRC_XTAL = SOC_MOD_CLK_XTAL,       /*!< Select XTAL as the source clock */
+    TEMPERATURE_SENSOR_CLK_SRC_RC_FAST = SOC_MOD_CLK_RC_FAST, /*!< Select RC_FAST as the source clock */
+    TEMPERATURE_SENSOR_CLK_SRC_DEFAULT = SOC_MOD_CLK_XTAL,    /*!< Select XTAL as the default choice */
+} soc_periph_temperature_sensor_clk_src_t;
 
 ///////////////////////////////////////////////////UART/////////////////////////////////////////////////////////////////
 
@@ -431,17 +461,23 @@ typedef enum {
 } soc_periph_mwdt_clk_src_t;
 
 //////////////////////////////////////////////CLOCK OUTPUT///////////////////////////////////////////////////////////
+/**
+ * @brief Clock output signal ID
+ */
 typedef enum {
-    CLKOUT_SIG_XTAL    = 5,     /*!< Main crystal oscillator clock */
-    CLKOUT_SIG_CPU     = 16,    /*!< CPU clock */
-    CLKOUT_SIG_AHB     = 17,    /*!< AHB clock */
-    CLKOUT_SIG_APB     = 18,    /*!< APB clock */
-    CLKOUT_SIG_XTAL32K = 21,    /*!< External 32kHz crystal clock */
-    CLKOUT_SIG_EXT32K  = 22,    /*!< External slow clock input through XTAL_32K_P */
-    CLKOUT_SIG_RC_FAST = 23,    /*!< RC fast clock, about 17.5MHz */
-    CLKOUT_SIG_RC_32K  = 24,    /*!< Internal slow RC oscillator */
-    CLKOUT_SIG_RC_SLOW = 25,    /*!< RC slow clock, depends on the RTC_CLK_SRC configuration */
-    CLKOUT_SIG_INVALID = 0xFF,
+    CLKOUT_SIG_MODEM_32M        = 0x0,  /*!< 32MHz clock for modem (clk8M) */
+    CLKOUT_SIG_MODEM_16M        = 0x1,  /*!< 16MHz clock for modem (clk16) */
+    CLKOUT_SIG_MODEM_8M         = 0x2,  /*!< 8MHz clock for modem (clk32) */
+    CLKOUT_SIG_XTAL             = 0x6,  /*!< 32MHz CPU debug mode clock */
+    CLKOUT_SIG_RTC_FAST         = 0xA,  /*!< RTC fast clock from LP system */
+    CLKOUT_SIG_CPU              = 0xB,  /*!< CPU clock */
+    CLKOUT_SIG_AHB              = 0xC,  /*!< AHB clock */
+    CLKOUT_SIG_APB              = 0xD,  /*!< APB clock */
+    CLKOUT_SIG_XTAL32K          = 0x10, /*!< 32KHz external crystal clock */
+    CLKOUT_SIG_EXT32K           = 0x11, /*!< 32KHz external slow clock input */
+    CLKOUT_SIG_RC_FAST          = 0x12, /*!< 20MHz FOSC clock (RTC fast clock) */
+    CLKOUT_SIG_RC_SLOW          = 0x13, /*!< 600KHz SOSC clock (RTC slow clock) */
+    CLKOUT_SIG_INVALID          = 0xFF,
 } soc_clkout_sig_id_t;
 
 //////////////////////////////////////////////////FLASH///////////////////////////////////////////////////////////////////

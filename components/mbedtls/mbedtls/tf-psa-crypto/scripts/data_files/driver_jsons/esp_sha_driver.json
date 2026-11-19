@@ -1,0 +1,16 @@
+
+{
+    "prefix":       "esp_sha",
+    "type":         "transparent",
+    "mbedtls/h_condition":   "defined(ESP_SHA_DRIVER_ENABLED)",
+    "headers":      ["../../../port/psa_driver/include/psa_crypto_driver_esp_sha.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(ESP_SHA_DRIVER_ENABLED)",
+            "_comment": "This driver will support SHA operations using the ESP hardware accelerator.",
+            "entry_points": ["hash_setup", "hash_update", "hash_finish", "hash_abort", "hash_compute"],
+            "algorithms": ["PSA_ALG_SHA_1", "PSA_ALG_SHA_256", "PSA_ALG_SHA_384", "PSA_ALG_SHA_512"],
+            "fallback": false
+        }
+    ]
+}

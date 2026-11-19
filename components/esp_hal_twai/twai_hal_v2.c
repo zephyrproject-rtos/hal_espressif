@@ -22,10 +22,12 @@ bool twai_hal_init(twai_hal_context_t *hal_ctx, const twai_hal_config_t *config)
     hal_ctx->enable_listen_only = config->enable_listen_only;
 
     twaifd_ll_reset(hal_ctx->dev);
+    hal_ctx->tx_buffer_num = twaifd_ll_get_tx_buffer_total(hal_ctx->dev);
     twaifd_ll_enable_hw(hal_ctx->dev, false);   //mode should be changed under disabled
     twaifd_ll_set_mode(hal_ctx->dev, config->enable_listen_only, config->enable_self_test, config->enable_loopback);
     twaifd_ll_set_tx_retrans_limit(hal_ctx->dev, config->retry_cnt);
     twaifd_ll_filter_drop_rtr(hal_ctx->dev, config->no_receive_rtr);
+    twaifd_ll_enable_time_trig_trans_mode(hal_ctx->dev, config->enable_time_trigger_tx);
     twaifd_ll_enable_filter_mode(hal_ctx->dev, true);  // each filter still has independent enable control
     twaifd_ll_enable_fd_mode(hal_ctx->dev, true);      // fd frame still controlled by `header.fdf`
     twaifd_ll_enable_bus_off_tx_fail_mode(hal_ctx->dev, true); // all buffers go to "TX failed" state upon bus-off
@@ -44,6 +46,34 @@ void twai_hal_deinit(twai_hal_context_t *hal_ctx)
     twaifd_ll_set_operate_cmd(hal_ctx->dev, TWAIFD_LL_HW_CMD_RST_TX_CNT);
     twaifd_ll_set_operate_cmd(hal_ctx->dev, TWAIFD_LL_HW_CMD_RST_RX_CNT);
     memset(hal_ctx, 0, sizeof(twai_hal_context_t));
+}
+
+void twai_hal_get_timing_limits(twai_timing_limits_t *t_const)
+{
+    t_const->brp_min = TWAI_LL_BRP_MIN;
+    t_const->brp_max = TWAI_LL_BRP_MAX;
+    t_const->brp_inc = 1;
+    t_const->prop_min = 1;
+    t_const->prop_max = TWAI_LL_PROP_MAX;
+    t_const->tseg1_min = TWAI_LL_TSEG1_MIN;
+    t_const->tseg1_max = TWAI_LL_TSEG1_MAX;
+    t_const->tseg2_min = TWAI_LL_TSEG2_MIN;
+    t_const->tseg2_max = TWAI_LL_TSEG2_MAX;
+    t_const->sjw_max = TWAI_LL_SJW_MAX;
+}
+
+void twai_hal_get_timing_limits_fd(twai_timing_limits_t *t_const_fd)
+{
+    t_const_fd->brp_min = TWAI_LL_BRP_MIN;
+    t_const_fd->brp_max = TWAI_LL_BRP_MAX_FD;
+    t_const_fd->brp_inc = 1;
+    t_const_fd->prop_min = 1;
+    t_const_fd->prop_max = TWAI_LL_PROP_MAX_FD;
+    t_const_fd->tseg1_min = TWAI_LL_TSEG1_MIN;
+    t_const_fd->tseg1_max = TWAI_LL_TSEG1_MAX_FD;
+    t_const_fd->tseg2_min = TWAI_LL_TSEG2_MIN;
+    t_const_fd->tseg2_max = TWAI_LL_TSEG2_MAX_FD;
+    t_const_fd->sjw_max = TWAI_LL_SJW_MAX_FD;
 }
 
 bool twai_hal_check_timing_valid(twai_hal_context_t *hal_ctx, const twai_timing_advanced_config_t *t_config, bool is_fd)
@@ -222,9 +252,20 @@ uint32_t twai_hal_get_events(twai_hal_context_t *hal_ctx)
         hal_ctx->timer_overflow_cnt ++;
     }
     if (int_stat & (TWAIFD_LL_INTR_TX_DONE)) {
-        hal_events |= TWAI_HAL_EVENT_TX_BUFF_FREE;
-        if (int_stat & TWAIFD_LL_INTR_TX_FRAME) {
-            hal_events |= TWAI_HAL_EVENT_TX_SUCCESS;
+        for (uint32_t i = 0; i < MIN(hal_ctx->tx_buffer_num, TWAI_HAL_TX_BUFFER_SLOT_NUM); i++) {
+            uint32_t tx_status = twaifd_ll_get_tx_buffer_status(hal_ctx->dev, i);
+            switch (tx_status) {
+            case TWAIFD_LL_TX_STATUS_SUCCESS:
+                hal_events |= TWAI_HAL_EVENT_TX_SUCC_SLOT(i);
+                __attribute__((fallthrough));   // success event must be a done event, just fallthrough
+            case TWAIFD_LL_TX_STATUS_FAILED:
+            case TWAIFD_LL_TX_STATUS_ABORTED:
+                hal_events |= TWAI_HAL_EVENT_TX_DONE_SLOT(i);
+                twaifd_ll_set_tx_buffer_cmd(hal_ctx->dev, i, TWAIFD_LL_TX_CMD_EMPTY);   // clear buffer to empty state
+                break;
+            default:
+                break;
+            }
         }
     }
     if (int_stat & TWAIFD_LL_INTR_RX_NOT_EMPTY) {

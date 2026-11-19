@@ -1,0 +1,55 @@
+stages:
+  - check
+  - build
+  - feature_test
+  - deploy
+
+variables:
+  IDF_PATH: "$CI_PROJECT_DIR/esp-idf"
+  MAKEFLAGS:  "-j8"
+  SSC_BRANCH: "master"
+  IDF_BRANCH: "master"
+  board: "esp32"
+
+before_script:
+  # Add gitlab ssh key
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64
+  - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
+  - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+  - if git ls-remote ${GITLAB_SSH_SERVER}/idf/esp-idf.git | grep -sw ${CI_BUILD_REF_NAME} 2>&1>/dev/null; then IDF_BRANCH=${CI_BUILD_REF_NAME} ; fi
+  - if [[ "${BOT_CUSTOMIZED_REVISION}" ]] && [[ "$BOT_CUSTOMIZED_REVISION" == *"esp-idf"* ]]; then IDF_BRANCH=$(python -c 'import os;print eval(os.environ["BOT_CUSTOMIZED_REVISION"])["esp-idf"]') ; fi
+  - echo Cloning esp-idf - ${IDF_BRANCH} ...
+  - git clone --single-branch -b $IDF_BRANCH --dissociate ${GITLAB_SSH_SERVER}/idf/esp-idf.git     
+  - if [[ -z "$IDF_PATH" ]]; then
+      echo "Installing esp-idf...";
+      ./esp-idf/install.sh;
+      source ./esp-idf/export.sh;
+    else
+      echo "esp-idf is already installed at $IDF_PATH, skipping install.";
+    fi
+    
+check_lib_reversion:
+  stage: check
+  except:
+    - master
+    - /^release\/v/
+  image: $CI_DOCKER_REGISTRY/esp-env-v5.5:2
+  script:
+    - GIT_COMMIT_ID=`git log --pretty="%s" -1 | grep -o '([0-9a-f]*)' | tail -1 | cut -c 2-8`
+    - echo "GIT_COMMIT_ID is "$GIT_COMMIT_ID
+    - test $(echo -n $GIT_COMMIT_ID | wc -c) -eq 7
+    - for dir in esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do grep $GIT_COMMIT_ID $dir/libcoexist.a; done;
+    - for dir in esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do grep $GIT_COMMIT_ID-remote $dir/libcoexist.a; done;
+    - for dir in esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do test $(grep $GIT_COMMIT_ID-dirty $dir/*.a | wc -l) -eq 0; done;
+    - for dir in esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do test $(riscv32-esp-elf-nm $dir/*.a | grep -w printf | wc -l) -eq 0; done;
+    - for dir in esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do test $(riscv32-esp-elf-nm $dir/*.a | grep -w ets_printf | wc -l) -eq 0; done;
+    - for dir in esp32 esp32s2 esp32s3; do test $(xtensa-esp32-elf-nm $dir/*.a | grep -w printf | wc -l) -eq 0; done;
+    - for dir in esp32 esp32s2 esp32s3; do test $(xtensa-esp32-elf-nm $dir/*.a | grep -w ets_printf | wc -l) -eq 0; done;
+    - for dir in esp32 esp32s2 esp32s3 esp32c3 esp32c2 esp32c6 esp32h2 esp32c5 esp32c61 esp32s31 esp32h4 esp32h21; do cd $dir; for filename in *; do if [[ -x "$file" ]]; then echo "Execute permissions for $dir/$filename";  exit 1; fi; done; cd .. ; done
+
+include:
+     - 'tools/ci/config/build.yml'
+     - 'tools/ci/config/feature_test.yml'

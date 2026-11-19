@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -20,8 +20,39 @@
 extern "C" {
 #endif
 
+//-----------------------------ESP FLASH UTILITIES-------------------------------------//
+/**
+ * @brief Initialize main flash
+ * @note Only call this function to initialize the main flash (flash chip on SPI1 CS0).
+ *
+ * @param chip Pointer to main SPI flash(SPI1 CS0) chip to use.
+ * @return ESP_OK on success, or a flash error code if initialisation fails.
+ */
+esp_err_t esp_flash_init_main(esp_flash_t *chip);
 
-/** @brief Initialise the default SPI flash chip
+/**
+ * @brief Initialize the bus lock on the SPI1 bus. Should be called if drivers (including esp_flash)
+ * wants to use SPI1 bus.
+ *
+ * @note When using legacy spi flash API, the bus lock will not be available on SPI1 bus.
+ *
+ * @return esp_err_t always ESP_OK.
+ */
+esp_err_t esp_flash_app_init_os_functions(void);
+
+#if CONFIG_SPI_FLASH_ROM_IMPL
+/**
+ * @brief Initialize ROM API functions structure
+ *
+ * This function initializes the ROM API functions structure, either by pointing
+ * to a custom structure or by patching the ROM structure in RAM.
+ */
+void esp_flash_rom_api_funcs_init(void);
+#endif // CONFIG_SPI_FLASH_ROM_IMPL
+
+//-----------------------------ESP FLASH OS LAYER-------------------------------------//
+/**
+ * @brief Initialise the default SPI flash chip
  *
  * Called by OS startup code. You do not need to call this in your own applications.
  */
@@ -64,19 +95,11 @@ esp_err_t esp_flash_init_os_functions(esp_flash_t *chip, int host_id, spi_bus_lo
  * @param chip              The chip to deinit os functions
  * @param out_dev_handle    The SPI bus lock passed from `esp_flash_init_os_functions`. The caller should deinitialize
  *                          the lock.
- * @return always ESP_OK.
+ * @return
+ *      - ESP_ERR_INVALID_STATE: the chip is still acquiring the SPI bus lock.
+ *      - ESP_OK: success.
  */
 esp_err_t esp_flash_deinit_os_functions(esp_flash_t* chip, spi_bus_lock_dev_handle_t* out_dev_handle);
-
-/**
- * @brief Initialize the bus lock on the SPI1 bus. Should be called if drivers (including esp_flash)
- * wants to use SPI1 bus.
- *
- * @note When using legacy spi flash API, the bus lock will not be available on SPI1 bus.
- *
- * @return esp_err_t always ESP_OK.
- */
-esp_err_t esp_flash_init_main_bus_lock(void);
 
 /**
  *  Initialize OS-level functions for the main flash chip.
@@ -118,15 +141,45 @@ esp_err_t esp_flash_app_disable_os_functions(esp_flash_t* chip);
  */
 esp_err_t esp_flash_set_dangerous_write_protection(esp_flash_t *chip, const bool protect);
 
-#if CONFIG_SPI_FLASH_ROM_IMPL
 /**
- * @brief Initialize ROM API functions structure
- *
- * This function initializes the ROM API functions structure, either by pointing
- * to a custom structure or by patching the ROM structure in RAM.
+ * @brief Partition operations
  */
-void esp_flash_rom_api_funcs_init(void);
-#endif // CONFIG_SPI_FLASH_ROM_IMPL
+typedef struct esp_flash_partition_ops_s {
+    /**
+     * @brief Check if the main flash region is safe to write/erase.
+     *
+     * @param[in] start_addr Start address of the region
+     * @param[in] size       Size of the region
+     * @return true if the region is safe to write/erase, false otherwise
+     */
+    bool (*check_main_flash_region_safe)(size_t start_addr, size_t size);
+
+    /**
+     * @brief Check if a region is writable
+     *
+     * @param[in] start_addr Start address of the region
+     * @param[in] size       Size of the region
+     * @return true if the region is writable/eraseable, false otherwise
+     */
+    bool (*check_region_writable)(size_t start_addr, size_t size);
+} esp_flash_partition_ops_t;
+
+/**
+ * @brief Register a callback to determine whether a flash region is safe to write/erase.
+ *
+ * This allows upper-layer components (e.g. esp_partition) to inject partition-aware
+ * write protection logic without creating a circular dependency.
+ *
+ * The main flash chip must always register valid ops. For external flash chips
+ * calling this is optional; if not called, partition protection stays disabled
+ * (the default set by the OS-functions constructor).
+ *
+ * @param chip  Pointer to the flash chip. Must not be NULL.
+ * @param ops   Partition operations. Must not be NULL and both callbacks must be set.
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if chip or ops is invalid,
+ *         ESP_ERR_INVALID_STATE if the flash OS functions are not initialized.
+ */
+esp_err_t esp_flash_register_partition_ops(esp_flash_t *chip, esp_flash_partition_ops_t *ops);
 
 #ifdef __cplusplus
 }

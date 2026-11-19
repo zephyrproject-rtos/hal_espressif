@@ -16,6 +16,7 @@
 #include "soc/pmu_struct.h"
 #include "hal/pmu_types.h"
 #include "hal/misc.h"
+#include "soc/efuse_struct.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,6 +95,29 @@ FORCE_INLINE_ATTR void pmu_ll_hp_set_clk_power(pmu_dev_t *hw, pmu_hp_mode_t mode
     hw->hp_sys[mode].clk_power.val = xpd_flag;
 }
 
+FORCE_INLINE_ATTR uint32_t pmu_ll_hp_get_clk_power(pmu_dev_t *hw, pmu_hp_mode_t mode)
+{
+    return hw->hp_sys[mode].clk_power.val;
+}
+
+/**
+ * @brief Set the power and isolation of the analog i2c master shared by all the PLLs
+ *
+ * @param hw Beginning address of the peripheral registers.
+ * @param mode The pmu mode
+ * @param xpd_bb_i2c Power up the analog i2c master
+ * @param iso_en Isolate the analog i2c master interface
+ * @param retention Retain the analog i2c master registers
+ *
+ * @return None
+ */
+FORCE_INLINE_ATTR void pmu_ll_hp_set_ana_i2c_power(pmu_dev_t *hw, pmu_hp_mode_t mode, bool xpd_bb_i2c, bool iso_en, bool retention)
+{
+    hw->hp_sys[mode].clk_power.xpd_bb_i2c = xpd_bb_i2c;
+    hw->hp_sys[mode].clk_power.i2c_iso_en = iso_en;
+    hw->hp_sys[mode].clk_power.i2c_retention = retention;
+}
+
 FORCE_INLINE_ATTR void pmu_ll_hp_set_xtal_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode, bool xpd_xtal)
 {
     hw->hp_sys[mode].xtal.xpd_xtal = xpd_xtal;
@@ -102,6 +126,11 @@ FORCE_INLINE_ATTR void pmu_ll_hp_set_xtal_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode,
 FORCE_INLINE_ATTR void pmu_ll_hp_set_xtalx2_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode, bool xpd_xtalx2)
 {
     hw->hp_sys[mode].xtal.xpd_xtalx2 = xpd_xtalx2;
+}
+
+FORCE_INLINE_ATTR uint32_t pmu_ll_hp_get_xtalx2_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode)
+{
+    return hw->hp_sys[mode].xtal.xpd_xtalx2;
 }
 
 FORCE_INLINE_ATTR void pmu_ll_hp_set_bias_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode, bool xpd_bias)
@@ -154,14 +183,22 @@ FORCE_INLINE_ATTR void pmu_ll_hp_set_discnnt_dig_rtc(pmu_dev_t *hw, pmu_hp_mode_
     hw->hp_sys[mode].bias.discnnt_dig_rtc = discnnt;
 }
 
-FORCE_INLINE_ATTR void pmu_ll_hp_set_current_power_off(pmu_dev_t *hw, pmu_hp_mode_t mode, bool off)
+/**
+ * Update pd_cur and bias_sleep in one register write.
+ * Hardware must not observe pd_cur=1 with bias_sleep=0.
+ */
+FORCE_INLINE_ATTR void pmu_ll_hp_set_pd_cur_bias_sleep(pmu_dev_t *hw, pmu_hp_mode_t mode, bool pd_cur, bool bias_sleep)
 {
-    hw->hp_sys[mode].bias.pd_cur = off;
-}
-
-FORCE_INLINE_ATTR void pmu_ll_hp_set_bias_sleep_enable(pmu_dev_t *hw, pmu_hp_mode_t mode, bool en)
-{
-    hw->hp_sys[mode].bias.bias_sleep = en;
+    if (!(mode == PMU_MODE_HP_ACTIVE || mode == PMU_MODE_HP_MODEM || mode == PMU_MODE_HP_SLEEP)) {
+        abort();
+    }
+    if (pd_cur && !bias_sleep) {
+        abort();
+    }
+    pmu_hp_bias_reg_t bias = {.val = hw->hp_sys[mode].bias.val};
+    bias.pd_cur = pd_cur;
+    bias.bias_sleep = bias_sleep;
+    hw->hp_sys[mode].bias.val = bias.val;
 }
 
 FORCE_INLINE_ATTR void pmu_ll_hp_set_retention_param(pmu_dev_t *hw, pmu_hp_mode_t mode, uint32_t param)
@@ -281,6 +318,12 @@ FORCE_INLINE_ATTR void pmu_ll_hp_set_regulator_hp_dbias_voltage(pmu_dev_t *hw, p
 {
     HAL_ASSERT(mode == PMU_MODE_HP_ACTIVE);
     hw->hp_sys[mode].regulator0.hp_dbias_vol = hp_dbias_vol;
+}
+
+FORCE_INLINE_ATTR uint32_t pmu_ll_hp_get_regulator_hp_dbias_voltage(pmu_dev_t *hw, pmu_hp_mode_t mode)
+{
+    HAL_ASSERT(mode == PMU_MODE_HP_ACTIVE);
+    return hw->hp_sys[mode].regulator0.hp_dbias_vol;
 }
 
 FORCE_INLINE_ATTR void pmu_ll_hp_set_regulator_sleep_memory_xpd(pmu_dev_t *hw, pmu_hp_mode_t mode, bool slp_xpd)
@@ -413,16 +456,22 @@ FORCE_INLINE_ATTR void pmu_ll_lp_set_discnnt_dig_rtc(pmu_dev_t *hw, pmu_lp_mode_
     hw->lp_sys[mode].bias.discnnt_dig_rtc = discnnt;
 }
 
-FORCE_INLINE_ATTR void pmu_ll_lp_set_current_power_off(pmu_dev_t *hw, pmu_lp_mode_t mode, bool off)
+/**
+ * Update pd_cur and bias_sleep in one register write.
+ * Hardware must not observe pd_cur=1 with bias_sleep=0.
+ */
+FORCE_INLINE_ATTR void pmu_ll_lp_set_pd_cur_bias_sleep(pmu_dev_t *hw, pmu_lp_mode_t mode, bool pd_cur, bool bias_sleep)
 {
-    HAL_ASSERT(mode == PMU_MODE_LP_SLEEP);
-    hw->lp_sys[mode].bias.pd_cur = off;
-}
-
-FORCE_INLINE_ATTR void pmu_ll_lp_set_bias_sleep_enable(pmu_dev_t *hw, pmu_lp_mode_t mode, bool en)
-{
-    HAL_ASSERT(mode == PMU_MODE_LP_SLEEP);
-    hw->lp_sys[mode].bias.bias_sleep = en;
+    if (mode != PMU_MODE_LP_SLEEP) {
+        abort();
+    }
+    if (pd_cur && !bias_sleep) {
+        abort();
+    }
+    pmu_lp_bias_reg_t bias = {.val = hw->lp_sys[mode].bias.val};
+    bias.pd_cur = pd_cur;
+    bias.bias_sleep = bias_sleep;
+    hw->lp_sys[mode].bias.val = bias.val;
 }
 
 FORCE_INLINE_ATTR void pmu_ll_imm_set_clk_power(pmu_dev_t *hw, uint32_t flag)

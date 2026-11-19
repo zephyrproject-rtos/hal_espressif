@@ -75,6 +75,10 @@ config ESP_ROM_HAS_NEWLIB_NANO_FORMAT
     bool
     default y
 
+config ESP_ROM_HAS_LIBGCC
+    bool
+    default y
+
 config ESP_ROM_WDT_INIT_PATCH
     bool
     default y
@@ -116,6 +120,10 @@ config ESP_ROM_DELAY_US_PATCH
     default y
 
 config ESP_ROM_SUPPORT_SECURE_BOOT_FAST_WAKEUP
+    bool
+    default y
+
+config ESP_ROM_ECDSA_VERIFY_PATCH
     bool
     default y
 

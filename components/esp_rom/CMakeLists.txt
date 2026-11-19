@@ -7,6 +7,22 @@ set(include_dirs "include"
                  "${target_folder}/include/${target_folder}"
                  "${target_folder}")
 
+# TODO(IDF-15952): potentially remove __ULP_BUILDV2 handling from esp_rom
+if(__ULP_BUILDV2)
+    # LP-core runtime and print code include ROM headers from
+    # ulp/lp_core/lp_core/lp_core_startup.c and
+    # ulp/lp_core/lp_core/lp_core_print.c.
+    idf_component_register(INCLUDE_DIRS ${include_dirs})
+    if(ULP_TYPE STREQUAL "lp_core" AND CONFIG_ESP_ROM_HAS_LP_ROM)
+        target_linker_script(${COMPONENT_LIB} INTERFACE
+            "${target_folder}/ld/${target}lp.rom.ld"
+            "${target_folder}/ld/${target}lp.rom.newlib.ld"
+            "${target_folder}/ld/${target}lp.rom.version.ld"
+            "${target_folder}/ld/${target}lp.rom.api.ld")
+    endif()
+    return()
+endif()
+
 set(private_required_comp "")
 
 set(sources "patches/esp_rom_sys.c"
@@ -24,7 +40,7 @@ else()
                         "patches/esp_rom_efuse.c"
                         "patches/esp_rom_gpio.c")
 
-    list(APPEND private_required_comp soc hal esp_hal_uart)
+    list(APPEND private_required_comp soc hal esp_hal_uart esp_hal_security)
 endif()
 
 if(CONFIG_IDF_TARGET_ARCH_XTENSA)
@@ -57,6 +73,10 @@ endif()
 
 if(CONFIG_ESP_ROM_CACHE_WRITEBACK_NEEDS_SYNC_TWICE_NO_MAP)
     list(APPEND sources "patches/esp_rom_cache_writeback_esp32c5_esp32c61_esp32h4.c")
+endif()
+
+if(CONFIG_ESP_ROM_ECDSA_VERIFY_PATCH)
+    list(APPEND sources "patches/esp_rom_ecdsa.c")
 endif()
 
 idf_component_register(SRCS ${sources}
@@ -94,10 +114,12 @@ else()
     endif()
 
     if(CONFIG_COMPILER_FLOAT_LIB_FROM_GCCLIB)
-        if(CONFIG_ESP32P4_SELECTS_REV_LESS_V3)
-            rom_linker_script("eco0_4.libgcc")
-        else()
-            rom_linker_script("libgcc")
+        if(CONFIG_ESP_ROM_HAS_LIBGCC)
+            if(CONFIG_ESP32P4_SELECTS_REV_LESS_V3)
+                rom_linker_script("eco0_4.libgcc")
+            else()
+                rom_linker_script("libgcc")
+            endif()
         endif()
     else()
         if(CONFIG_ESP32P4_SELECTS_REV_LESS_V3)

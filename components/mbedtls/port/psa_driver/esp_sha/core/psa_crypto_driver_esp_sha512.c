@@ -5,12 +5,13 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2025-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <stdio.h>
 #include <string.h>
 #include "mbedtls/esp_config.h"
+#include "mbedtls/platform_util.h"
 #include "psa_crypto_driver_esp_sha.h"
 #include "../include/psa_crypto_driver_esp_sha512.h"
 #include "esp_sha_internal.h"
@@ -121,6 +122,10 @@ static int esp_sha512_update(esp_sha512_context *ctx, const unsigned char *input
 
         if (ret != 0) {
             esp_sha_release_hardware();
+            /* Operation failed and will be aborted; scrub the partial-block
+             * message bytes in ctx->buffer so a fault that skips the later
+             * abort cannot leave secret input (e.g. an HMAC key) in RAM. */
+            mbedtls_platform_zeroize(ctx->buffer, sizeof(ctx->buffer));
             return ret;
         }
 
@@ -129,6 +134,10 @@ static int esp_sha512_update(esp_sha512_context *ctx, const unsigned char *input
             ret = esp_sha_dma(ctx->mode, input, len, ctx->buffer, local_len, ctx->first_block);
             if (ret != 0) {
                 esp_sha_release_hardware();
+                /* On HW failure scrub the partial-block message bytes in
+                 * ctx->buffer so a fault that skips the later abort cannot
+                 * leave secret input (e.g. an HMAC key) in RAM. */
+                mbedtls_platform_zeroize(ctx->buffer, sizeof(ctx->buffer));
                 return ret;
             }
         } else
@@ -219,20 +228,24 @@ psa_status_t esp_sha512_driver_compute(
 #endif // SOC_SHA_SUPPORT_SHA384
     int ret = esp_sha512_starts(ctx, mode);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
 
     ret = esp_sha512_update(ctx, input, input_length);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
 
     ret = esp_sha512_finish(ctx, hash);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
     *hash_length = PSA_HASH_LENGTH(alg);
     return PSA_SUCCESS;
+
+hw_fail:
+    mbedtls_platform_zeroize(ctx, sizeof(*ctx));
+    return PSA_ERROR_HARDWARE_FAILURE;
 }
 
 psa_status_t esp_sha512_driver_update(
@@ -286,7 +299,7 @@ psa_status_t esp_sha512_driver_abort(esp_sha512_context *ctx)
     if (!ctx) {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
-    memset(ctx, 0, sizeof(esp_sha512_context));
+    mbedtls_platform_zeroize(ctx, sizeof(esp_sha512_context));
     return PSA_SUCCESS;
 }
 

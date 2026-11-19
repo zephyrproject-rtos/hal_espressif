@@ -98,16 +98,18 @@ set sleep_init default param
 #define RTC_CNTL_DG_VDD_DRV_B_SLP_DEFAULT 254
 
 #if CONFIG_ESP_ENABLE_PVT
-
+/**
+* @brief Set PVT default param
+*/
 #define PVT_CHANNEL0_SEL    49
 #define PVT_CHANNEL1_SEL    53
-#define PVT_CHANNEL0_CFG    0x13e80
-#define PVT_CHANNEL1_CFG    0x13e80
+#define PVT_CHANNEL0_CFG    0x11fff
+#define PVT_CHANNEL1_CFG    0x17fff
 #define PVT_CHANNEL2_CFG    0x10000
 #define PVT_CMD0            0x24
 #define PVT_CMD1            0x5
 #define PVT_CMD2            0x427
-#define PVT_TARGET          0x7d00
+#define PVT_TARGET          0xffff
 #define PVT_CLK_DIV         1
 #define PVT_EDG_MODE        1
 #if CONFIG_ESP32P4_SELECTS_REV_LESS_V3
@@ -119,16 +121,19 @@ set sleep_init default param
 #endif
 
 /**
- * @brief Initialize PVT related parameters
+ * @brief Initialize PVT dig dbias
  */
-void pvt_auto_dbias_init(void);
+void pvt_dig_dbias_init(void);
 
 /**
- * @brief Enable or disable PVT functions
+ * @brief Enable or disable auto dbias functions
  *
- * @param enable  true to enable, false to disable
+ * @param enable   true to enable, false to disable
+ * @param reconfig true: soft-reset + rewrite channel/cmd/threshold/timer config;
+ *                 false: only gate clocks/monitor/timer, keep existing config
+ *                 (e.g. after TOP retention restore). Ignored when enable is false.
  */
-void pvt_func_enable(bool enable);
+void pvt_auto_dbias_enable(bool enable, bool reconfig);
 
 #endif //#if CONFIG_ESP_ENABLE_PVT
 
