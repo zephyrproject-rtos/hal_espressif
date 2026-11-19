@@ -45,6 +45,10 @@ const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs = {
     .ccmp_encrypt = (esp_ccmp_encrypt_t)ccmp_encrypt,
     .aes_gmac = (esp_aes_gmac_t)esp_aes_gmac,
     .sha256_vector = (esp_sha256_vector_t)sha256_vector,
+#if CONFIG_IDF_TARGET_ESP32S31
+    .aes_wrap = (esp_aes_wrap_t)aes_wrap,
+    .aes_unwrap = (esp_aes_unwrap_t)aes_unwrap,
+#endif
 };
 
 const mesh_crypto_funcs_t g_wifi_default_mesh_crypto_funcs = {

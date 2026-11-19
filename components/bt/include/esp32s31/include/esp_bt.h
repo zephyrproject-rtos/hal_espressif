@@ -662,6 +662,12 @@ esp_power_level_t esp_ble_tx_power_get_enhanced(esp_ble_enhanced_power_type_t po
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg);
 
 /**
+ * @brief       Fill a controller configuration with the build-time defaults.
+ * @param  cfg: Configuration to fill.
+ */
+void esp_bt_controller_get_default_config(esp_bt_controller_config_t *cfg);
+
+/**
  * @brief  Get BT controller is initialised/de-initialised/enabled/disabled
  * @return status value
  */
