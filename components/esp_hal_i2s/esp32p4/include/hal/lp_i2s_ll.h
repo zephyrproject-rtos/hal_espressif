@@ -234,12 +234,12 @@ static inline void lp_i2s_ll_rx_set_raw_clk_div(int id, uint32_t a, uint32_t b)
     HAL_ASSERT(b > 0);
     if (b <= a / 2) {
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_yn1 = 0;
-        LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_x = floor(a / b) - 1;
+        LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_x = a / b - 1;
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_y = a % b;
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_z = b;
     } else {
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_yn1 = 1;
-        LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_x = floor(a / (a - b)) - 1;
+        LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_x = a / (a - b) - 1;
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_y = a % (a - b);
         LPPERI.lp_i2s_rxclk_div_xyz.lp_i2s_rx_clkm_div_z = a - b;
     }
