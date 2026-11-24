@@ -495,6 +495,11 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     ../../components/esp_driver_gpio/src/gpio.c
     )
 
+  zephyr_sources_ifdef(CONFIG_COMPARATOR_ESP32_ANA_CMPR_ZD
+    ../../components/esp_hal_ana_cmpr/${CONFIG_SOC_SERIES}/ana_cmpr_periph.c
+    ../../components/esp_driver_gpio/src/gpio.c
+    )
+
   if (CONFIG_UDC_DWC2 OR CONFIG_UHC_DWC2)
     zephyr_sources(
     ../../components/esp_hal_usb/usb_utmi_hal.c
