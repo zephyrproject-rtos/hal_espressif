@@ -216,6 +216,10 @@ if(CONFIG_SOC_SERIES_ESP32)
     )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_BROWNOUT
+    ../../components/esp_hal_pmu/brownout_hal.c
+    )
+
   zephyr_sources_ifdef(CONFIG_COUNTER_TMR_ESP32
     ../../components/esp_hal_timg/timer_hal.c
   )

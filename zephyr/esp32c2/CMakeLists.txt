@@ -218,6 +218,10 @@ if(CONFIG_SOC_SERIES_ESP32C2)
     )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_BROWNOUT
+    ../../components/esp_hal_pmu/brownout_hal.c
+    )
+
   if(CONFIG_PM OR CONFIG_POWEROFF)
     zephyr_sources(
     ../common/pm_impl_zephyr.c
