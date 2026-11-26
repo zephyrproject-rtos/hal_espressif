@@ -490,6 +490,10 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     ../../components/esp_hal_pcnt/pcnt_hal.c
     )
 
+  zephyr_sources_ifdef(CONFIG_DAC_ESP32
+    ../../components/esp_hal_ana_conv/${CONFIG_SOC_SERIES}/dac_periph.c
+    )
+
   zephyr_sources_ifdef(CONFIG_COMPARATOR_ESP32_ANA_CMPR
     ../../components/esp_hal_ana_cmpr/${CONFIG_SOC_SERIES}/ana_cmpr_periph.c
     ../../components/esp_driver_gpio/src/gpio.c
