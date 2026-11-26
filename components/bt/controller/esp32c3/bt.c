@@ -856,6 +856,19 @@ static void btdm_intr_alloc(void *arg)
     p->ret = esp_intr_alloc(p->source, p->flags, p->fn, p->arg, p->handle);
 }
 
+#if defined(CONFIG_SMP)
+static K_KERNEL_STACK_DEFINE(bt_isr_alloc_stack, 1024);
+static struct k_thread bt_isr_alloc_thread;
+
+static void btdm_intr_alloc_entry(void *p1, void *p2, void *p3)
+{
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
+
+    btdm_intr_alloc(p1);
+}
+#endif
+
 static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handler, void *arg, void **ret_handle)
 {
     btdm_isr_alloc_t p;
@@ -868,7 +881,22 @@ static int interrupt_alloc_wrapper(int cpu_id, int source, intr_handler_t handle
     p.fn = handler;
     p.arg = arg;
     p.handle = (intr_handle_t *)ret_handle;
-    /* Zephyr: direct interrupt allocation */
+
+#if defined(CONFIG_SMP)
+    /* Allocate the interrupt from a thread pinned to the requested core. */
+    if (cpu_id >= 0 && cpu_id < CONFIG_MP_MAX_NUM_CPUS) {
+        k_tid_t tid = k_thread_create(&bt_isr_alloc_thread, bt_isr_alloc_stack,
+                                      K_KERNEL_STACK_SIZEOF(bt_isr_alloc_stack),
+                                      btdm_intr_alloc_entry, &p, NULL, NULL,
+                                      K_HIGHEST_THREAD_PRIO, 0, K_FOREVER);
+
+        k_thread_cpu_pin(tid, cpu_id);
+        k_thread_start(tid);
+        k_thread_join(tid, K_FOREVER);
+        return p.ret;
+    }
+#endif
+
     btdm_intr_alloc(&p);
     return p.ret;
 }
@@ -1086,8 +1114,6 @@ static int IRAM_ATTR queue_recv_from_isr_wrapper(void *queue, void *item, void *
 
 static int task_create_wrapper(void *task_func, const char *name, uint32_t stack_depth, void *param, uint32_t prio, void *task_handle, uint32_t core_id)
 {
-    ARG_UNUSED(core_id);
-
     if (stack_depth > K_KERNEL_STACK_SIZEOF(bt_stack)) {
         LOG_ERR("BT task stack too small: requested %u, have %zu, "
                 "increase CONFIG_ESP32_BT_CONTROLLER_STACK_SIZE",
@@ -1099,11 +1125,25 @@ static int task_create_wrapper(void *task_func, const char *name, uint32_t stack
                                   K_KERNEL_STACK_SIZEOF(bt_stack),
                                   (k_thread_entry_t)task_func,
                                   param, NULL, NULL,
-                                  K_PRIO_COOP(prio), 0, K_NO_WAIT);
+                                  K_PRIO_COOP(prio), 0,
+                                  IS_ENABLED(CONFIG_SMP) ? K_FOREVER : K_NO_WAIT);
     if (task_handle) {
         *((k_tid_t *)task_handle) = tid;
     }
     k_thread_name_set(tid, name);
+
+#if defined(CONFIG_SMP)
+    BUILD_ASSERT(IS_ENABLED(CONFIG_SCHED_CPU_MASK),
+                 "The Bluetooth controller under SMP requires CONFIG_SCHED_CPU_MASK");
+
+    if (core_id < CONFIG_MP_MAX_NUM_CPUS) {
+        k_thread_cpu_pin(tid, core_id);
+    }
+    k_thread_start(tid);
+#else
+    ARG_UNUSED(core_id);
+#endif
+
     return (tid != NULL) ? 1 : 0;
 }
 
