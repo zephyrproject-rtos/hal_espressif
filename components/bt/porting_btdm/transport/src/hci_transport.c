@@ -9,6 +9,7 @@
 #include "esp_hci_transport.h"
 #include "esp_hci_internal.h"
 #include "esp_bt.h"
+#include "btdm_osal.h"
 #if UC_BT_CTRL_BLE_IS_ENABLE
 #include "ble_mbuf.h"
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
@@ -49,11 +50,11 @@ hci_transport_controller_rx(hci_driver_data_type_t data_type, uint8_t *data, uin
 #endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
         }
     }
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     else if (data_type == HCI_DRIVER_TYPE_ISO) {
         rc = ble_hci_trans_hs_iso_tx(data, length, NULL);
     }
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
     else if (data_type == HCI_DRIVER_TYPE_SYNC) {
         pkt = (hci_driver_packet_t *)data;
@@ -132,7 +133,7 @@ hci_transport_controller_bredr_evt_tx(hci_driver_packet_t *pkt, void *arg)
 }
 #endif // UC_BT_CTRL_BR_EDR_IS_ENABLE
 
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
 typedef void ble_host_rx_iso_data_fn(uint8_t *data, uint16_t len);
 
 static ble_host_rx_iso_data_fn *ble_host_iso_rx_cb = NULL;
@@ -166,23 +167,14 @@ hci_transport_controller_le_iso_tx(const uint8_t *data, uint16_t len, void *arg)
     //ISO_TODO: arg is not used
 
     if (esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED) {
-        //ISO_TODO: free this tx buffer
+        btdm_osal_free((void *)data);
         return -1;
     }
 
-#if CONFIG_BT_NIMBLE_ENABLED
     return s_hci_transport_env.driver_ops->hci_driver_tx(HCI_DRIVER_TYPE_ISO, (uint8_t *)data, len,
                                                          HCI_DRIVER_DIR_LEC2H);
-#elif CONFIG_BT_BLUEDROID_ENABLED
-    if (ble_host_iso_rx_cb) {
-        ble_host_iso_rx_cb((uint8_t *)data, len);
-    }
-
-    free((void *)data);
-#endif // CONFIG_BT_NIMBLE_ENABLED
-    return 0;
 }
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 
 /* Functions for controller Tx. */
 #if UC_BT_CTRL_BLE_IS_ENABLE
@@ -249,9 +241,9 @@ hci_transport_init(uint8_t hci_transport_mode)
 #if UC_BT_CTRL_BLE_IS_ENABLE
     r_ble_hci_trans_cfg_hs((esp_hci_internal_rx_cmd_fn *)hci_transport_controller_le_evt_tx, NULL,
                            (esp_hci_internal_rx_acl_fn *)hci_transport_controller_le_acl_tx, NULL);
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     ble_iso_trans_cfg_hs((esp_hci_internal_rx_iso_fn *)hci_transport_controller_le_iso_tx, NULL);
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
@@ -275,9 +267,9 @@ hci_transport_deinit(void)
 #if UC_BT_CTRL_BLE_IS_ENABLE
     r_ble_hci_trans_cfg_hs((esp_hci_internal_rx_cmd_fn *)hci_transport_controller_le_tx_dummy, NULL,
                            (esp_hci_internal_rx_acl_fn *)hci_transport_controller_le_tx_dummy, NULL);
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
     ble_iso_trans_cfg_hs((esp_hci_internal_rx_iso_fn *)hci_transport_controller_le_iso_tx_dummy, NULL);
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
     bredr_hci_trans_register_tx((btdm_hci_trans_tx_func_t *)hci_transport_controller_bredr_tx_dummy,

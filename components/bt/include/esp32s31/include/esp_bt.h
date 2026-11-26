@@ -14,6 +14,7 @@
 #include "esp_task.h"
 #include "esp_assert.h"
 
+#include "../../../controller/esp32s31/esp_bt_cfg.h"
 #include "btdm_user_cfg.h"
 
 #if UC_BT_CTRL_BR_EDR_IS_ENABLE
@@ -322,15 +323,15 @@ typedef struct {
     esp_btdm_controller_config_t btdm;               /*!< Bluetooth controller common configuration options */
 } esp_bt_controller_config_t;
 
-#if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
+#if UC_BT_CTRL_BLE_IS_ENABLE && !UC_BT_CTRL_BR_EDR_IS_ENABLE
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
-#elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
+#elif UC_BT_CTRL_BR_EDR_IS_ENABLE && !UC_BT_CTRL_BLE_IS_ENABLE
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_CLASSIC_BT
 #else
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
 #endif
 
-#if defined(CONFIG_BT_LE_ISO_SUPPORT)
+#if defined(CONFIG_ESP32_BT_LE_ISO_SUPPORT)
 #define DEFAULT_BT_LE_ISO_ENABLED                   1
 #if defined(CONFIG_BT_LE_ISO_FRA_UNSEG)
 #define DEFAULT_BT_LE_ISO_FRA_UNSEG                 CONFIG_BT_LE_ISO_FRA_UNSEG
@@ -344,14 +345,14 @@ typedef struct {
 #define DEFAULT_BT_LE_ISO_NSFC_EN                   (0)
 #define DEFAULT_BT_LE_ISO_NSFC_NUM                  (0)
 #endif
-#define DEFAULT_BT_LE_ISO_BUF_COUNT                 CONFIG_BT_LE_ISO_BUF_COUNT
-#define DEFAULT_BT_LE_ISO_BUF_SIZE                  CONFIG_BT_LE_ISO_BUF_SIZE
-#define DEFAULT_BT_LE_ISO_BIG                       CONFIG_BT_LE_ISO_BIG
-#define DEFAULT_BT_LE_ISO_BIS                       CONFIG_BT_LE_ISO_BIS
-#define DEFAULT_BT_LE_ISO_BIS_PER_BIG               CONFIG_BT_LE_ISO_BIS_PER_BIG
-#define DEFAULT_BT_LE_ISO_CIG                       CONFIG_BT_LE_ISO_CIG
-#define DEFAULT_BT_LE_ISO_CIS                       CONFIG_BT_LE_ISO_CIS
-#define DEFAULT_BT_LE_ISO_CIS_PER_CIG               CONFIG_BT_LE_ISO_CIS_PER_CIG
+#define DEFAULT_BT_LE_ISO_BUF_COUNT                 CONFIG_ESP32_BT_LE_ISO_BUF_COUNT
+#define DEFAULT_BT_LE_ISO_BUF_SIZE                  CONFIG_ESP32_BT_LE_ISO_BUF_SIZE
+#define DEFAULT_BT_LE_ISO_BIG                       CONFIG_ESP32_BT_LE_ISO_BIG
+#define DEFAULT_BT_LE_ISO_BIS                       CONFIG_ESP32_BT_LE_ISO_BIS
+#define DEFAULT_BT_LE_ISO_BIS_PER_BIG               CONFIG_ESP32_BT_LE_ISO_BIS_PER_BIG
+#define DEFAULT_BT_LE_ISO_CIG                       CONFIG_ESP32_BT_LE_ISO_CIG
+#define DEFAULT_BT_LE_ISO_CIS                       CONFIG_ESP32_BT_LE_ISO_CIS
+#define DEFAULT_BT_LE_ISO_CIS_PER_CIG               CONFIG_ESP32_BT_LE_ISO_CIS_PER_CIG
 #else
 #define DEFAULT_BT_LE_ISO_ENABLED                   0
 #define DEFAULT_BT_LE_ISO_FRA_UNSEG                 0
@@ -367,20 +368,20 @@ typedef struct {
 #define DEFAULT_BT_LE_ISO_CIS_PER_CIG               0
 #endif
 
-#if CONFIG_BTDM_CTRL_MODE_BTDM
+#if UC_BT_CTRL_BLE_IS_ENABLE && UC_BT_CTRL_BR_EDR_IS_ENABLE
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                               \
     .ble = {                                                                                \
         .config_version = BLE_CONFIG_VERSION,                                               \
-        .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
+        .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
         .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
         .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
         .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
         .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-        .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
-        .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+        .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+        .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
         .ble_ll_tx_pwr_dbm = 0,                                                             \
         .rtc_freq = 32000,                                                                  \
-        .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
+        .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
         .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
         .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
         .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
@@ -444,12 +445,12 @@ typedef struct {
         .hci_tl_funcs = NULL,                                                               \
         .cfg_mask = 0,                                                                      \
         .hw_target_code = 0,                                                                \
-        .acl_min_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ACL_MIN,                             \
-        .acl_max_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ACL_MAX,                             \
+        .acl_min_tx_pwr = UC_BR_EDR_TX_PWR_ACL_MIN,                                         \
+        .acl_max_tx_pwr = UC_BR_EDR_TX_PWR_ACL_MAX,                                         \
         .apb_tx_pwr = UC_BR_EDR_TX_PWR_APB,                                                 \
-        .page_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_PAGE,                                   \
-        .pscan_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_PSCAN,                                 \
-        .iscan_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ISCAN,                                 \
+        .page_tx_pwr = UC_BR_EDR_TX_PWR_PAGE,                                               \
+        .pscan_tx_pwr = UC_BR_EDR_TX_PWR_PSCAN,                                             \
+        .iscan_tx_pwr = UC_BR_EDR_TX_PWR_ISCAN,                                             \
         .cpb_tx_pwr = UC_BR_EDR_TX_PWR_CPB,                                                 \
         .strain_tx_pwr = UC_BR_EDR_TX_PWR_STRAIN,                                           \
         .rf_hw_type = 0,                                                                    \
@@ -472,8 +473,8 @@ typedef struct {
         .version = BTDM_CONFIG_VERSION,                                                     \
         .task_stack_size = UC_BT_CTRL_TASK_STACK_SIZE,                                      \
         .task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                                           \
-        .task_run_cpu = CONFIG_BT_CTRL_PINNED_TO_CORE,                                      \
-        .hci_cmd_num = CONFIG_BT_CTRL_HCI_CMD_NUM,                                          \
+        .task_run_cpu = CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE,                                \
+        .hci_cmd_num = DEFAULT_BT_CTRL_HCI_CMD_NUM,                                         \
         .hci_conn_num = DEFAULT_BT_LE_MAX_CONNECTIONS + DEFAULT_BT_LE_ISO_CIS + DEFAULT_BT_LE_ISO_BIS +         \
                         UC_BR_EDR_MAX_ACL_CONN + UC_BR_EDR_CTRL_MAX_SYNC_CONN,              \
         .sleep_en = UC_BT_CTRL_SLEEP_ENABLE,                                                \
@@ -483,20 +484,20 @@ typedef struct {
     },                                                                                      \
 }
 
-#elif CONFIG_BTDM_CTRL_MODE_BLE_ONLY
+#elif UC_BT_CTRL_BLE_IS_ENABLE
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                               \
     .ble = {                                                                                \
         .config_version = BLE_CONFIG_VERSION,                                               \
-        .ble_ll_resolv_list_size = CONFIG_BT_LE_LL_RESOLV_LIST_SIZE,                        \
+        .ble_ll_resolv_list_size = CONFIG_ESP32_BT_LE_LL_RESOLV_LIST_SIZE,                  \
         .ble_hci_evt_hi_buf_count = DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT,                     \
         .ble_hci_evt_lo_buf_count = DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT,                     \
         .ble_ll_sync_list_cnt = DEFAULT_BT_LE_MAX_PERIODIC_ADVERTISER_LIST,                 \
         .ble_ll_sync_cnt = DEFAULT_BT_LE_MAX_PERIODIC_SYNCS,                                \
-        .ble_ll_rsp_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
-        .ble_ll_adv_dup_list_count = CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT,                   \
+        .ble_ll_rsp_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
+        .ble_ll_adv_dup_list_count = CONFIG_ESP32_BT_LE_LL_DUP_SCAN_LIST_COUNT,             \
         .ble_ll_tx_pwr_dbm = 0,                                                             \
         .rtc_freq = 32000,                                                                  \
-        .ble_ll_sca = CONFIG_BT_LE_LL_SCA,                                                  \
+        .ble_ll_sca = CONFIG_ESP32_BT_LE_LL_SCA,                                            \
         .ble_ll_scan_phy_number = BLE_LL_SCAN_PHY_NUMBER_N,                                 \
         .ble_ll_conn_def_auth_pyld_tmo = BLE_LL_CONN_DEF_AUTH_PYLD_TMO_N,                   \
         .ble_ll_jitter_usecs = BLE_LL_JITTER_USECS_N,                                       \
@@ -550,8 +551,8 @@ typedef struct {
         .version = BTDM_CONFIG_VERSION,                                                     \
         .task_stack_size = UC_BT_CTRL_TASK_STACK_SIZE,                                      \
         .task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                                           \
-        .task_run_cpu = CONFIG_BT_CTRL_PINNED_TO_CORE,                                      \
-        .hci_cmd_num = CONFIG_BT_CTRL_HCI_CMD_NUM,                                          \
+        .task_run_cpu = CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE,                                \
+        .hci_cmd_num = DEFAULT_BT_CTRL_HCI_CMD_NUM,                                         \
         .hci_conn_num = DEFAULT_BT_LE_MAX_CONNECTIONS + DEFAULT_BT_LE_ISO_CIS + DEFAULT_BT_LE_ISO_BIS,  \
         .sleep_en = UC_BT_CTRL_SLEEP_ENABLE,                                                \
         .version_num = 0,                                                                   \
@@ -559,7 +560,7 @@ typedef struct {
         .magic = BTDM_CONFIG_MAGIC_VALUE,                                                   \
     },                                                                                      \
 }
-#elif CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY
+#elif UC_BT_CTRL_BR_EDR_IS_ENABLE
 #define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {                                               \
     .ble = { 0 },                                                                           \
     .bredr = {                                                                              \
@@ -577,12 +578,12 @@ typedef struct {
         .hci_tl_funcs = NULL,                                                               \
         .cfg_mask = 0,                                                                      \
         .hw_target_code = 0,                                                                \
-        .acl_min_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ACL_MIN,                             \
-        .acl_max_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ACL_MAX,                             \
+        .acl_min_tx_pwr = UC_BR_EDR_TX_PWR_ACL_MIN,                                         \
+        .acl_max_tx_pwr = UC_BR_EDR_TX_PWR_ACL_MAX,                                         \
         .apb_tx_pwr = UC_BR_EDR_TX_PWR_APB,                                                 \
-        .page_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_PAGE,                                   \
-        .pscan_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_PSCAN,                                 \
-        .iscan_tx_pwr = CONFIG_BT_CTRL_BR_EDR_TX_PWR_ISCAN,                                 \
+        .page_tx_pwr = UC_BR_EDR_TX_PWR_PAGE,                                               \
+        .pscan_tx_pwr = UC_BR_EDR_TX_PWR_PSCAN,                                             \
+        .iscan_tx_pwr = UC_BR_EDR_TX_PWR_ISCAN,                                             \
         .cpb_tx_pwr = UC_BR_EDR_TX_PWR_CPB,                                                 \
         .strain_tx_pwr = UC_BR_EDR_TX_PWR_STRAIN,                                           \
         .rf_hw_type = 0,                                                                    \
@@ -605,8 +606,8 @@ typedef struct {
         .version = BTDM_CONFIG_VERSION,                                                     \
         .task_stack_size = UC_BT_CTRL_TASK_STACK_SIZE,                                      \
         .task_prio = ESP_TASK_BT_CONTROLLER_PRIO,                                           \
-        .task_run_cpu = CONFIG_BT_CTRL_PINNED_TO_CORE,                                      \
-        .hci_cmd_num = CONFIG_BT_CTRL_HCI_CMD_NUM,                                          \
+        .task_run_cpu = CONFIG_ESP32_BT_CTLR_PINNED_TO_CORE,                                \
+        .hci_cmd_num = DEFAULT_BT_CTRL_HCI_CMD_NUM,                                         \
         .hci_conn_num = UC_BR_EDR_MAX_ACL_CONN + UC_BR_EDR_CTRL_MAX_SYNC_CONN,              \
         .sleep_en = UC_BT_CTRL_SLEEP_ENABLE,                                                \
         .version_num = 0,                                                                   \

@@ -29,7 +29,7 @@ struct ble_mbuf;
 /** Callback function types; executed when HCI packets are received. */
 typedef int esp_hci_internal_rx_cmd_fn(uint8_t *cmd, void *arg);
 typedef int esp_hci_internal_rx_acl_fn(struct ble_mbuf *om, void *arg);
-#if CONFIG_BT_LE_ISO_SUPPORT
+#if CONFIG_ESP32_BT_LE_ISO_SUPPORT
 typedef int esp_hci_internal_rx_iso_fn(const uint8_t *data, uint16_t len, void *arg);
 /**
  * @brief Configure the ISO data receive callback for BLE HCI transport.
@@ -44,7 +44,7 @@ void r_ble_iso_trans_cfg_hs(esp_hci_internal_rx_iso_fn *iso_cb, void *iso_arg);
 
 extern int r_ble_hci_trans_hs_iso_tx(const uint8_t *data, uint16_t length, void *arg);
 #define ble_hci_trans_hs_iso_tx  r_ble_hci_trans_hs_iso_tx
-#endif // CONFIG_BT_LE_ISO_SUPPORT
+#endif /* CONFIG_ESP32_BT_LE_ISO_SUPPORT */
 /**
  * Configures the HCI transport to operate with a host.  The transport will
  * execute specified callbacks upon receiving HCI packets from the controller.

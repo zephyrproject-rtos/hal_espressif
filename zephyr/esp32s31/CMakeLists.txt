@@ -2,6 +2,8 @@
 
 if(CONFIG_SOC_SERIES_ESP32S31)
 
+  include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/esp_blobs.cmake)
+
   zephyr_compile_options(-fstrict-volatile-bitfields)
   zephyr_compile_definitions_ifndef(CONFIG_MCUBOOT CONFIG_APP_BUILD_USE_FLASH_SECTIONS)
   zephyr_compile_definitions_ifndef(asm asm=__asm__)
@@ -32,9 +34,9 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     ../../components/bt/controller/${CONFIG_SOC_SERIES}
     ../../components/bt/include/${CONFIG_SOC_SERIES}/include
     ../../components/bt/porting/include
-    ../../components/bt/porting/npl/zephyr/include
-    ../../components/bt/porting/npl/zephyr/include/nimble
-    ../../components/bt/porting/transport/include
+    ../../components/bt/porting_btdm/controller/btdm_common/include
+    ../../components/bt/porting_btdm/controller/ble/include
+    ../../components/bt/porting_btdm/transport/include
     ../../components/driver/deprecated
     ../../components/driver/gpio/include
     ../../components/driver/include
@@ -570,6 +572,91 @@ if(CONFIG_SOC_SERIES_ESP32S31)
       ../../components/esp_hal_uart/uart_hal_iram.c
       ../../components/esp_hal_uart/uart_hal.c
       )
+  endif()
+
+
+  ## shared WIFI/BT/IEEE802154 resources
+  if (CONFIG_BT_ESP32 OR CONFIG_WIFI_ESP32 OR CONFIG_IEEE802154)
+    zephyr_compile_definitions(CONFIG_ESP_COEX_ENABLED)
+
+    zephyr_sources(
+      ../../components/esp_phy/src/phy_init.c
+      ../../components/esp_phy/src/lib_printf.c
+      ../../components/esp_phy/src/phy_common.c
+      ../../components/esp_phy/src/phy_override.c
+      ../../components/esp_phy/${CONFIG_SOC_SERIES}/phy_init_data.c
+      ../../components/esp_coex/${CONFIG_SOC_SERIES}/esp_coex_adapter.c
+      )
+
+    if(CONFIG_ESP32_SW_COEXIST_ENABLE)
+      zephyr_sources(../../components/esp_coex/src/lib_printf.c)
+      zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS ../port/stubs/coex_stubs.c)
+
+      esp_blobs_link(coexist)
+
+      zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.coexist.ld
+        )
+    endif()
+
+    esp_blobs_link(net80211 espnow core pp phy mesh)
+
+    zephyr_link_libraries_ifndef(CONFIG_BUILD_ONLY_NO_BLOBS
+      # wifi libs refer gcc libs symbols, so linked in libgcc
+      gcc
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.pp.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.phy.ld
+        -T${CMAKE_CURRENT_SOURCE_DIR}/../../components/esp_rom/${CONFIG_SOC_SERIES}/ld/${CONFIG_SOC_SERIES}.rom.net80211.ld
+      )
+  endif()
+
+  ## BT definitions
+  if (CONFIG_BT)
+
+    zephyr_sources(
+      ../../components/esp_phy/src/btbb_init.c
+      ../../components/bt/porting/mem/bt_osi_mem.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_osal_zephyr.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_coex.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_external.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_log.c
+      ../../components/bt/porting_btdm/controller/btdm_common/src/btdm_lp.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble.c
+      ../../components/bt/porting_btdm/controller/ble/src/ble_msys.c
+      ../../components/bt/porting_btdm/transport/src/hci_transport.c
+      ../../components/bt/porting_btdm/transport/driver/vhci/hci_driver_standard.c
+      ../../components/bt/controller/${CONFIG_SOC_SERIES}/bt.c
+      )
+
+    if(CONFIG_BT_CLASSIC)
+      zephyr_sources(
+        ../../components/bt/porting_btdm/controller/bredr/src/bredr.c
+        ../../components/bt/porting_btdm/controller/btdm_common/src/bredr_mempool.c
+        ../../components/mbedtls/port/ecc/esp_ecc.c
+        ../../components/esp_hal_security/ecc_hal.c
+        ../port/crypto/esp_crypto_lock.c
+        ../port/crypto/esp_crypto_periph_clk.c
+        )
+      zephyr_include_directories(
+        ../../components/bt/porting_btdm/controller/bredr/include
+        ../../components/mbedtls/port/include
+        )
+    endif()
+
+    zephyr_compile_definitions(CONFIG_BT_ENABLED=1)
+    zephyr_compile_definitions(CONFIG_BT_CONTROLLER_ENABLED=1)
+
+    zephyr_sources_ifdef(CONFIG_BUILD_ONLY_NO_BLOBS
+      ../port/stubs/bt_stubs.c
+      ../port/stubs/phy_stubs.c
+      )
+
+    # bredr and ble, with btbb after them to resolve their baseband calls
+    if(CONFIG_BT_CLASSIC)
+      esp_blobs_link(bredr_app)
+    endif()
+    esp_blobs_link(ble_app btdm_common btbb)
+
   endif()
 
   zephyr_link_libraries_ifdef(CONFIG_NEWLIB_LIBC c)

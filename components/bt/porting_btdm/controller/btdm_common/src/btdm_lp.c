@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
@@ -112,14 +113,14 @@ static void
 btdm_lp_timer_clk_init(esp_btdm_controller_config_t *cfg)
 {
     if (s_bt_lpclk_src == MODEM_CLOCK_LPCLK_SRC_INVALID) {
-#if CONFIG_BT_CTRL_LP_CLK_SRC_MAIN_XTAL
+#if CONFIG_ESP32_BT_LE_LP_CLK_SRC_MAIN_XTAL
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_MAIN_XTAL;
         s_bt_lpclk_freq = s_bt_xtal_lpclk_freq;
 #else
-#if CONFIG_RTC_CLK_SRC_INT_RC
+#if CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_SRC_INT_RC
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC_SLOW;
         s_bt_lpclk_freq = esp_clk_tree_lp_slow_get_freq_hz(ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED) / 5;
-#elif CONFIG_RTC_CLK_SRC_EXT_CRYS
+#elif CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_CRYS
         uint32_t clk_freq = 0;
         if ((rtc_clk_slow_src_get() == SOC_RTC_SLOW_CLK_SRC_XTAL32K) &&
             !esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_XTAL32K, ESP_CLK_TREE_SRC_FREQ_PRECISION_EXACT, &clk_freq) &&
@@ -134,14 +135,14 @@ btdm_lp_timer_clk_init(esp_btdm_controller_config_t *cfg)
 #elif CONFIG_RTC_CLK_SRC_INT_RC32K
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_RC32K;
         s_bt_lpclk_freq = 32000;
-#elif CONFIG_RTC_CLK_SRC_EXT_OSC
+#elif CONFIG_CLOCK_CONTROL_ESP32_RTC_CLK_SRC_EXT_OSC
         s_bt_lpclk_src = MODEM_CLOCK_LPCLK_SRC_EXT32K;
         s_bt_lpclk_freq = 32000;
 #else
         ESP_LOGE(BTDM_LOG_TAG, "Unsupported clock source");
         assert(0);
 #endif
-#endif /* CONFIG_BT_CTRL_LP_CLK_SRC_MAIN_XTAL */
+#endif /* CONFIG_ESP32_BT_LE_LP_CLK_SRC_MAIN_XTAL */
     }
 
     btdm_lp_rtc_slow_clk_select(s_bt_lpclk_src);
