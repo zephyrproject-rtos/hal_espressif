@@ -222,6 +222,7 @@ static void *recursive_mutex_create_wrapper(void)
 
 	if (my_mutex == NULL) {
 		LOG_ERR("recursive_mutex_create_wrapper allocation failed");
+		return NULL;
 	}
 
 	k_mutex_init(my_mutex);
@@ -234,7 +235,8 @@ static void *mutex_create_wrapper(void)
 	struct k_mutex *my_mutex = (struct k_mutex *)wifi_malloc(sizeof(struct k_mutex));
 
 	if (my_mutex == NULL) {
-		LOG_ERR("recursive_mutex_create_wrapper allocation failed");
+		LOG_ERR("mutex_create_wrapper allocation failed");
+		return NULL;
 	}
 
 	k_mutex_init(my_mutex);
