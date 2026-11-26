@@ -12,6 +12,7 @@ PROVIDE ( esp_rom_gpio_matrix_in = rom_gpio_matrix_in );
 PROVIDE ( esp_rom_gpio_matrix_out = rom_gpio_matrix_out );
 PROVIDE ( esp_rom_Cache_Flush = Cache_Flush_rom );
 PROVIDE ( esp_rom_Cache_Read_Enable = Cache_Read_Enable_rom );
+PROVIDE ( esp_rom_Cache_Read_Disable = Cache_Read_Disable_rom );
 PROVIDE ( esp_rom_ets_set_appcpu_boot_addr = ets_set_appcpu_boot_addr );
 PROVIDE ( esp_rom_i2c_readReg = rom_i2c_readReg );
 PROVIDE ( esp_rom_i2c_writeReg = rom_i2c_writeReg );
