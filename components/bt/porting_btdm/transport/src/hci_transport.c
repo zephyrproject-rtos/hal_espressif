@@ -9,6 +9,7 @@
 #include "esp_hci_transport.h"
 #include "esp_hci_internal.h"
 #include "esp_bt.h"
+#include "btdm_osal.h"
 #if UC_BT_CTRL_BLE_IS_ENABLE
 #include "ble_mbuf.h"
 #endif // UC_BT_CTRL_BLE_IS_ENABLE
@@ -166,11 +167,11 @@ hci_transport_controller_le_iso_tx(const uint8_t *data, uint16_t len, void *arg)
     //ISO_TODO: arg is not used
 
     if (esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED) {
-        //ISO_TODO: free this tx buffer
+        btdm_osal_free((void *)data);
         return -1;
     }
 
-#if CONFIG_BT_NIMBLE_ENABLED
+#if CONFIG_BT_NIMBLE_ENABLED || defined(__ZEPHYR__)
     return s_hci_transport_env.driver_ops->hci_driver_tx(HCI_DRIVER_TYPE_ISO, (uint8_t *)data, len,
                                                          HCI_DRIVER_DIR_LEC2H);
 #elif CONFIG_BT_BLUEDROID_ENABLED
