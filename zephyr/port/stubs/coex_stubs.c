@@ -577,3 +577,12 @@ esp_err_t esp_coex_adapter_funcs_md5_check(const char *md5)
     (void)md5;
     return ESP_OK;
 }
+
+#if SOC_BLE_ISO_SUPPORTED
+esp_err_t esp_coex_configure_iso_end_wifi_cb(bool is_reg, void *funcs)
+{
+    (void)is_reg;
+    (void)funcs;
+    return ESP_OK;
+}
+#endif
