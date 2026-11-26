@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -60,8 +60,8 @@ struct wifi_adapter_msgq {
 };
 
 #ifdef CONFIG_PM
-extern void wifi_apb80m_request(void);
-extern void wifi_apb80m_release(void);
+extern void wifi_pm_sleep_lock_acquire(void);
+extern void wifi_pm_sleep_lock_release(void);
 #endif
 
 static void IRAM_ATTR s_esp_dport_access_stall_other_cpu_start(void)
@@ -494,17 +494,17 @@ static int32_t esp_event_post_wrapper(const char *event_base, int32_t event_id, 
     return esp_event_post(event_base, event_id, event_data, event_data_size, ticks_to_wait);
 }
 
-static void IRAM_ATTR wifi_apb80m_request_wrapper(void)
+static void IRAM_ATTR wifi_pm_sleep_lock_acquire_wrapper(void)
 {
 #ifdef CONFIG_PM
-    wifi_apb80m_request();
+    wifi_pm_sleep_lock_acquire();
 #endif
 }
 
-static void IRAM_ATTR wifi_apb80m_release_wrapper(void)
+static void IRAM_ATTR wifi_pm_sleep_lock_release_wrapper(void)
 {
 #ifdef CONFIG_PM
-    wifi_apb80m_release();
+    wifi_pm_sleep_lock_release();
 #endif
 }
 
@@ -947,8 +947,8 @@ wifi_osi_funcs_t g_wifi_osi_funcs = {
     ._rand = sys_rand32_get,
     ._dport_access_stall_other_cpu_start_wrap = s_esp_dport_access_stall_other_cpu_start,
     ._dport_access_stall_other_cpu_end_wrap = s_esp_dport_access_stall_other_cpu_end,
-    ._wifi_apb80m_request = wifi_apb80m_request_wrapper,
-    ._wifi_apb80m_release = wifi_apb80m_release_wrapper,
+    ._wifi_pm_sleep_lock_acquire = wifi_pm_sleep_lock_acquire_wrapper,
+    ._wifi_pm_sleep_lock_release = wifi_pm_sleep_lock_release_wrapper,
     ._phy_disable = esp_phy_disable_wrapper,
     ._phy_enable = esp_phy_enable_wrapper,
     ._phy_common_clock_enable = esp_phy_common_clock_enable,

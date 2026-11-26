@@ -66,7 +66,13 @@ static int crypto_ec_point_mul_ecc_hw(const mbedtls_ecp_group *grp,
     ecc_point_t p_hw = { 0 };
     ecc_point_t r_hw = { 0 };
     unsigned char scalar_le[MAX_SIZE] = { 0 };
-    size_t curve_len = grp->pbits / 8;
+    size_t curve_len;
+
+    if (!grp || !p || !k || !res) {
+        return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
+    }
+
+    curve_len = grp->pbits / 8;
 
     if (!crypto_ec_point_mul_curve_supported(grp)) {
         return MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
@@ -487,8 +493,8 @@ int crypto_ec_get_affine_coordinates(struct crypto_ec *e, struct crypto_ec_point
     int ret = -1;
     mbedtls_ecp_point *point = (mbedtls_ecp_point *)pt;
 
-    if (!mbedtls_ecp_is_zero(point)  && (mbedtls_mpi_cmp_int(&point->MBEDTLS_PRIVATE(Z), 1) == 0)) {
-        // Affine coordinates mean that z should be 1,
+    if (!mbedtls_ecp_is_zero(point)  && (mbedtls_mpi_cmp_int(&point->MBEDTLS_PRIVATE(Z), 1) != 0)) {
+        // For non-zero points, affine coordinates mean Z should be 1,
         wpa_printf(MSG_ERROR, "Z coordinate is neither 0 or 1");
         return -1;
     }
@@ -969,7 +975,11 @@ static int crypto_ec_point_mul_p256_window4_core(const mbedtls_ecp_group *grp,
     int ret = MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
     bool started = false;
 
-    if (!grp || grp->id != MBEDTLS_ECP_DP_SECP256R1 ||
+    if (!grp || !p || !k || !r) {
+        return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
+    }
+
+    if (grp->id != MBEDTLS_ECP_DP_SECP256R1 ||
             mbedtls_mpi_cmp_int(&p->MBEDTLS_PRIVATE(Z), 1) != 0) {
         return MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
     }
@@ -1166,6 +1176,10 @@ int crypto_ec_point_mul(struct crypto_ec *e, const struct crypto_ec_point *p,
                         struct crypto_ec_point *res)
 {
     int ret = MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
+
+    if (!e || !p || !b || !res) {
+        return -1;
+    }
 
 #if CONFIG_MBEDTLS_HARDWARE_ECC
     ret = crypto_ec_point_mul_ecc_hw((mbedtls_ecp_group *)e,
@@ -1638,8 +1652,9 @@ struct crypto_ec_key * crypto_ec_key_set_pub(const struct crypto_ec_group *group
          * uncompressed format (0x04 || X || Y).
          */
 
-        // Check if buffer has a format prefix (0x04, 0x02, or 0x03)
-        if (len > 0 && (buf[0] == 0x04 || buf[0] == 0x02 || buf[0] == 0x03)) {
+        size_t coord_len = PSA_BITS_TO_BYTES(bits);
+
+        if (len > 0 && len != 2 * coord_len && (buf[0] == 0x04 || buf[0] == 0x02 || buf[0] == 0x03)) {
             // Already has format prefix (0x04, 0x02, or 0x03)
             key_buf = os_calloc(1, len);
             if (!key_buf) {
@@ -2374,8 +2389,7 @@ int crypto_ecdsa_get_sign(unsigned char *hash,
         return -1;
     }
 
-    size_t key_size = hash_len / 2;
-    unsigned char signature[128];  // Max for P-521
+    unsigned char signature[PSA_SIGNATURE_MAX_SIZE];
     size_t signature_length = 0;
 
     psa_status_t status = psa_sign_hash(wrapper->key_id, PSA_ALG_DETERMINISTIC_ECDSA(PSA_ALG_SHA_256), hash, hash_len, signature, sizeof(signature), &signature_length);
@@ -2383,6 +2397,13 @@ int crypto_ecdsa_get_sign(unsigned char *hash,
         wpa_printf(MSG_ERROR, "psa_sign_hash failed with %d", (int) status);
         return -1;
     }
+
+    if (signature_length == 0 || (signature_length % 2) != 0) {
+        wpa_printf(MSG_ERROR, "Invalid signature length: %zu", signature_length);
+        return -1;
+    }
+
+    size_t key_size = signature_length / 2;
 
     // Extract r component
     int ret = mbedtls_mpi_read_binary((mbedtls_mpi *)r, signature, key_size);

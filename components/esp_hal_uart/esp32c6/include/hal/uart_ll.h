@@ -26,8 +26,6 @@
 #define LP_UART_LL_FIFO_DEF_LEN (SOC_LP_UART_FIFO_LEN)
 // Get UART hardware instance with giving uart num
 #define UART_LL_GET_HW(num) (((num) == UART_NUM_0) ? (&UART0) : (((num) == UART_NUM_1) ? (&UART1) : (&LP_UART)))
-// Get UART sleep clock with giving uart num
-#define UART_LL_SLEEP_CLOCK(num) (((num) == UART_NUM_0) ? (ESP_SLEEP_CLOCK_UART0) : (ESP_SLEEP_CLOCK_UART1))
 
 #define UART_LL_REG_FIELD_BIT_SHIFT(hw)     (((hw) == &LP_UART) ? 3 : 0)
 
@@ -981,7 +979,7 @@ FORCE_INLINE_ATTR void uart_ll_set_sw_flow_ctrl(uart_dev_t *hw, uart_sw_flowctrl
         HAL_FORCE_MODIFY_U32_REG_FIELD(hw->swfc_conf1, xon_threshold, (flow_ctrl->xon_thrd) << UART_LL_REG_FIELD_BIT_SHIFT(hw));
         HAL_FORCE_MODIFY_U32_REG_FIELD(hw->swfc_conf1, xoff_threshold, (flow_ctrl->xoff_thrd) << UART_LL_REG_FIELD_BIT_SHIFT(hw));
         HAL_FORCE_MODIFY_U32_REG_FIELD(hw->swfc_conf0_sync, xon_character, flow_ctrl->xon_char);
-        HAL_FORCE_MODIFY_U32_REG_FIELD(hw->swfc_conf0_sync, xon_character, flow_ctrl->xoff_char);
+        HAL_FORCE_MODIFY_U32_REG_FIELD(hw->swfc_conf0_sync, xoff_character, flow_ctrl->xoff_char);
     } else {
         hw->swfc_conf0_sync.sw_flow_con_en = 0;
         hw->swfc_conf0_sync.xonoff_del = 0;

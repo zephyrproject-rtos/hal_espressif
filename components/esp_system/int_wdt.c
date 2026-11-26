@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include "sdkconfig.h"
 #include "soc/soc_caps.h"
-#include "hal/mwdt_periph.h"
 #include "hal/wdt_hal.h"
 #include "soc/system_intr.h"
 #include "freertos/FreeRTOS.h"
@@ -24,6 +23,8 @@
 #include "esp_freertos_hooks.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/esp_int_wdt.h"
+#include "esp_private/esp_sys_event_app_init.h"
+#include "mwdt_priv.h"
 
 #if CONFIG_PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP && SOC_MWDT_SUPPORT_SLEEP_RETENTION
 #include "esp_private/sleep_retention.h"
@@ -58,8 +59,8 @@ ESP_LOG_ATTR_TAG(TAG, "int_wdt");
 static esp_err_t sleep_int_wdt_retention_init(void *arg)
 {
     uint32_t group_id = *(uint32_t *)arg;
-    esp_err_t err = sleep_retention_entries_create(tg_wdt_regs_retention[group_id].link_list,
-                                                   tg_wdt_regs_retention[group_id].link_num,
+    esp_err_t err = sleep_retention_entries_create(mwdt_reg_retention_info[group_id].regdma_entry_array,
+                                                   mwdt_reg_retention_info[group_id].array_size,
                                                    REGDMA_LINK_PRI_SYS_PERIPH_LOW,
                                                    (group_id == 0) ? SLEEP_RETENTION_MODULE_TG0_WDT : SLEEP_RETENTION_MODULE_TG1_WDT);
     if (err == ESP_OK) {
@@ -114,6 +115,9 @@ void ESP_SYSTEM_IRAM_ATTR esp_int_wdt_reconfigure_ticks(uint32_t stage0_ticks, u
 
 #if CONFIG_ESP_INT_WDT_CHECK_CPU1
 volatile bool int_wdt_cpu1_ticked = false;
+/* Set while CPU1 is intentionally idle (e.g. tickless idle) and therefore not ticking. The CPU1
+ * liveness requirement is bypassed so CPU0 keeps feeding the watchdog (and stays protected). */
+static volatile bool s_int_wdt_cpu1_idle = false;
 #endif
 
 static void ESP_SYSTEM_IRAM_ATTR tick_hook(void)
@@ -125,7 +129,7 @@ static void ESP_SYSTEM_IRAM_ATTR tick_hook(void)
         return;
     }
 #if CONFIG_ESP_INT_WDT_CHECK_CPU1
-    if (int_wdt_cpu1_ticked) {
+    if (int_wdt_cpu1_ticked || s_int_wdt_cpu1_idle) {
         int_wdt_cpu1_ticked = false;
     } else {
         return;
@@ -190,5 +194,43 @@ void esp_int_wdt_cpu_init(void)
 #endif
     esp_intr_enable_source(ETS_INT_WDT_INUM);
 }
+
+ESP_PRE_SCHEDULER_HANDLER_REGISTER(init_int_wdt, 100)
+{
+    (void)user_arg;
+    (void)ctx;
+    esp_int_wdt_init();
+    return ESP_OK;
+}
+
+ESP_PRE_SCHEDULER_HANDLER_REGISTER_PER_CPU(init_int_wdt_cpu, 110)
+{
+    (void)user_arg;
+    (void)ctx;
+    esp_int_wdt_cpu_init();
+    return ESP_OK;
+}
+
+void ESP_SYSTEM_IRAM_ATTR esp_int_wdt_pause(void)
+{
+    wdt_hal_write_protect_disable(&iwdt_context);
+    wdt_hal_disable(&iwdt_context);
+    wdt_hal_write_protect_enable(&iwdt_context);
+}
+
+void ESP_SYSTEM_IRAM_ATTR esp_int_wdt_resume(void)
+{
+    wdt_hal_write_protect_disable(&iwdt_context);
+    wdt_hal_feed(&iwdt_context);
+    wdt_hal_enable(&iwdt_context);
+    wdt_hal_write_protect_enable(&iwdt_context);
+}
+
+#if CONFIG_ESP_INT_WDT_CHECK_CPU1
+void ESP_SYSTEM_IRAM_ATTR esp_int_wdt_pause_cpu1_checking(bool pause)
+{
+    s_int_wdt_cpu1_idle = pause;
+}
+#endif // CONFIG_ESP_INT_WDT_CHECK_CPU1
 
 #endif // CONFIG_ESP_INT_WDT

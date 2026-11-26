@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -204,6 +204,25 @@ int32_t IRAM_ATTR coex_is_in_isr_wrapper(void)
     return k_is_in_isr();
 }
 
+extern int ieee802154_intr_disable(void) __attribute__((weak));
+extern int ieee802154_intr_enable(void) __attribute__((weak));
+
+static IRAM_ATTR int esp_coex_ieee802154_intr_disable_wrapper(void)
+{
+    if (ieee802154_intr_disable) {
+        return ieee802154_intr_disable();
+    }
+    return ESP_OK;
+}
+
+static IRAM_ATTR int esp_coex_ieee802154_intr_enable_wrapper(void)
+{
+    if (ieee802154_intr_enable) {
+        return ieee802154_intr_enable();
+    }
+    return ESP_OK;
+}
+
 coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._version = COEX_ADAPTER_VERSION,
     ._task_yield_from_isr = esp_coex_common_task_yield_from_isr_wrapper,
@@ -224,6 +243,8 @@ coex_adapter_funcs_t g_coex_adapter_funcs = {
     ._timer_arm_us = esp_coex_common_timer_arm_us_wrapper,
     ._debug_matrix_init = esp_coexist_debug_matrix_init_wrapper,
     ._xtal_freq_get = esp_coex_common_xtal_freq_get_wrapper,
+    ._ieee802154_intr_disable = esp_coex_ieee802154_intr_disable_wrapper,
+    ._ieee802154_intr_enable = esp_coex_ieee802154_intr_enable_wrapper,
     ._magic = COEX_ADAPTER_MAGIC,
 };
 

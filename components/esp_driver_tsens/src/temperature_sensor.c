@@ -29,7 +29,6 @@
 #include "hal/temperature_sensor_hal.h"
 #include "esp_memory_utils.h"
 #include "esp_private/sar_periph_ctrl.h"
-#include "esp_sleep.h"
 #if TEMPERATURE_SENSOR_USE_RETENTION_LINK
 #include "esp_private/sleep_retention.h"
 #endif
@@ -132,6 +131,11 @@ esp_err_t temperature_sensor_install(const temperature_sensor_config_t *tsens_co
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE((tsens_config && ret_tsens), ESP_ERR_INVALID_ARG, TAG, "Invalid argument");
     ESP_RETURN_ON_FALSE((s_tsens_attribute_copy == NULL), ESP_ERR_INVALID_STATE, TAG, "Already installed");
+    if (tsens_config->intr_priority) {
+        ESP_RETURN_ON_FALSE(tsens_config->intr_priority > 0 &&
+                            ((1 << tsens_config->intr_priority) & TEMPERATURE_SENSOR_ALLOW_INTR_PRIORITY_MASK),
+                            ESP_ERR_INVALID_ARG, TAG, "invalid interrupt priority:%d", tsens_config->intr_priority);
+    }
     temperature_sensor_handle_t tsens = NULL;
     tsens = (temperature_sensor_obj_t *) heap_caps_calloc(1, sizeof(temperature_sensor_obj_t), MALLOC_CAP_DEFAULT);
     ESP_RETURN_ON_FALSE((tsens != NULL), ESP_ERR_NO_MEM, TAG, "no mem for temp sensor");
@@ -140,14 +144,13 @@ esp_err_t temperature_sensor_install(const temperature_sensor_config_t *tsens_co
     } else {
         tsens->clk_src = tsens_config->clk_src;
     }
+#if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
+    tsens->intr_priority = tsens_config->intr_priority;
+#endif
 
 #if !SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION
     ESP_RETURN_ON_FALSE(tsens_config->flags.allow_pd == 0, ESP_ERR_NOT_SUPPORTED, TAG, "not able to power down in light sleep");
 #endif // SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION
-
-#if SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION && !SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-#endif
 
 #if TEMPERATURE_SENSOR_USE_RETENTION_LINK
     sleep_retention_module_init_param_t init_param = {
@@ -211,10 +214,6 @@ esp_err_t temperature_sensor_uninstall(temperature_sensor_handle_t tsens)
     }
 #endif // TEMPERATURE_SENSOR_USE_RETENTION_LINK
 
-#if SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION && !SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-#endif
-
     temperature_sensor_power_release();
 
     heap_caps_free(tsens);
@@ -240,7 +239,7 @@ esp_err_t temperature_sensor_enable(temperature_sensor_handle_t tsens)
     ESP_RETURN_ON_FALSE((tsens != NULL), ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     ESP_RETURN_ON_FALSE(tsens->fsm == TEMP_SENSOR_FSM_INIT, ESP_ERR_INVALID_STATE, TAG, "tsens not in init state");
 
-    ESP_RETURN_ON_ERROR(esp_clk_tree_enable_src(tsens->clk_src, true), TAG, "clock source enable failed");
+    ESP_RETURN_ON_ERROR(esp_clk_tree_acquire_src(tsens->clk_src, NULL), TAG, "clock source enable failed");
 
 #if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT
     temperature_sensor_ll_wakeup_enable(true);
@@ -267,7 +266,7 @@ esp_err_t temperature_sensor_disable(temperature_sensor_handle_t tsens)
 
     tsens->fsm = TEMP_SENSOR_FSM_INIT;
 
-    ESP_RETURN_ON_ERROR(esp_clk_tree_enable_src(tsens->clk_src, false), TAG, "clock source disable failed");
+    ESP_RETURN_ON_ERROR(esp_clk_tree_release_src(tsens->clk_src), TAG, "clock source disable failed");
 
     return ESP_OK;
 }
@@ -369,7 +368,8 @@ esp_err_t temperature_sensor_register_callbacks(temperature_sensor_handle_t tsen
     }
 #endif
 
-    int isr_flags = TEMPERATURE_SENSOR_INTR_ALLOC_FLAGS;
+    int isr_flags = TEMPERATURE_SENSOR_INTR_ALLOC_FLAGS |
+                    (tsens->intr_priority ? (1 << tsens->intr_priority) : TEMPERATURE_SENSOR_ALLOW_INTR_PRIORITY_MASK);
 #if SOC_ADC_TEMPERATURE_SHARE_INTR
     isr_flags |= ESP_INTR_FLAG_SHARED;
 #endif

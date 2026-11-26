@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -36,12 +36,22 @@ extern "C" {
  *    XTAL32K_CLK can also be calibrated to get its exact frequency.
  */
 
+/* The pin number to connect the external 32kHz crystal clock (XTAL32K_CLK) */
+#define SOC_XTAL32K_P_GPIO_NUM              32
+#define SOC_XTAL32K_N_GPIO_NUM              33
+
 /* With the default value of CK8M_DFREQ = 172, RC_FAST clock frequency is 8.5 MHz +/- 7% */
 #define SOC_CLK_RC_FAST_FREQ_APPROX         8500000                             /*!< Approximate RC_FAST_CLK frequency in Hz */
 /* With the default value of DCAP, range is +/- 5% */
 #define SOC_CLK_RC_SLOW_FREQ_APPROX         150000                              /*!< Approximate RC_SLOW_CLK frequency in Hz */
 #define SOC_CLK_RC_FAST_D256_FREQ_APPROX    (SOC_CLK_RC_FAST_FREQ_APPROX / 256) /*!< Approximate RC_FAST_D256_CLK frequency in Hz */
 #define SOC_CLK_XTAL32K_FREQ_APPROX         32768                               /*!< Approximate XTAL32K_CLK frequency in Hz */
+
+/* Default clock accuracy values in ppm (parts per million) at different observation durations */
+/* Row order: 1 s, 10 s, 30 s, 60 s */
+#define SOC_CLK_RC_FAST_ACCURACY_PPM_DEFAULTS    { (1107), (1349), (1498), (1976) }
+#define SOC_CLK_RC_SLOW_ACCURACY_PPM_DEFAULTS    { (2147), (5341), (14961), (27755) }
+#define SOC_CLK_CRYSTAL_ACCURACY_PPM_DEFAULTS    { (500), (500), (500), (500) }
 
 // Naming convention: SOC_ROOT_CLK_{loc}_{type}_[attr]
 // {loc}: EXT, INT
@@ -55,6 +65,7 @@ typedef enum {
     SOC_ROOT_CLK_INT_RC_SLOW,          /*!< Internal 150kHz RC oscillator */
     SOC_ROOT_CLK_EXT_XTAL,             /*!< External 2~40MHz crystal */
     SOC_ROOT_CLK_EXT_XTAL32K,          /*!< External 32kHz crystal/clock signal */
+    SOC_ROOT_CLK_SRC_NUM,              /*!< Number of root clock sources */
 } soc_root_clk_t;
 
 /**
@@ -347,16 +358,18 @@ typedef enum {
 /**
  * @brief Array initializer for all supported clock sources of DAC digital controller
  */
-#define SOC_DAC_DIGI_CLKS {SOC_MOD_CLK_PLL_D2, SOC_MOD_CLK_APLL}
+#define SOC_DAC_DIGI_CLKS {SOC_MOD_CLK_PLL_F160M, SOC_MOD_CLK_APLL}
 
 /**
  * @brief DAC digital controller clock source
  *
+ * @note The ESP32 DAC DMA is based on I2S and uses the same clock source as I2S.
  */
 typedef enum {
-    DAC_DIGI_CLK_SRC_PLLD2 = SOC_MOD_CLK_PLL_D2,    /*!< Select PLL_D2 as the source clock */
-    DAC_DIGI_CLK_SRC_APLL = SOC_MOD_CLK_APLL,       /*!< Select APLL as the source clock */
-    DAC_DIGI_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_D2,  /*!< Select PLL_D2 as the default source clock  */
+    DAC_DIGI_CLK_SRC_PLLD2 [[deprecated("use DAC_DIGI_CLK_SRC_PLL_160M instead")]] = SOC_MOD_CLK_PLL_F160M, /*!< Select PLL_F160M as the source clock */
+    DAC_DIGI_CLK_SRC_PLL_160M = SOC_MOD_CLK_PLL_F160M, /*!< Select PLL_F160M as the source clock */
+    DAC_DIGI_CLK_SRC_APLL = SOC_MOD_CLK_APLL,          /*!< Select APLL as the source clock */
+    DAC_DIGI_CLK_SRC_DEFAULT = SOC_MOD_CLK_PLL_F160M,  /*!< Select PLL_F160M as the default source clock  */
 } soc_periph_dac_digi_clk_src_t;
 
 /**

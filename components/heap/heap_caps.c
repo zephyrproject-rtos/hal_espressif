@@ -13,6 +13,7 @@
 #include "multi_heap.h"
 #include "esp_log.h"
 #include "heap_private.h"
+#include "heap_kasan_layout.h"
 #include "esp_system.h"
 
 /*
@@ -115,7 +116,8 @@ HEAP_IRAM_ATTR void *heap_caps_malloc_default( size_t size )
 
         void *r;
         if (size <= (size_t)malloc_alwaysinternal_limit) {
-            r=heap_caps_malloc_base( size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL );
+            // skip low priority DEFAULT heaps (e.g. the DMA reserve pool), so they are used after PSRAM
+            r=heap_caps_malloc_base( size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_SKIP_LOW_PRIO );
         } else {
             r=heap_caps_malloc_base( size, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM );
         }
@@ -148,7 +150,8 @@ HEAP_IRAM_ATTR void *heap_caps_realloc_default( void *ptr, size_t size )
 
         void *r;
         if (size <= (size_t)malloc_alwaysinternal_limit) {
-            r=heap_caps_realloc_base( ptr, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL);
+            // skip low priority DEFAULT heaps (e.g. the DMA reserve pool), so they are used after PSRAM
+            r=heap_caps_realloc_base( ptr, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_SKIP_LOW_PRIO);
         } else {
             r=heap_caps_realloc_base( ptr, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
         }
@@ -480,13 +483,22 @@ void heap_caps_dump_all(void)
 
 size_t heap_caps_get_allocated_size( void *ptr )
 {
+    /* The heap layout is:
+     * [block-owner][left redzone][user][right redzone]
+     * so undo the KASAN shift before removing the block-owner word.
+     */
+    ptr = KASAN_USER_TO_PTR(ptr);
     // add the block owner bytes back to ptr before handing over
     // to multi heap layer.
     ptr = MULTI_HEAP_REMOVE_BLOCK_OWNER_OFFSET(ptr);
     heap_t *heap = find_containing_heap(ptr);
     assert(heap);
     size_t size = multi_heap_get_allocated_size(heap->heap, ptr);
-    return MULTI_HEAP_REMOVE_BLOCK_OWNER_SIZE(size);
+    size = MULTI_HEAP_REMOVE_BLOCK_OWNER_SIZE(size);
+    if (size > 2 * KASAN_RZ) {
+        size -= 2 * KASAN_RZ;
+    }
+    return size;
 }
 
 size_t heap_caps_get_containing_block_size(void *ptr)
@@ -536,7 +548,8 @@ HEAP_IRAM_ATTR void *heap_caps_aligned_alloc_default(size_t alignment, size_t si
     }
 
     if (size <= (size_t)malloc_alwaysinternal_limit) {
-        ret = heap_caps_aligned_alloc_base(alignment, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL);
+        // skip low priority DEFAULT heaps (e.g. the DMA reserve pool), so they are used after PSRAM
+        ret = heap_caps_aligned_alloc_base(alignment, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_SKIP_LOW_PRIO);
     } else {
         ret = heap_caps_aligned_alloc_base(alignment, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
     }

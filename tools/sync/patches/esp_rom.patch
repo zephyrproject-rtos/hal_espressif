@@ -13,46 +13,75 @@
      UNDER_WRITE,
 --- a/components/esp_rom/esp32c2/ld/esp32c2.rom.libc.ld
 +++ b/components/esp_rom/esp32c2/ld/esp32c2.rom.libc.ld
-@@ -31,8 +31,12 @@
+@@ -8,7 +8,12 @@
+ strlen = 0x400004a8;
+ strstr = 0x400004ac;
+ bzero = 0x400004b0;
+-sbrk = 0x400004b8;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400004b8; */
+ isascii = 0x400004c4;
+ isblank = 0x400004c8;
+ iscntrl = 0x400004cc;
+@@ -31,8 +36,11 @@
  strsep = 0x40000540;
  strspn = 0x40000544;
  strtok_r = 0x40000548;
 -longjmp = 0x40000550;
 -setjmp = 0x40000554;
 +
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x40000550 );
-+PROVIDE ( setjmp = 0x40000554 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x40000550; */
++/* setjmp  = 0x40000554; */
 +
  abs = 0x40000558;
  div = 0x4000055c;
  labs = 0x40000560;
+@@ -44,8 +52,9 @@
+ __hexnan = 0x400005e0;
+ __hexdig_fun = 0x400005e4;
+ __gethex = 0x400005e8;
+-_Balloc = 0x400005ec;
+-_Bfree = 0x400005f0;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _Balloc = 0x400005ec; */
++/* _Bfree = 0x400005f0; */
+ __multadd = 0x400005f4;
+ __s2b = 0x400005f8;
+ __hi0bits = 0x400005fc;
 --- a/components/esp_rom/esp32c2/ld/esp32c2.rom.newlib.ld
 +++ b/components/esp_rom/esp32c2/ld/esp32c2.rom.newlib.ld
-@@ -20,49 +20,29 @@
+@@ -15,54 +15,35 @@
+  * multiple files to make it compatible with picolibc.
+  */
+ 
+-
+ /***************************************
   Group newlib
   ***************************************/
  
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x40000510 );
-+PROVIDE ( strndup = 0x40000534 );
-+PROVIDE ( rand_r = 0x4000056c );
-+PROVIDE ( rand = 0x40000570 );
-+PROVIDE ( srand = 0x40000574 );
-+PROVIDE ( atoi = 0x40000580 );
-+PROVIDE ( atol = 0x40000584 );
-+PROVIDE ( strtol = 0x40000588 );
-+PROVIDE ( strtoul = 0x4000058c );
-+PROVIDE ( fflush = 0x40000590 );
-+PROVIDE ( _fflush_r = 0x40000594 );
-+PROVIDE ( _fwalk = 0x40000598 );
-+PROVIDE ( _fwalk_reent = 0x4000059c );
-+PROVIDE ( __swbuf_r = 0x400005a8 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x40000510; */
++/* strndup      = 0x40000534; */
++/* rand_r       = 0x4000056c; */
++/* rand         = 0x40000570; */
++/* srand        = 0x40000574; */
++/* atoi         = 0x40000580; */
++/* atol         = 0x40000584; */
++/* strtol       = 0x40000588; */
++/* strtoul      = 0x4000058c; */
++/* fflush       = 0x40000590; */
++/* _fflush_r    = 0x40000594; */
++/* _fwalk       = 0x40000598; */
++/* _fwalk_reent = 0x4000059c; */
++/* __swbuf_r    = 0x400005a8; */
 +
  /* Functions */
- _isatty_r = 0x400004b4;
+-_isatty_r = 0x400004b4;
 -strdup = 0x40000510;
 -strndup = 0x40000534;
 -rand_r = 0x4000056c;
@@ -66,11 +95,11 @@
 -_fflush_r = 0x40000594;
 -_fwalk = 0x40000598;
 -_fwalk_reent = 0x4000059c;
- __smakebuf_r = 0x400005a0;
- __swhatbuf_r = 0x400005a4;
+-__smakebuf_r = 0x400005a0;
+-__swhatbuf_r = 0x400005a4;
 -__swbuf_r = 0x400005a8;
- __swbuf = 0x400005ac;
- __swsetup_r = 0x400005b0;
+-__swbuf = 0x400005ac;
+-__swsetup_r = 0x400005b0;
 -_strtod_l = 0x400005b4;
 -_strtod_r = 0x400005b8;
 -strtod_l = 0x400005bc;
@@ -94,6 +123,14 @@
 -putc = 0x40000660;
 -putchar = 0x40000664;
 -__errno = 0x40000670;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x400004b4; */
++/* __smakebuf_r = 0x400005a0; */
++/* __swhatbuf_r = 0x400005a4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x400005ac; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x400005b0; */
  toupper = 0x400004ec;
  tolower = 0x400004f0;
  isalnum = 0x400004bc;
@@ -111,6 +148,22 @@
  typedef enum {
      EMPTY,
      UNDER_WRITE,
+--- a/components/esp_rom/esp32c3/ld/esp32c3.rom.libc.ld
++++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.libc.ld
+@@ -8,7 +8,12 @@
+ strlen = 0x40000374;
+ strstr = 0x40000378;
+ bzero = 0x4000037c;
+-sbrk = 0x40000384;
++/* The ROM implementation routes through syscall_table_ptr,
++ * which this port never installs, and would fault on a NULL
++ * pointer if a libc build ever referenced it. Keep the
++ * compiled libc version instead.
++ * sbrk = 0x40000384;
++ */
+ isascii = 0x40000390;
+ isblank = 0x40000394;
+ iscntrl = 0x40000398;
 --- a/components/esp_rom/esp32c3/ld/esp32c3.rom.libc-suboptimal_for_misaligned_mem.ld
 +++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.libc-suboptimal_for_misaligned_mem.ld
 @@ -7,6 +7,7 @@
@@ -123,11 +176,27 @@
  strcpy = 0x40000364;
 --- a/components/esp_rom/esp32c3/ld/esp32c3.rom.newlib.ld
 +++ b/components/esp_rom/esp32c3/ld/esp32c3.rom.newlib.ld
-@@ -19,21 +19,24 @@
+@@ -19,22 +19,29 @@
   Group newlib
   ***************************************/
  
--/* Functions */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup  = 0x400003dc; */
++/* strndup = 0x40000400; */
++/* rand    = 0x4000043c; */
++/* srand   = 0x40000440; */
++/* rand_r  = 0x40000438; */
++/* atoi    = 0x4000044c; */
++/* atol    = 0x40000450; */
++/* strtol  = 0x40000454; */
++/* strtoul = 0x40000458; */
++/* fflush       = 0x4000045c; */
++/* _fflush_r    = 0x40000460; */
++/* _fwalk       = 0x40000464; */
++/* _fwalk_reent = 0x40000468; */
++/* __swbuf_r    = 0x40000474; */
++
+ /* Functions */
 -strdup = 0x400003dc;
 -strndup = 0x40000400;
 -rand_r = 0x40000438;
@@ -137,27 +206,35 @@
 -atol = 0x40000450;
 -strtol = 0x40000454;
 -strtoul = 0x40000458;
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x400003dc );
-+PROVIDE ( strndup = 0x40000400 );
-+PROVIDE ( rand = 0x4000043c );
-+PROVIDE ( srand = 0x40000440 );
-+PROVIDE ( rand_r = 0x40000438 );
-+PROVIDE ( atoi = 0x4000044c );
-+PROVIDE ( atol = 0x40000450 );
-+PROVIDE ( strtol = 0x40000454 );
-+PROVIDE ( strtoul = 0x40000458 );
- PROVIDE( fflush = 0x4000045c );
- PROVIDE( _fflush_r = 0x40000460 );
- PROVIDE( _fwalk = 0x40000464 );
- PROVIDE( _fwalk_reent = 0x40000468 );
- PROVIDE( __swbuf_r = 0x40000474 );
-+/*******************************************/
-+
-+/* Functions */
- __swbuf = 0x40000478;
+-PROVIDE( fflush = 0x4000045c );
+-PROVIDE( _fflush_r = 0x40000460 );
+-PROVIDE( _fwalk = 0x40000464 );
+-PROVIDE( _fwalk_reent = 0x40000468 );
+-PROVIDE( __swbuf_r = 0x40000474 );
+-__swbuf = 0x40000478;
++/* The ROM implementation routes through syscall_table_ptr,
++ * which this port never installs, and would fault on a NULL
++ * pointer if a libc build ever referenced it. Keep the
++ * compiled libc version instead.
++ * __swbuf = 0x40000478;
++ */
  toupper = 0x400003b8;
  tolower = 0x400003bc;
+ isalnum = 0x40000388;
+@@ -48,5 +55,11 @@
+ strlwr = 0x400003f4;
+ strncasecmp = 0x400003f8;
+ strupr = 0x40000418;
+-hmac_md5_vector = 0x40000620;
+-hmac_md5 = 0x40000624;
++/* The ROM hmac_md5 implementations call the ROM malloc, which
++ * dispatches through syscall_table_ptr. That table is never
++ * installed in this port, so any call faults on a NULL pointer.
++ * The supplicant builds its own hmac_md5/hmac_md5_vector from
++ * src/crypto/md5.c, which must win the link instead.
++ * hmac_md5_vector = 0x40000620;
++ * hmac_md5 = 0x40000624;
++ */
 --- a/components/esp_rom/esp32c5/include/esp32c5/rom/uart.h
 +++ b/components/esp_rom/esp32c5/include/esp32c5/rom/uart.h
 @@ -113,6 +113,10 @@
@@ -188,19 +265,31 @@
  phy_tsens_read_init = 0x4000144c;
 --- a/components/esp_rom/esp32c5/ld/esp32c5.rom.libc.ld
 +++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.libc.ld
-@@ -17,6 +17,11 @@
+@@ -17,13 +17,22 @@
   Group libc
   ***************************************/
  
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x40000580 );
-+PROVIDE ( setjmp = 0x40000584 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x40000580; */
++/* setjmp  = 0x40000584; */
 +
  /* Functions */
  esp_rom_newlib_init_common_mutexes = 0x400004b4;
  memset = 0x400004b8;
-@@ -46,8 +51,6 @@
+ strlen = 0x400004d8;
+ strstr = 0x400004dc;
+ bzero = 0x400004e0;
+-sbrk = 0x400004e8;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400004e8; */
+ isascii = 0x400004f4;
+ isblank = 0x400004f8;
+ iscntrl = 0x400004fc;
+@@ -46,8 +55,6 @@
  strsep = 0x40000570;
  strspn = 0x40000574;
  strtok_r = 0x40000578;
@@ -211,29 +300,28 @@
  labs = 0x40000590;
 --- a/components/esp_rom/esp32c5/ld/esp32c5.rom.newlib.ld
 +++ b/components/esp_rom/esp32c5/ld/esp32c5.rom.newlib.ld
-@@ -17,24 +17,27 @@
+@@ -17,26 +17,31 @@
   Group newlib
   ***************************************/
  
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x40000540 );
-+PROVIDE ( strndup = 0x40000564 );
-+PROVIDE ( rand = 0x400005a0 );
-+PROVIDE ( srand = 0x400005a4 );
-+PROVIDE ( rand_r = 0x4000059c );
-+PROVIDE ( atoi = 0x400005b0 );
-+PROVIDE ( atol = 0x400005b4 );
-+PROVIDE ( strtol = 0x400005b8 );
-+PROVIDE ( strtoul = 0x400005bc );
-+PROVIDE ( fflush = 0x400005c0 );
-+PROVIDE ( _fflush_r = 0x400005c4 );
-+PROVIDE ( _fwalk = 0x400005c8 );
-+PROVIDE ( _fwalk_reent = 0x400005cc );
-+PROVIDE ( __swbuf_r = 0x400005d8 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x40000540; */
++/* strndup      = 0x40000564; */
++/* rand         = 0x400005a0; */
++/* srand        = 0x400005a4; */
++/* rand_r       = 0x4000059c; */
++/* atoi         = 0x400005b0; */
++/* atol         = 0x400005b4; */
++/* strtol       = 0x400005b8; */
++/* strtoul      = 0x400005bc; */
++/* fflush       = 0x400005c0; */
++/* _fflush_r    = 0x400005c4; */
++/* _fwalk       = 0x400005c8; */
++/* _fwalk_reent = 0x400005cc; */
++/* __swbuf_r    = 0x400005d8; */
 +
  /* Functions */
- _isatty_r = 0x400004e4;
+-_isatty_r = 0x400004e4;
 -strdup = 0x40000540;
 -strndup = 0x40000564;
 -rand_r = 0x4000059c;
@@ -247,15 +335,38 @@
 -_fflush_r = 0x400005c4;
 -_fwalk = 0x400005c8;
 -_fwalk_reent = 0x400005cc;
- __smakebuf_r = 0x400005d0;
- __swhatbuf_r = 0x400005d4;
+-__smakebuf_r = 0x400005d0;
+-__swhatbuf_r = 0x400005d4;
 -__swbuf_r = 0x400005d8;
- __swbuf = 0x400005dc;
- __swsetup_r = 0x400005e0;
+-__swbuf = 0x400005dc;
+-__swsetup_r = 0x400005e0;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x400004e4; */
++/* __smakebuf_r = 0x400005d0; */
++/* __swhatbuf_r = 0x400005d4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x400005dc; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x400005e0; */
  toupper = 0x4000051c;
+ tolower = 0x40000520;
+ isalnum = 0x400004ec;
+--- a/components/esp_rom/esp32c61/include/esp32c61/rom/uart.h
++++ b/components/esp_rom/esp32c61/include/esp32c61/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
 --- a/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
 +++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.eco4.ld
-@@ -143,12 +143,12 @@
+@@ -146,12 +146,12 @@
  phy_set_freq = 0x400011c8;
  phy_write_pll_cap = 0x400011cc;
  phy_read_pll_cap = 0x400011d0;
@@ -270,7 +381,7 @@
  phy_rfpll_cap_track = 0x400011ec;
  phy_txpwr_correct = 0x400011f4;
  phy_txpwr_cal_track = 0x400011f8;
-@@ -288,7 +288,7 @@
+@@ -291,7 +291,7 @@
  phy_spur_cal = 0x40001434;
  phy_spur_coef_cfg = 0x40001438;
  phy_bb_gain_index = 0x4000143c;
@@ -279,6 +390,87 @@
  phy_set_tsens_power_ = 0x40001444;
  phy_set_tsens_range_ = 0x40001448;
  phy_get_tsens_value_ = 0x4000144c;
+--- a/components/esp_rom/esp32c61/ld/esp32c61.rom.libc.ld
++++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.libc.ld
+@@ -8,7 +8,12 @@
+ strlen = 0x400004d8;
+ strstr = 0x400004dc;
+ bzero = 0x400004e0;
+-sbrk = 0x400004e8;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400004e8; */
+ isascii = 0x400004f4;
+ isblank = 0x400004f8;
+ iscntrl = 0x400004fc;
+@@ -31,8 +36,9 @@
+ strsep = 0x40000570;
+ strspn = 0x40000574;
+ strtok_r = 0x40000578;
+-longjmp = 0x40000580;
+-setjmp = 0x40000584;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x40000580; */
++/* setjmp  = 0x40000584; */
+ abs = 0x40000588;
+ div = 0x4000058c;
+ labs = 0x40000590;
+--- a/components/esp_rom/esp32c61/ld/esp32c61.rom.newlib.ld
++++ b/components/esp_rom/esp32c61/ld/esp32c61.rom.newlib.ld
+@@ -19,26 +19,31 @@
+  Group newlib
+  ***************************************/
+ 
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x40000540; */
++/* strndup      = 0x40000564; */
++/* rand         = 0x400005a0; */
++/* srand        = 0x400005a4; */
++/* rand_r       = 0x4000059c; */
++/* atoi         = 0x400005b0; */
++/* atol         = 0x400005b4; */
++/* strtol       = 0x400005b8; */
++/* strtoul      = 0x400005bc; */
++/* fflush       = 0x400005c0; */
++/* _fflush_r    = 0x400005c4; */
++/* _fwalk       = 0x400005c8; */
++/* _fwalk_reent = 0x400005cc; */
++/* __swbuf_r    = 0x400005d8; */
++
+ /* Functions */
+-_isatty_r = 0x400004e4;
+-strdup = 0x40000540;
+-strndup = 0x40000564;
+-rand_r = 0x4000059c;
+-rand = 0x400005a0;
+-srand = 0x400005a4;
+-atoi = 0x400005b0;
+-atol = 0x400005b4;
+-strtol = 0x400005b8;
+-strtoul = 0x400005bc;
+-fflush = 0x400005c0;
+-_fflush_r = 0x400005c4;
+-_fwalk = 0x400005c8;
+-_fwalk_reent = 0x400005cc;
+-__smakebuf_r = 0x400005d0;
+-__swhatbuf_r = 0x400005d4;
+-__swbuf_r = 0x400005d8;
+-__swbuf = 0x400005dc;
+-__swsetup_r = 0x400005e0;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x400004e4; */
++/* __smakebuf_r = 0x400005d0; */
++/* __swhatbuf_r = 0x400005d4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x400005dc; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x400005e0; */
+ toupper = 0x4000051c;
+ tolower = 0x40000520;
+ isalnum = 0x400004ec;
 --- a/components/esp_rom/esp32c6/include/esp32c6/rom/uart.h
 +++ b/components/esp_rom/esp32c6/include/esp32c6/rom/uart.h
 @@ -113,6 +113,10 @@
@@ -294,20 +486,31 @@
      UNDER_WRITE,
 --- a/components/esp_rom/esp32c6/ld/esp32c6.rom.libc.ld
 +++ b/components/esp_rom/esp32c6/ld/esp32c6.rom.libc.ld
-@@ -3,6 +3,12 @@
+@@ -3,12 +3,22 @@
   *
   * SPDX-License-Identifier: Apache-2.0
   */
 +
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x40000570 );
-+PROVIDE ( setjmp = 0x40000574 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x40000570; */
++/* setjmp  = 0x40000574; */
 +
  esp_rom_newlib_init_common_mutexes = 0x400004a4;
  memset = 0x400004a8;
  strlen = 0x400004c8;
-@@ -31,8 +37,6 @@
+ strstr = 0x400004cc;
+ bzero = 0x400004d0;
+-sbrk = 0x400004d8;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400004d8; */
+ isascii = 0x400004e4;
+ isblank = 0x400004e8;
+ iscntrl = 0x400004ec;
+@@ -31,8 +41,6 @@
  strsep = 0x40000560;
  strspn = 0x40000564;
  strtok_r = 0x40000568;
@@ -318,29 +521,28 @@
  labs = 0x40000580;
 --- a/components/esp_rom/esp32c6/ld/esp32c6.rom.newlib.ld
 +++ b/components/esp_rom/esp32c6/ld/esp32c6.rom.newlib.ld
-@@ -19,24 +19,27 @@
+@@ -19,26 +19,31 @@
   Group newlib
   ***************************************/
  
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x40000530 );
-+PROVIDE ( strndup = 0x40000554 );
-+PROVIDE ( rand = 0x40000590 );
-+PROVIDE ( srand = 0x40000594 );
-+PROVIDE ( rand_r = 0x4000058c );
-+PROVIDE ( atoi = 0x400005a0 );
-+PROVIDE ( atol = 0x400005a4 );
-+PROVIDE ( strtol = 0x400005a8 );
-+PROVIDE ( strtoul = 0x400005ac );
-+PROVIDE ( fflush = 0x400005b0 );
-+PROVIDE ( _fflush_r = 0x400005b4 );
-+PROVIDE ( _fwalk = 0x400005b8 );
-+PROVIDE ( _fwalk_reent = 0x400005bc );
-+PROVIDE ( __swbuf_r = 0x400005c8 );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x40000530; */
++/* strndup      = 0x40000554; */
++/* rand         = 0x40000590; */
++/* srand        = 0x40000594; */
++/* rand_r       = 0x4000058c; */
++/* atoi         = 0x400005a0; */
++/* atol         = 0x400005a4; */
++/* strtol       = 0x400005a8; */
++/* strtoul      = 0x400005ac; */
++/* fflush       = 0x400005b0; */
++/* _fflush_r    = 0x400005b4; */
++/* _fwalk       = 0x400005b8; */
++/* _fwalk_reent = 0x400005bc; */
++/* __swbuf_r    = 0x400005c8; */
 +
  /* Functions */
- _isatty_r = 0x400004d4;
+-_isatty_r = 0x400004d4;
 -strdup = 0x40000530;
 -strndup = 0x40000554;
 -rand_r = 0x4000058c;
@@ -354,12 +556,22 @@
 -_fflush_r = 0x400005b4;
 -_fwalk = 0x400005b8;
 -_fwalk_reent = 0x400005bc;
- __smakebuf_r = 0x400005c0;
- __swhatbuf_r = 0x400005c4;
+-__smakebuf_r = 0x400005c0;
+-__swhatbuf_r = 0x400005c4;
 -__swbuf_r = 0x400005c8;
- __swbuf = 0x400005cc;
- __swsetup_r = 0x400005d0;
+-__swbuf = 0x400005cc;
+-__swsetup_r = 0x400005d0;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x400004d4; */
++/* __smakebuf_r = 0x400005c0; */
++/* __swhatbuf_r = 0x400005c4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x400005cc; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x400005d0; */
  toupper = 0x4000050c;
+ tolower = 0x40000510;
+ isalnum = 0x400004dc;
 --- a/components/esp_rom/esp32h2/include/esp32h2/rom/uart.h
 +++ b/components/esp_rom/esp32h2/include/esp32h2/rom/uart.h
 @@ -113,6 +113,10 @@
@@ -375,24 +587,40 @@
      UNDER_WRITE,
 --- a/components/esp_rom/esp32h2/ld/esp32h2.rom.libc.ld
 +++ b/components/esp_rom/esp32h2/ld/esp32h2.rom.libc.ld
-@@ -31,8 +31,9 @@
+@@ -8,7 +8,12 @@
+ strlen = 0x400004c0;
+ strstr = 0x400004c4;
+ bzero = 0x400004c8;
+-sbrk = 0x400004d0;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400004d0; */
+ isascii = 0x400004dc;
+ isblank = 0x400004e0;
+ iscntrl = 0x400004e4;
+@@ -31,8 +36,10 @@
  strsep = 0x40000558;
  strspn = 0x4000055c;
  strtok_r = 0x40000560;
 -longjmp = 0x40000568;
 -setjmp = 0x4000056c;
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x40000568 );
-+PROVIDE ( setjmp = 0x4000056c );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x40000568; */
++/* setjmp  = 0x4000056c; */
++
  abs = 0x40000570;
  div = 0x40000574;
  labs = 0x40000578;
 --- a/components/esp_rom/esp32h2/ld/esp32h2.rom.newlib.ld
 +++ b/components/esp_rom/esp32h2/ld/esp32h2.rom.newlib.ld
-@@ -21,22 +21,23 @@
+@@ -20,25 +20,33 @@
+  ***************************************/
  
  /* Functions */
- _isatty_r = 0x400004cc;
+-_isatty_r = 0x400004cc;
 -strdup = 0x40000528;
 -strndup = 0x4000054c;
 -rand_r = 0x40000584;
@@ -406,27 +634,41 @@
 -_fflush_r = 0x400005ac;
 -_fwalk = 0x400005b0;
 -_fwalk_reent = 0x400005b4;
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x40000528 );
-+PROVIDE ( strndup = 0x4000054c );
-+PROVIDE ( rand_r = 0x40000584 );
-+PROVIDE ( rand = 0x40000588 );
-+PROVIDE ( srand = 0x4000058c );
-+PROVIDE ( atoi = 0x40000598 );
-+PROVIDE ( atol = 0x4000059c );
-+PROVIDE ( strtol = 0x400005a0 );
-+PROVIDE ( strtoul = 0x400005a4 );
-+PROVIDE ( fflush = 0x400005a8 );
-+PROVIDE ( _fflush_r = 0x400005ac );
-+PROVIDE ( _fwalk = 0x400005b0 );
-+PROVIDE ( _fwalk_reent = 0x400005b4 );
- __smakebuf_r = 0x400005b8;
- __swhatbuf_r = 0x400005bc;
+-__smakebuf_r = 0x400005b8;
+-__swhatbuf_r = 0x400005bc;
 -__swbuf_r = 0x400005c0;
-+PROVIDE ( __swbuf_r = 0x400005c0 );
- __swbuf = 0x400005c4;
- __swsetup_r = 0x400005c8;
+-__swbuf = 0x400005c4;
+-__swsetup_r = 0x400005c8;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x400004cc; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x40000528; */
++/* strndup      = 0x4000054c; */
++/* rand_r       = 0x40000584; */
++/* rand         = 0x40000588; */
++/* srand        = 0x4000058c; */
++/* atoi         = 0x40000598; */
++/* atol         = 0x4000059c; */
++/* strtol       = 0x400005a0; */
++/* strtoul      = 0x400005a4; */
++/* fflush       = 0x400005a8; */
++/* _fflush_r    = 0x400005ac; */
++/* _fwalk       = 0x400005b0; */
++/* _fwalk_reent = 0x400005b4; */
++
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __smakebuf_r = 0x400005b8; */
++/* __swhatbuf_r = 0x400005bc; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf_r = 0x400005c0; */
++
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x400005c4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x400005c8; */
  toupper = 0x40000504;
+ tolower = 0x40000508;
+ isalnum = 0x400004d4;
 --- a/components/esp_rom/esp32/include/esp32/rom/uart.h
 +++ b/components/esp_rom/esp32/include/esp32/rom/uart.h
 @@ -111,6 +111,8 @@
@@ -438,6 +680,21 @@
  typedef enum {
      EMPTY,
      UNDER_WRITE,
+--- a/components/esp_rom/esp32/ld/esp32.rom.syscalls.ld
++++ b/components/esp_rom/esp32/ld/esp32.rom.syscalls.ld
+@@ -61,6 +61,11 @@
+ close = 0x40001778;
+ open = 0x4000178c;
+ read = 0x400017dc;
+-sbrk = 0x400017f4;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x400017f4; */
+ times = 0x40001808;
+ write = 0x4000181c;
 --- a/components/esp_rom/esp32p4/include/esp32p4/rom/uart.h
 +++ b/components/esp_rom/esp32p4/include/esp32p4/rom/uart.h
 @@ -113,6 +113,10 @@
@@ -459,12 +716,12 @@
  strupr = 0x501001e8;
 -longjmp = 0x501001ec;
 -setjmp = 0x501001f0;
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x501001ec );
-+PROVIDE ( setjmp = 0x501001f0 );
-+PROVIDE ( atoi = 0x50100208 );
-+PROVIDE ( atol = 0x5010020c );
-+/*******************************************/
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x501001ec; */
++/* setjmp  = 0x501001f0; */
++/* atoi    = 0x50100208; */
++/* atol    = 0x5010020c; */
++
  abs = 0x501001f4;
  div = 0x501001f8;
  labs = 0x501001fc;
@@ -474,55 +731,57 @@
 -atol = 0x5010020c;
  itoa = 0x50100210;
  utoa = 0x50100214;
---- a/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
-+++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
-@@ -3,6 +3,12 @@
-  *
-  * SPDX-License-Identifier: Apache-2.0
-  */
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( longjmp = 0x4fc00330 );
-+PROVIDE ( setjmp = 0x4fc00334 );
-+/*******************************************/
-+
-+/* Functions */
- esp_rom_newlib_init_common_mutexes = 0x4fc00264;
- memset = 0x4fc00268;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.ld
+@@ -328,6 +328,12 @@
+ esprv_intc_int_set_threshold = 0x4fc005bc;
+ esprv_intc_int_enable = 0x4fc005c0;
+ esprv_intc_int_disable = 0x4fc005c4;
++/*
++ * ZEPHYR: the pre-v3 ROM does not export esprv_intc_int_set_type. The ROM
++ * function it would alias is also buggy for edge-type interrupts. Zephyr
++ * builds esp_rom_clic.c, which provides a C implementation of esprv_int_set_type
++ * for pre-v3 silicon, so no ROM symbol is needed here.
++ */
+ PROVIDE( intr_handler_set = 0x4fc005cc );
+ intr_matrix_set = 0x4fc005d0;
+ ets_intr_lock = 0x4fc005d4;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.libc.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.libc.ld
+@@ -8,7 +8,12 @@
  strlen = 0x4fc00288;
-@@ -44,8 +50,6 @@
+ strstr = 0x4fc0028c;
+ bzero = 0x4fc00290;
+-sbrk = 0x4fc00298;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x4fc00298; */
+ isascii = 0x4fc002a4;
+ isblank = 0x4fc002a8;
+ iscntrl = 0x4fc002ac;
+@@ -31,8 +36,10 @@
+ strsep = 0x4fc00320;
  strspn = 0x4fc00324;
  strtok_r = 0x4fc00328;
- strupr = 0x4fc0032c;
 -longjmp = 0x4fc00330;
 -setjmp = 0x4fc00334;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x4fc00330; */
++/* setjmp  = 0x4fc00334; */
++
  abs = 0x4fc00338;
  div = 0x4fc0033c;
  labs = 0x4fc00340;
---- a/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
-+++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
-@@ -19,23 +19,26 @@
-  Group newlib
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.newlib.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.eco0_4.newlib.ld
+@@ -20,25 +20,33 @@
   ***************************************/
  
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( strdup = 0x4fc002f0 );
-+PROVIDE ( strndup = 0x4fc00314 );
-+PROVIDE ( rand_r = 0x4fc0034c );
-+PROVIDE ( rand = 0x4fc00350 );
-+PROVIDE ( srand = 0x4fc00354 );
-+PROVIDE ( atoi = 0x4fc00360 );
-+PROVIDE ( atol = 0x4fc00364 );
-+PROVIDE ( strtol = 0x4fc00368 );
-+PROVIDE ( strtoul = 0x4fc0036c );
-+PROVIDE ( fflush = 0x4fc00370 );
-+PROVIDE ( _fflush_r = 0x4fc00374 );
-+PROVIDE ( _fwalk = 0x4fc00378 );
-+PROVIDE ( _fwalk_reent = 0x4fc0037c );
-+PROVIDE ( __swbuf_r = 0x4fc00388 );
-+/*******************************************/
-+
  /* Functions */
- _isatty_r = 0x4fc00294;
+-_isatty_r = 0x4fc00294;
 -strdup = 0x4fc002f0;
 -strndup = 0x4fc00314;
 -rand_r = 0x4fc0034c;
@@ -536,11 +795,126 @@
 -_fflush_r = 0x4fc00374;
 -_fwalk = 0x4fc00378;
 -_fwalk_reent = 0x4fc0037c;
- __smakebuf_r = 0x4fc00380;
- __swhatbuf_r = 0x4fc00384;
+-__smakebuf_r = 0x4fc00380;
+-__swhatbuf_r = 0x4fc00384;
 -__swbuf_r = 0x4fc00388;
- __swbuf = 0x4fc0038c;
- __swsetup_r = 0x4fc00390;
+-__swbuf = 0x4fc0038c;
+-__swsetup_r = 0x4fc00390;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x4fc00294; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x4fc002f0; */
++/* strndup      = 0x4fc00314; */
++/* rand_r       = 0x4fc0034c; */
++/* rand         = 0x4fc00350; */
++/* srand        = 0x4fc00354; */
++/* atoi         = 0x4fc00360; */
++/* atol         = 0x4fc00364; */
++/* strtol       = 0x4fc00368; */
++/* strtoul      = 0x4fc0036c; */
++/* fflush       = 0x4fc00370; */
++/* _fflush_r    = 0x4fc00374; */
++/* _fwalk       = 0x4fc00378; */
++/* _fwalk_reent = 0x4fc0037c; */
++
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __smakebuf_r = 0x4fc00380; */
++/* __swhatbuf_r = 0x4fc00384; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf_r = 0x4fc00388; */
++
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x4fc0038c; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x4fc00390; */
+ toupper = 0x4fc002cc;
+ tolower = 0x4fc002d0;
+ isalnum = 0x4fc0029c;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
+@@ -3,12 +3,22 @@
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x4fc00330; */
++/* setjmp  = 0x4fc00334; */
++
++/* Functions */
+ esp_rom_newlib_init_common_mutexes = 0x4fc00264;
+ memset = 0x4fc00268;
+ strlen = 0x4fc00288;
+ strstr = 0x4fc0028c;
+ bzero = 0x4fc00290;
+-sbrk = 0x4fc00298;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x4fc00298; */
+ isalnum = 0x4fc0029c;
+ isalpha = 0x4fc002a0;
+ isascii = 0x4fc002a4;
+@@ -44,8 +54,6 @@
+ strspn = 0x4fc00324;
+ strtok_r = 0x4fc00328;
+ strupr = 0x4fc0032c;
+-longjmp = 0x4fc00330;
+-setjmp = 0x4fc00334;
+ abs = 0x4fc00338;
+ div = 0x4fc0033c;
+ labs = 0x4fc00340;
+--- a/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
++++ b/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
+@@ -19,23 +19,28 @@
+  Group newlib
+  ***************************************/
+ 
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x4fc002f0; */
++/* strndup      = 0x4fc00314; */
++/* rand_r       = 0x4fc0034c; */
++/* rand         = 0x4fc00350; */
++/* srand        = 0x4fc00354; */
++/* atoi         = 0x4fc00360; */
++/* atol         = 0x4fc00364; */
++/* strtol       = 0x4fc00368; */
++/* strtoul      = 0x4fc0036c; */
++/* fflush       = 0x4fc00370; */
++/* _fflush_r    = 0x4fc00374; */
++/* _fwalk       = 0x4fc00378; */
++/* _fwalk_reent = 0x4fc0037c; */
++/* __swbuf_r    = 0x4fc00388; */
++
+ /* Functions */
+-_isatty_r = 0x4fc00294;
+-strdup = 0x4fc002f0;
+-strndup = 0x4fc00314;
+-rand_r = 0x4fc0034c;
+-rand = 0x4fc00350;
+-srand = 0x4fc00354;
+-atoi = 0x4fc00360;
+-atol = 0x4fc00364;
+-strtol = 0x4fc00368;
+-strtoul = 0x4fc0036c;
+-fflush = 0x4fc00370;
+-_fflush_r = 0x4fc00374;
+-_fwalk = 0x4fc00378;
+-_fwalk_reent = 0x4fc0037c;
+-__smakebuf_r = 0x4fc00380;
+-__swhatbuf_r = 0x4fc00384;
+-__swbuf_r = 0x4fc00388;
+-__swbuf = 0x4fc0038c;
+-__swsetup_r = 0x4fc00390;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x4fc00294; */
++/* __smakebuf_r = 0x4fc00380; */
++/* __swhatbuf_r = 0x4fc00384; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x4fc0038c; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x4fc00390; */
 --- a/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
 +++ b/components/esp_rom/esp32s2/include/esp32s2/rom/uart.h
 @@ -113,6 +113,8 @@
@@ -554,17 +928,33 @@
      UNDER_WRITE,
 --- a/components/esp_rom/esp32s2/ld/esp32s2.rom.libc-funcs.ld
 +++ b/components/esp_rom/esp32s2/ld/esp32s2.rom.libc-funcs.ld
-@@ -25,7 +25,8 @@
- ispunct = 0x40007994;
+@@ -18,14 +18,19 @@
+ bzero = 0x400078c8;
+ div = 0x40000620;
+ isascii = 0x4001aaec;
+-isblank = 0x400078f8;
+-iscntrl = 0x40007918;
+-isgraph = 0x40007968;
+-isprint = 0x40007980;
+-ispunct = 0x40007994;
++/* Zephyr: locale-dependent ROM call, provided by the selected libc */
++/* isblank = 0x400078f8; */
++/* iscntrl = 0x40007918; */
++/* isgraph = 0x40007968; */
++/* isprint = 0x40007980; */
++/* ispunct = 0x40007994; */
++
  labs = 0x40000648;
  ldiv = 0x40000650;
 -longjmp = 0x400005a4;
-+PROVIDE ( longjmp = 0x400005a4 );
-+PROVIDE ( setjmp = 0x40000540 );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x400005a4; */
++/* setjmp  = 0x40000540; */
++
  memccpy = 0x4001ab00;
  memchr = 0x4001ab24;
  memcmp = 0x4001ab40;
-@@ -34,7 +35,6 @@
+@@ -34,7 +39,6 @@
  memrchr = 0x4001acec;
  memset = 0x4001ad3c;
  qsort = 0x400006f4;
@@ -572,22 +962,26 @@
  strcat = 0x4001ad90;
  strchr = 0x4001adb0;
  strcmp = 0x40007be4;
-@@ -51,6 +51,6 @@
+@@ -51,6 +55,8 @@
  strsep = 0x4000806c;
  strspn = 0x4001aebc;
  strstr = 0x4001aee8;
 -__strtok_r = 0x4001af18;
-+PROVIDE ( __strtok_r = 0x4001af18 );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __strtok_r = 0x4001af18; */
++
  strtok_r = 0x4001af7c;
  toascii = 0x4001af90;
 --- a/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-reent-funcs.ld
 +++ b/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-reent-funcs.ld
-@@ -3,51 +3,51 @@
+@@ -3,64 +3,76 @@
   *
   * SPDX-License-Identifier: Apache-2.0
   */
 -_cleanup_r = 0x4001a480;
-+PROVIDE ( _cleanup_r = 0x4001a480 );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _cleanup_r = 0x4001a480; */
++
  creat = 0x4000788c;
  open = 0x400080c4;
  fclose = 0x4001a804;
@@ -596,11 +990,13 @@
 -_fflush_r = 0x40001b30;
 -__fp_unlock_all = 0x4001a64c;
 -__fputwc = 0x40001770;
-+PROVIDE ( _fclose_r = 0x4001a714 );
-+PROVIDE ( fflush = 0x40001bb8 );
-+PROVIDE ( _fflush_r = 0x40001b30 );
-+PROVIDE ( __fp_unlock_all = 0x4001a64c );
-+PROVIDE ( __fputwc = 0x40001770 );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _fclose_r       = 0x4001a714; */
++/* fflush          = 0x40001bb8; */
++/* _fflush_r       = 0x40001b30; */
++/* __fp_unlock_all = 0x4001a64c; */
++/* __fputwc        = 0x40001770; */
++
  fputwc = 0x40001864;
 -_fputwc_r = 0x400017f8;
 -_fwalk = 0x4001bcec;
@@ -618,22 +1014,24 @@
 -rand_r = 0x40007af4;
 -__sclose = 0x4001a700;
 -__seofread = 0x4001a690;
-+PROVIDE ( _fputwc_r = 0x400017f8 );
-+PROVIDE ( _fwalk = 0x4001bcec );
-+PROVIDE ( _fwalk_reent = 0x4001bd24 );
-+PROVIDE ( __sflush_r = 0x400019dc );
-+PROVIDE ( __swbuf = 0x4000167c );
-+PROVIDE ( __swbuf_r = 0x400015bc );
-+PROVIDE ( __swrite = 0x4001a698 );
-+PROVIDE ( __sread = 0x4001a660 );
-+PROVIDE ( __sseek = 0x4001a6cc );
-+PROVIDE ( srand = 0x40007a24 );
-+PROVIDE ( rand_r = 0x40007af4 );
-+PROVIDE ( __ascii_mbtowc = 0x40007a04 );
-+PROVIDE ( __ascii_wctomb = 0x400018d0 );
-+PROVIDE ( _mbtowc_r = 0x400079e0 );
-+PROVIDE ( __sclose = 0x4001a700 );
-+PROVIDE ( __seofread = 0x4001a690 );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _fputwc_r      = 0x400017f8; */
++/* _fwalk         = 0x4001bcec; */
++/* _fwalk_reent   = 0x4001bd24; */
++/* __sflush_r     = 0x400019dc; */
++/* __swbuf        = 0x4000167c; */
++/* __swbuf_r      = 0x400015bc; */
++/* __swrite       = 0x4001a698; */
++/* __sread        = 0x4001a660; */
++/* __sseek        = 0x4001a6cc; */
++/* srand          = 0x40007a24; */
++/* rand_r         = 0x40007af4; */
++/* __ascii_mbtowc = 0x40007a04; */
++/* __ascii_wctomb = 0x400018d0; */
++/* _mbtowc_r      = 0x400079e0; */
++/* __sclose       = 0x4001a700; */
++/* __seofread     = 0x4001a690; */
++
  setlocale = 0x40001c44;
 -_setlocale_r = 0x40001bdc;
 -__sfmoreglue = 0x4001a4c8;
@@ -645,17 +1043,19 @@
 -__sinit_lock_release = 0x4001a52c;
 -strndup = 0x40007fe8;
 -_strndup_r = 0x40007ffc;
-+PROVIDE ( _setlocale_r = 0x40001bdc );
-+PROVIDE ( __sfmoreglue = 0x4001a4c8 );
-+PROVIDE ( __sfp = 0x4001a590 );
-+PROVIDE ( __sfp_lock_acquire = 0x4001a508 );
-+PROVIDE ( __sfp_lock_release = 0x4001a514 );
-+PROVIDE ( __sinit = 0x4001a538 );
-+PROVIDE ( __sinit_lock_acquire = 0x4001a520 );
-+PROVIDE ( __sinit_lock_release = 0x4001a52c );
-+PROVIDE ( strndup = 0x40007fe8 );
-+PROVIDE ( strdup = 0x40007d84 );
-+PROVIDE ( _strndup_r = 0x40007ffc );
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _setlocale_r         = 0x40001bdc; */
++/* __sfmoreglue         = 0x4001a4c8; */
++/* __sfp                = 0x4001a590; */
++/* __sfp_lock_acquire   = 0x4001a508; */
++/* __sfp_lock_release   = 0x4001a514; */
++/* __sinit              = 0x4001a538; */
++/* __sinit_lock_acquire = 0x4001a520; */
++/* __sinit_lock_release = 0x4001a52c; */
++/* strndup              = 0x40007fe8; */
++/* strdup               = 0x40007d84; */
++/* _strndup_r           = 0x40007ffc; */
++
  wcrtomb = 0x400012f4;
 -_wcrtomb_r = 0x400012a0;
 -_wctomb_r = 0x400018ac;
@@ -664,15 +1064,136 @@
 -__locale_ctype_ptr = 0x40001c2c;
 -__locale_ctype_ptr_l = 0x40001c24;
 -__locale_mb_cur_max = 0x40001c0c;
-+PROVIDE ( _wcrtomb_r = 0x400012a0 );
-+PROVIDE ( _wctomb_r = 0x400018ac );
-+PROVIDE ( _strdup_r = 0x40007d98 );
-+PROVIDE ( __locale_ctype_ptr = 0x40001c2c );
-+PROVIDE ( __locale_ctype_ptr_l = 0x40001c24 );
-+PROVIDE ( __locale_mb_cur_max = 0x40001c0c );
- strcasecmp = 0x40007b38;
- strcasestr = 0x40007b7c;
- tolower = 0x40008158;
+-strcasecmp = 0x40007b38;
+-strcasestr = 0x40007b7c;
+-tolower = 0x40008158;
+-toupper = 0x40008174;
+-isalnum = 0x400078d8;
+-isalpha = 0x400078e8;
+-isdigit = 0x40007930;
+-islower = 0x40007948;
+-isspace = 0x400079ac;
+-isupper = 0x400079c4;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _wcrtomb_r           = 0x400012a0; */
++/* _wctomb_r            = 0x400018ac; */
++/* _strdup_r            = 0x40007d98; */
++/* __locale_ctype_ptr   = 0x40001c2c; */
++/* __locale_ctype_ptr_l = 0x40001c24; */
++/* __locale_mb_cur_max  = 0x40001c0c; */
++
++/* Zephyr: locale-dependent ROM call, provided by the selected libc */
++/* strcasecmp  = 0x40007b38; */
++/* strcasestr  = 0x40007b7c; */
++/* tolower     = 0x40008158; */
++/* toupper     = 0x40008174; */
++/* isalnum     = 0x400078d8; */
++/* isalpha     = 0x400078e8; */
++/* isdigit     = 0x40007930; */
++/* islower     = 0x40007948; */
++/* isspace     = 0x400079ac; */
++/* isupper     = 0x400079c4; */
++/* strlwr      = 0x40007e68; */
++/* strncasecmp = 0x40007e94; */
++/* strupr      = 0x40008084; */
++
+ strcoll = 0x40007ce8;
+-strlwr = 0x40007e68;
+-strncasecmp = 0x40007e94;
+-strupr = 0x40008084;
+ PROVIDE ( hmac_md5 = 0x40005490 );
+ PROVIDE ( hmac_md5_vector = 0x400053a0 );
+--- a/components/esp_rom/esp32s31/include/esp32s31/rom/uart.h
++++ b/components/esp_rom/esp32s31/include/esp32s31/rom/uart.h
+@@ -113,6 +113,10 @@
+     XON_XOFF_CTRL
+ } UartFlowCtrl;
+ 
++/* Undef EMPTY if defined by Zephyr util_macro.h */
++#ifdef EMPTY
++#undef EMPTY
++#endif
+ typedef enum {
+     EMPTY,
+     UNDER_WRITE,
+--- a/components/esp_rom/esp32s31/ld/esp32s31.rom.libc.ld
++++ b/components/esp_rom/esp32s31/ld/esp32s31.rom.libc.ld
+@@ -30,7 +30,12 @@
+ strlen = 0x2f8004e0;
+ strstr = 0x2f8004e4;
+ bzero = 0x2f8004e8;
+-sbrk = 0x2f8004ec;
++/* The ROM implementations below route through
++ * syscall_table_ptr, which this port never installs, and
++ * would fault on a NULL pointer if a libc build ever
++ * referenced them. Keep the compiled libc versions instead.
++ */
++/* sbrk = 0x2f8004ec; */
+ isalnum = 0x2f8004f0;
+ isalpha = 0x2f8004f4;
+ isascii = 0x2f8004f8;
+@@ -66,8 +71,9 @@
+ strspn = 0x2f800570;
+ strtok_r = 0x2f800574;
+ strupr = 0x2f800578;
+-longjmp = 0x2f80057c;
+-setjmp = 0x2f800580;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* longjmp = 0x2f80057c; */
++/* setjmp  = 0x2f800580; */
+ abs = 0x2f800584;
+ div = 0x2f800588;
+ labs = 0x2f80058c;
+--- a/components/esp_rom/esp32s31/ld/esp32s31.rom.newlib.ld
++++ b/components/esp_rom/esp32s31/ld/esp32s31.rom.newlib.ld
+@@ -17,23 +17,28 @@
+  Group newlib
+  ***************************************/
+ 
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* strdup       = 0x2f800474; */
++/* strndup      = 0x2f800478; */
++/* rand         = 0x2f800480; */
++/* srand        = 0x2f800484; */
++/* rand_r       = 0x2f80047c; */
++/* atoi         = 0x2f800488; */
++/* atol         = 0x2f80048c; */
++/* strtol       = 0x2f800490; */
++/* strtoul      = 0x2f800494; */
++/* fflush       = 0x2f800498; */
++/* _fflush_r    = 0x2f80049c; */
++/* _fwalk       = 0x2f8004a0; */
++/* _fwalk_reent = 0x2f8004a4; */
++/* __swbuf_r    = 0x2f8004b0; */
++
+ /* Functions */
+-_isatty_r = 0x2f800470;
+-strdup = 0x2f800474;
+-strndup = 0x2f800478;
+-rand_r = 0x2f80047c;
+-rand = 0x2f800480;
+-srand = 0x2f800484;
+-atoi = 0x2f800488;
+-atol = 0x2f80048c;
+-strtol = 0x2f800490;
+-strtoul = 0x2f800494;
+-fflush = 0x2f800498;
+-_fflush_r = 0x2f80049c;
+-_fwalk = 0x2f8004a0;
+-_fwalk_reent = 0x2f8004a4;
+-__smakebuf_r = 0x2f8004a8;
+-__swhatbuf_r = 0x2f8004ac;
+-__swbuf_r = 0x2f8004b0;
+-__swbuf = 0x2f8004b4;
+-__swsetup_r = 0x2f8004b8;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* _isatty_r = 0x2f800470; */
++/* __smakebuf_r = 0x2f8004a8; */
++/* __swhatbuf_r = 0x2f8004ac; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x2f8004b4; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swsetup_r = 0x2f8004b8; */
 --- a/components/esp_rom/esp32s3/include/esp32s3/rom/uart.h
 +++ b/components/esp_rom/esp32s3/include/esp32s3/rom/uart.h
 @@ -111,6 +111,8 @@
@@ -684,9 +1205,35 @@
  typedef enum {
      EMPTY,
      UNDER_WRITE,
+--- a/components/esp_rom/esp32s3/ld/esp32s3.rom.libc.ld
++++ b/components/esp_rom/esp32s3/ld/esp32s3.rom.libc.ld
+@@ -15,7 +15,12 @@
+ strlen = 0x40001248;
+ strstr = 0x40001254;
+ bzero = 0x40001260;
+-sbrk = 0x40001278;
++/* The ROM implementation routes through syscall_table_ptr,
++ * which this port never installs, and would fault on a NULL
++ * pointer if a libc build ever referenced it. Keep the
++ * compiled libc version instead.
++ * sbrk = 0x40001278;
++ */
+ isascii = 0x4000129c;
+ isblank = 0x400012a8;
+ iscntrl = 0x400012b4;
+@@ -45,7 +50,8 @@
+ labs = 0x40001470;
+ ldiv = 0x4000147c;
+ qsort = 0x40001488;
+-rand_r = 0x40001494;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* rand_r = 0x40001494; */
+ utoa = 0x400014b8;
+ itoa = 0x400014c4;
+ /* Data (.data, .bss, .rodata) */
 --- a/components/esp_rom/esp32s3/ld/esp32s3.rom.newlib.ld
 +++ b/components/esp_rom/esp32s3/ld/esp32s3.rom.newlib.ld
-@@ -15,14 +15,20 @@
+@@ -15,20 +15,25 @@
   * multiple files to make it compatible with picolibc.
   */
  
@@ -698,23 +1245,48 @@
 -atol = 0x400014dc;
 -strtol = 0x400014e8;
 -strtoul = 0x400014f4;
-+/* ZEPHYR: Keep PROVIDE for these symbols: */
-+PROVIDE ( atoi = 0x400014d0 );
-+PROVIDE ( atol = 0x400014dc );
-+PROVIDE ( strdup = 0x40001380 );
-+PROVIDE ( strndup = 0x400013ec );
-+PROVIDE ( rand_r = 0x40001494 );
-+PROVIDE ( rand = 0x400014a0 );
-+PROVIDE ( srand = 0x400014ac );
-+PROVIDE ( strtol = 0x400014e8 );
-+PROVIDE ( strtoul = 0x400014f4 );
-+PROVIDE ( longjmp = 0x40001440 );
-+PROVIDE ( setjmp = 0x4000144c );
-+/*******************************************/
-+
- PROVIDE( fflush = 0x40001500 );
- PROVIDE( _fflush_r = 0x4000150c );
- PROVIDE( _fwalk = 0x40001518 );
+-PROVIDE( fflush = 0x40001500 );
+-PROVIDE( _fflush_r = 0x4000150c );
+-PROVIDE( _fwalk = 0x40001518 );
+-PROVIDE( _fwalk_reent = 0x40001524 );
+-PROVIDE( __swbuf_r = 0x40001548 );
+-__swbuf = 0x40001554;
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* atoi    = 0x400014d0; */
++/* atol    = 0x400014dc; */
++/* strdup  = 0x40001380; */
++/* strndup = 0x400013ec; */
++/* rand_r  = 0x40001494; */
++/* rand    = 0x400014a0; */
++/* srand   = 0x400014ac; */
++/* strtol  = 0x400014e8; */
++/* strtoul = 0x400014f4; */
++/* longjmp = 0x40001440; */
++/* setjmp  = 0x4000144c; */
++/* fflush       = 0x40001500; */
++/* _fflush_r    = 0x4000150c; */
++/* _fwalk       = 0x40001518; */
++/* _fwalk_reent = 0x40001524; */
++/* __swbuf_r    = 0x40001548; */
++/* Zephyr: reentrant ROM call, provided by the selected libc */
++/* __swbuf = 0x40001554; */
+ toupper = 0x40001314;
+ tolower = 0x40001320;
+ isalnum = 0x40001284;
+@@ -42,5 +47,11 @@
+ strlwr = 0x400013c8;
+ strncasecmp = 0x400013d4;
+ strupr = 0x40001434;
+-hmac_md5_vector = 0x40001c80;
+-hmac_md5 = 0x40001c8c;
++/* The ROM hmac_md5 implementations call the ROM malloc, which
++ * dispatches through syscall_table_ptr. That table is never
++ * installed in this port, so any call faults on a NULL pointer.
++ * The supplicant builds its own hmac_md5/hmac_md5_vector from
++ * src/crypto/md5.c, which must win the link instead.
++ * hmac_md5_vector = 0x40001c80;
++ * hmac_md5 = 0x40001c8c;
++ */
 --- a/components/esp_rom/patches/esp_rom_print.c
 +++ b/components/esp_rom/patches/esp_rom_print.c
 @@ -8,7 +8,7 @@

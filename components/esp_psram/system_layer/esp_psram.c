@@ -17,6 +17,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_psram.h"
+#include "esp_macros.h"
 #include "esp_mmu_map.h"
 #include "hal/mmu_hal.h"
 #include "hal/mmu_ll.h"
@@ -28,6 +29,8 @@
 #include "esp_private/esp_mmu_map_private.h"
 #include "esp_private/esp_psram_impl.h"
 #include "esp_private/esp_psram_mspi.h"
+#include "esp_private/mspi_mem_barrier.h"
+#include "esp_private/esp_sys_event_app_init.h"
 #if SOC_SPIRAM_XIP_SUPPORTED
 #include "esp_private/mmu_psram_flash.h"
 #endif
@@ -83,8 +86,6 @@ extern uint8_t _ext_ram_bss_end;
 extern uint8_t _ext_ram_noinit_start;
 extern uint8_t _ext_ram_noinit_end;
 #endif  //#if CONFIG_SPIRAM_ALLOW_NOINIT_SEG_EXTERNAL_MEMORY
-
-#define ALIGN_UP_BY(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
 
 typedef struct {
     intptr_t vaddr_start;
@@ -177,7 +178,7 @@ static esp_err_t s_psram_chip_init(void)
     ret = esp_psram_impl_enable();
     if (ret != ESP_OK) {
 #if CONFIG_SPIRAM_IGNORE_NOTFOUND
-        ESP_EARLY_LOGE(TAG, "PSRAM enabled but initialization failed. Bailing out.");
+        ESP_EARLY_LOGW(TAG, "PSRAM enabled but initialization failed. Bailing out.");
 #endif
         return ret;
     }
@@ -248,7 +249,7 @@ static void s_psram_mapping(uint32_t psram_available_size, uint32_t start_page)
 {
     esp_err_t ret = ESP_FAIL;
 #if CONFIG_SPIRAM_ENC_EXEMPT
-    size_t enc_exempt_size = ALIGN_UP_BY((size_t)CONFIG_SPIRAM_ENC_EXEMPT_SIZE * 1024, MMU_PAGE_SIZE);
+    size_t enc_exempt_size = ESP_ALIGN_UP((size_t)CONFIG_SPIRAM_ENC_EXEMPT_SIZE * 1024, MMU_PAGE_SIZE);
     if (enc_exempt_size >= psram_available_size) {
         ESP_EARLY_LOGE(TAG, "SPIRAM_ENC_EXEMPT_SIZE (%dKB) >= available PSRAM (%dKB); disabling carve-out",
                        (int)(enc_exempt_size / 1024), (int)(psram_available_size / 1024));
@@ -419,6 +420,10 @@ esp_err_t esp_psram_chip_init(void)
 
 esp_err_t esp_psram_init(void)
 {
+    if (s_psram_ctx.is_initialised) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
     esp_err_t ret = ESP_FAIL;
 
     if (!s_psram_ctx.is_chip_initialised) {
@@ -547,6 +552,23 @@ esp_err_t esp_psram_extram_reserve_dma_pool(size_t size)
 {
     return ESP_OK;
 }
+
+#if CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL
+ESP_PRE_APP_MAIN_HANDLER_REGISTER(reserve_dma_pool, 110)
+{
+    (void)user_arg;
+    (void)ctx;
+    if (!esp_psram_is_initialized()) {
+        return ESP_OK;
+    }
+
+    esp_err_t err = esp_psram_extram_reserve_dma_pool(CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Could not reserve internal/DMA pool (error 0x%x)", err);
+    }
+    return err;
+}
+#endif
 
 bool IRAM_ATTR __attribute__((pure)) esp_psram_is_initialized(void)
 {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -39,14 +39,24 @@ extern "C" {
  *    OSC_SLOW_CLK can also be calibrated to get its exact frequency.
  */
 
+/* The pin number to connect the external 32kHz crystal clock (XTAL32K_CLK) */
+#define SOC_XTAL32K_P_GPIO_NUM              0
+#define SOC_XTAL32K_N_GPIO_NUM              1
+
 /* The pin number to connect the external slow clock (OSC_SLOW_CLK), XTAL_32K_P */
-#define SOC_EXT_OSC_SLOW_GPIO_NUM           0
+#define SOC_EXT_OSC_SLOW_GPIO_NUM           SOC_XTAL32K_P_GPIO_NUM
 
 /* With the default value of FOSC_DFREQ = 100, RC_FAST clock frequency is 17.5 MHz +/- 7% */
 #define SOC_CLK_RC_FAST_FREQ_APPROX         17500000                            /*!< Approximate RC_FAST_CLK frequency in Hz */
 #define SOC_CLK_RC_SLOW_FREQ_APPROX         136000                              /*!< Approximate RC_SLOW_CLK frequency in Hz */
 #define SOC_CLK_XTAL32K_FREQ_APPROX         32768                               /*!< Approximate XTAL32K_CLK frequency in Hz */
 #define SOC_CLK_OSC_SLOW_FREQ_APPROX        32768                               /*!< Approximate OSC_SLOW_CLK (external slow clock) frequency in Hz */
+
+/* Default clock accuracy values in ppm (parts per million) at different observation durations */
+/* Row order: 1 s, 10 s, 30 s, 60 s */
+#define SOC_CLK_RC_FAST_ACCURACY_PPM_DEFAULTS    { (1277), (1277), (1277), (2528) }
+#define SOC_CLK_RC_SLOW_ACCURACY_PPM_DEFAULTS    { (3727), (4477), (9291), (16211) }
+#define SOC_CLK_CRYSTAL_ACCURACY_PPM_DEFAULTS    { (500), (500), (500), (500) }
 
 // Naming convention: SOC_ROOT_CLK_{loc}_{type}_[attr]
 // {loc}: EXT, INT
@@ -61,6 +71,7 @@ typedef enum {
     SOC_ROOT_CLK_EXT_XTAL,             /*!< External 40MHz crystal */
     SOC_ROOT_CLK_EXT_XTAL32K,          /*!< External 32kHz crystal */
     SOC_ROOT_CLK_EXT_OSC_SLOW,         /*!< External slow clock signal at pin0 */
+    SOC_ROOT_CLK_SRC_NUM,              /*!< Number of root clock sources */
 } soc_root_clk_t;
 
 /**

@@ -24,7 +24,7 @@
 #include "soc/chip_revision.h"
 #include "esp_attr.h"
 #include "esp_private/esp_pmu.h"
-
+#include "esp_private/esp_clk_tree_common.h"
 
 ESP_HW_LOG_ATTR_TAG(TAG, "rtc_clk");
 
@@ -68,11 +68,25 @@ void rtc_clk_32k_disable_external(void)
 
 void rtc_clk_32k_bootstrap(uint32_t cycle)
 {
-    /* No special bootstrapping needed for ESP32-C5, 'cycle' argument is to keep the signature
-     * same as for the ESP32. Just enable the XTAL here.
-     */
-    (void)cycle;
-    rtc_clk_32k_enable(true);
+    clk_ll_xtal32k_enable(CLK_LL_XTAL32K_ENABLE_MODE_BOOTSTRAP);
+
+    if (cycle) {
+        /*
+         * 32K-N is the drive pin for the crystal oscillator circuit. Empirical testing shows that better results are achieved when the auxiliary signal is output from the 32K-P pin.
+         * By controlling the pull-up and pull-down resistors on the corresponding IO pins, a low-intensity 32.768kHz drive signal is output to assist the crystal oscillator in starting up.
+         * With the pull-down resistor always enabled, the drive amplitude is approximately 1/2*VCC, which is closer to the actual signal.
+        */
+        const uint32_t delay_us = (1000000 / SOC_CLK_XTAL32K_FREQ_APPROX / 2);
+        gpio_ll_pulldown_en(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+        while (cycle) {
+            esp_rom_delay_us(delay_us);
+            gpio_ll_pullup_en(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+            esp_rom_delay_us(delay_us);
+            gpio_ll_pullup_dis(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+            cycle--;
+        }
+        gpio_ll_pulldown_dis(&GPIO, SOC_XTAL32K_P_GPIO_NUM);
+    }
 }
 
 bool rtc_clk_32k_enabled(void)
@@ -197,10 +211,7 @@ static void rtc_clk_cpu_freq_to_rc_fast(void)
 static void rtc_clk_cpu_freq_to_pll_240_mhz(int cpu_freq_mhz)
 {
 #if CONFIG_ESP_ENABLE_PVT && !defined(BOOTLOADER_BUILD)
-    pvt_auto_dbias_init();
-    charge_pump_init();
-    pvt_func_enable(true);
-    charge_pump_enable(true);
+    pvt_auto_dbias_enable(true, true);
 #endif
     // f_hp_root = 240MHz
     uint32_t cpu_divider = CLK_LL_PLL_240M_FREQ_MHZ / cpu_freq_mhz;
@@ -223,10 +234,7 @@ static void rtc_clk_cpu_freq_to_pll_240_mhz(int cpu_freq_mhz)
 static void rtc_clk_cpu_freq_to_pll_160_mhz(int cpu_freq_mhz)
 {
 #if CONFIG_ESP_ENABLE_PVT && !defined(BOOTLOADER_BUILD)
-    pvt_auto_dbias_init();
-    charge_pump_init();
-    pvt_func_enable(true);
-    charge_pump_enable(true);
+    pvt_auto_dbias_enable(true, true);
 #endif
     // f_hp_root = 160MHz
     uint32_t cpu_divider = CLK_LL_PLL_160M_FREQ_MHZ / cpu_freq_mhz;
@@ -332,7 +340,7 @@ static void rtc_clk_update_pll_state_on_cpu_src_switching_start(soc_cpu_clk_src_
             rtc_clk_bbpll_configure(rtc_clk_xtal_freq_get(), CLK_LL_PLL_480M_FREQ_MHZ);
         }
 #ifndef BOOTLOADER_BUILD
-        esp_clk_tree_enable_src((new_src == SOC_CPU_CLK_SRC_PLL_F240M) ? SOC_MOD_CLK_PLL_F240M : SOC_MOD_CLK_PLL_F160M, true);
+        esp_clk_tree_acquire_src((new_src == SOC_CPU_CLK_SRC_PLL_F240M) ? SOC_MOD_CLK_PLL_F240M : SOC_MOD_CLK_PLL_F160M, NULL);
 #endif
     }
 }
@@ -341,7 +349,7 @@ static void rtc_clk_update_pll_state_on_cpu_src_switching_end(soc_cpu_clk_src_t 
 {
     if ((old_src == SOC_CPU_CLK_SRC_PLL_F160M) || (old_src == SOC_CPU_CLK_SRC_PLL_F240M)) {
 #ifndef BOOTLOADER_BUILD
-        esp_clk_tree_enable_src((old_src == SOC_CPU_CLK_SRC_PLL_F240M) ? SOC_MOD_CLK_PLL_F240M : SOC_MOD_CLK_PLL_F160M, false);
+        esp_clk_tree_release_src((old_src == SOC_CPU_CLK_SRC_PLL_F240M) ? SOC_MOD_CLK_PLL_F240M : SOC_MOD_CLK_PLL_F160M);
 #endif
         if ((new_src != SOC_CPU_CLK_SRC_PLL_F160M) && (new_src != SOC_CPU_CLK_SRC_PLL_F240M) && !s_bbpll_digi_consumers_ref_count && !fast_switching) {
             // We don't turn off the bbpll if some consumers depend on bbpll
@@ -460,7 +468,7 @@ FORCE_IRAM_ATTR void rtc_clk_cpu_set_to_default_config(void)
     rtc_clk_cpu_freq_to_xtal(freq_mhz, 1);
 #ifndef BOOTLOADER_BUILD
     if (old_cpu_clk_src != SOC_MOD_CLK_XTAL) {
-        esp_clk_tree_enable_src(old_cpu_clk_src, false);
+        esp_clk_tree_release_src(old_cpu_clk_src);
     }
 #endif
     s_cur_pll_freq = 0; // no disable PLL, but set freq to 0 to trigger a PLL calibration after wake-up from sleep
@@ -468,37 +476,15 @@ FORCE_IRAM_ATTR void rtc_clk_cpu_set_to_default_config(void)
 
 void rtc_clk_cpu_freq_set_xtal_for_sleep(void)
 {
-    rtc_clk_cpu_set_to_default_config();
 #if CONFIG_ESP_ENABLE_PVT && !defined(BOOTLOADER_BUILD)
-    charge_pump_enable(false);
-    pvt_func_enable(false);
+    pvt_auto_dbias_enable(false, false);
 #endif
+    rtc_clk_cpu_set_to_default_config();
 }
 
 #ifndef BOOTLOADER_BUILD
-void rtc_clk_cpu_freq_to_pll_and_pll_lock_release(int cpu_freq_mhz)
+void rtc_clk_modem_pll_lock_release(void)
 {
-    //                          IDF-11064
-    if (cpu_freq_mhz == 240) {
-        esp_clk_tree_enable_src(SOC_MOD_CLK_PLL_F240M, true);
-        rtc_clk_cpu_freq_to_pll_240_mhz(cpu_freq_mhz);
-    } else if (cpu_freq_mhz == 160) {
-        esp_clk_tree_enable_src(SOC_MOD_CLK_PLL_F160M, true);
-        rtc_clk_cpu_freq_to_pll_160_mhz(cpu_freq_mhz);
-    } else {// cpu_freq_mhz is 80
-        if (!ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 101)) {// (use 240mhz pll if max cpu freq is 240MHz)
-#if CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240
-            esp_clk_tree_enable_src(SOC_MOD_CLK_PLL_F240M, true);
-            rtc_clk_cpu_freq_to_pll_240_mhz(cpu_freq_mhz);
-#else
-            esp_clk_tree_enable_src(SOC_MOD_CLK_PLL_F160M, true);
-            rtc_clk_cpu_freq_to_pll_160_mhz(cpu_freq_mhz);
-#endif
-        } else {// (fixed for chip rev. >= ECO3)
-            esp_clk_tree_enable_src(SOC_MOD_CLK_PLL_F160M, true);
-            rtc_clk_cpu_freq_to_pll_160_mhz(cpu_freq_mhz);
-        }
-    }
     clk_ll_cpu_clk_src_lock_release();
 }
 #endif

@@ -58,20 +58,16 @@
          /* lp_core module reset causes loss of configured HW breakpoints and dcsr.ebreak* */
          if (!esp_cpu_dbgr_is_attached()) {
              lp_core_ll_reset_register();
-@@ -159,7 +164,11 @@
+@@ -159,7 +164,7 @@
      /* Enable reset CPU when going to sleep */
      /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
--    lp_core_ll_rst_at_sleep_enable(!(CONFIG_ULP_NORESET_UNDER_DEBUG && esp_cpu_dbgr_is_attached()));
-+#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
-+    lp_core_ll_rst_at_sleep_enable(!esp_cpu_dbgr_is_attached());
-+#else
-+    lp_core_ll_rst_at_sleep_enable(true);
-+#endif
- 
-     /* Set wake-up sources */
-     lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
-@@ -285,23 +294,26 @@
+-#if CONFIG_ULP_NORESET_UNDER_DEBUG
++#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+     lp_core_ll_rst_at_sleep_enable(!esp_cpu_dbgr_is_attached());
+ #else
+     lp_core_ll_rst_at_sleep_enable(true);
+@@ -289,23 +294,26 @@
      ulp_lp_core_stop();
  
  #if ESP_ROM_HAS_LP_ROM
@@ -103,23 +99,69 @@
      hal_memcpy(base, program_binary, program_size_bytes);
  
      return ESP_OK;
-@@ -327,9 +339,13 @@
-         /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
-            so configure it to stall when going to sleep */
+@@ -333,7 +341,7 @@
          lp_core_ll_stall_at_sleep_request(true);
-+#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
          /* Avoid resetting chip in sleep mode when debugger is attached,
          otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
--        lp_core_ll_rst_at_sleep_enable(!CONFIG_ULP_NORESET_UNDER_DEBUG);
-+        lp_core_ll_rst_at_sleep_enable(false);
-+#else
-+        lp_core_ll_rst_at_sleep_enable(true);
-+#endif
-         lp_core_ll_debug_module_enable(true);
+-#if CONFIG_ULP_NORESET_UNDER_DEBUG
++#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+         lp_core_ll_rst_at_sleep_enable(false);
+ #else
+         lp_core_ll_rst_at_sleep_enable(true);
+--- a/components/ulp/lp_core/lp_core_uart.c
++++ b/components/ulp/lp_core/lp_core_uart.c
+@@ -65,6 +65,7 @@
+         /* Unachievable baud rate */
+         return ESP_FAIL;
      }
-     /* Disable wake-up source and put lp core to sleep */
---- a/components/ulp/lp_core/lp_core/include/ulp_lp_core_print.h
-+++ b/components/ulp/lp_core/lp_core/include/ulp_lp_core_print.h
++
+     uart_hal_set_parity(&hal, cfg->uart_proto_cfg.parity);
+     uart_hal_set_data_bit_num(&hal, cfg->uart_proto_cfg.data_bits);
+     uart_hal_set_stop_bits(&hal, cfg->uart_proto_cfg.stop_bits);
+--- a/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
++++ b/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
+@@ -10,17 +10,16 @@
+ #include "esp_rom_caps.h"
+ #include "esp_assert.h"
+ #include "esp_macros.h"
++#include <zephyr/devicetree.h>
+ 
+-/* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
+-   The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
+-   esp32ulp_mapgen.py, but this is not available when compiling the ULP library.
++#define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
+ 
+-   For those special cases, e.g. config settings. We can use this shared area.
+-    */
++/* The ulp_shm DTS node reserves memory for a shared cfg struct
++   between the HP core and LP core. */
+ 
+ #if IS_ULP_COCPU
+ static ulp_lp_core_memory_shared_cfg_t __attribute__((section(".shared_mem"))) s_shared_mem = {};
+-ESP_STATIC_ASSERT(CONFIG_ULP_SHARED_MEM == sizeof(ulp_lp_core_memory_shared_cfg_t));
++ESP_STATIC_ASSERT(DT_REG_SIZE(DT_NODELABEL(ulp_shm)) >= sizeof(ulp_lp_core_memory_shared_cfg_t));
+ #endif
+ 
+ ulp_lp_core_memory_shared_cfg_t* ulp_lp_core_memory_shared_cfg_get(void)
+@@ -28,15 +27,6 @@
+ #if IS_ULP_COCPU
+     return &s_shared_mem;
+ #else
+-#if ESP_ROM_HAS_LP_ROM
+-    extern uint32_t _rtc_ulp_memory_start;
+-    uint32_t ulp_base_addr = (uint32_t)&_rtc_ulp_memory_start;
+-#else
+-    uint32_t ulp_base_addr = SOC_RTC_DRAM_LOW;
+-#endif
+-    /* Ensure the end where the shared memory starts is aligned to 8 bytes
+-    if updating this also update the same in ulp_lp_core_riscv.ld
+-    */
+-    return (ulp_lp_core_memory_shared_cfg_t *)(ulp_base_addr + ESP_ALIGN_DOWN(CONFIG_ULP_COPROC_RESERVE_MEM, 0x8)  - CONFIG_ULP_SHARED_MEM);
++    return (ulp_lp_core_memory_shared_cfg_t *)DT_REG_ADDR(DT_NODELABEL(ulp_shm));
+ #endif
+ }
+--- a/components/ulp/subproject/components/lp_core/include/ulp_lp_core_print.h
++++ b/components/ulp/subproject/components/lp_core/include/ulp_lp_core_print.h
 @@ -21,15 +21,15 @@
   * @param ...           variable argument list
   *
@@ -148,8 +190,8 @@
  
  /**
   * @brief Print a single character from the LP core
---- a/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
-+++ b/components/ulp/lp_core/lp_core/include/ulp_lp_core_utils.h
+--- a/components/ulp/subproject/components/lp_core/include/ulp_lp_core_utils.h
++++ b/components/ulp/subproject/components/lp_core/include/ulp_lp_core_utils.h
 @@ -53,26 +53,6 @@
  }
  
@@ -177,8 +219,8 @@
   * @brief Makes the co-processor busy-wait for a certain number of microseconds.
   *
   * @note The maximum supported delay depends on the LP core clock source and frequency.
---- a/components/ulp/lp_core/lp_core/lp_core_i2c.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_i2c.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_i2c.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_i2c.c
 @@ -5,7 +5,7 @@
   */
  
@@ -219,8 +261,8 @@
          }
      }
  
---- a/components/ulp/lp_core/lp_core/lp_core_panic.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_panic.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_panic.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_panic.c
 @@ -10,7 +10,7 @@
  #include "ulp_lp_core_print.h"
  #include "riscv/rvruntime-frames.h"
@@ -236,8 +278,8 @@
  
 -#endif //#if CONFIG_ULP_PANIC_OUTPUT_ENABLE
 +#endif //#if CONFIG_ESP32_ULP_PANIC_OUTPUT_ENABLE
---- a/components/ulp/lp_core/lp_core/lp_core_print.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_print.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_print.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_print.c
 @@ -13,7 +13,7 @@
  
  #define is_digit(c) ((c >= '0') && (c <= '9'))
@@ -277,9 +319,9 @@
  
  void lp_core_print_str(const char *str)
  {
---- a/components/ulp/lp_core/lp_core/lp_core_spi.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_spi.c
-@@ -19,11 +19,17 @@
+--- a/components/ulp/subproject/components/lp_core/lp_core_spi.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_spi.c
+@@ -35,11 +35,17 @@
  
  static inline esp_err_t lp_core_spi_wait_for_interrupt(int32_t cycles_to_wait)
  {
@@ -301,8 +343,8 @@
          }
      }
  
---- a/components/ulp/lp_core/lp_core/lp_core_startup.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_startup.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_startup.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_startup.c
 @@ -21,7 +21,7 @@
  void lp_core_startup()
  {
@@ -312,8 +354,8 @@
      ets_install_putc1(lp_core_print_char);
  #endif
  
---- a/components/ulp/lp_core/lp_core/lp_core_uart.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_uart.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_uart.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_uart.c
 @@ -22,14 +22,19 @@
      .dev = (uart_dev_t *)UART_LL_GET_HW(LP_UART_NUM_0),
  };
@@ -404,8 +446,8 @@
              if (ret == ESP_ERR_TIMEOUT) {
                  uart_hal_clr_intsts_mask(&hal, intr_mask);
                  break;
---- a/components/ulp/lp_core/lp_core/lp_core_ubsan.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_ubsan.c
+--- a/components/ulp/subproject/components/lp_core/lp_core_ubsan.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_ubsan.c
 @@ -88,7 +88,7 @@
  
  __attribute__((noreturn)) static void __ubsan_default_handler(struct source_location *loc, const char *func)
@@ -415,9 +457,9 @@
      lp_core_printf("LP_CORE: Undefined behavior of type '%s' @\r\n"
                     "%s:%d\r\n", func, loc->file_name, loc->line);
  #endif
---- a/components/ulp/lp_core/lp_core/lp_core_utils.c
-+++ b/components/ulp/lp_core/lp_core/lp_core_utils.c
-@@ -177,15 +177,14 @@
+--- a/components/ulp/subproject/components/lp_core/lp_core_utils.c
++++ b/components/ulp/subproject/components/lp_core/lp_core_utils.c
+@@ -185,15 +185,14 @@
      ulp_lp_core_sleep_start_lp_core();
  }
  
@@ -441,88 +483,8 @@
  
  void __attribute__((noreturn)) ulp_lp_core_abort(void)
  {
---- a/components/ulp/lp_core/lp_core_uart.c
-+++ b/components/ulp/lp_core/lp_core_uart.c
-@@ -65,6 +65,7 @@
-         /* Unachievable baud rate */
-         return ESP_FAIL;
-     }
-+
-     uart_hal_set_parity(&hal, cfg->uart_proto_cfg.parity);
-     uart_hal_set_data_bit_num(&hal, cfg->uart_proto_cfg.data_bits);
-     uart_hal_set_stop_bits(&hal, cfg->uart_proto_cfg.stop_bits);
---- a/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-+++ b/components/ulp/lp_core/shared/ulp_lp_core_memory_shared.c
-@@ -9,19 +9,16 @@
- #include "soc/soc.h"
- #include "esp_rom_caps.h"
- #include "esp_assert.h"
-+#include <zephyr/devicetree.h>
- 
--#define ALIGN_DOWN(SIZE, AL)   (SIZE & ~(AL - 1))
-+#define ULP_SHARED_MEM DT_REG_SIZE(DT_NODELABEL(ulp_shm))
- 
--/* The last CONFIG_ULP_SHARED_MEM bytes of the reserved memory are reserved for a shared cfg struct
--   The main cpu app and the ulp binary can share variables automatically through the linkerscript generated from
--   esp32ulp_mapgen.py, but this is not available when compiling the ULP library.
--
--   For those special cases, e.g. config settings. We can use this shared area.
--    */
-+/* The ulp_shm DTS node reserves memory for a shared cfg struct
-+   between the HP core and LP core. */
- 
- #if IS_ULP_COCPU
- static ulp_lp_core_memory_shared_cfg_t __attribute__((section(".shared_mem"))) s_shared_mem = {};
--ESP_STATIC_ASSERT(CONFIG_ULP_SHARED_MEM == sizeof(ulp_lp_core_memory_shared_cfg_t));
-+ESP_STATIC_ASSERT(DT_REG_SIZE(DT_NODELABEL(ulp_shm)) >= sizeof(ulp_lp_core_memory_shared_cfg_t));
- #endif
- 
- ulp_lp_core_memory_shared_cfg_t* ulp_lp_core_memory_shared_cfg_get(void)
-@@ -29,15 +26,6 @@
- #if IS_ULP_COCPU
-     return &s_shared_mem;
- #else
--#if ESP_ROM_HAS_LP_ROM
--    extern uint32_t _rtc_ulp_memory_start;
--    uint32_t ulp_base_addr = (uint32_t)&_rtc_ulp_memory_start;
--#else
--    uint32_t ulp_base_addr = SOC_RTC_DRAM_LOW;
--#endif
--    /* Ensure the end where the shared memory starts is aligned to 8 bytes
--    if updating this also update the same in ulp_lp_core_riscv.ld
--    */
--    return (ulp_lp_core_memory_shared_cfg_t *)(ulp_base_addr + ALIGN_DOWN(CONFIG_ULP_COPROC_RESERVE_MEM, 0x8)  - CONFIG_ULP_SHARED_MEM);
-+    return (ulp_lp_core_memory_shared_cfg_t *)DT_REG_ADDR(DT_NODELABEL(ulp_shm));
- #endif
- }
---- a/components/ulp/ulp_fsm/ulp.c
-+++ b/components/ulp/ulp_fsm/ulp.c
-@@ -127,10 +127,10 @@
-     if (program_size_bytes < sizeof(ulp_binary_header_t)) {
-         return ESP_ERR_INVALID_SIZE;
-     }
--    if (load_addr_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
-+    if (load_addr_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
-         return ESP_ERR_INVALID_ARG;
-     }
--    if (load_addr_bytes + program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
-+    if (load_addr_bytes + program_size_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
-         return ESP_ERR_INVALID_SIZE;
-     }
- 
---- a/components/ulp/ulp_fsm/ulp_macro.c
-+++ b/components/ulp/ulp_fsm/ulp_macro.c
-@@ -187,7 +187,7 @@
-         ++read_ptr;
-     }
-     size_t real_program_size = *psize - macro_count;
--    const size_t ulp_mem_end = CONFIG_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
-+    const size_t ulp_mem_end = CONFIG_ESP32_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
-     if (load_addr > ulp_mem_end) {
-         ESP_LOGW(TAG, "invalid load address %"PRIx32", max is %x",
-                  load_addr, ulp_mem_end);
---- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_gpio.h
-+++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_gpio.h
+--- a/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_gpio.h
++++ b/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_gpio.h
 @@ -107,7 +107,7 @@
      CLEAR_PERI_REG_MASK(RTC_IO_TOUCH_PAD0_REG + gpio_num * 4, RTC_IO_TOUCH_PAD0_RDE);
  }
@@ -541,8 +503,8 @@
  
  #ifdef __cplusplus
  }
---- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_interrupt.h
-+++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_interrupt.h
+--- a/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_interrupt.h
++++ b/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_interrupt.h
 @@ -14,7 +14,7 @@
  {
  #endif
@@ -561,8 +523,8 @@
  
  #ifdef __cplusplus
  }
---- a/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
-+++ b/components/ulp/ulp_riscv/ulp_core/include/ulp_riscv_utils.h
+--- a/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_utils.h
++++ b/components/ulp/subproject/components/ulp_riscv/include/ulp_riscv_utils.h
 @@ -12,7 +12,6 @@
  
  #include "sdkconfig.h"
@@ -622,8 +584,8 @@
  
  #ifdef __cplusplus
  }
---- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_gpio.c
-+++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_gpio.c
+--- a/components/ulp/subproject/components/ulp_riscv/ulp_riscv_gpio.c
++++ b/components/ulp/subproject/components/ulp_riscv/ulp_riscv_gpio.c
 @@ -7,7 +7,7 @@
  #include "ulp_riscv_gpio.h"
  #include "include/ulp_riscv_gpio.h"
@@ -639,8 +601,8 @@
  }
 -#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
 +#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
---- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
-+++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_i2c.c
+--- a/components/ulp/subproject/components/ulp_riscv/ulp_riscv_i2c.c
++++ b/components/ulp/subproject/components/ulp_riscv/ulp_riscv_i2c.c
 @@ -32,7 +32,7 @@
  #endif // CONFIG_IDF_TARGET_ESP32S3
  
@@ -659,10 +621,11 @@
  
      while (1) {
          status = READ_PERI_REG(RTC_I2C_INT_ST_REG);
-@@ -90,8 +90,15 @@
-             return -1;
+@@ -92,9 +92,15 @@
+             return 0;
          }
  
+-        /* Handle CPU clock-cycle tracking */
 -        if (ulp_riscv_is_timeout_elapsed(timeout_start, cycles_to_wait)) {
 -            return -1;
 +        if (cycles_to_wait > -1) {
@@ -677,8 +640,8 @@
          }
      }
  }
---- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_interrupt.c
-+++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_interrupt.c
+--- a/components/ulp/subproject/components/ulp_riscv/ulp_riscv_interrupt.c
++++ b/components/ulp/subproject/components/ulp_riscv/ulp_riscv_interrupt.c
 @@ -11,7 +11,7 @@
  #include "ulp_riscv_gpio.h"
  #include "soc/sens_reg.h"
@@ -694,8 +657,8 @@
  
 -#endif /* CONFIG_ULP_RISCV_INTERRUPT_ENABLE */
 +#endif /* CONFIG_ESP32_ULP_RISCV_INTERRUPT_ENABLE */
---- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_uart.c
-+++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_uart.c
+--- a/components/ulp/subproject/components/ulp_riscv/ulp_riscv_uart.c
++++ b/components/ulp/subproject/components/ulp_riscv/ulp_riscv_uart.c
 @@ -11,7 +11,7 @@
  #include "ulp_riscv_uart_ulp_core.h"
  
@@ -705,8 +668,8 @@
  
  void ulp_riscv_uart_init(ulp_riscv_uart_t *uart, const ulp_riscv_uart_cfg_t *cfg)
  {
---- a/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
-+++ b/components/ulp/ulp_riscv/ulp_core/ulp_riscv_utils.c
+--- a/components/ulp/subproject/components/ulp_riscv/ulp_riscv_utils.c
++++ b/components/ulp/subproject/components/ulp_riscv/ulp_riscv_utils.c
 @@ -50,7 +50,7 @@
      SET_PERI_REG_MASK(RTC_CNTL_ULP_CP_TIMER_REG, RTC_CNTL_ULP_CP_GPIO_WAKEUP_CLR);
  }
@@ -725,6 +688,32 @@
  
  void ulp_riscv_delay_us(uint32_t delay_us)
  {
+--- a/components/ulp/ulp_fsm/ulp.c
++++ b/components/ulp/ulp_fsm/ulp.c
+@@ -127,10 +127,10 @@
+     if (program_size_bytes < sizeof(ulp_binary_header_t)) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+-    if (load_addr_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (load_addr_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_ARG;
+     }
+-    if (load_addr_bytes + program_size_bytes > CONFIG_ULP_COPROC_RESERVE_MEM) {
++    if (load_addr_bytes + program_size_bytes > CONFIG_ESP32_ULP_COPROC_RESERVE_MEM) {
+         return ESP_ERR_INVALID_SIZE;
+     }
+ 
+--- a/components/ulp/ulp_fsm/ulp_macro.c
++++ b/components/ulp/ulp_fsm/ulp_macro.c
+@@ -187,7 +187,7 @@
+         ++read_ptr;
+     }
+     size_t real_program_size = *psize - macro_count;
+-    const size_t ulp_mem_end = CONFIG_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
++    const size_t ulp_mem_end = CONFIG_ESP32_ULP_COPROC_RESERVE_MEM / sizeof(ulp_insn_t);
+     if (load_addr > ulp_mem_end) {
+         ESP_LOGW(TAG, "invalid load address %"PRIx32", max is %x",
+                  load_addr, ulp_mem_end);
 --- a/components/ulp/ulp_riscv/ulp_riscv.c
 +++ b/components/ulp/ulp_riscv/ulp_riscv.c
 @@ -207,14 +207,14 @@
@@ -755,7 +744,7 @@
  
  /* RTC I2C lock */
  static portMUX_TYPE rtc_i2c_lock = portMUX_INITIALIZER_UNLOCKED;
-@@ -271,13 +271,13 @@
+@@ -273,13 +273,13 @@
              break;
          }
  

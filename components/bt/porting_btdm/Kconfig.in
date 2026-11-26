@@ -27,7 +27,14 @@ config BT_CTRL_TASK_STACK_SIZE
     help
         This configures stack size of NimBLE controller task
 
-config BT_CTRL_SLEEP_ENABLE
+config BT_CTRL_ALLOW_MALLOC_FROM_SPIRAM
+    depends on SOC_SPIRAM_SUPPORTED
+    bool "Allow allocating controller memory from SPIRAM (EXPERIMENTAL)"
+    default n
+    help
+        Allocate part of memory from SPIRAM. Need to enable CONFIG_SPIRAM first.
+
+menuconfig BT_CTRL_SLEEP_ENABLE
     bool "Enable Bluetooth Controller sleep"
     default n
     help
@@ -54,6 +61,40 @@ choice BT_CTRL_LP_CLK_SRC
             legacy ADV and SCAN due to low clock accuracy.
 
 endchoice
+
+config BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+    bool "Use ETM to trigger RF enable/disable to optimize power consumption"
+    default n
+    select ESP_PHY_HW_SWITCH_RF
+    depends on SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY && BT_CTRL_SLEEP_ENABLE && BT_CTRL_SUPPORT_ETM_WAKEUP
+    help
+        Trigger RF enable/disable via ETM to accelerate the wakeup process.
+        Use with caution: undefined behavior may arise when ADC or temperature
+        sensor are enabled.
+
+config BT_CTRL_SLEEP_RELATED_CODE_IN_IRAM
+    bool "Put sleep related code into IRAM to optimize power consumption"
+    default n
+    depends on BT_CTRL_SLEEP_ENABLE
+    help
+        Put frequently-executed sleep functions into IRAM for faster execution
+        and lower power consumption. Occupies extra 3 KB RAM.
+
+config BT_CTRL_LE_ADV_SLEEP_CODE_IN_IRAM
+    bool "Put BLE advertising sleep code into IRAM"
+    default y
+    depends on BT_CTRL_SLEEP_RELATED_CODE_IN_IRAM && BT_CTRL_BLE_ENABLE
+    help
+        Put frequently-executed advertising functions into IRAM.
+        Occupies extra 8 KB RAM.
+
+config BT_CTRL_LE_CONN_SLEEP_CODE_IN_IRAM
+    bool "Put BLE connection sleep code into IRAM"
+    default y
+    depends on BT_CTRL_SLEEP_RELATED_CODE_IN_IRAM && BT_CTRL_BLE_ENABLE
+    help
+        Put frequently-executed connection functions into IRAM.
+        Occupies extra 8 KB RAM.
 
 config BT_DUAL_MODE_ARCH
     bool

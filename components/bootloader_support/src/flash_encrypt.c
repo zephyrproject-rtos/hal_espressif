@@ -54,7 +54,7 @@ void esp_flash_encryption_init_checks()
             esp_efuse_read_field_blob(CRYPT_CNT, &flash_crypt_cnt,  CRYPT_CNT[0]->bit_count);
             if (flash_crypt_cnt == (1<<(CRYPT_CNT[0]->bit_count))-1) {
                 // If encryption counter is already max, no need to write protect it
-                // (this distinction is important on ESP32 ECO3 where write-procted FLASH_CRYPT_CNT also write-protects UART_DL_DIS)
+                // (this distinction is important on ESP32 ECO3 where write-protected FLASH_CRYPT_CNT also write-protects UART_DL_DIS)
             } else {
                 ESP_LOGE(TAG, "Flash encryption & Secure Boot together requires FLASH_CRYPT_CNT efuse to be write protected. Fixing now...");
                 esp_flash_write_protect_crypt_cnt();
@@ -84,6 +84,16 @@ void esp_flash_write_protect_crypt_cnt(void)
 {
     esp_efuse_write_field_bit(WR_DIS_CRYPT_CNT);
 }
+
+#if SOC_EFUSE_DIS_DOWNLOAD_MSPI
+static bool flash_enc_is_download_mspi_dis_secure(void)
+{
+    if (esp_efuse_read_field_bit(ESP_EFUSE_SPI_DOWNLOAD_MSPI_DIS)) {
+        return true;
+    }
+    return esp_efuse_read_field_bit(ESP_EFUSE_WR_DIS_SPI_DOWNLOAD_MSPI_DIS);
+}
+#endif // SOC_EFUSE_DIS_DOWNLOAD_MSPI
 
 esp_flash_enc_mode_t esp_get_flash_encryption_mode(void)
 {
@@ -115,7 +125,7 @@ esp_flash_enc_mode_t esp_get_flash_encryption_mode(void)
 #else
             if (esp_efuse_read_field_bit(ESP_EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT)
 #if SOC_EFUSE_DIS_DOWNLOAD_MSPI
-                && esp_efuse_read_field_bit(ESP_EFUSE_SPI_DOWNLOAD_MSPI_DIS)
+                && flash_enc_is_download_mspi_dis_secure()
 #endif
 #if SOC_EFUSE_DIS_DOWNLOAD_ICACHE
                 && esp_efuse_read_field_bit(ESP_EFUSE_DIS_DOWNLOAD_ICACHE)
@@ -284,13 +294,13 @@ bool esp_flash_encryption_cfg_verify_release_mode(void)
     secure = esp_efuse_read_field_bit(ESP_EFUSE_RD_DIS_BLK1);
     result &= secure;
     if (!secure) {
-        ESP_LOGW(TAG, "Not read-protected flash ecnryption key (set RD_DIS_BLK1->1)");
+        ESP_LOGW(TAG, "Not read-protected flash encryption key (set RD_DIS_BLK1->1)");
     }
 
     secure = esp_efuse_read_field_bit(ESP_EFUSE_WR_DIS_BLK1);
     result &= secure;
     if (!secure) {
-        ESP_LOGW(TAG, "Not write-protected flash ecnryption key (set WR_DIS_BLK1->1)");
+        ESP_LOGW(TAG, "Not write-protected flash encryption key (set WR_DIS_BLK1->1)");
     }
     return result;
 }
@@ -330,10 +340,12 @@ bool esp_flash_encryption_cfg_verify_release_mode(void)
 #endif
 
 #if SOC_EFUSE_DIS_DOWNLOAD_MSPI
-    secure = esp_efuse_read_field_bit(ESP_EFUSE_SPI_DOWNLOAD_MSPI_DIS);
+    secure = flash_enc_is_download_mspi_dis_secure();
     result &= secure;
     if (!secure) {
-        ESP_LOGW(TAG, "Not disabled UART bootloader download mspi (set DIS_DOWNLOAD_MSPI->1)");
+        ESP_LOGW(TAG, "Not disabled UART bootloader download mspi (set SPI_DOWNLOAD_MSPI_DIS->1)");
+    } else if (!esp_efuse_read_field_bit(ESP_EFUSE_SPI_DOWNLOAD_MSPI_DIS)) {
+        ESP_LOGW(TAG, "SPI_DOWNLOAD_MSPI_DIS is write-protected at 0 and can no longer be set - MSPI access in download mode stays enabled");
     }
 #endif
 #if SOC_EFUSE_DIS_DOWNLOAD_ICACHE
@@ -405,7 +417,7 @@ bool esp_flash_encryption_cfg_verify_release_mode(void)
     secure = esp_efuse_read_field_bit(ESP_EFUSE_DIS_LEGACY_SPI_BOOT);
     result &= secure;
     if (!secure) {
-        ESP_LOGW(TAG, "Not disabled Legcy SPI boot (set DIS_LEGACY_SPI_BOOT->1)");
+        ESP_LOGW(TAG, "Not disabled Legacy SPI boot (set DIS_LEGACY_SPI_BOOT->1)");
     }
 #endif
 

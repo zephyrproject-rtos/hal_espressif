@@ -1,0 +1,16 @@
+
+{
+    "prefix":       "esp_md5",
+    "type":         "transparent",
+    "mbedtls/h_condition":   "defined(ESP_MD5_DRIVER_ENABLED)",
+    "headers":      ["../../../port/psa_driver/include/psa_crypto_driver_esp_md5.h"],
+    "capabilities": [
+        {
+            "mbedtls/c_condition": "defined(ESP_MD5_DRIVER_ENABLED)",
+            "_comment": "This driver will support MD5 operations using the ESP hardware accelerator.",
+            "entry_points": ["hash_setup", "hash_update", "hash_finish", "hash_abort", "hash_compute"],
+            "algorithms": ["PSA_ALG_MD5"],
+            "fallback": false
+        }
+    ]
+}

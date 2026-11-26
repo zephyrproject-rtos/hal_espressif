@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 
 #include "sdkconfig.h"
 #include "esp_attr.h"
@@ -13,8 +14,10 @@
 #include "esp_check.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_chip_info.h"
 #include "esp_xt_wdt.h"
 #include "esp_cpu.h"
+#include "esp_private/esp_sys_event_app_init.h"
 #include "esp_private/startup_internal.h"
 #include "freertos/FreeRTOS.h"
 #include "soc/soc_caps.h"
@@ -23,11 +26,6 @@
 #endif
 #include "hal/uart_types.h"
 #include "hal/uart_ll.h"
-
-#if CONFIG_PM_ENABLE || CONFIG_PM_WORKAROUND_FREQ_LIMIT_ENABLED
-#include "esp_pm.h"
-#include "esp_private/pm_impl.h"
-#endif
 
 #include "esp_private/esp_clk.h"
 #include "esp_private/brownout.h"
@@ -49,6 +47,16 @@ void esp_system_include_startup_funcs(void)
 }
 
 // [refactor-todo] Most of these init functions should be moved to the respective components.
+
+#if !CONFIG_ESP_INT_WDT && CONFIG_ESP32_ECO3_CACHE_LOCK_FIX
+ESP_PRE_SCHEDULER_HANDLER_REGISTER(check_cache_lock_bug, 90)
+{
+    (void)user_arg;
+    (void)ctx;
+    assert(!soc_has_cache_lock_bug() && "ESP32 Rev 3 + Dual Core + PSRAM requires INT WDT enabled in project config!");
+    return ESP_OK;
+}
+#endif
 
 ESP_SYSTEM_INIT_FN(init_show_cpu_freq, CORE, BIT(0), 10)
 {
@@ -100,14 +108,6 @@ ESP_SYSTEM_INIT_FN(init_xt_wdt, CORE, BIT(0), 170)
     return esp_xt_wdt_init(&cfg);
 }
 #endif // CONFIG_ESP_XT_WDT
-
-#if CONFIG_PM_ENABLE
-ESP_SYSTEM_INIT_FN(init_pm, SECONDARY, BIT(0), 201)
-{
-    esp_pm_impl_init();
-    return ESP_OK;
-}
-#endif // CONFIG_PM_ENABLE
 
 #if SOC_APB_BACKUP_DMA
 ESP_SYSTEM_INIT_FN(init_apb_dma, SECONDARY, BIT(0), 203)

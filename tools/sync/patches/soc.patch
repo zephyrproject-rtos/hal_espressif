@@ -9,6 +9,17 @@
  #define  MODEM_REQUIRED_MIN_APB_CLK_FREQ             ( 80*1000000 )
  //}}
  
+--- a/components/soc/esp32s31/register/soc/reg_base.h
++++ b/components/soc/esp32s31/register/soc/reg_base.h
+@@ -126,6 +126,8 @@
+  */
+ #define DR_REG_UART_BASE                        DR_REG_UART0_BASE
+ #define DR_REG_TIMERGROUP0_BASE                 DR_REG_TIMERG0_BASE
++#define DR_REG_TWAI0_BASE                       DR_REG_TWAIFD0_BASE
++#define DR_REG_TWAI1_BASE                       DR_REG_TWAIFD1_BASE
+ #define DR_REG_TIMERGROUP1_BASE                 DR_REG_TIMERG1_BASE
+ #define DR_REG_I2S_BASE                         DR_REG_I2S0_BASE
+ #define DR_REG_INTERRUPT_MATRIX_BASE            DR_REG_INTR0_BASE
 --- a/components/soc/esp32s3/register/soc/system_reg.h
 +++ b/components/soc/esp32s3/register/soc/system_reg.h
 @@ -19,6 +19,11 @@
@@ -25,7 +36,7 @@
  #define SYSTEM_CONTROL_CORE_1_CLKGATE_EN    (BIT(1))
 --- a/components/soc/include/soc/rtc_cntl_periph.h
 +++ b/components/soc/include/soc/rtc_cntl_periph.h
-@@ -29,46 +29,41 @@
+@@ -29,46 +29,59 @@
  #include "soc/lp_iomux_struct.h"
  #endif
  
@@ -36,16 +47,30 @@
 -#include "soc/lp_timer_reg.h"
 -#include "soc/lp_timer_struct.h"
 -#elif SOC_RTC_TIMER_V3
--#include "soc/rtc_timer_reg.h"
--#include "soc/rtc_timer_struct.h"
--#endif
++// TODO: IDF-5645
++#if CONFIG_IDF_TARGET_ESP32S31
++#include "soc/lp_analog_peri_reg.h"
++#include "soc/lp_clkrst_reg.h"
++#include "soc/lp_clkrst_struct.h"
++#if SOC_LP_I2C_SUPPORTED
++#include "soc/lp_i2c_reg.h"
++#include "soc/lp_i2c_struct.h"
++#endif
++#if SOC_RTC_TIMER_SUPPORTED
+ #include "soc/rtc_timer_reg.h"
+ #include "soc/rtc_timer_struct.h"
+ #endif
 -
 -#if SOC_PMU_SUPPORTED
 -#include "soc/pmu_reg.h"
--#endif
++#if SOC_ULP_LP_UART_SUPPORTED
++#include "soc/lp_uart_reg.h"
++#include "soc/lp_uart_struct.h"
+ #endif
 -
-+// TODO: IDF-5645
-+#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32H4 || CONFIG_IDF_TARGET_ESP32S31
++#include "soc/rtc_wdt_reg.h"
++#include "soc/rtc_wdt_struct.h"
++#elif CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32H4
 +#include "soc/lp_analog_peri_reg.h"
 +#include "soc/lp_clkrst_reg.h"
 +#include "soc/lp_clkrst_struct.h"

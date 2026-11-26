@@ -406,6 +406,7 @@ static int sae_derive_pwe_ecc(struct sae_data *sae, const u8 *addr1,
 	    crypto_bignum_to_bin(y, x_y + SAE_MAX_ECC_PRIME_LEN,
 				 SAE_MAX_ECC_PRIME_LEN, prime_len) < 0) {
 		wpa_printf(MSG_DEBUG, "SAE: Could not solve y");
+		res = -1;
 		goto fail;
 	}
 
@@ -1827,10 +1828,12 @@ static void sae_parse_token_container(struct sae_data *sae,
 		    pos, end - pos);
 	if (!sae_is_token_container_elem(pos, end))
 		return;
-	*token = pos + 3;
-	*token_len = pos[1] - 1;
+	if (token)
+		*token = pos + 3;
+	if (token_len)
+		*token_len = pos[1] - 1;
 	wpa_hexdump(MSG_DEBUG, "SAE: Anti-Clogging Token (in container)",
-		    *token, *token_len);
+		    pos + 3, pos[1] - 1);
 }
 
 

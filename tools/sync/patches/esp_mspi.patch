@@ -1,0 +1,516 @@
+--- a/components/esp_mspi/cache_utils.c
++++ b/components/esp_mspi/cache_utils.c
+@@ -9,9 +9,8 @@
+ #include <string.h>
+ #include <stdio.h>
+ 
+-#include "freertos/FreeRTOS.h"
+-#include "freertos/task.h"
+-#include "freertos/semphr.h"
++#include <zephyr/kernel.h>
++#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+ #include "rom/cache.h"
+ 
+ #if CONFIG_IDF_TARGET_ESP32
+@@ -26,256 +25,50 @@
+ #include "hal/cache_ll.h"
+ #include <soc/soc.h>
+ #include "sdkconfig.h"
+-#ifndef CONFIG_FREERTOS_UNICORE
+-#include "esp_private/esp_ipc.h"
+-#endif
+ #include "esp_attr.h"
+-#include "esp_cpu.h"
+ #include "esp_memory_utils.h"
+ #include "esp_intr_alloc.h"
++#include "esp_cpu.h"
+ #include "esp_private/esp_cache_private.h"
+ #include "esp_private/cache_utils.h"
+ #include "esp_private/spi_flash_os.h"
+-#include "esp_private/freertos_idf_additions_priv.h"
++#include "esp_private/critical_section.h"
+ #include "esp_log.h"
+ 
+ ESP_LOG_ATTR_TAG(TAG, "cache");
+ 
+-// Used only on ROM impl. in idf, this param unused, cache status hold by hal
+-static uint32_t s_flash_op_cache_state[2];
+-#ifndef CONFIG_FREERTOS_UNICORE
+-static SemaphoreHandle_t s_flash_op_mutex;
+-static volatile bool s_flash_op_can_start = false;
+-static volatile bool s_flash_op_complete = false;
+-#ifndef NDEBUG
+-static volatile int s_flash_op_cpu = -1;
+-#endif
+-
+-void spi_flash_init_lock(void)
+-{
+-    s_flash_op_mutex = xSemaphoreCreateRecursiveMutex();
+-    assert(s_flash_op_mutex != NULL);
+-}
+-
+-void spi_flash_op_lock(void)
+-{
+-    xSemaphoreTakeRecursive(s_flash_op_mutex, portMAX_DELAY);
+-}
+-
+-void spi_flash_op_unlock(void)
+-{
+-    xSemaphoreGiveRecursive(s_flash_op_mutex);
+-}
++#if defined(CONFIG_SMP)
+ /*
+- If you're going to modify this, keep in mind that while the flash caches of the pro and app
+- cpu are separate, the psram cache is *not*. If one of the CPUs returns from a flash routine
+- with its cache enabled but the other CPUs cache is not enabled yet, you will have problems
+- when accessing psram from the former CPU.
+-*/
+-
+-void IRAM_ATTR spi_flash_op_block_func(void *arg)
+-{
+-    // Disable scheduler on this CPU
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    /*
+-    Note: FreeRTOS SMP has changed the behavior of scheduler suspension. But the vTaskPreemptionDisable() function should
+-    achieve the same affect as before (i.e., prevent the current task from being preempted).
+-    */
+-    vTaskPreemptionDisable(NULL);
+-#else
+-    vTaskSuspendAll();
+-#endif // #if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    // Restore interrupts that aren't located in IRAM
+-    esp_intr_noniram_disable();
+-    uint32_t cpuid = (uint32_t) arg;
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    /* The branch predictor issues speculative cache requests while this core
+-     * spins in IRAM. The flash-op core is about to suspend the (shared) cache,
+-     * so speculative fetches into flash would raise a cache access-fail on
+-     * this core. */
+-    esp_cpu_branch_prediction_disable();
+-#endif
+-    // s_flash_op_complete flag is cleared on *this* CPU, otherwise the other
+-    // CPU may reset the flag back to false before IPC task has a chance to check it
+-    // (if it is preempted by an ISR taking non-trivial amount of time)
+-    s_flash_op_complete = false;
+-    s_flash_op_can_start = true;
+-    while (!s_flash_op_complete) {
+-        // busy loop here and wait for the other CPU to finish flash operation
+-    }
+-    // Flash operation is complete, re-enable cache
+-    spi_flash_restore_cache(cpuid, s_flash_op_cache_state[cpuid]);
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    esp_cpu_branch_prediction_enable();
+-#endif
+-    // Restore interrupts that aren't located in IRAM
+-    esp_intr_noniram_enable();
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-    vTaskPreemptionEnable(NULL);
+-#else
+-    // Re-enable scheduler
+-    xTaskResumeAll();
+-#endif // #if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-}
+-
+-void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
++ * A flash operation suspends the cache, so no core may execute flash-mapped
++ * (XIP) code while it runs. Under SMP that has to be enforced on the peer core
++ * as well, whatever the cache topology. soc_mp_pause_others() takes a global
++ * pause lock (the outermost lock, before any flash/cache lock) and parks the
++ * other core in IRAM for the duration. The SoC's smp support provides the
++ * real implementation; the weak no-ops below keep SMP builds of SoCs without
++ * a peer stall linking.
++ */
++void IRAM_ATTR __weak soc_mp_pause_others(void)
+ {
+-#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+-    assert(esp_task_stack_is_sane_cache_disabled());
+-#endif
+-
+-    spi_flash_op_lock();
+-
+-    int cpuid = xPortGetCoreID();
+-    uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
+-#ifndef NDEBUG
+-    // For sanity check later: record the CPU which has started doing flash operation
+-    assert(s_flash_op_cpu == -1);
+-    s_flash_op_cpu = cpuid;
+-#endif
+-
+-    if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
+-        // Scheduler hasn't been started yet, it means that spi_flash API is being
+-        // called from the 2nd stage bootloader or from user_start_cpu0, i.e. from
+-        // PRO CPU. APP CPU is either in reset or spinning inside user_start_cpu1,
+-        // which is in IRAM. So it is safe to disable cache for the other_cpuid after
+-        // esp_intr_noniram_disable.
+-        assert(other_cpuid == 1);
+-    } else {
+-        bool ipc_call_was_send_to_other_cpu;
+-        do {
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-            //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-            vTaskPreemptionDisable(NULL);
+-#else
+-            // Disable scheduler on the current CPU
+-            vTaskSuspendAll();
+-#endif
+-            cpuid = xPortGetCoreID();
+-            other_cpuid = (cpuid == 0) ? 1 : 0;
+-#ifndef NDEBUG
+-            s_flash_op_cpu = cpuid;
+-#endif
+-            s_flash_op_can_start = false;
+-            ipc_call_was_send_to_other_cpu = esp_ipc_call_nonblocking(other_cpuid, &spi_flash_op_block_func, (void *) other_cpuid) == ESP_OK;
+-            if (!ipc_call_was_send_to_other_cpu) {
+-                // IPC call was not send to other cpu because another nonblocking API is running now.
+-                // Enable the Scheduler again will not help the IPC to speed it up
+-                // but there is a benefit to schedule to a higher priority task before the nonblocking running IPC call is done.
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-                //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-                vTaskPreemptionEnable(NULL);
+-#else
+-                xTaskResumeAll();
+-#endif
+-            }
+-        } while (!ipc_call_was_send_to_other_cpu);
+-
+-        while (!s_flash_op_can_start) {
+-            // Busy loop and wait for spi_flash_op_block_func to disable cache
+-            // on the other CPU
+-        }
+-    }
+-
+-    // Kill interrupts that aren't located in IRAM
+-    esp_intr_noniram_disable();
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    esp_cpu_branch_prediction_disable();
+-#endif
+-    // This CPU executes this routine, with non-IRAM interrupts and the scheduler
+-    // disabled. The other CPU is spinning in the spi_flash_op_block_func task, also
+-    // with non-iram interrupts and the scheduler disabled. None of these CPUs will
+-    // touch external RAM or flash this way, so we can safely disable caches.
+-    spi_flash_disable_cache(cpuid, &s_flash_op_cache_state[cpuid]);
+-#if SOC_IDCACHE_PER_CORE
+-    //only needed if cache(s) is per core
+-    spi_flash_disable_cache(other_cpuid, &s_flash_op_cache_state[other_cpuid]);
+-#endif
+ }
+ 
+-void IRAM_ATTR spi_flash_enable_interrupts_caches_and_other_cpu(void)
++void IRAM_ATTR __weak soc_mp_resume_others(void)
+ {
+-    const int cpuid = xPortGetCoreID();
+-
+-#ifndef NDEBUG
+-    // Sanity check: flash operation ends on the same CPU as it has started
+-    assert(cpuid == s_flash_op_cpu);
+-    // More sanity check: if scheduler isn't started, only CPU0 can call this.
+-    assert(!(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED && cpuid != 0));
+-    s_flash_op_cpu = -1;
+-#endif
+-
+-    // Re-enable cache. After this, cache (flash and external RAM) should work again.
+-    spi_flash_restore_cache(cpuid, s_flash_op_cache_state[cpuid]);
+-#if SOC_IDCACHE_PER_CORE
+-    //only needed if cache(s) is per core
+-    const uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
+-    spi_flash_restore_cache(other_cpuid, s_flash_op_cache_state[other_cpuid]);
+-#endif
+-
+-    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+-        // Signal to spi_flash_op_block_task that flash operation is complete
+-        s_flash_op_complete = true;
+-    }
+-
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    esp_cpu_branch_prediction_enable();
+-#endif
+-    // Re-enable non-iram interrupts
+-    esp_intr_noniram_enable();
+-
+-    // Resume tasks on the current CPU, if the scheduler has started.
+-    // NOTE: enabling non-IRAM interrupts has to happen before this,
+-    // because once the scheduler has started, due to preemption the
+-    // current task can end up being moved to the other CPU.
+-    // But esp_intr_noniram_enable has to be called on the same CPU which
+-    // called esp_intr_noniram_disable
+-    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-        //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-        vTaskPreemptionEnable(NULL);
+-#else
+-        xTaskResumeAll();
+-#endif // #if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    }
+-    // Release API lock
+-    spi_flash_op_unlock();
+ }
+ 
+-void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
+-{
+-    const uint32_t cpuid = xPortGetCoreID();
+-    const uint32_t other_cpuid = (cpuid == 0) ? 1 : 0;
+-
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    /* Disable BP before the first disable_cache(): on shared-cache chips that
+-     * call suspends external memory for all cores, so speculative fetches must
+-     * already be stopped. */
+-    esp_cpu_branch_prediction_disable();
++#define SPI_FLASH_PAUSE_OTHERS()    soc_mp_pause_others()
++#define SPI_FLASH_RESUME_OTHERS()   soc_mp_resume_others()
++#else
++#define SPI_FLASH_PAUSE_OTHERS()
++#define SPI_FLASH_RESUME_OTHERS()
+ #endif
+-    // do not care about other CPU, it was halted upon entering panic handler
+-    spi_flash_disable_cache(other_cpuid, &s_flash_op_cache_state[other_cpuid]);
+-    // Kill interrupts that aren't located in IRAM
+-    esp_intr_noniram_disable();
+-    // Disable cache on this CPU as well
+-    spi_flash_disable_cache(cpuid, &s_flash_op_cache_state[cpuid]);
+-}
+ 
+-void IRAM_ATTR spi_flash_enable_interrupts_caches_no_os(void)
+-{
+-    const uint32_t cpuid = xPortGetCoreID();
++static esp_os_spinlock_t s_intr_saved_state = ESP_OS_SPINLOCK_INIT;
+ 
+-    // Re-enable cache on this CPU
+-    spi_flash_restore_cache(cpuid, s_flash_op_cache_state[cpuid]);
+-#if SOC_BRANCH_PREDICTOR_SUPPORTED
+-    esp_cpu_branch_prediction_enable();
+-#endif
+-    // Re-enable non-iram interrupts
+-    esp_intr_noniram_enable();
+-}
++// Used only on ROM impl. in idf, this param unused, cache status hold by hal
++static uint32_t s_flash_op_cache_state[2];
+ 
+-#else // CONFIG_FREERTOS_UNICORE
++#ifndef CONFIG_MCUBOOT
++K_MUTEX_DEFINE(s_flash_op_mutex);
+ 
+ void spi_flash_init_lock(void)
+ {
+@@ -283,31 +76,25 @@
+ 
+ void spi_flash_op_lock(void)
+ {
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+-        //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-        vTaskPreemptionDisable(NULL);
+-    }
+-#else
+-    vTaskSuspendAll();
+-#endif // #if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
++    k_mutex_lock(&s_flash_op_mutex, K_FOREVER);
+ }
+ 
+ void spi_flash_op_unlock(void)
+ {
+-#if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
+-    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+-        //Note: Scheduler suspension behavior changed in FreeRTOS SMP
+-        vTaskPreemptionEnable(NULL);
+-    }
+-#else
+-    xTaskResumeAll();
+-#endif // #if ( ( CONFIG_FREERTOS_SMP ) && ( !CONFIG_FREERTOS_UNICORE ) )
++    k_mutex_unlock(&s_flash_op_mutex);
+ }
++#endif /* !CONFIG_MCUBOOT */
+ 
+ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu(void)
+ {
+-    spi_flash_op_lock();
++    /* Park the peer first, so the pause lock is the outermost lock. The locks
++     * taken below are cross-core, and a core that blocks on one of them does so
++     * with interrupts disabled, which would leave it unable to answer the stall
++     * request. A core can never be parked while holding them for the same
++     * reason: they are only ever taken with interrupts already off.
++     */
++    SPI_FLASH_PAUSE_OTHERS();
++    esp_os_enter_critical(&s_intr_saved_state);
+     esp_intr_noniram_disable();
+ #if SOC_BRANCH_PREDICTOR_SUPPORTED
+     esp_cpu_branch_prediction_disable();
+@@ -322,33 +109,28 @@
+     esp_cpu_branch_prediction_enable();
+ #endif
+     esp_intr_noniram_enable();
+-    spi_flash_op_unlock();
++    esp_os_exit_critical(&s_intr_saved_state);
++    SPI_FLASH_RESUME_OTHERS();
+ }
+ 
+ void IRAM_ATTR spi_flash_disable_interrupts_caches_and_other_cpu_no_os(void)
+ {
+-    // Kill interrupts that aren't located in IRAM
+     esp_intr_noniram_disable();
+ #if SOC_BRANCH_PREDICTOR_SUPPORTED
+     esp_cpu_branch_prediction_disable();
+ #endif
+-    // Disable cache on this CPU as well
+     spi_flash_disable_cache(0, &s_flash_op_cache_state[0]);
+ }
+ 
+ void IRAM_ATTR spi_flash_enable_interrupts_caches_no_os(void)
+ {
+-    // Re-enable cache on this CPU
+     spi_flash_restore_cache(0, s_flash_op_cache_state[0]);
+ #if SOC_BRANCH_PREDICTOR_SUPPORTED
+     esp_cpu_branch_prediction_enable();
+ #endif
+-    // Re-enable non-iram interrupts
+     esp_intr_noniram_enable();
+ }
+ 
+-#endif // CONFIG_FREERTOS_UNICORE
+-
+ void IRAM_ATTR spi_flash_enable_cache(uint32_t cpuid)
+ {
+ #if CONFIG_IDF_TARGET_ESP32
+@@ -691,7 +473,6 @@
+ #else
+     cache_line_size = CACHE_LINE_SIZE_64B;
+ #endif
+-    // ESP_EARLY_LOGI(TAG, "Data cache: size %dKB, %dWays, cache line size %dByte", cache_size == CACHE_SIZE_HALF ? 32 : 64, cache_ways == CACHE_4WAYS_ASSOC ? 4 : 8, cache_line_size == CACHE_LINE_SIZE_16B ? 16 : (cache_line_size == CACHE_LINE_SIZE_32B ? 32 : 64));
+     Cache_Set_DCache_Mode(cache_size, cache_ways, cache_line_size);
+     Cache_Invalidate_DCache_All();
+ }
+--- a/components/esp_mspi/flash_ops.c
++++ b/components/esp_mspi/flash_ops.c
+@@ -8,7 +8,7 @@
+ #include <assert.h>
+ #include <string.h>
+ #include <stdio.h>
+-#include <sys/param.h>  // For MIN/MAX(a, b)
++#include <zephyr/sys/util.h>
+ #include <soc/soc.h>
+ #include <soc/soc_memory_layout.h>
+ #include "soc/io_mux_reg.h"
+@@ -323,7 +323,7 @@
+     return ESP_OK;
+ }
+ 
+-ESP_SYSTEM_INIT_FN(init_flash_dpd, CORE, BIT(0), 125)
++esp_err_t init_flash_dpd(void)
+ {
+     // Register DPD function pointers
+     static spi_flash_dpd_funcs_t dpd_funcs = {
+--- a/components/esp_mspi/include/esp_private/spi_flash_os.h
++++ b/components/esp_mspi/include/esp_private/spi_flash_os.h
+@@ -178,6 +178,13 @@
+ esp_err_t spi_flash_dpd_register_funcs(spi_flash_dpd_funcs_t *dpd_funcs);
+ 
+ /**
++ * @brief Register the main flash DPD enter/exit functions
++ *
++ * @return ESP_OK on success
++ */
++esp_err_t init_flash_dpd(void);
++
++/**
+  * @brief Get the duration of entering deep power-down mode.
+  *
+  * @return Entering deep power-down mode time(tDp), in microseconds.
+--- a/components/esp_mspi/mspi_intr/mspi_intr.c
++++ b/components/esp_mspi/mspi_intr/mspi_intr.c
+@@ -6,7 +6,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <inttypes.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+--- a/components/esp_mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
++++ b/components/esp_mspi/mspi_timing_tuning/port/esp32c5/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
++++ b/components/esp_mspi/mspi_timing_tuning/port/esp32c61/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
++++ b/components/esp_mspi/mspi_timing_tuning/port/esp32p4/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
++++ b/components/esp_mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_by_mspi_delay.c
+@@ -11,7 +11,7 @@
+  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "string.h"
+ #include "esp_attr.h"
+--- a/components/esp_mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
++++ b/components/esp_mspi/mspi_timing_tuning/port/esp32s3/mspi_timing_config.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
++++ b/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c
+@@ -13,7 +13,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
++++ b/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_flash_delay.c
+@@ -13,7 +13,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "esp_attr.h"
+ #include "esp_err.h"
+--- a/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
++++ b/components/esp_mspi/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_mspi_delay.c
+@@ -11,7 +11,7 @@
+  * This file will only be built, when `SOC_MEMSPI_TIMING_TUNING_BY_MSPI_DELAY == 1`
+  */
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "sdkconfig.h"
+ #include "string.h"
+ #include "esp_attr.h"

@@ -4,7 +4,7 @@
 # to synchronize ESP-IDF components into hal_espressif.
 
 # ESP-IDF revision that components were last synced from
-esp_idf_sha: a532acdb77b8f2d299e1309e07e486d8b2f265e8
+esp_idf_sha: 4109c8923a51a5234801c324b39240d74e4cc379
 
 # ESP-IDF components to sync
 components:
@@ -24,13 +24,16 @@ components:
   - esp_driver_rmt
   - esp_driver_touch_sens
   - esp_driver_tsens
+  - esp_driver_uart
   - esp_event
   - esp_hal_ana_cmpr
   - esp_hal_ana_conv
   - esp_hal_asrc
+  - esp_hal_cache
   - esp_hal_cam
   - esp_hal_clock
   - esp_hal_cordic
+  - esp_hal_debug_assist
   - esp_hal_dma
   - esp_hal_emac
   - esp_hal_gpio
@@ -61,11 +64,14 @@ components:
   - esp_hal_usb
   - esp_hal_wdt
   - esp_hw_support
+  - esp_image_verify
   - esp_mm
+  - esp_mspi
   - esp_phy
   - esp_pm
   - esp_psram
   - esp_rom
+  - esp_sleep
   - esp_system
   - esp_timer
   - esp_wifi
@@ -106,6 +112,7 @@ exclude:
   - hal/linux
   - soc/linux
   - spi_flash/linux
+  - esp_mspi/linux
   # Test apps
   - bootloader_support/test_apps
   - efuse/test_apps
@@ -145,6 +152,9 @@ exclude:
   - ulp/test_apps
   - wpa_supplicant/test_apps
   - xtensa/test_apps
+  - esp_sleep/test_apps
+  - esp_mspi/test_apps
+  - esp_driver_uart/test_apps
 
 # File/folder renames applied AFTER patches (relative to components/)
 #
@@ -207,6 +217,16 @@ blob_filters:
     - phy
     - pp
   esp32c6:
+    - ble_app
+    - btbb
+    - coexist
+    - core
+    - espnow
+    - mesh
+    - net80211
+    - phy
+    - pp
+  esp32c61:
     - ble_app
     - btbb
     - coexist

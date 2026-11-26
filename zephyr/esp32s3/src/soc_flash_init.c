@@ -13,6 +13,7 @@
 #include "soc_flash_init.h"
 
 #include "soc/io_mux_reg.h"
+#include "soc/spi_mem_reg.h"
 #include "esp_log.h"
 #include "bootloader_flash_priv.h"
 #include "bootloader_flash_config.h"

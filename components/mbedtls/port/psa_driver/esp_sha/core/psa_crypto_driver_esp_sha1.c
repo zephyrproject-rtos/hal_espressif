@@ -5,12 +5,13 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2025-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <stdio.h>
 #include <string.h>
 #include "mbedtls/esp_config.h"
+#include "mbedtls/platform_util.h"
 #include "psa_crypto_driver_esp_sha.h"
 #include "../include/psa_crypto_driver_esp_sha1.h"
 #include "esp_sha_internal.h"
@@ -294,6 +295,10 @@ int esp_sha1_update(esp_sha1_context *ctx, const unsigned char *input, size_t il
             int ret = esp_sha_dma(SHA1, input, len, ctx->buffer, local_len, ctx->first_block);
             if (ret != 0) {
                 esp_sha_release_hardware();
+                /* On HW failure the partial-block message bytes in ctx->buffer
+                 * are no longer usable; scrub them so a fault that skips the
+                 * later abort cannot leave secret input (e.g. an HMAC key) in RAM. */
+                mbedtls_platform_zeroize(ctx->buffer, sizeof(ctx->buffer));
                 return ret;
             }
         } else
@@ -368,21 +373,25 @@ psa_status_t esp_sha1_driver_compute(
 
     int ret = esp_sha1_starts(ctx);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
 
     ret = esp_sha1_update(ctx, input, input_length);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
 
     ret = esp_sha1_finish(ctx, hash);
     if (ret != ESP_OK) {
-        return PSA_ERROR_HARDWARE_FAILURE;
+        goto hw_fail;
     }
 
     *hash_length = PSA_HASH_LENGTH(PSA_ALG_SHA_1);
     return PSA_SUCCESS;
+
+hw_fail:
+    mbedtls_platform_zeroize(ctx, sizeof(*ctx));
+    return PSA_ERROR_HARDWARE_FAILURE;
 }
 
 psa_status_t esp_sha1_driver_update(
@@ -426,7 +435,7 @@ psa_status_t esp_sha1_driver_abort(esp_sha1_context *ctx)
     if (!ctx) {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
-    memset(ctx, 0, sizeof(esp_sha1_context));
+    mbedtls_platform_zeroize(ctx, sizeof(esp_sha1_context));
     return PSA_SUCCESS;
 }
 

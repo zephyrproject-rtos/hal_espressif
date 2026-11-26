@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,11 +10,24 @@
 #include "soc/hwcrypto_reg.h"
 #include "hal/sha_types.h"
 #include "soc/dport_reg.h"
-#include "hal/mmu_ll.h"
+#include "soc/ext_mem_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Check if the external memory vaddr belongs to the DPORT bus region
+ *
+ * @param vaddr start of the virtual address
+ *
+ * @return True for valid
+ */
+__attribute__((always_inline))
+static inline bool _vaddr_in_dport_bus_region(uint32_t vaddr)
+{
+    return (vaddr >= SOC_DPORT_CACHE_ADDRESS_LOW && vaddr < SOC_DPORT_CACHE_ADDRESS_HIGH);
+}
 
 /**
  * @brief Enable the bus clock for SHA peripheral module
@@ -158,7 +171,7 @@ static inline void sha_ll_fill_text_block(const void *input_text, size_t block_w
      * Thus, when accessing data from these addresses we need to ensure
      * the operations are word-aligned.
      */
-    if (mmu_ll_vaddr_in_dport_bus_region((uint32_t)input_text)) {
+    if (_vaddr_in_dport_bus_region((uint32_t)input_text)) {
         force_word_aligned_access = true;
     }
 
@@ -221,6 +234,18 @@ static inline void sha_ll_t_string_set(uint32_t t_string)
 static inline void sha_ll_t_len_set(uint8_t t_len)
 {
     REG_WRITE(SHA_T_LENGTH_REG, t_len);
+}
+
+/**
+ * @brief Check whether the SHA peripheral can run the SM3 mode.
+ *
+ * This chip has no SM3 hardware.
+ *
+ * @return false
+ */
+static inline bool sha_ll_is_sm3_supported(void)
+{
+    return false;
 }
 
 #ifdef __cplusplus

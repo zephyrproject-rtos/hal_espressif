@@ -4,14 +4,17 @@ entries:
     if PM_RTOS_IDLE_OPT = y:
         pm_impl:esp_pm_impl_idle_hook (noflash)
         pm_impl:esp_pm_impl_waiti (noflash)
+        if PM_TICKLESS_IDLE_WAITI = y:
+            pm_impl:esp_pm_impl_tickless_waiti (noflash)
+            pm_impl:tickless_waiti_enter (noflash)
 
     if PM_SLP_IRAM_OPT = y:
         pm_impl:esp_pm_impl_get_cpu_freq (noflash)
         if FREERTOS_USE_TICKLESS_IDLE = y:
             pm_impl:vApplicationSleep (noflash)
 
-[mapping:esp_hw_support_pm]
-archive: libesp_hw_support.a
+[mapping:esp_sleep_pm]
+archive: libesp_sleep.a
 entries:
     if PM_SLP_IRAM_OPT = y:
         if SOC_LIGHT_SLEEP_SUPPORTED = y:
@@ -29,10 +32,19 @@ entries:
             if SOC_PM_SUPPORT_TOP_PD = y:
                 sleep_clock:clock_domain_pd_allowed (noflash)
                 peripheral_domain_pd:peripheral_domain_pd_allowed (noflash)
+            if SOC_PM_SUPPORT_CNNT_PD = y:
+                peripheral_domain_pd:cnnt_domain_pd_allowed (noflash)
             if SOC_PM_CPU_RETENTION_BY_RTCCNTL = y && (PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP = y || SOC_PM_SUPPORT_TAGMEM_PD = y):
                 sleep_cpu:sleep_enable_cpu_retention (noflash)
             if PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP = y || (ESP32P4_SELECTS_REV_LESS_V3 = y && PM_POWER_DOWN_PERIPHERAL_IN_LIGHT_SLEEP = y):
                 sleep_cpu:cpu_domain_pd_allowed (noflash)
+        if SOC_TEMP_SENSOR_SUPPORTED = y && SOC_TEMPERATURE_SENSOR_SUPPORT_SLEEP_RETENTION = y && SOC_TEMPERATURE_SENSOR_UNDER_PD_TOP_DOMAIN = n:
+            sleep_modes:esp_sleep_pd_config (noflash)
+
+[mapping:esp_hw_support_pm]
+archive: libesp_hw_support.a
+entries:
+    if PM_SLP_IRAM_OPT = y:
         esp_clk:esp_clk_slowclk_cal_set (noflash)
         esp_clk:esp_clk_slowclk_cal_get (noflash)
         esp_clk:esp_rtc_get_time_us (noflash)

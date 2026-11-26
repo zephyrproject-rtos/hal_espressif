@@ -105,10 +105,10 @@ extern "C" {
 #define EMAC_LL_DMA_RECEIVE_STOP_INTR                  0x00000100U
 #define EMAC_LL_DMA_RECEIVE_TIMEOUT_INTR               0x00000200U
 #define EMAC_LL_DMA_TRANSMIT_FIRST_BYTE_INTR           0x00000400U
-#define EMAC_LL_DMA_FATAL_BUS_ERROR_INRT               0x00001000U
-#define EMAC_LL_DMA_RECEIVE_FIRST_BYTE_INTR            0x00002000U
-#define EMAC_LL_DMA_ABNORMAL_INTR_SUMMARY              0x00004000U
-#define EMAC_LL_DMA_NORMAL_INTR_SUMMARY                0x00008000U
+#define EMAC_LL_DMA_FATAL_BUS_ERROR_INTR               0x00002000U
+#define EMAC_LL_DMA_RECEIVE_FIRST_BYTE_INTR            0x00004000U
+#define EMAC_LL_DMA_ABNORMAL_INTR_SUMMARY              0x00008000U
+#define EMAC_LL_DMA_NORMAL_INTR_SUMMARY                0x00010000U
 #define EMAC_LL_DMA_POWER_MANAGE_INTR                  0x10000000U
 #define EMAC_LL_DMA_TIMESTAMP_TRIGGER_INTR             0x20000000U
 
@@ -783,11 +783,17 @@ static inline void emac_ll_pause_frame_enable(emac_ext_dev_t *ext_regs, bool ena
 
 static inline soc_module_clk_t emac_ll_get_csr_clk_src(void)
 {
-    // Source of the ESP32 EMAC CRS clock is APB clock.
+    // Source of the ESP32 EMAC CSR clock is APB clock.
     return SOC_MOD_CLK_APB;
 }
 
 static inline void emac_ll_gpio_init(void *ext_regs, uint32_t gpio_num)
+{
+    (void)ext_regs;
+    (void)gpio_num;
+}
+
+static inline void emac_ll_gpio_deinit(void *ext_regs, uint32_t gpio_num)
 {
     (void)ext_regs;
     (void)gpio_num;

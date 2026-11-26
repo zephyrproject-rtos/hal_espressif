@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,27 +14,34 @@
 #include "freertos/task.h"
 #include "freertos/freertos_debug.h"
 #include "esp_err.h"
+#include "esp_macros.h"
 #include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_log.h"
-#include "esp_debug_helpers.h"
 #include "esp_freertos_hooks.h"
 #include "esp_task_wdt.h"
 #include "esp_private/system_internal.h"
 #include "esp_private/crosscore_int.h"
+#include "esp_private/esp_sys_event_app_init.h"
 #include "esp_private/esp_task_wdt.h"
 #include "esp_private/esp_task_wdt_impl.h"
+#if !CONFIG_IDF_TARGET_LINUX
+#include "esp_debug_helpers.h"
+#include "esp_private/crosscore_int.h"
+#endif
 
 #if CONFIG_IDF_TARGET_ARCH_RISCV
 #include "riscv/rvruntime-frames.h"
 #endif //CONFIG_IDF_TARGET_ARCH_RISCV
 
+#if !CONFIG_IDF_TARGET_LINUX
 #if CONFIG_ESP_SYSTEM_NO_BACKTRACE
 /* If the target doesn't support backtrace, we will show CPU registers*/
 #define BACKTRACE_MSG   "registers"
 #else // !CONFIG_ESP_SYSTEM_NO_BACKTRACE
 #define BACKTRACE_MSG   "backtrace"
 #endif
+#endif // !CONFIG_IDF_TARGET_LINUX
 
 #if CONFIG_PM_RTOS_IDLE_OPT
 # define TASK_WDT_FN_ATTR   IRAM_ATTR
@@ -42,12 +49,13 @@
 # define TASK_WDT_FN_ATTR
 #endif
 
+/* Forward declaration of the idle hook callback */
+static bool idle_hook_cb(void);
+
+#if !CONFIG_IDF_TARGET_LINUX
 /* We will use this function in order to simulate an `abort()` occurring in
  * a different context than the one it's called from. */
 extern void xt_unhandled_exception(void *frame);
-
-/* Forward declaration of the idle hook callback */
-static bool idle_hook_cb(void);
 
 /* Global flag set to make the `panic` mechanism think a real `abort()` was
  * called. This is used in the ISR handler, in case we have to panic when
@@ -56,6 +64,29 @@ extern bool g_panic_abort;
 
 /* Global flag marking whether the current ISR is a Task Watchdog ISR. */
 bool g_twdt_isr = false;
+#endif // !CONFIG_IDF_TARGET_LINUX
+
+#if CONFIG_ESP_TASK_WDT_INIT
+ESP_PRE_APP_MAIN_HANDLER_REGISTER(init_task_wdt, 120)
+{
+    (void)user_arg;
+    (void)ctx;
+    esp_task_wdt_config_t config = {
+        .timeout_ms = CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000,
+        .idle_core_mask = 0,
+#if CONFIG_ESP_TASK_WDT_PANIC
+        .trigger_panic = true,
+#endif
+    };
+#if CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0
+    config.idle_core_mask |= BIT(0);
+#endif
+#if CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1
+    config.idle_core_mask |= BIT(1);
+#endif
+    return esp_task_wdt_init(&config);
+}
+#endif
 
 // --------------------------------------------------- Definitions -----------------------------------------------------
 
@@ -364,6 +395,20 @@ static UBaseType_t get_task_affinity(const TaskHandle_t xTask)
 #endif
 }
 
+#if CONFIG_IDF_TARGET_LINUX
+
+static void task_wdt_timeout_handling(int cores_fail, bool panic)
+{
+    (void)cores_fail;
+    (void)panic;
+    /* On the Linux simulator there is no panic handler or backtrace
+     * infrastructure.  Just restart the application, which mirrors
+     * the behaviour of the hardware watchdog reset. */
+    esp_restart();
+}
+
+#else // !CONFIG_IDF_TARGET_LINUX
+
 /**
  * Function simulating an abort coming from the interrupted task of the current
  * core.
@@ -420,11 +465,11 @@ static void task_wdt_timeout_handling(int cores_fail, bool panic)
             esp_crosscore_int_send_twdt_abort(other_core);
             /* We are going to abort, on the other core, we have nothing to
              * do anymore here, just wait until we crash */
-            while (1) {}
+            ESP_INFINITE_LOOP();
         } else if (cores_fail & BIT(other_core)) {
             /* If only the other core is failing, we can tell it to abort. */
             esp_crosscore_int_send_twdt_abort(other_core);
-            while (1) {}
+            ESP_INFINITE_LOOP();
         }
 #endif // !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
         /* Current core is failing, abort right now */
@@ -444,6 +489,8 @@ static void task_wdt_timeout_handling(int cores_fail, bool panic)
 #endif // !CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     }
 }
+
+#endif // !CONFIG_IDF_TARGET_LINUX
 
 // ---------------------- Callbacks ------------------------
 
@@ -495,14 +542,19 @@ static void task_wdt_isr(void *arg)
     portEXIT_CRITICAL_ISR(&spinlock);
 
     /* Run user ISR handler.
-     * This function has been declared as weak, thus, it may be possible that it was not defines.
-     * to check this, we can directly test its address. In any case, the linker will get rid of
+     * This function has been declared as weak, thus, it may be possible that it was not defined.
+     * To check this, we can directly test its address. In any case, the linker will get rid of
      * this `if` when linking, this means that if the function was not defined, the whole `if`
      * block will be discarded (zero runtime overhead), else only the function call will be kept.
+     *
+     * Note: weak symbol address checks only work on ELF targets. On Mach-O (macOS) the linker
+     * requires all referenced symbols to be resolved, so we skip this on Linux builds.
      */
+#if !CONFIG_IDF_TARGET_LINUX
     if (esp_task_wdt_isr_user_handler != NULL) {
         esp_task_wdt_isr_user_handler();
     }
+#endif
 
     // Trigger configured timeout behavior (e.g., panic or print backtrace)
     assert(cpus_fail != 0);

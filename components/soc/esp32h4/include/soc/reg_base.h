@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -34,7 +34,7 @@
 #define DR_REG_MEM_MONITOR_BASE                   0x60025000
 #define DR_REG_PVT_BASE                           0x60026000
 #define DR_REG_PCNT_BASE                          0x60027000
-#define DR_REG_SAMPLE_RATE_CONVERTER_BASE         0x60028000
+#define DR_REG_ASRC_BASE                          0x60028000
 #define DR_REG_ZERO_DET_BASE                      0x60029000
 #define DR_REG_USB_OTG_FS_CORE0_BASE              0x60040000
 #define DR_REG_USB_OTG_FS_CORE1_BASE              0x6007F000
@@ -51,7 +51,8 @@
 #define DR_REG_INTMTX1_BASE                       0x6009B000
 #define DR_REG_HP_SYSTEM_BASE                     0x6009C000
 #define DR_REG_HP_APM_BASE                        0x6009D000
-#define DR_REG_CPU_APM_BASE                       0x6009E000
+#define DR_REG_HP_MEM_APM_BASE                    0x6009E000
+#define DR_REG_CPU_APM_BASE                       0x6009E800
 #define DR_REG_TEE_BASE                           0x6009F000
 #define DR_REG_KEYMNG_BASE                        0x600A5000
 #define DR_REG_AES_BASE                           0x600A6000

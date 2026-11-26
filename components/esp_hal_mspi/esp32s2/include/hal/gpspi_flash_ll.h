@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -36,7 +36,6 @@ extern "C" {
                                         )) )
 
 typedef typeof(GPSPI2.clock.val) gpspi_flash_ll_clock_reg_t;
-#define GPSPI_FLASH_LL_PERIPHERAL_FREQUENCY_MHZ 80
 
 /*------------------------------------------------------------------------------
  * Control
@@ -266,7 +265,7 @@ static inline void gpspi_flash_ll_set_clock(spi_dev_t *dev, gpspi_flash_ll_clock
 static inline void gpspi_flash_ll_set_miso_bitlen(spi_dev_t *dev, uint32_t bitlen)
 {
     dev->user.usr_miso = bitlen > 0;
-    dev->miso_dlen.usr_miso_bit_len = bitlen ? (bitlen - 1) : 0;
+    dev->miso_dlen.usr_miso_dbitlen = bitlen ? (bitlen - 1) : 0;
 }
 
 /**
@@ -279,7 +278,7 @@ static inline void gpspi_flash_ll_set_miso_bitlen(spi_dev_t *dev, uint32_t bitle
 static inline void gpspi_flash_ll_set_mosi_bitlen(spi_dev_t *dev, uint32_t bitlen)
 {
     dev->user.usr_mosi = bitlen > 0;
-    dev->mosi_dlen.usr_mosi_bit_len = bitlen ? (bitlen - 1) : 0;
+    dev->mosi_dlen.usr_mosi_dbitlen = bitlen ? (bitlen - 1) : 0;
 }
 
 /**
@@ -332,7 +331,7 @@ static inline void gpspi_flash_ll_set_usr_address(spi_dev_t *dev, uint32_t addr,
 {
     // The blank region should be all ones
     uint32_t padding_ones = (bitlen == 32 ? 0 : UINT32_MAX >> bitlen);
-    dev->addr = (addr << (32 - bitlen)) | padding_ones;
+    dev->addr.val = (addr << (32 - bitlen)) | padding_ones;
 }
 
 /**
@@ -343,7 +342,7 @@ static inline void gpspi_flash_ll_set_usr_address(spi_dev_t *dev, uint32_t addr,
  */
 static inline void gpspi_flash_ll_set_address(spi_dev_t *dev, uint32_t addr)
 {
-    dev->addr = addr;
+    dev->addr.val = addr;
 }
 
 /**

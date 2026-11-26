@@ -1,0 +1,384 @@
+--- a/components/esp_hal_wdt/esp32c2/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c2/include/hal/rwdt_ll.h
+@@ -216,6 +216,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
++{
++    return hw->wdt_config0.pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32c3/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c3/include/hal/rwdt_ll.h
+@@ -229,6 +229,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
++{
++    return hw->wdt_config0.pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32c5/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c5/include/hal/lpwdt_ll.h
+@@ -232,6 +232,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32c5/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c5/include/hal/rwdt_ll.h
+@@ -51,6 +51,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32c61/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c61/include/hal/lpwdt_ll.h
+@@ -232,6 +232,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32c61/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c61/include/hal/rwdt_ll.h
+@@ -51,6 +51,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32c6/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c6/include/hal/lpwdt_ll.h
+@@ -232,6 +232,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32c6/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32c6/include/hal/rwdt_ll.h
+@@ -51,6 +51,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32h21/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h21/include/hal/lpwdt_ll.h
+@@ -230,6 +230,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->wdt_config0.wdt_wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32h21/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h21/include/hal/rwdt_ll.h
+@@ -49,6 +49,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32h2/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h2/include/hal/lpwdt_ll.h
+@@ -230,6 +230,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32h2/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h2/include/hal/rwdt_ll.h
+@@ -49,6 +49,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32h4/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h4/include/hal/lpwdt_ll.h
+@@ -232,6 +232,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32h4/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32h4/include/hal/rwdt_ll.h
+@@ -51,6 +51,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32/include/hal/rwdt_ll.h
+@@ -236,6 +236,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
++{
++    return hw->wdt_config0.pause_in_slp;
++}
++
++/**
+  * @brief Feed the RWDT
+  *
+  * Resets the current timer count and current stage.
+--- a/components/esp_hal_wdt/esp32p4/include/hal/lpwdt_ll.h
++++ b/components/esp_hal_wdt/esp32p4/include/hal/lpwdt_ll.h
+@@ -233,6 +233,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool lpwdt_ll_get_pause_in_sleep_en(lp_wdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief No register for enabling analog reset at timeout on P4, we keep an empty function to
+  *        provide the same HAL interface as other targets.
+  */
+--- a/components/esp_hal_wdt/esp32p4/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32p4/include/hal/rwdt_ll.h
+@@ -51,6 +51,9 @@
+ #define rwdt_ll_set_pause_in_sleep_en(hw, enable) \
+         lpwdt_ll_set_pause_in_sleep_en(hw, enable)
+ 
++#define rwdt_ll_get_pause_in_sleep_en(hw) \
++        lpwdt_ll_get_pause_in_sleep_en(hw)
++
+ #define rwdt_ll_set_chip_reset_en(hw, enable) \
+         lpwdt_ll_set_chip_reset_en(hw, enable)
+ 
+--- a/components/esp_hal_wdt/esp32s2/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32s2/include/hal/rwdt_ll.h
+@@ -227,6 +227,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
++{
++    return hw->wdt_config0.pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/esp32s31/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32s31/include/hal/rwdt_ll.h
+@@ -236,6 +236,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rwdt_dev_t *hw)
++{
++    return hw->config0.wdt_pause_in_slp;
++}
++
++/**
+  * @brief No register for setting chip_reset_en, we keep an empty function to
+  *        provide the same HAL interface as other targets.
+  */
+--- a/components/esp_hal_wdt/esp32s3/include/hal/rwdt_ll.h
++++ b/components/esp_hal_wdt/esp32s3/include/hal/rwdt_ll.h
+@@ -233,6 +233,17 @@
+ }
+ 
+ /**
++ * @brief Check if the RWDT pause during sleep functionality is enabled
++ *
++ * @param hw Start address of the peripheral registers.
++ * @return True if the RWDT pauses during sleep, false otherwise
++ */
++FORCE_INLINE_ATTR bool rwdt_ll_get_pause_in_sleep_en(rtc_cntl_dev_t *hw)
++{
++    return hw->wdt_config0.pause_in_slp;
++}
++
++/**
+  * @brief Enable/Disable chip reset on RWDT timeout.
+  *
+  * A chip reset also resets the analog portion of the chip. It will appear as a
+--- a/components/esp_hal_wdt/rom_patch.c
++++ b/components/esp_hal_wdt/rom_patch.c
+@@ -21,8 +21,6 @@
+     if (hal->inst != WDT_RWDT) {
+         mwdt_ll_write_protect_disable(hal->mwdt_dev);
+         mwdt_ll_set_clock_source(hal->mwdt_dev, MWDT_CLK_SRC_DEFAULT);
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
+         mwdt_ll_enable_clock(hal->mwdt_dev, true);
+         mwdt_ll_write_protect_enable(hal->mwdt_dev);
+     }
+@@ -33,8 +31,6 @@
+     // ROM version omits mwdt_ll_enable_clock(false) — delegate to ROM then fix up
+     if (hal->inst != WDT_RWDT) {
+         mwdt_ll_write_protect_disable(hal->mwdt_dev);
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
+         mwdt_ll_enable_clock(hal->mwdt_dev, false);
+         mwdt_ll_write_protect_enable(hal->mwdt_dev);
+     }
+--- a/components/esp_hal_wdt/wdt_hal_iram.c
++++ b/components/esp_hal_wdt/wdt_hal_iram.c
+@@ -79,8 +79,6 @@
+         mwdt_ll_set_cpu_reset_length(hal->mwdt_dev, WDT_RESET_SIG_LENGTH_3_2us);
+         mwdt_ll_set_sys_reset_length(hal->mwdt_dev, WDT_RESET_SIG_LENGTH_3_2us);
+         mwdt_ll_set_clock_source(hal->mwdt_dev, MWDT_CLK_SRC_DEFAULT);
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
+         mwdt_ll_enable_clock(hal->mwdt_dev, true);
+         //Set tick period
+         mwdt_ll_set_prescaler(hal->mwdt_dev, prescaler);
+@@ -109,8 +107,6 @@
+         mwdt_ll_disable(hal->mwdt_dev);
+         mwdt_ll_clear_intr_status(hal->mwdt_dev);
+         mwdt_ll_set_intr_enable(hal->mwdt_dev, false);
+-        // To suppress build errors about spinlock's __DECLARE_RCC_ATOMIC_ENV
+-        int __DECLARE_RCC_ATOMIC_ENV __attribute__((unused));
+         mwdt_ll_enable_clock(hal->mwdt_dev, false);
+         //Lock WDT
+         mwdt_ll_write_protect_enable(hal->mwdt_dev);

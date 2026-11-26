@@ -81,6 +81,10 @@ gas_build_req(u8 action, u8 dialog_token, size_t size)
 {
     struct wpabuf *buf;
 
+    /* IEEE 802.11 reserves Dialog Token value 0 for GAS Public Action frames. */
+    if (!dialog_token)
+        return NULL;
+
     buf = wpabuf_alloc(100 + size);
     if (buf == NULL)
         return NULL;
@@ -1461,7 +1465,10 @@ struct wpabuf * dpp_build_conf_req(struct dpp_authentication *auth,
 		return NULL;
 	}
 
-	dialog_token = os_random() & 0xff;
+	/* IEEE 802.11 requires the GAS Dialog Token to be nonzero; 0 is reserved. */
+	do {
+		dialog_token = os_random() & 0xff;
+	} while (!dialog_token);
 	auth->gas_dialog_token = dialog_token;
 
 	buf = gas_build_initial_req(dialog_token, 10 + 2 + wpabuf_len(conf_req));
@@ -1820,12 +1827,14 @@ dpp_auth_req_rx(void *msg_ctx, u8 dpp_allowed_roles, int qr_mutual,
 	const u8 *i_capab;
 	const u8 *i_bootstrap;
 	const u8 *version;
+	const u8 *channel;
 	u16 wrapped_data_len;
 	u16 i_proto_len;
 	u16 i_nonce_len;
 	u16 i_capab_len;
 	u16 i_bootstrap_len;
 	u16 version_len;
+	u16 channel_len;
 	struct dpp_authentication *auth = NULL;
 #ifdef CONFIG_TESTING_OPTIONS
 	u64 start_us = dpp_time_us();
@@ -1870,37 +1879,30 @@ dpp_auth_req_rx(void *msg_ctx, u8 dpp_allowed_roles, int qr_mutual,
 			   auth->peer_version);
 	}
 
-#if 0
 	channel = dpp_get_attr(attr_start, attr_len, DPP_ATTR_CHANNEL,
 			       &channel_len);
 	if (channel) {
-		//int neg_freq;
-
 		if (channel_len < 2) {
 			dpp_auth_fail(auth, "Too short Channel attribute");
 			goto fail;
 		}
 
-		neg_freq = ieee80211_chan_to_freq(NULL, channel[0], channel[1]);
 		wpa_printf(MSG_DEBUG,
-			   "DPP: Initiator requested different channel for negotiation: op_class=%u channel=%u --> freq=%d",
-			   channel[0], channel[1], neg_freq);
-		if (neg_freq < 0) {
+			   "DPP: Initiator requested different channel for negotiation: op_class=%u channel=%u",
+			   channel[0], channel[1]);
+		if (!channel[0] || !channel[1]) {
 			dpp_auth_fail(auth,
 				      "Unsupported Channel attribute value");
 			goto fail;
 		}
 
-		if (auth->curr_freq != (unsigned int) neg_freq) {
+		if (auth->curr_chan != channel[1]) {
 			wpa_printf(MSG_DEBUG,
-				   "DPP: Changing negotiation channel from %u MHz to %u MHz",
-				   freq, neg_freq);
-			auth->curr_freq = neg_freq;
+				   "DPP: Changing negotiation channel from %u to %u",
+				   auth->curr_chan, channel[1]);
 		}
-		/* rename it to chan */
-		auth->curr_chan = *channel;
+		auth->curr_chan = channel[1];
 	}
-#endif
 
 	i_proto = dpp_get_attr(attr_start, attr_len, DPP_ATTR_I_PROTOCOL_KEY,
 			       &i_proto_len);
@@ -2795,6 +2797,12 @@ int dpp_auth_conf_rx(struct dpp_authentication *auth, const u8 *hdr,
 
 	if (auth->initiator || !auth->own_bi) {
 		dpp_auth_fail(auth, "Unexpected Authentication Confirm");
+		return -1;
+	}
+
+	if (!auth->waiting_auth_conf) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: Not waiting for Auth Confirm - drop");
 		return -1;
 	}
 
@@ -4042,7 +4050,7 @@ static struct crypto_ec_key * dpp_parse_jwk(struct json_token *jwk,
 	const struct dpp_curve_params *curve;
 	struct wpabuf *x = NULL, *y = NULL;
 	unsigned char *a = NULL;
-	struct crypto_ec_group *group;
+	struct crypto_ec_group *group = NULL;
 	struct crypto_ec_key *pkey = NULL;
 	size_t len;
 
@@ -4105,14 +4113,15 @@ static struct crypto_ec_key * dpp_parse_jwk(struct json_token *jwk,
 
 	len = wpabuf_len(x) + wpabuf_len(y);
 	a = os_zalloc(len);
+	if (!a)
+		goto fail;
 	os_memcpy(a, wpabuf_head(x), wpabuf_len(x));
 	os_memcpy(a + wpabuf_len(x), wpabuf_head(y), wpabuf_len(y));
 	pkey = crypto_ec_key_set_pub(group, a, len);
-
-	crypto_ec_deinit((struct crypto_ec *)group);
 	*key_curve = curve;
 
 fail:
+	crypto_ec_deinit((struct crypto_ec *)group);
 	wpabuf_free(x);
 	wpabuf_free(y);
 	os_free(a);

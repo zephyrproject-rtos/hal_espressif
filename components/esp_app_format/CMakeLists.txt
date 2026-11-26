@@ -1,4 +1,5 @@
 idf_build_get_property(target IDF_TARGET)
+idf_build_get_property(idf_ver_def IDF_VER)
 
 if(NOT BOOTLOADER_BUILD)
     set(src "esp_app_desc.c")
@@ -11,7 +12,7 @@ idf_component_register(SRCS ${src}
 if(NOT BOOTLOADER_BUILD)
     # esp_app_desc structure is added as an undefined symbol because otherwise the
     # linker will ignore this structure as it has no other files depending on it.
-    if(CONFIG_IDF_TARGET_LINUX AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    if(CONFIG_IDF_TARGET_LINUX AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         # On MacOS, the linker expects the exact mangled symbol name (with leading underscore)
         # to be present in the object file.
         target_link_libraries(${COMPONENT_LIB} INTERFACE "-u _esp_app_desc")
@@ -35,5 +36,5 @@ if(NOT BOOTLOADER_BUILD)
     set_source_files_properties(
         SOURCE "esp_app_desc.c"
         PROPERTIES COMPILE_DEFINITIONS
-        "PROJECT_VER=\"${PROJECT_VER_CUT}\"; PROJECT_NAME=\"${PROJECT_NAME_CUT}\"")
+        "PROJECT_VER=\"${PROJECT_VER_CUT}\"; PROJECT_NAME=\"${PROJECT_NAME_CUT}\"; IDF_VER_DEF=\"${idf_ver_def}\"")
 endif()

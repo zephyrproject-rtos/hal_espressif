@@ -249,6 +249,12 @@ esp_err_t adc_continuous_new_handle(const adc_continuous_handle_cfg_t *hdl_confi
 
     adc_apb_periph_claim();
 
+#if ADC_LL_SW_WEIGHT_CALIBRATION_SUPPORTED
+    for (int i = 0; i < SOC_ADC_PERIPH_NUM; i++) {
+        adc_cal_sw_weight((adc_unit_t)i, ADC_DIGI_CLK_SRC_DEFAULT);
+    }
+#endif
+
     return ret;
 
 cleanup:
@@ -324,10 +330,19 @@ esp_err_t adc_continuous_start(adc_continuous_handle_t handle)
     }
 
 #if !CONFIG_IDF_TARGET_ESP32
-    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal_digi_ctrlr_cfg.clk_src), true));
+    ESP_ERROR_CHECK(esp_clk_tree_acquire_src((soc_module_clk_t)(handle->hal_digi_ctrlr_cfg.clk_src), NULL));
 #endif
     adc_hal_digi_init(&handle->hal);
     adc_hal_digi_controller_config(&handle->hal, &handle->hal_digi_ctrlr_cfg);
+#if ADC_LL_SW_WEIGHT_CALIBRATION_SUPPORTED
+    // ADC power release and reset will clear the calibration done flag, need to set it back to true.
+    if (handle->use_adc1) {
+        adc_ll_set_cal_done(ADC_UNIT_1, true);
+    }
+    if (handle->use_adc2) {
+        adc_ll_set_cal_done(ADC_UNIT_2, true);
+    }
+#endif
     adc_hal_digi_enable(false);
 
     adc_dma_stop(handle->adc_dma);
@@ -344,6 +359,18 @@ esp_err_t adc_continuous_start(adc_continuous_handle_t handle)
 
     adc_dma_start(handle->adc_dma, handle->hal.rx_desc);
     adc_hal_digi_connect(true);
+
+#if ADC_LL_SW_WEIGHT_CALIBRATION_SUPPORTED
+    /* Data path, not a cal step: bypass the HW weight accumulator so DMA
+     * samples are the 17-bit comparator vector. */
+    if (handle->use_adc1) {
+        adc_ll_weight_accumulator_bypass(ADC_UNIT_1, true);
+    }
+    if (handle->use_adc2) {
+        adc_ll_weight_accumulator_bypass(ADC_UNIT_2, true);
+    }
+#endif
+
     adc_hal_digi_enable(true);
 
 #if ADC_LL_DEFAULT_CONV_LIMIT_EN
@@ -370,7 +397,7 @@ esp_err_t adc_continuous_stop(adc_continuous_handle_t handle)
 
     adc_hal_digi_deinit();
 #if !CONFIG_IDF_TARGET_ESP32
-    ESP_ERROR_CHECK(esp_clk_tree_enable_src((soc_module_clk_t)(handle->hal_digi_ctrlr_cfg.clk_src), false));
+    ESP_ERROR_CHECK(esp_clk_tree_release_src((soc_module_clk_t)(handle->hal_digi_ctrlr_cfg.clk_src)));
 #endif
     if (handle->use_adc2) {
         adc_lock_release(ADC_UNIT_2);
@@ -617,18 +644,18 @@ esp_err_t adc_continuous_parse_data(adc_continuous_handle_t handle,
         parsed_data[i].unit = ADC_UNIT_1;
         parsed_data[i].channel = p->type1.channel;
         parsed_data[i].raw_data = p->type1.data;
-        parsed_data[i].valid = (parsed_data[i].channel < SOC_ADC_CHANNEL_NUM(parsed_data[i].unit));
+        parsed_data[i].valid = (parsed_data[i].channel < ADC_LL_CHANNEL_NUM(parsed_data[i].unit));
 #elif CONFIG_IDF_TARGET_ESP32S2
         if (handle->format == ADC_DIGI_OUTPUT_FORMAT_TYPE2) {
             parsed_data[i].unit = p->type2.unit ? ADC_UNIT_2 : ADC_UNIT_1;
             parsed_data[i].channel = p->type2.channel;
             parsed_data[i].raw_data = p->type2.data;
-            parsed_data[i].valid = (parsed_data[i].channel < SOC_ADC_CHANNEL_NUM(parsed_data[i].unit));
+            parsed_data[i].valid = (parsed_data[i].channel < ADC_LL_CHANNEL_NUM(parsed_data[i].unit));
         } else if (handle->format == ADC_DIGI_OUTPUT_FORMAT_TYPE1) {
             parsed_data[i].unit = handle->use_adc1 ? ADC_UNIT_1 : ADC_UNIT_2;
             parsed_data[i].channel = p->type1.channel;
             parsed_data[i].raw_data = p->type1.data;
-            parsed_data[i].valid = (parsed_data[i].channel < SOC_ADC_CHANNEL_NUM(parsed_data[i].unit));
+            parsed_data[i].valid = (parsed_data[i].channel < ADC_LL_CHANNEL_NUM(parsed_data[i].unit));
         }
 #else
 #if CONFIG_SOC_ADC_PERIPH_NUM == 1
@@ -638,7 +665,7 @@ esp_err_t adc_continuous_parse_data(adc_continuous_handle_t handle,
 #endif
         parsed_data[i].channel = (parsed_data[i].unit == ADC_UNIT_2) ? p->type2.channel - ADC_LL_UNIT2_CHANNEL_SUBSTRATION : p->type2.channel;
         parsed_data[i].raw_data = p->type2.data;
-        parsed_data[i].valid = (parsed_data[i].channel < SOC_ADC_CHANNEL_NUM(parsed_data[i].unit));
+        parsed_data[i].valid = (parsed_data[i].channel < ADC_LL_CHANNEL_NUM(parsed_data[i].unit));
 #endif
     }
 

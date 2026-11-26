@@ -164,11 +164,14 @@ void IRAM_ATTR npl_zephyr_eventq_put(struct ble_npl_eventq *evq, struct ble_npl_
     struct ble_npl_eventq_zephyr *eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
     struct ble_npl_event_zephyr *event = (struct ble_npl_event_zephyr *)ev->event;
 
+    esp_os_enter_critical(&ble_port_lock);
     if (event->queued) {
+        esp_os_exit_critical(&ble_port_lock);
         return;
     }
-
     event->queued = true;
+    esp_os_exit_critical(&ble_port_lock);
+
     k_fifo_put(&eventq->q, event);
 }
 
@@ -177,11 +180,14 @@ void IRAM_ATTR npl_zephyr_eventq_put_to_front(struct ble_npl_eventq *evq, struct
     struct ble_npl_eventq_zephyr *eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
     struct ble_npl_event_zephyr *event = (struct ble_npl_event_zephyr *)ev->event;
 
+    esp_os_enter_critical(&ble_port_lock);
     if (event->queued) {
+        esp_os_exit_critical(&ble_port_lock);
         return;
     }
-
     event->queued = true;
+    esp_os_exit_critical(&ble_port_lock);
+
     k_queue_prepend(&eventq->q._queue, event);
 }
 
@@ -190,13 +196,11 @@ void IRAM_ATTR npl_zephyr_eventq_remove(struct ble_npl_eventq *evq, struct ble_n
     struct ble_npl_eventq_zephyr *eventq = (struct ble_npl_eventq_zephyr *)evq->eventq;
     struct ble_npl_event_zephyr *event = (struct ble_npl_event_zephyr *)ev->event;
 
-    if (!event->queued) {
-        return;
-    }
-
-    if (k_queue_remove(&eventq->q._queue, event)) {
+    esp_os_enter_critical(&ble_port_lock);
+    if (event->queued && k_queue_remove(&eventq->q._queue, event)) {
         event->queued = false;
     }
+    esp_os_exit_critical(&ble_port_lock);
 }
 
 ble_npl_error_t npl_zephyr_mutex_init(struct ble_npl_mutex *mu)
@@ -463,6 +467,9 @@ ble_npl_error_t IRAM_ATTR npl_zephyr_callout_reset(struct ble_npl_callout *co, b
 {
     struct ble_npl_callout_zephyr *callout = (struct ble_npl_callout_zephyr *)co->co;
     esp_timer_stop(callout->handle);
+    if (callout->evq) {
+        npl_zephyr_eventq_remove(callout->evq, &callout->ev);
+    }
 
     return esp_err_to_npl_error(esp_timer_start_once(callout->handle, ticks * 1000));
 }
@@ -476,6 +483,10 @@ void IRAM_ATTR npl_zephyr_callout_stop(struct ble_npl_callout *co)
     }
 
     esp_timer_stop(callout->handle);
+
+    if (callout->evq) {
+        npl_zephyr_eventq_remove(callout->evq, &callout->ev);
+    }
 }
 
 bool IRAM_ATTR npl_zephyr_callout_is_active(struct ble_npl_callout *co)

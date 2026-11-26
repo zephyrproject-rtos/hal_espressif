@@ -11,80 +11,47 @@
 #include "esp_timer.h"
 #include "esp_private/periph_ctrl.h"
 #include "esp_private/critical_section.h"
+#include "esp_log.h"
 
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
 #include "esp_private/esp_modem_clock.h"
 #endif
 #include "phy_init_deps.h"
+#include "esp_private/phy_debug.h"
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+#include "esp_private/sleep_modem.h"
+#endif // SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+#include "esp_private/esp_pau.h"
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+
 
 #ifndef PHY_INIT_MODEM_CLOCK_REQUIRED_BITS
 #warning "PHY_INIT_MODEM_CLOCK_REQUIRED_BITS not defined; using default value 0"
 #define PHY_INIT_MODEM_CLOCK_REQUIRED_BITS 0
 #endif
 
-#define PHY_ENABLE_VERSION_PRINT 1
+#if CONFIG_ESP_PHY_HW_SWITCH_RF
+static const char* TAG = "phy_init";
+
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+static uint8_t s_phy_modem_init_ref = 0;
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+#endif // CONFIG_ESP_PHY_HW_SWITCH_RF
 
 /* PHY spinlock for libphy.a */
 static DRAM_ATTR esp_os_spinlock_t s_phy_int_mux = ESP_OS_SPINLOCK_INIT;
 
 extern void phy_version_print(void);
+
+#if CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+bool btdm_lp_check_phy_etm_task_triggered(void);
+void btdm_lp_disable_etm_phy_retention_task(void);
+#endif // CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
 K_MUTEX_DEFINE(s_phy_access_lock);
 
 /* Reference count of enabling PHY */
 static bool s_phy_is_enabled = false;
-
-#if CONFIG_ESP_PHY_RECORD_USED_TIME
-#define ESP_PHY_MODEM_COUNT_MAX         (__builtin_ffs(PHY_MODEM_MAX - 1))
-#define ESP_PHY_IS_VALID_MODEM(modem)   (__builtin_popcount(modem) == 1 && __builtin_ctz(modem) < ESP_PHY_MODEM_COUNT_MAX)
-
-static DRAM_ATTR struct {
-    uint64_t used_time;
-    uint64_t enabled_time;
-    uint64_t disabled_time;
-} s_phy_rf_used_info[ESP_PHY_MODEM_COUNT_MAX];
-
-static IRAM_ATTR void phy_record_time(bool enabled, esp_phy_modem_t modem) {
-    uint8_t index = __builtin_ctz(modem);
-    if (enabled) {
-        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
-    } else {
-        s_phy_rf_used_info[index].disabled_time = esp_timer_get_time();
-        s_phy_rf_used_info[index].used_time += s_phy_rf_used_info[index].disabled_time - s_phy_rf_used_info[index].enabled_time;
-    }
-}
-
-esp_err_t phy_query_used_time(uint64_t *used_time, esp_phy_modem_t modem) {
-    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
-    *used_time = s_phy_rf_used_info[index].used_time;
-    if (s_phy_rf_used_info[index].disabled_time < s_phy_rf_used_info[index].enabled_time) {
-        // phy is being used
-        *used_time += esp_timer_get_time() - s_phy_rf_used_info[index].enabled_time;
-    }
-    k_mutex_unlock(&s_phy_access_lock);
-    return ESP_OK;
-}
-
-esp_err_t phy_clear_used_time(esp_phy_modem_t modem) {
-    if (!ESP_PHY_IS_VALID_MODEM(modem)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    uint8_t index = __builtin_ctz(modem);
-    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
-    if (s_phy_rf_used_info[index].enabled_time > s_phy_rf_used_info[index].disabled_time) {
-        // phy is being used
-        s_phy_rf_used_info[index].enabled_time = esp_timer_get_time();
-    } else {
-        s_phy_rf_used_info[index].enabled_time = s_phy_rf_used_info[index].disabled_time;
-    }
-    s_phy_rf_used_info[index].used_time = 0;
-    k_mutex_unlock(&s_phy_access_lock);
-    return ESP_OK;
-}
-#endif
 
 uint32_t IRAM_ATTR phy_enter_critical(void)
 {
@@ -98,10 +65,34 @@ void IRAM_ATTR phy_exit_critical(uint32_t level)
     esp_os_exit_critical(&s_phy_int_mux);
 }
 
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+static bool phy_retention_link_is_triggered(void)
+{
+    bool ret = false;
+#if CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+    if (btdm_lp_check_phy_etm_task_triggered()) {
+        return true;
+    }
+#endif // CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+
+    return ret;
+}
+
+static void phy_disable_etm_phy_retention_link(void)
+{
+#if CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+    btdm_lp_disable_etm_phy_retention_task();
+#endif // CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+}
+#endif // SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+
 void esp_phy_enable(esp_phy_modem_t modem)
 {
     k_mutex_lock(&s_phy_access_lock, K_FOREVER);
     if (phy_get_modem_flag() == 0) {
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+        phy_disable_etm_phy_retention_link();
+#endif // SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
         modem_clock_module_enable(PERIPH_PHY_MODULE);
 #endif
@@ -117,7 +108,22 @@ void esp_phy_enable(esp_phy_modem_t modem)
 #endif
             s_phy_is_enabled = true;
         } else {
-            phy_wakeup_init();
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+            if (sleep_modem_phy_link_enabled() && sleep_modem_phy_link_done()) {
+                if (!phy_retention_link_is_triggered()) {
+                    sleep_modem_do_phy_retention(true, false, SLEEP_MODEM_SKIP_I2C_MST_CLK_RETENTION);
+                }
+#if CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+                else {
+                    pau_regdma_wait_work_done();
+                    pau_regdma_stop_etm_modem_link();
+                }
+#endif // CONFIG_BT_CTRL_SLEEP_ETM_TRIGGERED_RF
+            } else
+#endif // SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+            {
+                phy_wakeup_init();
+            }
         }
 #if !CONFIG_ESP_PHY_DISABLE_PLL_TRACK
         phy_track_pll_init();
@@ -148,9 +154,19 @@ void esp_phy_disable(esp_phy_modem_t modem)
 #if !CONFIG_ESP_PHY_DISABLE_PLL_TRACK
         phy_track_pll_deinit();
 #endif
-        phy_close_rf();
-        phy_xpd_tsens();
-        phy_wait_freq_hw_hop_done();
+#if SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+        if (sleep_modem_phy_link_enabled()) {
+            sleep_modem_do_phy_retention(false, false, SLEEP_MODEM_SKIP_I2C_MST_CLK_RETENTION);
+        } else
+#endif /* SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY */
+        {
+            phy_close_rf();
+            phy_xpd_tsens();
+// TODO: IDF-16048
+#if !CONFIG_IDF_TARGET_ESP32H21 && !CONFIG_IDF_TARGET_ESP32H4
+            phy_wait_freq_hw_hop_done();
+#endif
+        }
 #if SOC_MODEM_CLOCK_IS_INDEPENDENT
         modem_clock_module_disable(PERIPH_PHY_MODULE);
 #endif
@@ -161,4 +177,39 @@ void esp_phy_disable(esp_phy_modem_t modem)
 struct k_mutex *phy_get_lock(void)
 {
     return &s_phy_access_lock;
+}
+
+void esp_phy_modem_init(uint8_t modem)
+{
+#if CONFIG_ESP_PHY_HW_SWITCH_RF
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    s_phy_modem_init_ref++;
+    pau_regdma_register_modem_link_protect(phy_regi2c_lock_apply);
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    if (sleep_modem_phy_init(modem) != ESP_OK) {
+        ESP_LOGE(TAG, "failed to initialize sleep modem phy");
+    }
+    k_mutex_unlock(&s_phy_access_lock);
+#endif // CONFIG_ESP_PHY_HW_SWITCH_RF
+}
+
+void esp_phy_modem_deinit(uint8_t modem)
+{
+#if CONFIG_ESP_PHY_HW_SWITCH_RF
+    k_mutex_lock(&s_phy_access_lock, K_FOREVER);
+
+#if SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    if (s_phy_modem_init_ref == 0) {
+        k_mutex_unlock(&s_phy_access_lock);
+        return;
+    }
+    s_phy_modem_init_ref--;
+    if (s_phy_modem_init_ref == 0) {
+        pau_regdma_unregister_modem_link_protect();
+    }
+#endif // SOC_PM_REGDMA_MODEM_LINK_PROTECT
+    sleep_modem_phy_deinit(modem);
+    k_mutex_unlock(&s_phy_access_lock);
+#endif // CONFIG_ESP_PHY_HW_SWITCH_RF
 }

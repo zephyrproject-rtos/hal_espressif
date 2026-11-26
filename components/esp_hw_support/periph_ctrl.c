@@ -325,8 +325,8 @@ void non_shared_periph_module_enable(int periph)
 #endif /* SOC_TWAI_SUPPORTED */
 #ifdef ESP32_SPI_DMA_MODULE
     case ESP32_SPI_DMA_MODULE:
-        spi_dma_ll_enable_bus_clock(SPI1_HOST, true);
-        spi_dma_ll_reset_register(SPI1_HOST);
+        spi_ll_dma_enable_bus_clock(SPI1_HOST, true);
+        spi_ll_dma_reset_register(SPI1_HOST);
         break;
 #endif
 #if SOC_GDMA_SUPPORTED
@@ -686,7 +686,7 @@ void non_shared_periph_module_disable(int periph)
 #endif /* SOC_TWAI_SUPPORTED */
 #ifdef ESP32_SPI_DMA_MODULE
     case ESP32_SPI_DMA_MODULE:
-        spi_dma_ll_enable_bus_clock(SPI1_HOST, false);
+        spi_ll_dma_enable_bus_clock(SPI1_HOST, false);
         break;
 #endif
 #if SOC_GDMA_SUPPORTED

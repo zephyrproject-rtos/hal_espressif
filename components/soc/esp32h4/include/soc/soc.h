@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
@@ -15,6 +15,8 @@
 #include "reg_base.h"
 
 #define PRO_CPU_NUM (0)
+
+#define REG_SPI_MEM_BASE(i)                     (DR_REG_SPIMEM0_BASE + (i) * 0x1000)     // SPIMEM0 and SPIMEM1
 
 //Registers Operation {{
 #define ETS_UNCACHED_ADDR(addr) (addr)
@@ -142,9 +144,9 @@
 #define SOC_DROM_LOW    SOC_IROM_LOW
 #define SOC_DROM_HIGH   SOC_IROM_HIGH
 #define SOC_IROM_MASK_LOW  0x40000000
-#define SOC_IROM_MASK_HIGH 0x40050000
+#define SOC_IROM_MASK_HIGH 0x40020000
 #define SOC_DROM_MASK_LOW  0x40000000
-#define SOC_DROM_MASK_HIGH 0x40050000
+#define SOC_DROM_MASK_HIGH 0x40020000
 #define SOC_IRAM_LOW    0x40810000
 #define SOC_IRAM_HIGH   0x40860000
 #define SOC_DRAM_LOW    0x40810000
@@ -186,9 +188,9 @@
 #define SOC_PERIPHERAL_LOW 0x60000000
 #define SOC_PERIPHERAL_HIGH 0x60100000
 
-// Debug region, not used by software
-#define SOC_DEBUG_LOW 0x20000000
-#define SOC_DEBUG_HIGH 0x28000000
+// CPU subsystem region (debug mode code and interrupt config)
+#define SOC_CPU_SUBSYSTEM_LOW 0x20000000
+#define SOC_CPU_SUBSYSTEM_HIGH 0x30000000
 
 // Start (highest address) of ROM boot stack, only relevant during early boot
 #define SOC_ROM_STACK_START         0x4085d350
@@ -196,7 +198,7 @@
 
 //ICache1 region
 #define SOC_RAM_ICACHE1_LOW    0x40860000
-#define SOC_RAM_ICACHE1_HIGH   0x40867fff
+#define SOC_RAM_ICACHE1_HIGH   0x40868000
 
 //On RISC-V CPUs, the interrupt sources are all external interrupts, whose type, source and priority are configured by SW.
 //There is no HW NMI conception. SW should controlled the masked levels through INT_THRESH_REG.

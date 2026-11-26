@@ -45,7 +45,7 @@
  #include "mbedtls/pk.h"
  #include "mbedtls/asn1write.h"
  #include "mbedtls/error.h"
-@@ -2544,8 +2544,6 @@
+@@ -2565,8 +2565,6 @@
   */
  struct crypto_ec_key *crypto_ec_parse_subpub_key(const unsigned char *p, size_t len)
  {
@@ -129,17 +129,17 @@
  #endif
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_common.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_common.c
-@@ -25,7 +25,6 @@
+@@ -26,7 +26,6 @@
  #include "rsn_supp/wpa.h"
  #include "esp_private/wifi.h"
  #include "esp_wifi_types_generic.h"
 -#include "esp_roaming.h"
  
- /* Utility Functions */
- esp_err_t esp_supplicant_str_to_mac(const char *str, uint8_t dest[6])
+ extern bool current_task_is_wifi_task(void);
+ 
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_dpp.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_dpp.c
-@@ -2368,7 +2368,7 @@
+@@ -2412,7 +2412,7 @@
      int eloop_ret;
  
      wifi_mode_t mode = 0;
@@ -150,7 +150,7 @@
      }
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c
-@@ -139,18 +139,26 @@
+@@ -140,18 +140,26 @@
  {
      void *my_task_hdl = os_task_get_current_task();
      int ret = ESP_OK;
@@ -178,7 +178,7 @@
  }
  
  #define WPA_ADDR_LEN 6
-@@ -285,8 +293,7 @@
+@@ -286,8 +294,7 @@
          wpa_printf(MSG_ERROR, "EAP: null wifi->EAP sync sem");
      }
  
@@ -188,7 +188,7 @@
  }
  
  int wpa2_post(uint32_t sig, uint32_t par)
-@@ -1385,5 +1392,6 @@
+@@ -1402,5 +1409,6 @@
      }
  
      g_eap_method_mask = methods;
@@ -208,7 +208,7 @@
  struct hostapd_data *hostapd_get_hapd_data(void)
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_hostpad_wps.c
-@@ -144,7 +144,7 @@
+@@ -157,7 +157,7 @@
  
  static int wifi_ap_wps_enable_internal(const esp_wps_config_t *config)
  {
@@ -217,7 +217,7 @@
      enum wps_owner owner;
  
      if (esp_wifi_get_user_init_flag_internal() == 0) {
-@@ -157,7 +157,7 @@
+@@ -170,7 +170,7 @@
          return ESP_FAIL;
      }
  
@@ -226,7 +226,7 @@
          wpa_printf(MSG_ERROR, "wps enable: mode=%d does not include AP", mode);
          return ESP_ERR_WIFI_MODE;
      }
-@@ -266,12 +266,12 @@
+@@ -290,12 +290,12 @@
  
  static int wifi_ap_wps_start_internal(const unsigned char *pin)
  {
@@ -257,9 +257,9 @@
          if (scan_params->bssid) {
 --- a/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
 +++ b/components/wpa_supplicant/esp_supplicant/src/esp_wpa3.c
-@@ -443,10 +443,10 @@
- 
- #ifdef CONFIG_SAE
+@@ -453,10 +453,10 @@
+  * it on CONFIG_ESP_WIFI_SOFTAP_SUPPORT. */
+ #if defined(CONFIG_SAE) && defined(CONFIG_ESP_WIFI_SOFTAP_SUPPORT)
  
 -static TaskHandle_t g_wpa3_hostap_task_hdl = NULL;
 -static QueueHandle_t g_wpa3_hostap_evt_queue = NULL;
@@ -271,7 +271,7 @@
  
  int wpa3_hostap_post_evt(uint32_t evt_id, uint32_t data)
  {
-@@ -468,7 +468,7 @@
+@@ -478,7 +478,7 @@
      }
      if (evt.id == SIG_WPA3_RX_CONFIRM) {
          /* prioritising confirm for completing handshake for committed sta */
@@ -280,7 +280,7 @@
              WPA3_HOSTAP_AUTH_API_UNLOCK();
              wpa_printf(MSG_DEBUG, "failed to add msg to queue front");
              return ESP_FAIL;
-@@ -476,13 +476,13 @@
+@@ -486,13 +486,13 @@
      } else if (evt.id == SIG_TASK_DEL) {
          /* Wi-Fi blocks until SIG_TASK_DEL is queued; only Wi-Fi calls wpa3_hostap_post_evt. */
          /* Hence there will be no deadlock for g_wpa3_hostap_auth_api_lock. */
@@ -296,7 +296,7 @@
              WPA3_HOSTAP_AUTH_API_UNLOCK();
              wpa_printf(MSG_DEBUG, "failed to send msg to queue");
              return ESP_FAIL;
-@@ -603,7 +603,7 @@
+@@ -613,7 +613,7 @@
          return;
      }
  
@@ -305,7 +305,7 @@
          HOSTAPD_STA_LIST_UNLOCK(hapd);
          os_free(frm);
          return;
-@@ -653,7 +653,7 @@
+@@ -663,7 +663,7 @@
      bool task_del = false;
  
      while (1) {
@@ -314,7 +314,7 @@
              switch (evt.id) {
              case SIG_WPA3_RX_COMMIT: {
                  wpa3_process_rx_commit(&evt);
-@@ -678,7 +678,7 @@
+@@ -688,7 +688,7 @@
      uint32_t items_in_queue = os_queue_msg_waiting(g_wpa3_hostap_evt_queue);
      while (items_in_queue--) {
          /* Free events posted to queue */
@@ -323,7 +323,7 @@
          if (evt.id == SIG_WPA3_RX_CONFIRM) {
              os_free((void *)evt.data);
          }
-@@ -751,7 +751,7 @@
+@@ -761,7 +761,7 @@
      if (os_task_create(esp_wpa3_hostap_task, "esp_wpa3_hostap_task",
                         WPA3_HOSTAP_HANDLE_AUTH_TASK_STACK_SIZE, NULL,
                         WPA3_HOSTAP_HANDLE_AUTH_TASK_PRIORITY,
@@ -360,7 +360,7 @@
  
  /* API lock to ensure thread safety for public WPS functions */
  void *s_wps_api_lock = NULL;  /* Used in WPS/WPS-REG public API only, never be freed */
-@@ -262,9 +263,9 @@
+@@ -265,9 +266,9 @@
      }
  
      esp_wifi_get_mode(&op_mode);
@@ -372,53 +372,7 @@
  #endif
         ) {
          return false;
-@@ -1013,9 +1014,9 @@
-         }
-     }
- 
--    os_snprintf(s_factory_info->manufacturer, WPS_MAX_MANUFACTURER_LEN, "ESPRESSIF");
--    os_snprintf(s_factory_info->model_name, WPS_MAX_MODEL_NUMBER_LEN, "ESPRESSIF IOT");
--    os_snprintf(s_factory_info->model_number, WPS_MAX_MODEL_NAME_LEN, wps_model_number);
-+    os_snprintf(s_factory_info->manufacturer, WPS_MAX_MANUFACTURER_LEN, "%s", "ESPRESSIF");
-+    os_snprintf(s_factory_info->model_name, WPS_MAX_MODEL_NUMBER_LEN, "%s", "ESPRESSIF IOT");
-+    os_snprintf(s_factory_info->model_number, WPS_MAX_MODEL_NAME_LEN, "%s", wps_model_number);
-     os_snprintf(s_factory_info->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s STATION", wps_model_number);
- 
-     return ESP_OK;
-@@ -1092,28 +1093,28 @@
-         ret = ESP_FAIL;
-         goto _out;
-     }
--    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, s_factory_info->manufacturer);
-+    os_snprintf(dev->manufacturer, WPS_MAX_MANUFACTURER_LEN, "%s", s_factory_info->manufacturer);
- 
-     dev->model_name = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
-     if (!dev->model_name) {
-         ret = ESP_FAIL;
-         goto _out;
-     }
--    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, s_factory_info->model_name);
-+    os_snprintf(dev->model_name, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_name);
- 
-     dev->model_number = os_zalloc(WPS_MAX_MODEL_NAME_LEN);
-     if (!dev->model_number) {
-         ret = ESP_FAIL;
-         goto _out;
-     }
--    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, s_factory_info->model_number);
-+    os_snprintf(dev->model_number, WPS_MAX_MODEL_NAME_LEN, "%s", s_factory_info->model_number);
- 
-     dev->device_name = os_zalloc(WPS_MAX_DEVICE_NAME_LEN);
-     if (!dev->device_name) {
-         ret = ESP_FAIL;
-         goto _out;
-     }
--    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, s_factory_info->device_name);
-+    os_snprintf(dev->device_name, WPS_MAX_DEVICE_NAME_LEN, "%s", s_factory_info->device_name);
- 
-     dev->serial_number = os_zalloc(16);
-     if (!dev->serial_number) {
-@@ -1608,9 +1609,9 @@
+@@ -1640,9 +1641,9 @@
  
      if (
  #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
@@ -680,7 +634,7 @@
  #define SCAN_CACHE_SUPPORTED
 --- a/components/wpa_supplicant/port/os_xtensa.c
 +++ b/components/wpa_supplicant/port/os_xtensa.c
-@@ -24,40 +24,53 @@
+@@ -24,10 +24,9 @@
  
  #include "os.h"
  #include <stdlib.h>
@@ -690,7 +644,10 @@
 +#include "esp_system.h"
  #include "utils/common.h"
 +#include <zephyr/random/random.h>
+ #include "utils/const_time.h"
  #include "mbedtls/platform_util.h"
+ 
+@@ -38,32 +37,47 @@
  
  int os_get_time(struct os_time *t)
  {
@@ -703,9 +660,10 @@
 +		return -1;
 +	}
 +
-+	int64_t now = k_uptime_ticks();
-+	t->sec = now / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-+	t->usec = k_ticks_to_us_floor64(now);
++	uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
++
++	t->sec = now_us / USEC_PER_SEC;
++	t->usec = now_us % USEC_PER_SEC;
 +
 +	return 0;
  }
@@ -747,9 +705,33 @@
  }
  
  #ifdef CONFIG_CRYPTO_MBEDTLS
+--- a/components/wpa_supplicant/src/common/wpa_common.c
++++ b/components/wpa_supplicant/src/common/wpa_common.c
+@@ -339,14 +339,19 @@
+ 		return WPA_KEY_MGMT_FT_PSK;
+ #endif /* CONFIG_IEEE80211R */
+ #ifdef CONFIG_IEEE80211W
+-#ifdef CONFIG_WPA3_SAE
++        /* The SAE selectors are recognized regardless of CONFIG_WPA3_SAE so
++         * that scan results classify a WPA3 network as SAE instead of open.
++         * ESP-IDF solves this with a dedicated scan-only parser reached
++         * through a wpa_funcs entry the current Wi-Fi libraries do not call.
++         * Drop this local change once the libraries and the scan-only parser
++         * are picked up by a HAL sync.
++         */
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE)
+                 return WPA_KEY_MGMT_SAE;
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_SAE_EXT_KEY)
+                 return WPA_KEY_MGMT_SAE_EXT_KEY;
+         if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_FT_SAE)
+                 return WPA_KEY_MGMT_FT_SAE;
+-#endif /* CONFIG_WPA3_SAE */
+ 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_802_1X_SHA256)
+ 		return WPA_KEY_MGMT_IEEE8021X_SHA256;
+ 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_PSK_SHA256)
 --- a/components/wpa_supplicant/src/eap_peer/eap.c
 +++ b/components/wpa_supplicant/src/eap_peer/eap.c
-@@ -609,54 +609,60 @@
+@@ -615,54 +615,60 @@
  	int allowed_method_count = 0;
  	const struct eap_method *methods;
  

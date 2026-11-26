@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -35,6 +35,11 @@ static esp_err_t wpa3_build_sae_commit(u8 *bssid, size_t *sae_msg_len)
     const u8 *pw = (const u8 *)esp_wifi_sta_get_prof_password_internal();
     char sae_pwd_id[SAE_H2E_IDENTIFIER_LEN + 1] = {0};
     bool valid_pwd_id = false;
+
+    if (!pw) {
+        wpa_printf(MSG_ERROR, "wpa3: no password configured");
+        return ESP_FAIL;
+    }
 
     if (wpa_sta_cur_pmksa_matches_akm()) {
         wpa_printf(MSG_INFO, "wpa3: Skip SAE and use cached PMK instead");
@@ -339,17 +344,18 @@ static int wpa3_parse_sae_commit(u8 *buf, u32 len, u16 status)
     if (status == WLAN_STATUS_ANTI_CLOGGING_TOKEN_REQ) {
         if (g_sae_token) {
             wpabuf_free(g_sae_token);
+            g_sae_token = NULL;
         }
         if (g_sae_data.h2e) {
+            if (len < 5) {
+                wpa_printf(MSG_ERROR, "Invalid SAE anti-clogging token length");
+                return ESP_FAIL;
+            }
             if ((buf[2] != WLAN_EID_EXTENSION) ||
                     (buf[3] == 0) ||
                     (buf[3] > len - 4) ||
                     (buf[4] != WLAN_EID_EXT_ANTI_CLOGGING_TOKEN)) {
                 wpa_printf(MSG_ERROR, "Invalid SAE anti-clogging token container header");
-                return ESP_FAIL;
-            }
-            if (len < 5) {
-                wpa_printf(MSG_ERROR, "Invalid SAE anti-clogging token length");
                 return ESP_FAIL;
             }
             g_sae_token = wpabuf_alloc_copy(buf + 5, len - 5);
@@ -441,7 +447,11 @@ void esp_wifi_unregister_wpa3_cb(void)
 }
 #endif /* CONFIG_WPA3_SAE */
 
-#ifdef CONFIG_SAE
+/* AP-side (hostap) SAE authentication. CONFIG_SAE may also be enabled for PASN
+ * with SoftAP disabled, but this block both defines and calls SoftAP-only
+ * primitives (esp_send_sae_auth_reply, handle_auth_sae), so additionally gate
+ * it on CONFIG_ESP_WIFI_SOFTAP_SUPPORT. */
+#if defined(CONFIG_SAE) && defined(CONFIG_ESP_WIFI_SOFTAP_SUPPORT)
 
 static void *g_wpa3_hostap_task_hdl = NULL;
 static void *g_wpa3_hostap_evt_queue = NULL;
@@ -861,4 +871,4 @@ void esp_wifi_register_wpa3_ap_cb(struct wpa_funcs *wpa_cb)
     wpa_cb->wpa3_hostap_handle_auth = wpa3_hostap_handle_auth;
 }
 
-#endif /* CONFIG_SAE */
+#endif /* CONFIG_SAE && CONFIG_ESP_WIFI_SOFTAP_SUPPORT */

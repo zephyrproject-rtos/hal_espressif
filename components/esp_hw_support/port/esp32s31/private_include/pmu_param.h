@@ -9,8 +9,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <esp_types.h>
+#include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include "soc/pmu_struct.h"
 #include "hal/pmu_hal.h"
+#include "soc/pmu_icg_mapping.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,6 +113,20 @@ typedef struct {
 
 const pmu_lp_system_analog_param_t* pmu_lp_system_analog_param_default(pmu_lp_mode_t mode);
 
+/* Enabled when this chip needs any pmu_sleep_data_t priv slot; conditions differ per chip. */
+#define PMU_SLEEP_PRIV_ENABLED (SOC_PM_SUPPORT_PMU_RETENTION_CLK_ICG)
+#if PMU_SLEEP_PRIV_ENABLED
+enum {
+#if SOC_PM_SUPPORT_PMU_RETENTION_CLK_ICG
+    PMU_SLEEP_PRIV_HW_RETENTION_ICG_CLK,
+#endif
+    PMU_SLEEP_PRIV_MAX,
+};
+
+typedef struct {
+    void *func[PMU_SLEEP_PRIV_MAX];
+} pmu_sleep_data_t;
+#endif
 
 /* Following software configuration instance type from pmu_struct.h used for the PMU state machine in sleep flow*/
 typedef union {
@@ -273,13 +290,13 @@ typedef struct {
 #define PMU_SLEEP_POWER_CONFIG_DEFAULT(sleep_flags) {                               \
     .hp_sys = {                                                                     \
         .dig_power = {                                                              \
-            .vdd_spi_pd_en      = ((sleep_flags) & PMU_SLEEP_PD_VDDSDIO) ? 1 : 0,   \
-            .pd_hp_alive_pd_en  = 0,                                                \
-            .pd_modem_top_pd_en = ((sleep_flags) & PMU_SLEEP_PD_MODEM) ? 1 : 0,     \
-            .pd_hp_cnnt_pd_en   = ((sleep_flags) & PMU_SLEEP_PD_CNNT) ? 1 : 0,      \
-            .pd_hp_cpu_pd_en    = ((sleep_flags) & PMU_SLEEP_PD_CPU) ? 1 : 0,       \
-            .pd_modem_pwr_pd_en = ((sleep_flags) & PMU_SLEEP_PD_MEM) ? 1 : 0,     \
-            .pd_top_pd_en       = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 1 : 0,       \
+            .vdd_spi_pd_en      = ((sleep_flags) & PMU_SLEEP_PD_VDDSDIO)   ? 1 : 0, \
+            .pd_hp_alive_pd_en  = ((sleep_flags) & PMU_SLEEP_PD_MEM)       ? 1 : 0, \
+            .pd_modem_top_pd_en = ((sleep_flags) & PMU_SLEEP_PD_MODEM)     ? 1 : 0, \
+            .pd_hp_cnnt_pd_en   = ((sleep_flags) & PMU_SLEEP_PD_CNNT)      ? 1 : 0, \
+            .pd_hp_cpu_pd_en    = ((sleep_flags) & PMU_SLEEP_PD_CPU)       ? 1 : 0, \
+            .pd_modem_pwr_pd_en = ((sleep_flags) & PMU_SLEEP_PD_MEM)       ? 1 : 0, \
+            .pd_top_pd_en       = ((sleep_flags) & PMU_SLEEP_PD_TOP)       ? 1 : 0, \
             .pd_hp_mem_pd_en    = 0,                                                \
             .mem_dslp           = 0,                                                \
         },                                                                          \
@@ -324,27 +341,34 @@ typedef struct {
 
 typedef struct {
     pmu_hp_sys_cntl_reg_t   syscntl;
+    struct {
+        uint32_t clock[2];
+    } icg_func;
 } pmu_sleep_digital_config_t;
 
 
 #define PMU_SLEEP_DIGITAL_DSLP_CONFIG_DEFAULT(sleep_flags) {                \
     .syscntl = {                                                            \
         .dig_pad_slp_sel = 0,                                               \
-        .lp_pad_hold_all = 1,                                               \
+        .lp_pad_hold_all = (sleep_flags & PMU_SLEEP_PD_LP_PERIPH) ? 1 : 0,  \
         .hp_pad_hold_all = 1,                                               \
         .dig_pause_wdt = ((sleep_flags) & RTC_SLEEP_USE_RTC_WDT) ? 0 : 1,   \
         .c_channel       = (sleep_flags & PMU_SLEEP_PD_TOP) ? 0 : 1         \
-    }                                                                       \
+    },                                                                      \
+    .icg_func = { .clock = { 0, 0 } },                                      \
 }
 
-#define PMU_SLEEP_DIGITAL_LSLP_CONFIG_DEFAULT(sleep_flags) {                \
+#define PMU_SLEEP_DIGITAL_LSLP_CONFIG_DEFAULT(sleep_flags, clk_flags) {     \
     .syscntl = {                                                            \
         .dig_pad_slp_sel = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 0 : 1,      \
-        .lp_pad_hold_all = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 1 : 0,      \
+        .lp_pad_hold_all = ((sleep_flags) & PMU_SLEEP_PD_LP_PERIPH) ? 1 : 0,\
         .hp_pad_hold_all = ((sleep_flags) & PMU_SLEEP_PD_TOP) ? 1 : 0,      \
         .dig_pause_wdt = ((sleep_flags) & RTC_SLEEP_USE_RTC_WDT) ? 0 : 1,   \
         .c_channel       = (sleep_flags & PMU_SLEEP_PD_TOP) ? 0 : 1         \
-    }                                                                       \
+    },                                                                      \
+    .icg_func = {                                                           \
+        .clock = { (clk_flags)[0], (clk_flags)[1] }                         \
+    },                                                                      \
 }
 
 typedef struct {

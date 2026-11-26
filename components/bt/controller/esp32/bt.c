@@ -36,6 +36,13 @@
 #include "esp_heap_adapter.h"
 #include "esp_system.h"
 #include "esp_rom_sys.h"
+#include "esp_private/sleep_modem.h"
+
+#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4 && CONFIG_BTDM_CTRL_HCI_UART_INIT_BY_CONTROLLER
+#include "hal/uhci_ll.h"
+#include "hal/uart_ll.h"
+#include "driver/uart.h"
+#endif
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
@@ -58,6 +65,19 @@ LOG_MODULE_REGISTER(esp32_bt_adapter, CONFIG_LOG_DEFAULT_LEVEL);
 #define BTDM_CFG_SCAN_DUPLICATE_OPTIONS     (1<<3)
 #define BTDM_CFG_SEND_ADV_RESERVED_SIZE     (1<<4)
 #define BTDM_CFG_BLE_FULL_SCAN_SUPPORTED    (1<<5)
+
+#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4 && CONFIG_BTDM_CTRL_HCI_UART_INIT_BY_CONTROLLER
+#define BTDM_HCI_UHCI_PORT_NUM              (0)
+#define BTDM_HCI_UART_TX_PIN                CONFIG_BTDM_CTRL_HCI_UART_TX_PIN
+#define BTDM_HCI_UART_RX_PIN                CONFIG_BTDM_CTRL_HCI_UART_RX_PIN
+#if CONFIG_BTDM_CTRL_HCI_UART_FLOW_CTRL_EN
+#define BTDM_HCI_UART_RTS_PIN               CONFIG_BTDM_CTRL_HCI_UART_RTS_PIN
+#define BTDM_HCI_UART_CTS_PIN               CONFIG_BTDM_CTRL_HCI_UART_CTS_PIN
+#else
+#define BTDM_HCI_UART_RTS_PIN               UART_PIN_NO_CHANGE
+#define BTDM_HCI_UART_CTS_PIN               UART_PIN_NO_CHANGE
+#endif
+#endif
 
 /* Sleep mode */
 #define BTDM_MODEM_SLEEP_MODE_NONE          (0)
@@ -1439,6 +1459,25 @@ esp_err_t esp_bt_set_lpclk_src(esp_bt_sleep_clock_t lpclk)
 #endif
 }
 
+#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4 && CONFIG_BTDM_CTRL_HCI_UART_INIT_BY_CONTROLLER
+static void btdm_hci_uart_gpio_init(void)
+{
+    PERIPH_RCC_ATOMIC() {
+        uart_ll_enable_bus_clock(CONFIG_BTDM_CTRL_HCI_UART_NO, true);
+        uart_ll_reset_register(CONFIG_BTDM_CTRL_HCI_UART_NO);
+        uhci_ll_enable_bus_clock(BTDM_HCI_UHCI_PORT_NUM, true);
+        uhci_ll_reset_register(BTDM_HCI_UHCI_PORT_NUM);
+    }
+
+    ESP_LOGI(BTDM_LOG_TAG, "HCI UART%d Pin select: TX %d, RX %d, CTS %d, RTS %d Baudrate:%d",
+             CONFIG_BTDM_CTRL_HCI_UART_NO, BTDM_HCI_UART_TX_PIN, BTDM_HCI_UART_RX_PIN,
+             BTDM_HCI_UART_CTS_PIN, BTDM_HCI_UART_RTS_PIN, CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE);
+
+    uart_set_pin(CONFIG_BTDM_CTRL_HCI_UART_NO, BTDM_HCI_UART_TX_PIN, BTDM_HCI_UART_RX_PIN,
+                 BTDM_HCI_UART_RTS_PIN, BTDM_HCI_UART_CTS_PIN);
+}
+#endif /* CONFIG_BTDM_CTRL_HCI_MODE_UART_H4 && CONFIG_BTDM_CTRL_HCI_UART_INIT_BY_CONTROLLER */
+
 esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
     esp_err_t err;
@@ -1488,7 +1527,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
     ESP_LOGI(BTDM_LOG_TAG, "BT controller compile version [%s]", btdm_controller_get_compile_version());
 
-    esp_phy_modem_init();
+    esp_phy_modem_init(SLEEP_MODEM_BT);
 
     esp_bt_power_domain_on();
 
@@ -1511,6 +1550,10 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg)
     sdk_config_set_uart_flow_ctrl_enable(true);
 #else
     sdk_config_set_uart_flow_ctrl_enable(false);
+#endif
+
+#if CONFIG_BTDM_CTRL_HCI_MODE_UART_H4 && CONFIG_BTDM_CTRL_HCI_UART_INIT_BY_CONTROLLER
+    btdm_hci_uart_gpio_init();
 #endif
 
 #if CONFIG_SW_COEXIST_ENABLE
@@ -1663,7 +1706,7 @@ static void bt_controller_deinit_internal(void)
 
     esp_bt_power_domain_off();
 
-    esp_phy_modem_deinit();
+    esp_phy_modem_deinit(SLEEP_MODEM_BT);
 }
 
 static void bt_controller_shutdown(void* arg)

@@ -164,21 +164,14 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
     /* Enable reset CPU when going to sleep */
     /* Avoid resetting chip in sleep mode when debugger is attached,
        otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
-#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
+#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
     lp_core_ll_rst_at_sleep_enable(!esp_cpu_dbgr_is_attached());
 #else
     lp_core_ll_rst_at_sleep_enable(true);
 #endif
 
-    /* Set wake-up sources */
-    lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
-
     /* Enable JTAG debugging */
     lp_core_ll_debug_module_enable(true);
-
-    if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU) {
-        lp_core_ll_hp_wake_lp();
-    }
 
 #if SOC_ULP_LP_UART_SUPPORTED
     if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_LP_UART) {
@@ -200,6 +193,13 @@ esp_err_t ulp_lp_core_run(ulp_lp_core_cfg_t* cfg)
         ulp_lp_core_lp_timer_set_wakeup_time(cfg->lp_timer_sleep_duration_us);
     }
 #endif
+
+    /* Set wake-up sources */
+    lp_core_ll_set_wakeup_source(lp_core_get_wakeup_source_hw_flags(cfg->wakeup_source));
+
+    if (cfg->wakeup_source & ULP_LP_CORE_WAKEUP_SOURCE_HP_CPU) {
+        lp_core_ll_hp_wake_lp();
+    }
 
     return ESP_OK;
 }
@@ -339,9 +339,9 @@ void ulp_lp_core_stop(void)
         /* upon SW reset debugger puts LP core into the infinite loop at reset vector,
            so configure it to stall when going to sleep */
         lp_core_ll_stall_at_sleep_request(true);
-#ifdef CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
         /* Avoid resetting chip in sleep mode when debugger is attached,
         otherwise configured HW breakpoints and dcsr.ebreak* bits will be missed */
+#if CONFIG_ESP32_ULP_NORESET_UNDER_DEBUG
         lp_core_ll_rst_at_sleep_enable(false);
 #else
         lp_core_ll_rst_at_sleep_enable(true);

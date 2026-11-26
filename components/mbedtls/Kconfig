@@ -8,10 +8,15 @@ menu "mbedTLS"
 
         choice MBEDTLS_COMPILER_OPTIMIZATION
             prompt "Compiler optimization level"
+            default MBEDTLS_COMPILER_OPTIMIZATION_PERF if COMPILER_OPTIMIZATION_PERF
             default MBEDTLS_COMPILER_OPTIMIZATION_SIZE
             help
-                This option allows you to select the compiler optimization level for mbedTLS.
-                The default is set to the optimization level used by the rest of the ESP-IDF project.
+                This option selects the compiler optimization level for mbedTLS.
+                By default, mbedTLS is optimized for size (-Os). If the project optimization
+                level (CONFIG_COMPILER_OPTIMIZATION) is set to "Optimize for performance (-O2)",
+                mbedTLS also defaults to -O2. You can override the default with this option.
+                The "No optimization" setting adds no flags, so mbedTLS compiles with the
+                project optimization level.
             config MBEDTLS_COMPILER_OPTIMIZATION_NONE
                 bool "No optimization"
             config MBEDTLS_COMPILER_OPTIMIZATION_SIZE
@@ -29,6 +34,38 @@ menu "mbedTLS"
                 It uses the default filesystem support for the target,
                 which is added through vfs component for ESP32 based targets or by
                 the host system when the target is Linux.
+
+        config MBEDTLS_PSA_ITS_CUSTOM_STORAGE_BACKEND
+            bool "Enable custom storage backend for PSA ITS"
+            default n
+            help
+                Enable support for registering a custom storage backend that
+                handles PSA ITS operations for keys in a reserved UID range.
+                When enabled, users can call esp_psa_its_register_custom_backend()
+                to route storage operations for UIDs in the configured range to
+                their own implementation. UIDs outside the range continue using
+                the default NVS backend.
+
+        config MBEDTLS_PSA_ITS_CUSTOM_BACKEND_UID_MIN
+            hex "Minimum UID for custom backend range"
+            depends on MBEDTLS_PSA_ITS_CUSTOM_STORAGE_BACKEND
+            default 0x30000000
+            range 0x00000001 0x3FFFFFFF
+            help
+                The minimum UID value (inclusive) that will be routed to the
+                custom storage backend. Must be within the PSA user key ID
+                range (0x00000001 - 0x3FFFFFFF).
+
+        config MBEDTLS_PSA_ITS_CUSTOM_BACKEND_UID_MAX
+            hex "Maximum UID for custom backend range"
+            depends on MBEDTLS_PSA_ITS_CUSTOM_STORAGE_BACKEND
+            default 0x3FFFFFFF
+            range MBEDTLS_PSA_ITS_CUSTOM_BACKEND_UID_MIN 0x3FFFFFFF
+            help
+                The maximum UID value (inclusive) that will be routed to the
+                custom storage backend. Must be >= the minimum UID and within
+                the PSA user key ID range (0x00000001 - 0x3FFFFFFF); the lower
+                bound is enforced by Kconfig.
 
         config MBEDTLS_THREADING_C
             bool "Enable the threading abstraction layer"
@@ -484,6 +521,11 @@ menu "mbedTLS"
                     Name of the custom certificate directory or file. This path is evaluated
                     relative to the project root directory.
 
+                    Certificates must be either PEM encoded with a .pem extension, or DER
+                    encoded with a .der extension. Files with any other extension are not
+                    parsed: pointing this option directly at such a file fails the build,
+                    while such files inside a directory are skipped with a warning.
+
             config MBEDTLS_CERTIFICATE_BUNDLE_DEPRECATED_LIST
                 bool "Add deprecated root certificates"
                 depends on MBEDTLS_CERTIFICATE_BUNDLE && !MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_NONE
@@ -513,14 +555,17 @@ menu "mbedTLS"
 
         config MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY
             bool "Support cross-signed certificate verification in certificate bundle"
-            default n
+            default y
             depends on MBEDTLS_CERTIFICATE_BUNDLE
             select MBEDTLS_X509_TRUSTED_CERT_CALLBACK
             help
                 Enable support for cross-signed certificate verification in the certificate bundle.
                 This feature uses an internal callback to verify the cross-signed certificates.
-                This feature is kept disabled by default as enabling this feature increases
-                heap usage by approximately 700 bytes.
+
+                Enabling this feature increases peak heap usage during the TLS handshake by
+                approximately 1 KB. This is a transient allocation (a candidate CA certificate
+                built during certificate verification) that is freed once the handshake completes,
+                and the exact amount scales with the maximum supported RSA key size.
     endmenu
 
     config MBEDTLS_TLS_ENABLED
@@ -1000,49 +1045,49 @@ menu "mbedTLS"
             config MBEDTLS_ECP_DP_SECP384R1_ENABLED
                 bool "Enable SECP384R1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         Enable support for SECP384R1 Elliptic Curve.
 
             config MBEDTLS_ECP_DP_SECP521R1_ENABLED
                 bool "Enable SECP521R1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         Enable support for SECP521R1 Elliptic Curve.
 
             config MBEDTLS_ECP_DP_SECP256K1_ENABLED
                 bool "Enable SECP256K1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         Enable support for SECP256K1 Elliptic Curve.
 
             config MBEDTLS_ECP_DP_BP256R1_ENABLED
                 bool "Enable BP256R1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         support for DP Elliptic Curve.
 
             config MBEDTLS_ECP_DP_BP384R1_ENABLED
                 bool "Enable BP384R1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         support for DP Elliptic Curve.
 
             config MBEDTLS_ECP_DP_BP512R1_ENABLED
                 bool "Enable BP512R1 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         support for DP Elliptic Curve.
 
             config MBEDTLS_ECP_DP_CURVE25519_ENABLED
                 bool "Enable CURVE25519 curve"
                 depends on MBEDTLS_ECP_C
-                default y if !(MBEDTLS_ATCA_HW_ECDSA_SIGN || MBEDTLS_ATCA_HW_ECDSA_VERIFY)
+                default y
                 help
                         Enable support for CURVE25519 Elliptic Curve.
         endmenu
@@ -1288,6 +1333,7 @@ menu "mbedTLS"
 
         config MBEDTLS_HARDWARE_ECDSA_SIGN
             bool "Enable ECDSA signing using on-chip ECDSA peripheral"
+            default y if SOC_ECDSA_SUPPORT_SOFTWARE_KEY
             default n
             depends on SOC_ECDSA_SUPPORTED
             help
@@ -1295,8 +1341,19 @@ menu "mbedTLS"
                 on curve SECP192R1 and SECP256R1 in mbedTLS.
                 Note that SECP192R1 support is disabled by default.
 
-                Note that for signing, the private key has to be burnt in an efuse key block
-                with key purpose set to ECDSA_KEY.
+                On a chip with a software key source the peripheral also signs with a
+                plaintext key pair, so this option is enabled by default there.
+
+                Note that deterministic signatures generated by the peripheral use its own
+                deterministic K derivation, which is a variant of RFC 6979. On SECP384R1
+                they do not match the RFC 6979 signatures of a software implementation,
+                although both are valid. For a plaintext key pair, deterministic signing
+                on SECP384R1 therefore uses the software implementation, which follows
+                RFC 6979. A key in an eFuse key block or in the Key Manager is always
+                signed by the peripheral.
+
+                On a chip without a software key source the private key has to be burnt
+                in an efuse key block with key purpose set to ECDSA_KEY.
                 If no key is burnt, it will report an error
 
                 The key should be burnt in little endian format. espefuse utility handles it internally
@@ -1383,6 +1440,33 @@ menu "mbedTLS"
                 Value 0 (default) means that there is no preference regarding the interrupt
                 priority level and any level from 1 to 3 can be selected (based on the availability).
                 Note: Higher value indicates high interrupt priority.
+
+        menu "Security hardening"
+
+            config MBEDTLS_CONSTANT_TIME_PRIME_GEN
+                bool "Constant-time prime generation"
+                default n
+                help
+                    Use mbedtls' constant-time small-factor test (a
+                    constant-time GCD against the product of all odd primes up
+                    to 997) when generating prime numbers, e.g. during RSA key
+                    generation.
+
+                    The constant-time implementation avoids a timing side
+                    channel in prime generation, but it makes RSA key
+                    generation roughly ten times slower, and its long
+                    non-yielding software computations can starve the idle
+                    task and trigger the task watchdog, so key generation code
+                    may need a larger watchdog timeout or the watchdog
+                    disabled.
+
+                    If disabled, the variable-time trial division that mbedtls
+                    used before versions 3.6.7/4.1.1 is used instead,
+                    restoring key generation performance.
+
+                    Please see issue: https://github.com/Mbed-TLS/mbedtls/issues/10830
+
+        endmenu # Security hardening
 
         config MBEDTLS_HARDWARE_AES
             bool "Enable hardware AES acceleration"
@@ -1510,19 +1594,14 @@ menu "mbedTLS"
                 it also increases the binary size by ~1.2 KB as it pulls in the peripheral's block
                 mode code as well.
 
-        config MBEDTLS_ATCA_HW_ECDSA_SIGN
-            bool "Enable hardware ECDSA sign acceleration when using ATECC608A"
+        config MBEDTLS_SECURE_ELEMENT_DRIVER_ENABLED
+            bool "Enable secure element hardware support (e.g., ATECC608A)"
             default n
             help
-                This option enables hardware acceleration for ECDSA sign function, only
-                when using ATECC608A cryptoauth chip.
-
-        config MBEDTLS_ATCA_HW_ECDSA_VERIFY
-            bool "Enable hardware ECDSA verify acceleration when using ATECC608A"
-            default n
-            help
-                This option enables hardware acceleration for ECDSA sign function, only
-                when using ATECC608A cryptoauth chip.
+                Enable PSA Crypto driver support for external secure elements.
+                This enables sign, verify, and key export operations via runtime-registered
+                callbacks from the secure element component (e.g., esp-cryptoauthlib).
+                The private key never leaves the secure element.
 
         config MBEDTLS_HARDWARE_RSA_DS_PERIPHERAL
             bool "Enable hardware RSA digital signature peripheral acceleration"

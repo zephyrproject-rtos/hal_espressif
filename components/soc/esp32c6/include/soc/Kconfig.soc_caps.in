@@ -183,6 +183,10 @@ config SOC_APM_SUPPORTED
     bool
     default y
 
+config SOC_RISCV_TRACE_SUPPORTED
+    bool
+    default y
+
 config SOC_PMU_SUPPORTED
     bool
     default y
@@ -371,6 +375,14 @@ config SOC_CACHE_FREEZE_SUPPORTED
     bool
     default y
 
+config SOC_CACHE_CNT_SUPPORTED
+    bool
+    default y
+
+config SOC_CACHE_CNT_UNITS_NUM
+    int
+    default 2
+
 config SOC_CPU_CORES_NUM
     int
     default 1
@@ -388,6 +400,10 @@ config SOC_INT_PLIC_SUPPORTED
     default y
 
 config SOC_CPU_HAS_CSR_PC
+    bool
+    default y
+
+config SOC_CPU_CCOUNT_STOPS_IN_WFI
     bool
     default y
 
@@ -1043,10 +1059,6 @@ config SOC_EXTERNAL_COEX_ADVANCE
     bool
     default y
 
-config SOC_EXTERNAL_COEX_LEADER_TX_LINE
-    bool
-    default n
-
 config SOC_PHY_DIG_REGS_MEM_SIZE
     int
     default 21
@@ -1119,7 +1131,15 @@ config SOC_PM_SUPPORT_RTC_PERIPH_PD
     bool
     default y
 
+config SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+    bool
+    default y
+
 config SOC_PM_SUPPORT_PMU_MODEM_STATE
+    bool
+    default y
+
+config SOC_PM_REGDMA_MODEM_LINK_PROTECT
     bool
     default y
 
@@ -1159,7 +1179,7 @@ config SOC_PM_PAU_REGDMA_LINK_MULTI_ADDR
     bool
     default y
 
-config SOC_PM_PAU_REGDMA_LINK_WIFIMAC
+config SOC_PM_PAU_REGDMA_LINK_MODEM
     bool
     default y
 
@@ -1170,10 +1190,6 @@ config SOC_PM_PAU_REGDMA_UPDATE_CACHE_BEFORE_WAIT_COMPARE
 config SOC_PM_PMU_MIN_SLP_SLOW_CLK_CYCLE_FIXED
     bool
     default y
-
-config SOC_PM_RETENTION_MODULE_NUM
-    int
-    default 32
 
 config SOC_PM_TOP_DEPENDS_ON_RTC_PERIPH
     bool
@@ -1343,6 +1359,22 @@ config SOC_LP_CORE_HW_AUTO_CLRWAKEUPCAUSE
     bool
     default y
 
+config SOC_LP_CORE_LP_UART_WAKEUP_KEEP_TRIGGERED
+    bool
+    default y
+
 config SOC_DEBUG_HAVE_OCD_STUB_BINS
     bool
     default y
+
+config SOC_RISCV_TRACE_PACKET_FORMAT_VER
+    int
+    default 100
+
+config SOC_RISCV_TRACE_PRIV_WIDTH
+    int
+    default 1
+
+config SOC_RISCV_TRACE_ECAUSE_WIDTH
+    int
+    default 5

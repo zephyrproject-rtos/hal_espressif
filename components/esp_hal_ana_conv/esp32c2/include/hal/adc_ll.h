@@ -11,6 +11,8 @@
 
 #include "soc/apb_saradc_struct.h"
 #include "soc/apb_saradc_reg.h"
+#include "soc/efuse_reg.h"
+#include "soc/soc.h"
 #include "soc/rtc_cntl_struct.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/clk_tree_defs.h"
@@ -34,6 +36,7 @@ extern "C" {
 
 #define ADC_LL_NEED_APB_PERIPH_CLAIM(ADC_UNIT)      (1)
 #define ADC_LL_MAX_CHANNEL_NUM                      (5)
+#define ADC_LL_CHANNEL_NUM(unit_id)                 (5)
 
 /*---------------------------------------------------------------
  *                            oneshot
@@ -42,6 +45,7 @@ extern "C" {
 #define ADC_LL_RTC_MAX_BITWIDTH                     (12)
 #define ADC_LL_DATA_INVERT_DEFAULT(PERIPH_NUM)      (0)
 #define ADC_LL_DELAY_CYCLE_AFTER_DONE_SIGNAL        (0)
+#define ADC_LL_ONESHOT_START_PULSE                  1
 
 /*---------------------------------------------------------------
  *                          continuous
@@ -659,13 +663,15 @@ static inline void adc_oneshot_ll_disable_channel(adc_unit_t adc_n)
 /**
  * Start oneshot conversion by software
  *
- * @param val Usage: set to 1 to start the ADC conversion. The step signal should at least keep 3 ADC digital controller clock cycle,
+ * @param adc_n ADC unit. Unused on this chip.
+ * @param en    Set to 1 to start the ADC conversion. The step signal should at least keep 3 ADC digital controller clock cycle,
  *            otherwise the step signal may not be captured by the ADC digital controller when its frequency is slow.
  *            This hardware limitation will be removed in future versions.
  */
-static inline void adc_oneshot_ll_start(bool val)
+static inline void adc_oneshot_ll_start(adc_unit_t adc_n, bool en)
 {
-    APB_SARADC.saradc_onetime_sample.saradc_saradc_onetime_start = val;
+    (void)adc_n;
+    APB_SARADC.saradc_onetime_sample.saradc_saradc_onetime_start = en;
 }
 
 /**
@@ -786,6 +792,23 @@ static inline adc_atten_t adc_ll_get_atten(adc_unit_t adc_n, adc_channel_t chann
     (void)adc_n;
     (void)channel;
     return (adc_atten_t)(APB_SARADC.saradc_onetime_sample.saradc_saradc_onetime_atten);
+}
+
+__attribute__((always_inline)) static inline uint32_t adc_ll_get_efuse_init_code(uint32_t atten)
+{
+    return (atten == 0)
+           ? REG_GET_FIELD(EFUSE_RD_BLK2_DATA2_REG, EFUSE_ADC1_INIT_CODE_ATTEN0)
+           : REG_GET_FIELD(EFUSE_RD_BLK2_DATA2_REG, EFUSE_ADC1_INIT_CODE_ATTEN3);
+}
+
+__attribute__((always_inline)) static inline uint32_t adc_ll_get_efuse_cal_voltage(uint32_t atten)
+{
+    if (atten == 0) {
+        uint32_t low = REG_GET_FIELD(EFUSE_RD_BLK2_DATA2_REG, EFUSE_ADC1_CAL_VOL_ATTEN0);
+        uint32_t high = REG_GET_FIELD(EFUSE_RD_BLK2_DATA3_REG, EFUSE_ADC1_CAL_VOL_ATTEN0_1);
+        return low | (high << 5);
+    }
+    return REG_GET_FIELD(EFUSE_RD_BLK2_DATA3_REG, EFUSE_ADC1_CAL_VOL_ATTEN3);
 }
 
 #ifdef __cplusplus

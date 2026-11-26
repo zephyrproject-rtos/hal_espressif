@@ -1,0 +1,55 @@
+--- a/components/esp_image_verify/src/bootloader_sha.c
++++ b/components/esp_image_verify/src/bootloader_sha.c
+@@ -7,7 +7,7 @@
+ #include <assert.h>
+ #include <stdbool.h>
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ 
+ #include "bootloader_sha.h"
+ #include "soc/soc_caps.h"
+--- a/components/esp_image_verify/src/esp_image_format.c
++++ b/components/esp_image_verify/src/esp_image_format.c
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <esp_cpu.h>
+ #include <esp_secure_boot.h>
+ #include <esp_fault.h>
+--- a/components/esp_image_verify/src/secure_boot_v1/secure_boot_signatures_app.c
++++ b/components/esp_image_verify/src/secure_boot_v1/secure_boot_signatures_app.c
+@@ -13,7 +13,7 @@
+ #include "esp_secure_boot.h"
+ #include "psa/crypto.h"
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "mbedtls/pk.h"
+ 
+ #ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
+--- a/components/esp_image_verify/src/secure_boot_v1/secure_boot_signatures_bootloader.c
++++ b/components/esp_image_verify/src/secure_boot_v1/secure_boot_signatures_bootloader.c
+@@ -15,7 +15,7 @@
+ #include "esp32/rom/sha.h"
+ #include "uECC_verify_antifault.h"
+ 
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include <string.h>
+ 
+ ESP_LOG_ATTR_TAG(TAG, "secure_boot");
+--- a/components/esp_image_verify/src/secure_boot_v2/secure_boot_signatures_app.c
++++ b/components/esp_image_verify/src/secure_boot_v2/secure_boot_signatures_app.c
+@@ -12,7 +12,7 @@
+ #include "esp_log.h"
+ #include "esp_image_format.h"
+ #include <string.h>
+-#include <sys/param.h>
++#include <zephyr/sys/util.h>
+ #include "esp_secure_boot.h"
+ #include "esp_ota_ops.h"
+ #include "esp_efuse.h"

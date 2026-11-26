@@ -70,6 +70,12 @@ if(CONFIG_IDF_DOC_BUILD OR CONFIG_BT_ENABLED)
     add_subdirectory(esp_ble_audio)
     list(APPEND srcs ${ble_audio_srcs})
     list(APPEND include_dirs ${ble_audio_include_dirs})
+    list(APPEND ldscripts ${ble_audio_ldscripts})
+
+    # BLE profiles (host-agnostic profile cores + shared profile infrastructure)
+    add_subdirectory(ble_profiles)
+    list(APPEND srcs ${ble_profiles_srcs})
+    list(APPEND include_dirs ${ble_profiles_include_dirs})
 
     # When log compression is enabled, selected logs are replaced
     # by auto-generated macros that emit pre-encoded data.
@@ -82,6 +88,7 @@ endif()
 set(bt_priv_requires
     nvs_flash
     soc
+    esp_hw_support
     esp_pm
     esp_phy
     esp_coex
@@ -112,6 +119,7 @@ if(CONFIG_BT_ENABLED)
     target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-implicit-fallthrough -Wno-unused-const-variable)
     target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
 
+    register_ble_log_idf_commit()
     register_bt_ctrl_libs()
     set_bluedroid_host_compile_flags()
     set_nimble_host_compile_flags()
@@ -120,4 +128,6 @@ if(CONFIG_BT_ENABLED)
 
     register_log_compression_dependency()
     wrap_uart_log_tx_interface()
+    register_ble_log_usb_transport(${bt_component_type})
+    register_ble_log_usj_transport(${bt_component_type})
 endif()

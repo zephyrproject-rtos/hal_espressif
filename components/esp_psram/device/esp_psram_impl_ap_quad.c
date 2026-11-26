@@ -15,6 +15,9 @@
 #include "esp_private/mspi_timing_tuning.h"
 #include "esp_private/esp_gpio_reserve.h"
 #include "hal/psram_ctrlr_ll.h"
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
+#include "hal/mspi_pms_ll.h"
+#endif
 #include "esp_quad_psram_defs_ap.h"
 #include "soc/soc_caps.h"
 
@@ -231,22 +234,25 @@ static esp_err_t s_check_psram_connected(int spi_num)
 #if CONFIG_SPIRAM_ECC_ENABLE
 static void s_mspi_ecc_show_info(void)
 {
-    for (int i = 0; i < PSRAM_CTRLR_LL_PMS_REGION_NUMS; i++) {
-        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, psram_ctrlr_ll_get_pms_region_start_addr(PSRAM_CTRLR_LL_MSPI_ID_0, i));
-        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, psram_ctrlr_ll_get_pms_region_size(PSRAM_CTRLR_LL_MSPI_ID_0, i));
+    for (int i = 0; i < MSPI_LL_PMS_REGION_NUM; i++) {
+        ESP_EARLY_LOGV(TAG, "region[%d] addr: 0x%08x", i, mspi_ll_pms_get_region_addr(MSPI_PMS_MEM_PSRAM, i));
+        ESP_EARLY_LOGV(TAG, "region[%d] size: 0x%08x", i, mspi_ll_pms_get_region_size(MSPI_PMS_MEM_PSRAM, i));
     }
 
     uint32_t page_size = psram_ctrlr_ll_get_page_size(PSRAM_CTRLR_LL_MSPI_ID_0);
     ESP_EARLY_LOGV(TAG, "ECC page size: %d", page_size);
 }
+#endif
 
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
 /**
- * Enable error correcting code feature
+ * Configure error correcting code feature
  *
  * Can add an input parameter for selecting ECC mode if needed
  */
 static void s_configure_psram_ecc(void)
 {
+#if CONFIG_SPIRAM_ECC_ENABLE
     psram_ctrlr_ll_set_ecc_mode(PSRAM_CTRLR_LL_MSPI_ID_0, PSRAM_LL_ECC_MODE_16TO18);
     psram_ctrlr_ll_enable_skip_page_corner(PSRAM_CTRLR_LL_MSPI_ID_0, true);
     psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_0, true);
@@ -256,12 +262,18 @@ static void s_configure_psram_ecc(void)
      * Default: ACE0 range: 0 ~ 256MB
      * For current Quad PSRAM, ACE0 is enough
      */
-    psram_ctrlr_ll_set_pms_region_start_addr(PSRAM_CTRLR_LL_MSPI_ID_0, 0, 0);
-    psram_ctrlr_ll_set_pms_region_size(PSRAM_CTRLR_LL_MSPI_ID_0, 0, 4096);
-    psram_ctrlr_ll_set_pms_region_attr(PSRAM_CTRLR_LL_MSPI_ID_0, 0, PSRAM_CTRLR_LL_PMS_ATTR_WRITABLE | PSRAM_CTRLR_LL_PMS_ATTR_READABLE);
-    psram_ctrlr_ll_enable_pms_region_ecc(PSRAM_CTRLR_LL_MSPI_ID_0, 0, true);
+    mspi_ll_pms_set_region_addr(MSPI_PMS_MEM_PSRAM, 0, 0);
+    mspi_ll_pms_set_region_size(MSPI_PMS_MEM_PSRAM, 0, 16 * 1024 * 1024);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_ECC);
     ESP_EARLY_LOGI(TAG, "ECC is enabled");
     s_mspi_ecc_show_info();
+#else
+    psram_ctrlr_ll_set_ecc_mode(PSRAM_CTRLR_LL_MSPI_ID_0, PSRAM_LL_ECC_MODE_16TO17);
+    psram_ctrlr_ll_enable_ecc_addr_conversion(PSRAM_CTRLR_LL_MSPI_ID_0, false);
+    mspi_ll_pms_set_region_addr(MSPI_PMS_MEM_PSRAM, 0, 0);
+    mspi_ll_pms_set_region_size(MSPI_PMS_MEM_PSRAM, 0, 16 * 1024 * 1024);
+    mspi_ll_pms_set_region_attr(MSPI_PMS_MEM_PSRAM, 0, MSPI_PMS_MODE_TEE, MSPI_PMS_ATTR_RD | MSPI_PMS_ATTR_WR);
+#endif
 }
 #endif
 
@@ -355,7 +367,7 @@ esp_err_t esp_psram_impl_enable(void)
 {
     psram_gpio_config();
     psram_set_cs_timing();
-#if CONFIG_SPIRAM_ECC_ENABLE
+#if PSRAM_CTRLR_LL_PMS_INT_SUPPORTED
     s_configure_psram_ecc();
 #endif
 
@@ -372,7 +384,7 @@ esp_err_t esp_psram_impl_enable(void)
     psram_disable_qio_mode(PSRAM_CTRLR_LL_MSPI_ID_1);
 
     if (s_check_psram_connected(PSRAM_CTRLR_LL_MSPI_ID_1) != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "PSRAM chip is not connected, or wrong PSRAM line mode");
+        PSRAM_LOG_NOTFOUND(TAG, "PSRAM chip is not connected, or wrong PSRAM line mode");
         return ESP_ERR_NOT_SUPPORTED;
     }
 

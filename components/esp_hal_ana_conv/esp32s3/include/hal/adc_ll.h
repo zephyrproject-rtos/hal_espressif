@@ -13,6 +13,7 @@
 #include "hal/assert.h"
 #include "hal/misc.h"
 #include "soc/apb_saradc_struct.h"
+#include "soc/efuse_reg.h"
 #include "soc/sens_struct.h"
 #include "soc/apb_saradc_reg.h"
 #include "soc/rtc_cntl_struct.h"
@@ -22,6 +23,7 @@
 #include "soc/system_struct.h"
 #include "hal/regi2c_ctrl.h"
 #include "soc/regi2c_saradc.h"
+#include "soc/soc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +46,7 @@ extern "C" {
 
 #define ADC_LL_UNIT2_CHANNEL_SUBSTRATION            0
 #define ADC_LL_MAX_CHANNEL_NUM                      (10)
+#define ADC_LL_CHANNEL_NUM(unit_id)                 (10)
 
 /*---------------------------------------------------------------
  *                            oneshot
@@ -504,11 +507,11 @@ static inline void adc_ll_digi_filter_enable(adc_digi_iir_filter_t idx, adc_unit
 static inline void adc_ll_digi_monitor_set_thres(adc_monitor_id_t monitor_id, adc_unit_t adc_n, uint8_t channel, int32_t h_thresh, int32_t l_thresh)
 {
     if (monitor_id == ADC_MONITOR_0) {
-        APB_SARADC.thres0_ctrl.thres0_channel = (adc_n << 3) | (channel & 0x7);
+        APB_SARADC.thres0_ctrl.thres0_channel = (adc_n << 4) | (channel & 0xF);
         APB_SARADC.thres0_ctrl.thres0_high = h_thresh;
         APB_SARADC.thres0_ctrl.thres0_low = l_thresh;
     } else { // ADC_MONITOR_1
-        APB_SARADC.thres1_ctrl.thres1_channel = (adc_n << 3) | (channel & 0x7);
+        APB_SARADC.thres1_ctrl.thres1_channel = (adc_n << 4) | (channel & 0xF);
         APB_SARADC.thres1_ctrl.thres1_high = h_thresh;
         APB_SARADC.thres1_ctrl.thres1_low = l_thresh;
     }
@@ -1060,9 +1063,13 @@ static inline void adc_oneshot_ll_disable_channel(adc_unit_t adc_n)
  * @note It may be block to wait conversion idle for ADC1.
  *
  * @param adc_n ADC unit.
+ * @param en    Set true to trigger one conversion.
  */
-static inline void adc_oneshot_ll_start(adc_unit_t adc_n)
+static inline void adc_oneshot_ll_start(adc_unit_t adc_n, bool en)
 {
+    if (!en) {
+        return;
+    }
     if (adc_n == ADC_UNIT_1) {
         while (HAL_FORCE_READ_U32_REG_FIELD(SENS.sar_slave_addr1, meas_status) != 0) {}
         SENS.sar_meas1_ctrl2.meas1_start_sar = 0;
@@ -1302,6 +1309,65 @@ static inline void adc_oneshot_ll_enable(adc_unit_t adc_n)
 static inline void adc_oneshot_ll_disable_all_unit(void)
 {
     //For compatibility
+}
+
+__attribute__((always_inline)) static inline uint32_t adc_ll_get_efuse_init_code(uint32_t adc_unit,
+                                                                                 uint32_t atten)
+{
+    if (adc_unit == 0) {
+        switch (atten) {
+        case 0:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA4_REG, EFUSE_ADC1_INIT_CODE_ATTEN0);
+        case 1:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA4_REG, EFUSE_ADC1_INIT_CODE_ATTEN1)
+                   | (REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC1_INIT_CODE_ATTEN1_1) << 3);
+        case 2:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC1_INIT_CODE_ATTEN2);
+        default:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC1_INIT_CODE_ATTEN3);
+        }
+    }
+
+    switch (atten) {
+    case 0:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC2_INIT_CODE_ATTEN0);
+    case 1:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC2_INIT_CODE_ATTEN1);
+    case 2:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA5_REG, EFUSE_ADC2_INIT_CODE_ATTEN2)
+               | (REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA6_REG, EFUSE_ADC2_INIT_CODE_ATTEN2_1) << 3);
+    default:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA6_REG, EFUSE_ADC2_INIT_CODE_ATTEN3);
+    }
+}
+
+__attribute__((always_inline)) static inline uint32_t adc_ll_get_efuse_cal_voltage(uint32_t adc_unit,
+                                                                                   uint32_t atten)
+{
+    if (adc_unit == 0) {
+        switch (atten) {
+        case 0:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA6_REG, EFUSE_ADC1_CAL_VOL_ATTEN0);
+        case 1:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA6_REG, EFUSE_ADC1_CAL_VOL_ATTEN1);
+        case 2:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA6_REG, EFUSE_ADC1_CAL_VOL_ATTEN2)
+                   | (REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA7_REG, EFUSE_ADC1_CAL_VOL_ATTEN2_1) << 7);
+        default:
+            return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA7_REG, EFUSE_ADC1_CAL_VOL_ATTEN3);
+        }
+    }
+
+    switch (atten) {
+    case 0:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA7_REG, EFUSE_ADC2_CAL_VOL_ATTEN0);
+    case 1:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA7_REG, EFUSE_ADC2_CAL_VOL_ATTEN1);
+    case 2:
+        return REG_GET_FIELD(EFUSE_RD_SYS_PART1_DATA7_REG, EFUSE_ADC2_CAL_VOL_ATTEN2);
+    default:
+        return REG_GET_FIELD(EFUSE_RD_MAC_SPI_SYS_5_REG, EFUSE_ADC2_CAL_VOL_ATTEN3);
+    }
 }
 
 #ifdef __cplusplus

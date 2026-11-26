@@ -54,7 +54,7 @@ void pasn_initiator_pmksa_cache_remove(struct rsn_pmksa_cache *pmksa,
 {
 	struct rsn_pmksa_cache_entry *entry;
 
-	entry = pmksa_cache_get(pmksa, bssid, NULL, NULL);
+	entry = pmksa_cache_get(pmksa, bssid, NULL, NULL, NULL, 0);
 	if (!entry)
 		return;
 
@@ -68,7 +68,7 @@ int pasn_initiator_pmksa_cache_get(struct rsn_pmksa_cache *pmksa,
 {
 	struct rsn_pmksa_cache_entry *entry;
 
-	entry = pmksa_cache_get(pmksa, bssid, NULL, NULL);
+	entry = pmksa_cache_get(pmksa, bssid, NULL, NULL, NULL, 0);
 	if (entry) {
 		os_memcpy(pmkid, entry->pmkid, PMKID_LEN);
 		os_memcpy(pmk, entry->pmk, entry->pmk_len);
@@ -624,10 +624,14 @@ static struct wpabuf * wpas_pasn_build_auth_1(struct pasn_data *pasn,
 #else /* CONFIG_IEEE80211R */
 		goto fail;
 #endif /* CONFIG_IEEE80211R */
+	} else if (verify && pasn->custom_pmkid_valid) {
+		/* Wi-Fi Aware pairing verification: NPKID in RSNE, no wrapped data */
+		pmkid = pasn->custom_pmkid;
 	} else if (wrapped_data != WPA_PASN_WRAPPED_DATA_NO) {
 		struct rsn_pmksa_cache_entry *pmksa;
 
-		pmksa = pmksa_cache_get(pasn->pmksa, pasn->peer_addr, NULL, NULL);
+		pmksa = pmksa_cache_get(pasn->pmksa, pasn->peer_addr, pasn->own_addr,
+					NULL, NULL, pasn->akmp);
 		if (pmksa && pasn->custom_pmkid_valid)
 			pmkid = pasn->custom_pmkid;
 		else if (pmksa)
@@ -900,8 +904,8 @@ static int wpas_pasn_set_pmk(struct pasn_data *pasn,
 			pmkid = rsn_data->pmkid;
 		}
 
-		pmksa = pmksa_cache_get(pasn->pmksa, pasn->peer_addr,
-					pmkid, NULL);
+		pmksa = pmksa_cache_get(pasn->pmksa, pasn->peer_addr, pasn->own_addr,
+					pmkid, NULL, pasn->akmp);
 		if (pmksa) {
 			wpa_printf(MSG_DEBUG, "PASN: Using PMKSA");
 
@@ -1461,7 +1465,7 @@ int wpa_pasn_auth_rx(struct pasn_data *pasn, const u8 *data, size_t len,
 	copy = NULL;
 
 	wpa_hexdump_key(MSG_DEBUG, "PASN: Frame MIC", mic, mic_len);
-	if (ret || os_memcmp(mic, out_mic, mic_len) != 0) {
+	if (ret || os_memcmp_const(mic, out_mic, mic_len) != 0) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed MIC verification");
 		goto fail;
 	}

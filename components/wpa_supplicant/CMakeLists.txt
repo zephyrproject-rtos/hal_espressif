@@ -53,6 +53,7 @@ set(srcs "port/os_xtensa.c"
     "src/eap_peer/eap_mschapv2.c"
     "src/eap_peer/eap_peap.c"
     "src/eap_peer/eap_peap_common.c"
+    "src/eap_peer/eap_gtc.c"
     "src/eap_peer/eap_tls.c"
     "src/eap_peer/eap_tls_common.c"
     "src/eap_peer/eap_ttls.c"
@@ -79,7 +80,6 @@ set(srcs "port/os_xtensa.c"
     "src/wps/wps_enrollee.c")
 
 set(esp_srcs "esp_supplicant/src/esp_eap_client.c"
-    "esp_supplicant/src/esp_wpa2_api_port.c"
     "esp_supplicant/src/esp_wpa_main.c"
     "esp_supplicant/src/esp_wpas_glue.c"
     "esp_supplicant/src/esp_common.c"
@@ -272,12 +272,13 @@ idf_component_register(SRCS "${srcs}" "${esp_srcs}" "${tls_src}" "${roaming_src}
                             "${usd_src}" "${pasn_src}" "${nan_pair_src}"
                     INCLUDE_DIRS include port/include esp_supplicant/include
                     PRIV_INCLUDE_DIRS src src/utils src/common esp_supplicant/src src/crypto
-                                      ../esp_wifi/wifi_apps/roaming_app/include
-                                      ../esp_wifi/wifi_apps/roaming_app/src
-                                      ../esp_wifi/wifi_apps/include/apps_private
                                       esp_supplicant/include/esp_private
                     LDFRAGMENTS   ${linker_fragments}
                     PRIV_REQUIRES mbedtls esp_timer esp_wifi)
+
+idf_component_get_property(esp_wifi_dir esp_wifi COMPONENT_DIR)
+target_include_directories(${COMPONENT_LIB} BEFORE PRIVATE
+    "${esp_wifi_dir}/wifi_apps/roaming_app/include")
 
 idf_define_esp_err_codes(HEADERS esp_supplicant/include/esp_dpp.h esp_supplicant/include/esp_wps.h)
 
@@ -290,6 +291,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     EAP_TTLS
     EAP_TLS
     EAP_PEAP
+    EAP_GTC
     USE_WPA2_TASK
     CONFIG_WPS
     ESPRESSIF_USE
@@ -316,7 +318,11 @@ endif()
 if(CONFIG_ESP_WIFI_ENABLE_SAE_H2E)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CONFIG_SAE_H2E)
 endif()
-if(CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT)
+# PASN reuses the SAE module (PWE/crypto + comeback-token mechanism), so
+# CONFIG_SAE must be defined whenever SoftAP-SAE or PASN is enabled. AP-side SAE
+# authentication paths are additionally gated on CONFIG_ESP_WIFI_SOFTAP_SUPPORT
+# in the sources so they stay out of PASN-only (SoftAP-disabled) builds.
+if(CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT OR CONFIG_ESP_WIFI_PASN_SUPPORT)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CONFIG_SAE)
 endif()
 if(CONFIG_ESP_WIFI_WPA3_COMPATIBLE_SUPPORT)
@@ -390,3 +396,32 @@ if(CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_SOFTAP)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CONFIG_OWE_SOFTAP)
 endif()
 set_property(TARGET ${COMPONENT_LIB} APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
+
+# TODO IDF-15784: remove
+# variables can be unused, need to patch submodule
+set_source_files_properties(
+    esp_supplicant/src/esp_common.c
+    PROPERTIES COMPILE_FLAGS
+    -Wno-unused-but-set-variable
+)
+
+if(CONFIG_COMPILER_STATIC_ANALYZER AND CONFIG_IDF_TOOLCHAIN_GCC)
+    set(eloop_analyzer_flags
+        -Wno-analyzer-out-of-bounds
+        -Wno-analyzer-null-dereference
+        -Wno-analyzer-use-of-uninitialized-value
+        -Wno-analyzer-free-of-non-heap
+    )
+    list(JOIN eloop_analyzer_flags " " eloop_analyzer_flags)
+
+    set_source_files_properties(
+        src/rsn_supp/wpa.c
+        PROPERTIES COMPILE_FLAGS
+        -Wno-analyzer-use-of-uninitialized-value
+    )
+    set_source_files_properties(
+        port/eloop.c
+        PROPERTIES COMPILE_FLAGS
+        "${eloop_analyzer_flags}"
+    )
+endif()

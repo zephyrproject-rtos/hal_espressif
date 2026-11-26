@@ -19,7 +19,7 @@
 #include "esp_private/adc_share_hw_ctrl.h"
 
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
-#include "esp_efuse_rtc_calib.h"
+#include "hal/adc_efuse_hal.h"
 #include "curve_fitting_coefficients.h"
 
 const __attribute__((unused)) static char *TAG = "adc_cali";
@@ -65,6 +65,7 @@ static esp_err_t check_valid(const adc_cali_curve_fitting_config_t *config);
 
 /* ------------------------ Interface Functions --------------------------- */
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage);
+static esp_err_t delete_cali_ctx(void *arg);
 
 /* ------------------------- Public API ------------------------------------- */
 esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_config_t *config, adc_cali_handle_t *ret_handle)
@@ -75,19 +76,13 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
     if (ret != ESP_OK) {
         return ret;
     }
-    // current version only accepts encoding version: ESP_EFUSE_ADC_CALIB_VER_MIN <= adc_encoding_version <= ESP_EFUSE_ADC_CALIB_VER_MAX.
-    uint32_t adc_encoding_version = esp_efuse_rtc_calib_get_ver();
-    ESP_RETURN_ON_FALSE((adc_encoding_version >= ESP_EFUSE_ADC_CALIB_VER_MIN) &&
-                        (adc_encoding_version <= ESP_EFUSE_ADC_CALIB_VER_MAX), ESP_ERR_NOT_SUPPORTED, TAG, "Calibration required eFuse bits not burnt");
-
-    adc_cali_scheme_t *scheme = (adc_cali_scheme_t *)heap_caps_calloc(1, sizeof(adc_cali_scheme_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(scheme, ESP_ERR_NO_MEM, TAG, "no mem for adc calibration scheme");
+    // Current version only accepts supported eFuse calibration encoding versions.
+    uint32_t adc_encoding_version = adc_hal_efuse_get_version();
+    ESP_RETURN_ON_FALSE((adc_encoding_version >= ADC_HAL_EFUSE_CALIB_VER_MIN) &&
+                        (adc_encoding_version <= ADC_HAL_EFUSE_CALIB_VER_MAX), ESP_ERR_NOT_SUPPORTED, TAG, "Calibration required eFuse bits not burnt");
 
     cali_chars_curve_fitting_t *chars = (cali_chars_curve_fitting_t *)heap_caps_calloc(1, sizeof(cali_chars_curve_fitting_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_GOTO_ON_FALSE(chars, ESP_ERR_NO_MEM, err, TAG, "no memory for the calibration characteristics");
-
-    scheme->raw_to_voltage = cali_raw_to_voltage;
-    scheme->ctx = chars;
+    ESP_RETURN_ON_FALSE(chars, ESP_ERR_NO_MEM, TAG, "no memory for the calibration characteristics");
 
     //Prepare calibration characteristics
     adc_calib_info_t calib_info = {0};
@@ -100,31 +95,25 @@ esp_err_t adc_cali_create_scheme_curve_fitting(const adc_cali_curve_fitting_conf
     chars->chan = config->chan;
     chars->atten = config->atten;
 
-    *ret_handle = scheme;
-
-    return ESP_OK;
-
-err:
-    if (scheme) {
-        heap_caps_free(scheme);
+    ret = adc_cali_new_scheme(cali_raw_to_voltage, NULL, delete_cali_ctx, chars, ret_handle);
+    if (ret != ESP_OK) {
+        heap_caps_free(chars);
     }
     return ret;
 }
 
 esp_err_t adc_cali_delete_scheme_curve_fitting(adc_cali_handle_t handle)
 {
-    ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid argument: null pointer");
-
-    heap_caps_free(handle->ctx);
-    handle->ctx = NULL;
-
-    heap_caps_free(handle);
-    handle = NULL;
-
-    return ESP_OK;
+    return adc_cali_delete_scheme(handle);
 }
 
 /* ------------------------ Interface Functions --------------------------- */
+static esp_err_t delete_cali_ctx(void *arg)
+{
+    heap_caps_free(arg);
+    return ESP_OK;
+}
+
 static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 {
     //pointers are checked in the upper layer
@@ -152,8 +141,8 @@ static esp_err_t cali_raw_to_voltage(void *arg, int raw, int *voltage)
 //To get the reference point (Dout, Vin)
 static void get_first_step_reference_point(int version_num, adc_unit_t unit_id, adc_atten_t atten, adc_calib_info_t *calib_info)
 {
-    assert((version_num >= ESP_EFUSE_ADC_CALIB_VER_MIN) &&
-           (version_num <= ESP_EFUSE_ADC_CALIB_VER_MAX));
+    assert((version_num >= ADC_HAL_EFUSE_CALIB_VER_MIN) &&
+           (version_num <= ADC_HAL_EFUSE_CALIB_VER_MAX));
     esp_err_t ret;
 
     calib_info->version_num = version_num;
@@ -162,7 +151,7 @@ static void get_first_step_reference_point(int version_num, adc_unit_t unit_id, 
 
     uint32_t voltage = 0;
     uint32_t digi = 0;
-    ret = esp_efuse_rtc_calib_get_cal_voltage(version_num, unit_id, (int)atten, &digi, &voltage);
+    ret = adc_hal_efuse_get_cal_voltage(version_num, unit_id, (int)atten, &digi, &voltage);
     assert(ret == ESP_OK);
     (void)ret;
 
@@ -228,6 +217,7 @@ static esp_err_t check_valid(const adc_cali_curve_fitting_config_t *config)
 {
     ESP_RETURN_ON_FALSE(config->unit_id < SOC_ADC_PERIPH_NUM, ESP_ERR_INVALID_ARG, TAG, "invalid ADC unit");
     ESP_RETURN_ON_FALSE(config->atten < SOC_ADC_ATTEN_NUM, ESP_ERR_INVALID_ARG, TAG, "invalid ADC attenuation");
+    ESP_RETURN_ON_FALSE(config->chan < ADC_LL_CHANNEL_NUM(config->unit_id), ESP_ERR_INVALID_ARG, TAG, "invalid ADC channel");
 
     bool available_oneshot_bitwidth = (config->bitwidth >= ADC_LL_RTC_MIN_BITWIDTH && config->bitwidth <= ADC_LL_RTC_MAX_BITWIDTH);
     bool available_dma_bitwidth = (config->bitwidth >= SOC_ADC_DIGI_MIN_BITWIDTH && config->bitwidth <= SOC_ADC_DIGI_MAX_BITWIDTH);

@@ -5,6 +5,7 @@
  */
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "sdkconfig.h"
 
 /* From ESP Bluetooth */
@@ -21,6 +22,7 @@
 #include "btdm_lp.h"
 #include "btdm_log.h"
 #include "btdm_external.h"
+#include "btdm_mempool.h"
 
 /*
  ***************************************************************************************************
@@ -57,11 +59,14 @@ extern void r_btdm_hci_fc_env_deinit(void);
 extern int r_btdm_hci_fc_enable(void);
 extern void r_btdm_hci_fc_disable(void);
 
-extern int r_btdm_task_init(esp_btdm_controller_config_t *cfg);
+extern int r_btdm_task_init(esp_bt_ctrl_btdm_config_t *cfg);
 extern void r_btdm_task_deinit(void);
 extern int r_btdm_task_enable(void);
 extern void r_btdm_task_disable(void);
 extern void r_btdm_task_shutdown(void);
+
+extern int btdm_broker_init(void);
+extern void btdm_broker_deinit(void);
 
 /*
  ***************************************************************************************************
@@ -82,6 +87,10 @@ bt_shutdown(void)
         return;
     }
 
+#if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED && CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2
+    /* Either shutdown handler may run first; keep log admission closed until reset. */
+    btdm_log_pause();
+#endif
     s_btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
     r_btdm_task_shutdown();
     btdm_lp_shutdown();
@@ -91,6 +100,8 @@ static esp_err_t
 bt_controller_deinit(void)
 {
     s_btdm_controller_status = ESP_BT_CONTROLLER_STATUS_IDLE;
+
+    btdm_mempool_deinit_all(true);
 
     hci_transport_deinit();
 
@@ -114,12 +125,18 @@ bt_controller_deinit(void)
     btdm_log_deinit();
     btdm_osal_elem_mempool_deinit();
 
+    btdm_broker_deinit();
+
     return ESP_OK;
 }
 
-static esp_err_t
+static void
 bt_controller_disable(void)
 {
+#if CONFIG_BT_LE_CONTROLLER_LOG_ENABLED && CONFIG_BT_LE_CONTROLLER_LOG_MODE_BLE_LOG_V2
+    /* Keep log admission closed until log deinit. */
+    btdm_log_pause();
+#endif
     s_btdm_controller_status = ESP_BT_CONTROLLER_STATUS_INITED;
 
     esp_unregister_shutdown_handler(bt_shutdown);
@@ -140,8 +157,6 @@ bt_controller_disable(void)
 
     btdm_coex_disable();
     btdm_lp_reset(false);
-
-    return ESP_OK;
 }
 
 /*
@@ -169,11 +184,11 @@ esp_err_t
 esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 {
     int ret;
-    // TODO: Delete workaround
+
     btdm_osal_elem_num_t elem = {
-        .evt_count = 3 + 100,
-        .evtq_count = 1 + 2,
-        .co_count = 0 + 10,
+        .evt_count = 3,
+        .evtq_count = 1,
+        .co_count = 0,
         .sem_count = 0,
         .mutex_count = 1,
     };
@@ -191,6 +206,12 @@ esp_bt_controller_init(esp_bt_controller_config_t *cfg)
 
     if (s_btdm_controller_status != ESP_BT_CONTROLLER_STATUS_IDLE) {
         return ESP_ERR_INVALID_STATE;
+    }
+
+    ret = btdm_broker_init();
+    if (ret) {
+        ESP_LOGE(BTDM_LOG_TAG, "btdm_broker_init failed: %d", ret);
+        goto init_failed;
     }
 
 #if UC_BT_CTRL_BLE_IS_ENABLE
@@ -358,7 +379,6 @@ esp_bt_controller_disable(void)
     }
 
     bt_controller_disable();
-
     return ESP_OK;
 }
 

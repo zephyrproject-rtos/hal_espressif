@@ -36,17 +36,18 @@ ESP_HW_LOG_ATTR_TAG(TAG, "pmu_param");
         .top_pd_en          = 0  \
     }, \
     .clk_power = {            \
+        .xpd_xtalx2    = 0,   \
         .i2c_iso_en    = 0,   \
         .i2c_retention = 0,   \
         .xpd_bb_i2c    = 1,   \
         .xpd_cpll_i2c  = 1,   \
         .xpd_bbpll_i2c = 1,   \
         .xpd_apll_i2c  = 0,   \
-        .xpd_mpll_i2c  = 1,   \
+        .xpd_mpll_i2c  = 0,   \
         .xpd_cpll      = 1,   \
         .xpd_bbpll     = 1,   \
         .xpd_apll      = 0,   \
-        .xpd_mpll      = 1,   \
+        .xpd_mpll      = 0,   \
     }, \
     .xtal = {                 \
         .xpd_xtal      = 1    \
@@ -141,7 +142,8 @@ const pmu_hp_system_power_param_t * pmu_hp_system_power_param_default(pmu_hp_mod
 
 #define PMU_HP_MODEM_CLOCK_CONFIG_DEFAULT() {               \
     .icg_func.clock[0] = 0,                                 \
-    .icg_func.clock[1] = 0,                                 \
+    .icg_func.clock[1] = BIT(PMU_ICG_FUNC_ENA_ETM - 32)     \
+                         | BIT(PMU_ICG_FUNC_ENA_BUS - 32),  \
     .icg_apb.clock[0] = 0,                                  \
     .icg_apb.clock[1] = 0,                                  \
     .icg_modem.code = PMU_HP_ICG_MODEM_CODE_MODEM,          \
@@ -150,6 +152,9 @@ const pmu_hp_system_power_param_t * pmu_hp_system_power_param_default(pmu_hp_mod
         .icg_sysclk_en      = 1,                            \
         .sysclk_slp_sel     = 1,                            \
         .icg_slp_sel        = 1,                            \
+        /* Since SOC APB and MODEM APB on ESP32-S31 are decoupled, XTAL can be used as SOC clock in modem state. \
+         * Because sysclk_slp_sel = 1, the HP root clock still has to be released on wake via PMU_UPDATE_DIG_SYS_CLK_SEL \
+         * regardless of the selected source. */            \
         .dig_sysclk_sel     = SOC_CPU_CLK_SRC_XTAL          \
     } \
 }
@@ -375,7 +380,7 @@ const pmu_hp_system_retention_param_t * pmu_hp_system_retention_param_default(pm
         .peri_pd_en     = 0,    \
     }, \
     .clk_power = {              \
-        .xpd_xtal32k    = 0,    \
+        .xpd_xtal32k    = 1,    \
         .xpd_rc32k      = 0,    \
         .xpd_fosc       = 1,    \
         .pd_osc         = 0     \

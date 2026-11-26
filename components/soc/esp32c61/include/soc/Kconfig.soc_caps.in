@@ -87,6 +87,10 @@ config SOC_SYSTIMER_SUPPORTED
     bool
     default y
 
+config SOC_SUPPORT_COEXISTENCE
+    bool
+    default y
+
 config SOC_SHA_SUPPORTED
     bool
     default y
@@ -112,6 +116,10 @@ config SOC_BOD_SUPPORTED
     default y
 
 config SOC_APM_SUPPORTED
+    bool
+    default y
+
+config SOC_RISCV_TRACE_SUPPORTED
     bool
     default y
 
@@ -295,6 +303,14 @@ config SOC_CACHE_FREEZE_SUPPORTED
     bool
     default y
 
+config SOC_CACHE_CNT_SUPPORTED
+    bool
+    default y
+
+config SOC_CACHE_CNT_UNITS_NUM
+    int
+    default 2
+
 config SOC_CPU_CORES_NUM
     int
     default 1
@@ -355,6 +371,10 @@ config SOC_CPU_HAS_LOCKUP_RESET
     bool
     default y
 
+config SOC_CPU_HAS_ZC_EXTENSIONS
+    bool
+    default y
+
 config SOC_CPU_ZCMP_WORKAROUND
     bool
     default y
@@ -386,10 +406,6 @@ config SOC_GDMA_SUPPORT_SLEEP_RETENTION
 config SOC_GDMA_SUPPORT_WEIGHTED_ARBITRATION
     bool
     default y
-
-config SOC_GDMA_EXT_MEM_ENC_ALIGNMENT
-    int
-    default 16
 
 config SOC_ETM_SUPPORT_SLEEP_RETENTION
     bool
@@ -819,6 +835,10 @@ config SOC_EFUSE_DIS_ICACHE
     bool
     default y
 
+config SOC_EFUSE_DIS_DOWNLOAD_MSPI
+    bool
+    default y
+
 config SOC_EFUSE_ECDSA_KEY
     bool
     default y
@@ -955,10 +975,6 @@ config SOC_EXTERNAL_COEX_ADVANCE
     bool
     default y
 
-config SOC_EXTERNAL_COEX_LEADER_TX_LINE
-    bool
-    default n
-
 config SOC_PHY_DIG_REGS_MEM_SIZE
     int
     default 21
@@ -1027,7 +1043,15 @@ config SOC_PM_SUPPORT_RTC_PERIPH_PD
     bool
     default y
 
+config SOC_PM_SUPPORT_REGDMA_TRIGGERED_PHY
+    bool
+    default y
+
 config SOC_PM_SUPPORT_PMU_MODEM_STATE
+    bool
+    default y
+
+config SOC_PM_REGDMA_MODEM_LINK_PROTECT
     bool
     default y
 
@@ -1059,7 +1083,7 @@ config SOC_PM_PAU_REGDMA_LINK_MULTI_ADDR
     bool
     default y
 
-config SOC_PM_PAU_REGDMA_LINK_WIFIMAC
+config SOC_PM_PAU_REGDMA_LINK_MODEM
     bool
     default y
 
@@ -1071,10 +1095,6 @@ config SOC_PM_PMU_MIN_SLP_SLOW_CLK_CYCLE_FIXED
     bool
     default y
 
-config SOC_PM_RETENTION_MODULE_NUM
-    int
-    default 32
-
 config SOC_PM_FLASH_KEEP_POWER_IN_LSLP
     bool
     default y
@@ -1084,6 +1104,10 @@ config SOC_CLK_RC_FAST_SUPPORT_CALIBRATION
     default y
 
 config SOC_MODEM_CLOCK_IS_INDEPENDENT
+    bool
+    default y
+
+config SOC_RNG_CLOCK_IS_INDEPENDENT
     bool
     default y
 
@@ -1222,3 +1246,31 @@ config SOC_PHY_COMBO_MODULE
 config SOC_PHY_CALIBRATION_CLOCK_IS_INDEPENDENT
     bool
     default y
+
+config SOC_DEBUG_HAVE_OCD_STUB_BINS
+    bool
+    default y
+
+config SOC_RISCV_TRACE_PACKET_FORMAT_VER
+    int
+    default 200
+
+config SOC_RISCV_TRACE_HAS_CONFIG_REG
+    bool
+    default y
+
+config SOC_RISCV_TRACE_AHB_CONFIGURABLE
+    bool
+    default y
+
+config SOC_RISCV_TRACE_FILTER_SUPPORTED
+    bool
+    default y
+
+config SOC_RISCV_TRACE_PRIV_WIDTH
+    int
+    default 1
+
+config SOC_RISCV_TRACE_ECAUSE_WIDTH
+    int
+    default 6

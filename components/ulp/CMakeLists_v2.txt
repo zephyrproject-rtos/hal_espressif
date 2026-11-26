@@ -1,0 +1,159 @@
+# The application's driver for the ULP coprocessor. The code that runs on the
+# ULP coprocessor is built from the components in subproject/components, whose
+# headers this component also publishes: they are on the application's include
+# path.
+if(__ULP_BUILDV2)
+    idf_die("The ulp component is not built for the ULP coprocessor. A ULP "
+            "program is built against the components in ulp/subproject.")
+endif()
+
+set(srcs "")
+set(includes "")
+set(requires "")
+set(priv_requires "")
+
+# TODO(IDF-15993): Keep esp_driver_gpio and esp_adc public for compatibility
+# with the CMake v1 dependency graph until downstream users are fixed.
+list(APPEND requires
+    esp_adc
+    esp_driver_gpio)
+
+if(CONFIG_ULP_COPROC_ENABLED OR CONFIG_IDF_DOC_BUILD)
+    list(APPEND includes
+        ulp_common/include)
+    list(APPEND requires
+        esp_common
+        soc)
+endif()
+
+if(CONFIG_ULP_COPROC_TYPE_FSM OR (CONFIG_IDF_DOC_BUILD AND CONFIG_SOC_ULP_FSM_SUPPORTED))
+    list(APPEND includes
+        ulp_fsm/include
+        ulp_fsm/include/${target})
+    list(APPEND requires esp_hw_support)
+endif()
+
+if(CONFIG_ULP_COPROC_TYPE_RISCV OR CONFIG_IDF_DOC_BUILD)
+    list(APPEND includes
+        ulp_riscv/include
+        ulp_riscv/shared/include
+        subproject/components/ulp_riscv/include)
+    list(APPEND requires esp_hw_support)
+endif()
+
+if(CONFIG_ULP_COPROC_TYPE_LP_CORE OR CONFIG_IDF_DOC_BUILD)
+    list(APPEND includes
+         lp_core/include
+         subproject/components/lp_core/include
+         lp_core/shared/include)
+endif()
+
+if(CONFIG_ULP_COPROC_TYPE_FSM OR CONFIG_ULP_COPROC_TYPE_RISCV)
+    list(APPEND srcs
+        "ulp_common/ulp_common.c"
+        "ulp_common/ulp_adc.c")
+
+    if(CONFIG_ULP_COPROC_TYPE_FSM)
+        list(APPEND srcs
+            "ulp_fsm/ulp.c"
+            "ulp_fsm/ulp_macro.c")
+    endif()
+
+    if(CONFIG_ULP_COPROC_TYPE_RISCV)
+        list(APPEND srcs
+            "ulp_riscv/ulp_riscv.c"
+            "ulp_riscv/ulp_riscv_lock.c"
+            "ulp_riscv/ulp_riscv_i2c.c")
+        list(APPEND priv_requires esp_driver_gpio)
+        list(APPEND requires
+            # ulp/subproject/components/ulp_riscv/include/ulp_riscv_touch_ulp_core.h
+            # includes hal/touch_sens_types.h.
+            esp_hal_touch_sens
+            esp_hal_i2c
+            hal)
+    endif()
+endif()
+
+if(CONFIG_ULP_COPROC_TYPE_LP_CORE)
+    list(APPEND srcs
+        "lp_core/lp_core.c"
+        "lp_core/shared/ulp_lp_core_memory_shared.c"
+        "lp_core/shared/ulp_lp_core_critical_section_shared.c")
+    list(APPEND requires
+        esp_common
+        esp_hal_pmu
+        esp_rom
+        hal
+        riscv
+        soc)
+
+    if(CONFIG_SOC_ULP_LP_UART_SUPPORTED)
+        list(APPEND srcs
+        "lp_core/lp_core_uart.c"
+        "lp_core/shared/ulp_lp_core_lp_uart_shared.c")
+        list(APPEND requires
+            esp_driver_gpio
+            esp_driver_uart)
+    endif()
+
+    if(CONFIG_SOC_LP_CORE_SUPPORT_I2C)
+        list(APPEND srcs "lp_core/lp_core_i2c.c")
+        list(APPEND requires
+            esp_driver_gpio
+            esp_hal_i2c)
+    endif()
+
+    if(CONFIG_SOC_RTC_TIMER_V2 OR CONFIG_SOC_RTC_TIMER_V3)
+        list(APPEND srcs "lp_core/shared/ulp_lp_core_lp_timer_shared.c")
+        list(APPEND requires
+            esp_hal_clock
+            esp_hal_rtc_timer)
+    endif()
+
+    if(CONFIG_SOC_LP_SPI_SUPPORTED)
+        list(APPEND srcs "lp_core/lp_core_spi.c")
+        list(APPEND requires
+            esp_driver_gpio
+            esp_hal_gpspi)
+    endif()
+
+    if(CONFIG_SOC_LP_CORE_SUPPORT_ETM)
+        list(APPEND srcs "lp_core/lp_core_etm.c")
+    endif()
+
+    if(CONFIG_SOC_TOUCH_SENSOR_SUPPORTED)
+        list(APPEND requires esp_hal_touch_sens)
+    endif()
+
+    if(CONFIG_SOC_LP_ADC_SUPPORTED)
+        list(APPEND srcs "lp_core/shared/ulp_lp_core_lp_adc_shared.c")
+        list(APPEND priv_requires esp_hw_support)
+    endif()
+
+    if(CONFIG_SOC_LP_VAD_SUPPORTED)
+        list(APPEND srcs "lp_core/shared/ulp_lp_core_lp_vad_shared.c")
+        list(APPEND requires esp_driver_i2s)
+    endif()
+
+    list(APPEND srcs "lp_core/lp_core_mailbox.c")
+    if(CONFIG_SOC_LP_MAILBOX_SUPPORTED)
+        list(APPEND srcs "lp_core/lp_core_mailbox_impl_hw.c")
+    else()
+        list(APPEND srcs "lp_core/lp_core_mailbox_impl_sw.c")
+    endif()
+endif()
+
+if(srcs)
+    list(APPEND priv_requires
+        bootloader_support
+        esp_mm)
+endif()
+list(REMOVE_DUPLICATES requires)
+list(REMOVE_DUPLICATES priv_requires)
+
+idf_component_register(SRCS ${srcs}
+                       INCLUDE_DIRS ${includes}
+                       REQUIRES ${requires}
+                       PRIV_REQUIRES ${priv_requires})
+
+idf_define_esp_err_codes(HEADERS ulp_fsm/include/ulp_fsm_common.h)

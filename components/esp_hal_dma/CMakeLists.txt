@@ -1,13 +1,19 @@
 idf_build_get_property(target IDF_TARGET)
-if(${target} STREQUAL "linux")
-    return() # This component is not supported by the POSIX/Linux simulator
-endif()
 
 set(srcs)
 set(public_include "include")
 
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/${target}/include")
     list(APPEND public_include "${target}/include")
+endif()
+
+# TODO(IDF-15991): potentially remove __ULP_BUILDV2 handling from esp_hal_dma
+if(__ULP_BUILDV2)
+    # LP-core SPI uses components/esp_hal_gpspi/include/hal/spi_slave_hd_hal.h,
+    # whose public headers include DMA HAL descriptor types.
+    idf_component_register(INCLUDE_DIRS ${public_include}
+                           REQUIRES soc hal)
+    return()
 endif()
 
 if(CONFIG_SOC_GDMA_SUPPORTED)

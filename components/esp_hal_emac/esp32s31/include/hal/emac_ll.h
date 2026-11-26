@@ -111,10 +111,10 @@ extern "C" {
 #define EMAC_LL_DMA_RECEIVE_STOP_INTR                  0x00000100U
 #define EMAC_LL_DMA_RECEIVE_TIMEOUT_INTR               0x00000200U
 #define EMAC_LL_DMA_TRANSMIT_FIRST_BYTE_INTR           0x00000400U
-#define EMAC_LL_DMA_FATAL_BUS_ERROR_INRT               0x00001000U
-#define EMAC_LL_DMA_RECEIVE_FIRST_BYTE_INTR            0x00002000U
-#define EMAC_LL_DMA_ABNORMAL_INTR_SUMMARY              0x00004000U
-#define EMAC_LL_DMA_NORMAL_INTR_SUMMARY                0x00008000U
+#define EMAC_LL_DMA_FATAL_BUS_ERROR_INTR               0x00002000U
+#define EMAC_LL_DMA_RECEIVE_FIRST_BYTE_INTR            0x00004000U
+#define EMAC_LL_DMA_ABNORMAL_INTR_SUMMARY              0x00008000U
+#define EMAC_LL_DMA_NORMAL_INTR_SUMMARY                0x00010000U
 #define EMAC_LL_DMA_GLI_INTR                           0x04000000U
 #define EMAC_LL_DMA_POWER_MANAGE_INTR                  0x10000000U
 #define EMAC_LL_DMA_TIMESTAMP_TRIGGER_INTR             0x20000000U
@@ -376,6 +376,14 @@ static inline void emac_ll_magic_packet_enable(emac_mac_dev_t *mac_regs, bool en
 static inline bool emac_ll_get_magic_packet_received(emac_mac_dev_t *mac_regs)
 {
     return mac_regs->pmt_csr.mgkprcvd;
+}
+
+/**
+ * @brief Read PMT Control and Status (clears MGKPRCVD / RWKPRCVD and drops pmt_intr_o)
+ */
+__attribute__((always_inline)) static inline uint32_t emac_ll_read_pmt_status(emac_mac_dev_t *mac_regs)
+{
+    return mac_regs->pmt_csr.val;
 }
 
 /* emacmiidata */
@@ -861,6 +869,7 @@ static inline void emac_ll_set_pps0_out_freq(emac_ptp_dev_t *ptp_regs, uint8_t f
 
 static inline soc_module_clk_t emac_ll_get_csr_clk_src(void)
 {
+    // Source of the ESP32-S31 EMAC CSR clock is SYS clock.
     return SOC_MOD_CLK_SYS;
 }
 
@@ -1086,7 +1095,7 @@ static inline void emac_ll_clock_enable_ptp(void *ext_regs, soc_periph_emac_ptp_
     case EMAC_PTP_CLK_SRC_XTAL:
         clk_src_val = 0;
         break;
-    case EMAC_PTP_CLK_SRC_PLL_F80M:
+    case EMAC_PTP_CLK_SRC_REF_F80M:
         clk_src_val = 1;
         break;
     default:
@@ -1137,6 +1146,20 @@ static inline void emac_ll_gpio_init(void *ext_regs, uint32_t gpio_num)
         emac_ll_gpio_init(__VA_ARGS__); \
     } while(0)
 
+static inline void emac_ll_gpio_deinit(void *ext_regs, uint32_t gpio_num)
+{
+    if (gpio_num >= 13 && gpio_num <= 19) {
+        _emac_ll_dedicated_pad_ctrl_enable(ext_regs, false);
+    }
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+#define emac_ll_gpio_deinit(...) do { \
+        (void)__DECLARE_RCC_ATOMIC_ENV; \
+        emac_ll_gpio_deinit(__VA_ARGS__); \
+    } while(0)
+
 static inline void emac_ll_dedicated_pad_pullup_enable(void *ext_regs, eth_pad_t pad, bool enable)
 {
     switch (pad) {
@@ -1175,6 +1198,20 @@ static inline void emac_ll_dedicated_pad_input_enable(void *ext_regs, eth_pad_t 
     case ETH_PAD_PHY_RXD2: CNNT_PAD_CTRL.gmac_phy_rxd2.gmac_phy_rxd2_fun_ie = enable; break;
     case ETH_PAD_PHY_RXD1: CNNT_PAD_CTRL.gmac_phy_rxd1.gmac_phy_rxd1_fun_ie = enable; break;
     case ETH_PAD_PHY_RXD0: CNNT_PAD_CTRL.gmac_phy_rxd0.gmac_phy_rxd0_fun_ie = enable; break;
+    default: break;
+    }
+}
+
+static inline void emac_ll_dedicated_pad_sleep_input_enable(void *ext_regs, eth_pad_t pad, bool enable)
+{
+    switch (pad) {
+    case ETH_PAD_RMII_CLK: CNNT_PAD_CTRL.gmac_rmii_clk.gmac_rmii_clk_mcu_ie = enable; break;
+    case ETH_PAD_RX_CLK:   CNNT_PAD_CTRL.gmac_rx_clk.gmac_rx_clk_mcu_ie = enable; break;
+    case ETH_PAD_PHY_RXDV: CNNT_PAD_CTRL.gmac_phy_rxdv.gmac_phy_rxdv_mcu_ie = enable; break;
+    case ETH_PAD_PHY_RXD3: CNNT_PAD_CTRL.gmac_phy_rxd3.gmac_phy_rxd3_mcu_ie = enable; break;
+    case ETH_PAD_PHY_RXD2: CNNT_PAD_CTRL.gmac_phy_rxd2.gmac_phy_rxd2_mcu_ie = enable; break;
+    case ETH_PAD_PHY_RXD1: CNNT_PAD_CTRL.gmac_phy_rxd1.gmac_phy_rxd1_mcu_ie = enable; break;
+    case ETH_PAD_PHY_RXD0: CNNT_PAD_CTRL.gmac_phy_rxd0.gmac_phy_rxd0_mcu_ie = enable; break;
     default: break;
     }
 }
