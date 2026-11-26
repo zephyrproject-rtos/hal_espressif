@@ -8,6 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <zephyr/irq.h>
+#include "esp_bt_intr.h"
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/interrupt_controller/intc_esp32.h>
+
 #include "esp_random.h"
 #include "esp_heap_caps.h"
 #include "esp_heap_caps_init.h"
@@ -643,22 +648,35 @@ static int esp_ecc_gen_dh_key(const uint8_t *peer_pub_key_x, const uint8_t *peer
     return rc;
 }
 
+/*
+ * The controller picks its interrupt sources at run time, so they have no
+ * devicetree consumer. esp_bt_intr routes them to the CPU line reserved for
+ * the controller in the devicetree and dispatches them from one ISR. The
+ * controller's ESP_INTR_FLAG_* request is not used: the line sets the
+ * priority.
+ */
 static int esp_intr_alloc_wrapper(int source, int flags, intr_handler_t handler, void *arg, void **ret_handle_in)
 {
-#if CONFIG_BT_CTRL_RUN_IN_FLASH_ONLY
-    int rc = esp_intr_alloc(source, flags, handler, arg, (intr_handle_t *)ret_handle_in);
-#else
-    int rc = esp_intr_alloc(source, flags | ESP_INTR_FLAG_IRAM, handler, arg, (intr_handle_t *)ret_handle_in);
-#endif
-    return rc;
+    int rc;
+
+    ARG_UNUSED(flags);
+
+    rc = esp_bt_intr_alloc(source, handler, arg, ret_handle_in);
+    if (rc != 0) {
+        return rc;
+    }
+
+    esp_bt_intr_enable(*ret_handle_in);
+
+    return 0;
 }
 
 static int esp_intr_free_wrapper(void **ret_handle)
 {
-    int rc = 0;
-    rc = esp_intr_free((intr_handle_t) * ret_handle);
+    esp_bt_intr_free(*ret_handle);
     *ret_handle = NULL;
-    return rc;
+
+    return 0;
 }
 
 void esp_bt_rtc_slow_clk_select(uint8_t slow_clk_src)
