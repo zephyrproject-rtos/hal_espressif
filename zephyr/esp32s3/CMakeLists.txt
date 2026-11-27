@@ -227,6 +227,10 @@ if(CONFIG_SOC_SERIES_ESP32S3)
     )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_BROWNOUT
+    ../../components/esp_hal_pmu/brownout_hal.c
+    )
+
   zephyr_sources_ifdef(CONFIG_UART_ESP32
     ../../components/esp_hal_uart/uart_hal.c
     ../../components/esp_hal_uart/uart_hal_iram.c

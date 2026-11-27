@@ -249,6 +249,10 @@ if(CONFIG_SOC_SERIES_ESP32S31)
     )
   endif()
 
+  zephyr_sources_ifdef(CONFIG_SOC_FAMILY_ESPRESSIF_BROWNOUT
+    ../../components/esp_hal_pmu/brownout_hal.c
+    )
+
   zephyr_sources_ifdef(CONFIG_PULSE_IO_ESP32_RMT
     ../../components/esp_hal_rmt/rmt_hal.c
     ../../components/esp_hal_gpio/gpio_hal.c
